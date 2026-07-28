@@ -74,7 +74,9 @@ poe2-ai-wiki/
 │   ├── builds/<build-id>/        #   manifest.json + build.pob + tiers/ + validation.json
 │   ├── sessions/<session-id>/    #   candidates/ + tree-search/ + choices.json
 │   ├── feedback/{raw,candidates}/#   큐레이션 대기 (→ knowledge/insights 승격)
-│   └── live-snapshots/           #   산출물이 참조한 시세 스냅샷 (계보 고정)
+│   ├── live-snapshots/           #   산출물이 참조한 시세 스냅샷 (계보 고정)
+│   └── ingest-raw/               #   ★ 원시 스냅샷 = 별도 데이터 repo의 clone (KB_INGEST KI-1)
+│                                 #     poe2-ai-wiki-data (프라이빗·append-only) — 멀티 PC 동기화
 │
 ├── var/                         # ══ ③ 파생/캐시 (재생성 가능·삭제 무해) — gitignore ══
 │   ├── index.sqlite              #   knowledge/ 재인덱싱 (self-healing)
@@ -104,6 +106,7 @@ poe2-ai-wiki/
 
 - **KB 정본 = 파일**(`knowledge/`, git). **인덱스 = SQLite**(`var/index.sqlite`, gitignore). 정본 데이터는 SQLite에 저장하지 않는다 — SQLite는 검색 속도용 인덱스일 뿐.
 - ②와 ③의 차이: ③은 정본에서 결정적으로 **재생성 가능**(삭제 무해), ②는 런타임 산물이라 **재생성 불가**(삭제 시 정보 손실).
+- **② 중 `ingest-raw/`는 로컬 전용이 아니라 별도 데이터 repo**([poe2-ai-wiki-data](https://github.com/skerfolg/poe2-ai-wiki-data))의 clone — 사용자가 여러 PC에서 작업하므로, 재생성 불가 데이터의 유일본이 특정 PC에 존재하면 안 된다는 원칙([KB_INGEST](KB_INGEST.md) KI-1). 추후 feedback·sessions 동기화도 같은 메커니즘으로 확장 가능.
 
 ---
 

@@ -14,6 +14,8 @@ PoE2 지식 **엔진** + Claude/Codex용 **MCP 도구·스킬**. 웹서비스 �
 
 - 구조·경계·저장 위치 관련 작업 → **docs/PROJECT_STRUCTURE.md**
 - 방향·결정 배경(D1~D24) → **docs/BLUEPRINT.md**
+- KB 레코드·스키마·조건·관계 작업 → **docs/KB_DATA_MODEL.md** (KD-1~4 확정)
+- KB 수집·정형화·원시 스냅샷·완전성 기준 → **docs/KB_INGEST.md** (KI-1~6 확정)
 - 특정 모듈 작업 → 그 디렉터리의 **AGENTS.md** (자동 로드됨)
 - MCP 도구 추가 → docs/PROJECT_STRUCTURE.md §4(의존 방향)·§7, `src/poe2_wiki/mcp/AGENTS.md`
 
