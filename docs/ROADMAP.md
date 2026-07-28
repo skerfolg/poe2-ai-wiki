@@ -3,6 +3,7 @@
 > **문서 상태**: v0.1 (2026-07-29) — 확정. BLUEPRINT §15-2 "재구축 로드맵/MVP"의 상세.
 > **설계 근거**: "KB 먼저"(BLUEPRINT §7·§17) + "코드 먼저, 수집은 그 다음"(KB_INGEST KI-7) + 반프록시(AD-8) — 각 단계의 완료는 느낌이 아니라 **측정 가능한 Exit 기준**으로 판정한다.
 > **변경 규칙**: 단계 순서·Exit 기준의 구조적 변경은 사용자 상호협의 후에만.
+> **진행 상태**: ✅ P0 완료 (2026-07-29, CI Win+mac green) → **현재: P1a 시드 KB 실증**. 신규 PC 셋업: `gh auth login` → clone → `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"` → `.venv/bin/pre-commit install`.
 
 ---
 
