@@ -1,0 +1,44 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- 프로젝트 산출물/캐시 (비커밋) ---
+# KB 파생 검색 인덱스 (정본 텍스트에서 재생성 가능)
+index.sqlite
+*.sqlite
+*.sqlite3
+# 라이브 시세/거래소 캐시
+data_cache/
+# PoB 독립 클론 (대용량, 머신별 setup 스크립트로 설치; season-pob-map이 커밋 핀 기록)
+pob-versions/
+pob_clones/
+# 벡터 인덱스 (후속)
+*.lance/
+.chroma/
+
+# --- Claude Code (개인/로컬 설정) ---
+.claude/settings.local.json
+
+# --- 비밀/환경 ---
+.env
+.env.*
+*.pem
+poesessid*
+secrets.*
+
+# --- OS / 에디터 ---
+.DS_Store
+Thumbs.db
+.vs/
+.vscode/
+.idea/
+*.swp
