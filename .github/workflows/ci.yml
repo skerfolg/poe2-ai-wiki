@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # Windows 러너의 cp1252 콘솔이 한글 출력(계약 이름·로그)에서 UnicodeEncodeError를
+  # 일으키므로 UTF-8 모드 강제 (D21 플랫폼 gotcha — 한국어 우선 프로젝트의 기반 설정)
+  PYTHONUTF8: "1"
+
 jobs:
   test:
     # D21: Windows(주) + macOS 둘 다 항상 검증
