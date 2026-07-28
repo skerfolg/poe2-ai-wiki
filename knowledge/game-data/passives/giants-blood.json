@@ -1,0 +1,42 @@
+{
+  "id": "passive.giants-blood",
+  "type": "Passive",
+  "name": {
+    "ko": "거인의 피",
+    "en": "Giant's Blood"
+  },
+  "tags": [
+    "keystone",
+    "attack",
+    "weapon"
+  ],
+  "data": {
+    "kind": "keystone"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "conditions": [
+    {
+      "text": "양손 무기를 한손에 장착 가능 (해당 무기류일 때)",
+      "expr": {
+        "subject": "gear.weapon.class",
+        "op": "in",
+        "value": [
+          "mace",
+          "axe",
+          "sword"
+        ]
+      },
+      "satisfiable_by": [],
+      "uptime": "always"
+    }
+  ],
+  "notes": "힘 요구 3배 (수치 UNVERIFIED)"
+}

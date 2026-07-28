@@ -1,0 +1,37 @@
+{
+  "id": "passive.chaos-inoculation",
+  "type": "Passive",
+  "name": {
+    "ko": "카오스 접종",
+    "en": "Chaos Inoculation"
+  },
+  "tags": [
+    "keystone",
+    "chaos",
+    "energy-shield"
+  ],
+  "data": {
+    "kind": "keystone"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "requires",
+      "target": "defence.energy-shield",
+      "note": "생명력 1 고정 → ES가 실질 체력"
+    },
+    {
+      "rel": "conflicts_with",
+      "target": "passive.blood-magic",
+      "note": "생명력 1로 생명력 지불 불가"
+    }
+  ]
+}

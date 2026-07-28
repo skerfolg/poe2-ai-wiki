@@ -10,8 +10,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Proprietary" }
 authors = [{ name = "skerfolg", email = "sk.erfolg@gmail.com" }]
-# 런타임 의존성은 로드맵 단계별로 추가한다 (P0 = 골격만).
-dependencies = []
+# 런타임 의존성은 로드맵 단계별로 추가한다.
+dependencies = [
+    "jsonschema>=4.23",  # P1a: KB 레코드 스키마 검증 (KB_DATA_MODEL §9)
+]
 
 [project.optional-dependencies]
 dev = [
@@ -20,6 +22,7 @@ dev = [
     "mypy>=1.11",
     "import-linter>=2",
     "pre-commit>=3.8",
+    "types-jsonschema>=4.23",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -52,6 +55,8 @@ mypy_path = "src"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# editable 설치와 무관하게 src 임포트 보장 (일부 환경에서 .pth가 hidden 플래그로 무시됨)
+pythonpath = ["src"]
 
 # ── 계층 경계 강제 (PROJECT_STRUCTURE §4) ─────────────────────
 # 위반 시 lint-imports 실패 → pre-commit·CI 실패.

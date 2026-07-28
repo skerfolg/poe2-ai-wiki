@@ -1,0 +1,31 @@
+{
+  "id": "passive.avatar-of-fire",
+  "type": "Passive",
+  "name": {
+    "ko": "불의 화신",
+    "en": "Avatar of Fire"
+  },
+  "tags": [
+    "keystone",
+    "fire"
+  ],
+  "data": {
+    "kind": "keystone"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "conflicts_with",
+      "target": "support.glaciation",
+      "note": "화염 외 피해 불가 → 냉기 지원 무효"
+    }
+  ]
+}

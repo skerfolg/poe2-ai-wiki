@@ -20,7 +20,10 @@ repos:
     hooks:
       - id: import-linter  # 계층 경계 위반 = 커밋 실패 (PROJECT_STRUCTURE §4)
         name: import-linter
-        entry: lint-imports
-        language: system
+        # pre-commit이 자체 관리하는 파이썬 환경에서 실행 (venv/PATH 무관, Win+mac)
+        # PYTHONPATH=src: src 레이아웃에서 pok 패키지 탐지 (editable 설치와 무관)
+        entry: python -c "import os,subprocess,sys; e=dict(os.environ); e['PYTHONPATH']='src'; sys.exit(subprocess.call(['lint-imports'], env=e))"
+        language: python
+        additional_dependencies: ["import-linter>=2"]
         pass_filenames: false
         files: ^src/

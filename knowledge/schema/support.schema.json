@@ -1,0 +1,15 @@
+{
+  "$id": "support.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Support.data (P1a 최소)",
+  "type": "object",
+  "properties": {
+    "applies_to_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,40 @@
+{
+  "id": "skill.contagion",
+  "type": "Skill",
+  "name": {
+    "ko": "전염",
+    "en": "Contagion"
+  },
+  "tags": [
+    "chaos",
+    "aoe",
+    "spell"
+  ],
+  "data": {
+    "category": "spell",
+    "damage_types": [
+      "chaos"
+    ],
+    "cost_resource": "mana"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "consumes",
+      "target": "resource.mana"
+    },
+    {
+      "rel": "enables",
+      "target": "skill.essence-drain",
+      "note": "전염 확산 콤보 — ED 도트를 전염이 퍼뜨림"
+    }
+  ]
+}

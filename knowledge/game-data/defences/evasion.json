@@ -1,0 +1,22 @@
+{
+  "id": "defence.evasion",
+  "type": "Defence",
+  "name": {
+    "ko": "회피",
+    "en": "Evasion"
+  },
+  "tags": [
+    "defence",
+    "evasion"
+  ],
+  "data": {},
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ]
+}

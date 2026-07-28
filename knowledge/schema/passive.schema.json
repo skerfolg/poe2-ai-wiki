@@ -1,0 +1,19 @@
+{
+  "$id": "passive.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Passive.data (P1a 최소)",
+  "type": "object",
+  "properties": {
+    "kind": {
+      "enum": [
+        "keystone",
+        "notable",
+        "small"
+      ]
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "additionalProperties": true
+}

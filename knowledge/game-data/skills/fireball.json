@@ -1,0 +1,36 @@
+{
+  "id": "skill.fireball",
+  "type": "Skill",
+  "name": {
+    "ko": "화염구",
+    "en": "Fireball"
+  },
+  "tags": [
+    "fire",
+    "projectile",
+    "spell"
+  ],
+  "data": {
+    "category": "spell",
+    "damage_types": [
+      "fire"
+    ],
+    "cost_resource": "mana"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "consumes",
+      "target": "resource.mana"
+    }
+  ],
+  "notes": "점화 부여 수단의 대표 예 (gas-arrow 시너지 참조)"
+}

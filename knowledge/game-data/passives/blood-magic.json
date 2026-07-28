@@ -1,0 +1,39 @@
+{
+  "id": "passive.blood-magic",
+  "type": "Passive",
+  "name": {
+    "ko": "피의 마법",
+    "en": "Blood Magic"
+  },
+  "tags": [
+    "keystone",
+    "life"
+  ],
+  "data": {
+    "kind": "keystone"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "replaces",
+      "target": "resource.mana",
+      "note": "비용을 생명력으로 지불"
+    },
+    {
+      "rel": "consumes",
+      "target": "resource.life"
+    },
+    {
+      "rel": "conflicts_with",
+      "target": "passive.eldritch-battery"
+    }
+  ]
+}

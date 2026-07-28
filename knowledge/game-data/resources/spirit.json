@@ -1,0 +1,24 @@
+{
+  "id": "resource.spirit",
+  "type": "Resource",
+  "name": {
+    "ko": "정신력",
+    "en": "Spirit"
+  },
+  "tags": [
+    "resource"
+  ],
+  "data": {
+    "regenerates": false
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "notes": "지속 효과(미니언·오라 등)가 예약하는 자원"
+}

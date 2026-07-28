@@ -1,0 +1,63 @@
+{
+  "id": "skill.gas-arrow",
+  "type": "Skill",
+  "name": {
+    "ko": "가스 화살",
+    "en": "Gas Arrow"
+  },
+  "tags": [
+    "chaos",
+    "projectile",
+    "attack",
+    "bow",
+    "aoe"
+  ],
+  "data": {
+    "category": "attack",
+    "damage_types": [
+      "chaos"
+    ],
+    "cost_resource": "mana"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "conditions": [
+    {
+      "text": "활 장착 시에만 사용 가능",
+      "expr": {
+        "subject": "gear.weapon.class",
+        "op": "==",
+        "value": "bow"
+      },
+      "satisfiable_by": [],
+      "uptime": "always"
+    },
+    {
+      "text": "가스 구름은 점화된 적/화염 접촉 시 폭발",
+      "expr": {
+        "subject": "enemy.status",
+        "op": "has",
+        "value": "ignited"
+      },
+      "satisfiable_by": [
+        "skill.fireball",
+        "support.fire-infusion"
+      ],
+      "uptime": "conditional"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "consumes",
+      "target": "resource.mana"
+    }
+  ],
+  "notes": "조건 satisfiable_by 교차참조의 대표 예"
+}

@@ -1,0 +1,42 @@
+{
+  "id": "skill.hammer-of-the-gods",
+  "type": "Skill",
+  "name": {
+    "ko": "신들의 망치",
+    "en": "Hammer of the Gods"
+  },
+  "tags": [
+    "physical",
+    "attack",
+    "slam",
+    "aoe",
+    "mace"
+  ],
+  "data": {
+    "category": "attack",
+    "damage_types": [
+      "physical"
+    ],
+    "cost_resource": "mana"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "consumes",
+      "target": "resource.mana"
+    }
+  ],
+  "facets": {
+    "role": [
+      "boss"
+    ]
+  }
+}

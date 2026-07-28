@@ -1,0 +1,23 @@
+{
+  "id": "resource.mana",
+  "type": "Resource",
+  "name": {
+    "ko": "마나",
+    "en": "Mana"
+  },
+  "tags": [
+    "resource"
+  ],
+  "data": {
+    "regenerates": true
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ]
+}

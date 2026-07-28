@@ -1,0 +1,160 @@
+{
+  "$id": "record.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "KB 레코드 공통 envelope (KB_DATA_MODEL §3)",
+  "type": "object",
+  "properties": {
+    "id": {
+      "$ref": "#/$defs/entityId"
+    },
+    "type": {
+      "enum": [
+        "Skill",
+        "Support",
+        "Passive",
+        "Ascendancy",
+        "Item",
+        "Modifier",
+        "Event",
+        "Resource",
+        "Defence",
+        "Content",
+        "Build"
+      ]
+    },
+    "name": {
+      "type": "object",
+      "properties": {
+        "ko": {
+          "type": "string",
+          "minLength": 1
+        },
+        "en": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9-]+$"
+      }
+    },
+    "data": {
+      "type": "object"
+    },
+    "conditions": {
+      "type": "array",
+      "items": {
+        "$ref": "condition.schema.json"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "facets": {
+      "type": "object"
+    },
+    "verification": {
+      "$ref": "vocab/verification.json"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source"
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "type",
+    "name",
+    "tags",
+    "data",
+    "verification",
+    "sources"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "entityId": {
+      "type": "string",
+      "pattern": "^(skill|support|passive|ascendancy|item|modifier|event|resource|defence|content|build)\\.[a-z0-9][a-z0-9-]*$"
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "rel": {
+          "$ref": "vocab/relations.json"
+        },
+        "target": {
+          "$ref": "#/$defs/entityId"
+        },
+        "condition": {
+          "$ref": "condition.schema.json"
+        },
+        "magnitude": {
+          "type": [
+            "string",
+            "number"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "rel",
+        "target"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "src": {
+          "enum": [
+            "poe2db",
+            "pob",
+            "poewiki",
+            "patchnote",
+            "community",
+            "in-game"
+          ]
+        },
+        "ref": {
+          "type": "string"
+        },
+        "patch": {
+          "type": "string"
+        },
+        "pob": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "src",
+        "ref"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

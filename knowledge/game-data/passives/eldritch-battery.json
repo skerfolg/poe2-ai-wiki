@@ -1,0 +1,37 @@
+{
+  "id": "passive.eldritch-battery",
+  "type": "Passive",
+  "name": {
+    "ko": "섬뜩한 전지",
+    "en": "Eldritch Battery"
+  },
+  "tags": [
+    "keystone",
+    "energy-shield",
+    "mana"
+  ],
+  "data": {
+    "kind": "keystone"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "converts",
+      "target": "defence.energy-shield",
+      "note": "ES가 마나를 보호"
+    },
+    {
+      "rel": "overlaps",
+      "target": "passive.mind-over-matter",
+      "note": "마나 방어 상호작용"
+    }
+  ]
+}

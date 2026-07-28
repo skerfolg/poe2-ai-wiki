@@ -1,0 +1,51 @@
+{
+  "id": "skill.rolling-slam",
+  "type": "Skill",
+  "name": {
+    "ko": "구르는 강타",
+    "en": "Rolling Slam"
+  },
+  "tags": [
+    "physical",
+    "attack",
+    "slam",
+    "aoe",
+    "mace"
+  ],
+  "data": {
+    "category": "attack",
+    "damage_types": [
+      "physical"
+    ],
+    "cost_resource": "mana"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "conditions": [
+    {
+      "text": "철퇴류 장착 시에만 사용 가능",
+      "expr": {
+        "subject": "gear.weapon.class",
+        "op": "in",
+        "value": [
+          "mace"
+        ]
+      },
+      "satisfiable_by": [],
+      "uptime": "always"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "consumes",
+      "target": "resource.mana"
+    }
+  ]
+}

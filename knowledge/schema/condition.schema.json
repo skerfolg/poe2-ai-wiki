@@ -1,0 +1,121 @@
+{
+  "$id": "condition.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "조건 — 1급 필드, 완전 구조화 (KD-2)",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^cond\\.[a-z0-9][a-z0-9-]*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "expr": {
+      "$ref": "#/$defs/expr"
+    },
+    "satisfiable_by": {
+      "type": "array",
+      "items": {
+        "$ref": "record.schema.json#/$defs/entityId"
+      }
+    },
+    "uptime": {
+      "enum": [
+        "always",
+        "sustained",
+        "conditional",
+        "burst"
+      ]
+    }
+  },
+  "required": [
+    "text",
+    "expr",
+    "satisfiable_by",
+    "uptime"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "expr": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/predicate"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expr"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "all"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/expr"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "any"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "not": {
+              "$ref": "#/$defs/expr"
+            }
+          },
+          "required": [
+            "not"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "predicate": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "string",
+          "pattern": "^(self|enemy|event|gear|env)\\.[a-z0-9.-]+$"
+        },
+        "op": {
+          "enum": [
+            "==",
+            "!=",
+            "<",
+            "<=",
+            ">",
+            ">=",
+            "has",
+            "in"
+          ]
+        },
+        "value": {}
+      },
+      "required": [
+        "subject",
+        "op",
+        "value"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "id": "passive.mind-over-matter",
+  "type": "Passive",
+  "name": {
+    "ko": "물질을 넘어선 정신",
+    "en": "Mind over Matter"
+  },
+  "tags": [
+    "keystone",
+    "mana"
+  ],
+  "data": {
+    "kind": "keystone"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "mitigates",
+      "target": "resource.life",
+      "note": "피해 일부를 마나가 대신 받음"
+    },
+    {
+      "rel": "scales_with",
+      "target": "resource.mana"
+    }
+  ]
+}

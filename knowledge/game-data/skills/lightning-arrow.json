@@ -1,0 +1,48 @@
+{
+  "id": "skill.lightning-arrow",
+  "type": "Skill",
+  "name": {
+    "ko": "번개 화살",
+    "en": "Lightning Arrow"
+  },
+  "tags": [
+    "lightning",
+    "projectile",
+    "attack",
+    "bow"
+  ],
+  "data": {
+    "category": "attack",
+    "damage_types": [
+      "lightning"
+    ],
+    "cost_resource": "mana"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "conditions": [
+    {
+      "text": "활 장착 시에만 사용 가능",
+      "expr": {
+        "subject": "gear.weapon.class",
+        "op": "==",
+        "value": "bow"
+      },
+      "satisfiable_by": [],
+      "uptime": "always"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "consumes",
+      "target": "resource.mana"
+    }
+  ]
+}

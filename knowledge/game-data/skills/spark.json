@@ -1,0 +1,40 @@
+{
+  "id": "skill.spark",
+  "type": "Skill",
+  "name": {
+    "ko": "스파크",
+    "en": "Spark"
+  },
+  "tags": [
+    "lightning",
+    "projectile",
+    "spell"
+  ],
+  "data": {
+    "category": "spell",
+    "damage_types": [
+      "lightning"
+    ],
+    "cost_resource": "mana"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "consumes",
+      "target": "resource.mana"
+    }
+  ],
+  "facets": {
+    "role": [
+      "clear"
+    ]
+  }
+}

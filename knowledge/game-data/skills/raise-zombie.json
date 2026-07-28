@@ -1,0 +1,33 @@
+{
+  "id": "skill.raise-zombie",
+  "type": "Skill",
+  "name": {
+    "ko": "좀비 소생",
+    "en": "Raise Zombie"
+  },
+  "tags": [
+    "minion",
+    "spell",
+    "persistent"
+  ],
+  "data": {
+    "category": "minion",
+    "cost_resource": "spirit"
+  },
+  "verification": "UNVERIFIED",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "seed:hand-authored",
+      "patch": "0.5.0",
+      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "reserves",
+      "target": "resource.spirit",
+      "note": "지속 미니언 = 정신력 예약"
+    }
+  ]
+}

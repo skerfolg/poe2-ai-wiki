@@ -1,0 +1,43 @@
+{
+  "$id": "skill.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Skill.data (P1a 최소 — P1b에서 상세화)",
+  "type": "object",
+  "properties": {
+    "category": {
+      "enum": [
+        "attack",
+        "spell",
+        "minion",
+        "buff",
+        "aura",
+        "channelling",
+        "trigger"
+      ]
+    },
+    "damage_types": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "physical",
+          "fire",
+          "cold",
+          "lightning",
+          "chaos"
+        ]
+      }
+    },
+    "cost_resource": {
+      "enum": [
+        "mana",
+        "life",
+        "spirit",
+        "none"
+      ]
+    }
+  },
+  "required": [
+    "category"
+  ],
+  "additionalProperties": true
+}
