@@ -12,7 +12,7 @@
 > **모든 구조 변경은 반드시 사용자와 상호협의(합의) 후에만 진행한다.**
 
 - 이는 프로토타입 실패의 핵심 교훈(BLUEPRINT §13, AD-7 "구조 먼저")에 대한 직접 대응이다.
-- 적용 대상: 최상위 디렉터리 추가/삭제/이동, `src/poe2_wiki/*` 모듈 경계 변경, 3계층(정본/산출물/파생) 저장 위치 변경, 의존 방향 규칙 변경, 패키지명 변경.
+- 적용 대상: 최상위 디렉터리 추가/삭제/이동, `src/pok/*` 모듈 경계 변경, 3계층(정본/산출물/파생) 저장 위치 변경, 의존 방향 규칙 변경, 패키지명 변경.
 - Claude·Codex 모두 이 규칙을 따른다. 이 규칙은 루트 `AGENTS.md`(항상 로드)에도 요약되어 있다.
 - 새 파일을 **기존 모듈 경계 안에** 추가하는 것은 구조 변경이 아니다(허용). 새 최상위 폴더·새 모듈·경계 이동은 구조 변경이다(합의 필요).
 
@@ -22,7 +22,7 @@
 
 1. **지능 vs 결정성** (AD-3/D5) — `engine/`은 결정적 도구만. "무엇을 만들지" 판단은 `skills/` + 외부 에이전트.
 2. **정본 vs 파생** (D12/AD-5) — git 정본(`knowledge/`)과 재생성 가능 파생물(`var/`)·재생성 불가 산출물(`artifacts/`)을 디렉터리째 분리.
-3. **Python vs 비-Python** (AD-1/AD-2) — PoB(LuaJIT)는 `src/poe2_wiki/pob/` + `external/pob/`에만 격리.
+3. **Python vs 비-Python** (AD-1/AD-2) — PoB(LuaJIT)는 `src/pok/pob/` + `external/pob/`에만 격리.
 4. **의존 방향 단방향** — `mcp → engine → (kb·pob·live) → common`. 위로 되짚는 import 금지(import-linter로 강제).
 
 ---
@@ -42,7 +42,7 @@ poe2-ai-wiki/
 │   ├── PROJECT_STRUCTURE.md        # 이 문서 (구조 상세)
 │   └── adr/                        # 개별 ADR 분화(선택)
 │
-├── src/poe2_wiki/                 # ══ 코드 (단일 패키지, 내부 계층 엄격) ══
+├── src/pok/                       # ══ 코드 (단일 패키지 `pok` = Path of Knowledge) ══
 │   ├── common/                    # 설정·크로스플랫폼 경로·로깅·타입·에러 (D21)
 │   ├── i18n/                      # 한국어 우선 + 다국어 여지
 │   ├── kb/                        # ★ 지식베이스 로직 = 판단 substrate (D9, §7)
@@ -122,7 +122,7 @@ mcp ──▶ engine ──▶ kb ──▶ common
           └──▶ artifacts
 ```
 - 상위 계층이 하위를 import한다. **하위가 상위를 import 금지**(특히 무엇도 `mcp`를 import하지 않음).
-- 위반은 import-linter로 CI에서 실패시킨다(도입 예정, §9 미결).
+- 위반은 import-linter로 CI에서 실패시킨다(**도입 확정** — P0에서 설정, [ROADMAP](ROADMAP.md)).
 
 ---
 
@@ -130,7 +130,7 @@ mcp ──▶ engine ──▶ kb ──▶ common
 
 > 인덱스 재생성은 **지침이 아니라 코드의 성질**로 보장한다. 어떤 에이전트(Claude/Codex)도 "재빌드"를 기억할 필요가 없다.
 
-`src/poe2_wiki/index/`에 `ensure_index()`를 두고, **MCP 서버 기동 시 + 첫 검색 시** 호출(멱등):
+`src/pok/index/`에 `ensure_index()`를 두고, **MCP 서버 기동 시 + 첫 검색 시** 호출(멱등):
 
 ```
 ensure_index():
@@ -142,7 +142,7 @@ ensure_index():
 
 - 인덱스 빌드 시 **`knowledge/`의 git HEAD 커밋(또는 콘텐츠 해시) = `source_fingerprint`** 와 **`schema_version`** 을 인덱스 메타에 각인한다.
 - 세 트리거(없음/KB수정/버전업)를 이 비교로 모두 감지한다.
-- 보조로 **명시적 CLI**(`scripts/` 또는 `python -m poe2_wiki.index build`)를 둬 CI/수동 재빌드를 지원한다.
+- 보조로 **명시적 CLI**(`scripts/` 또는 `python -m pok.index build`)를 둬 CI/수동 재빌드를 지원한다.
 
 ---
 
@@ -155,7 +155,7 @@ artifacts/feedback/candidates  ──[큐레이션: 사람 승인 + 보조]─�
 artifacts/builds/<id>          ──[승격: reference 가치 판단]────▶  knowledge/builds     (Build 엔티티)
 ```
 
-- 승격 로직: `src/poe2_wiki/artifacts/promote.py` + `src/poe2_wiki/learning/curation.py`.
+- 승격 로직: `src/pok/artifacts/promote.py` + `src/pok/learning/curation.py`.
 - 라이브 데이터: 현재 시세 = `var/live/`(휘발 캐시), 산출물이 근거로 삼은 시세 = `artifacts/live-snapshots/`(계보 고정).
 
 ---
@@ -174,7 +174,7 @@ artifacts/builds/<id>          ──[승격: reference 가치 판단]───�
 - **Codex**는 작업 위치 기준으로 nested `AGENTS.md`를 자동 병합한다.
 - 원칙: **런타임 동작은 코드로 강제**(§5), 문서는 **확장 시 판단**을 안내할 뿐. 동작을 문서 준수에 의존시키지 않는다.
 
-현재 `AGENTS.md`가 배치된 디렉터리: 루트 · `knowledge/` · `skills/` · `artifacts/`(데이터) · `src/poe2_wiki/{kb,index,pob,engine,artifacts,mcp}`.
+현재 `AGENTS.md`가 배치된 디렉터리: 루트 · `knowledge/` · `skills/` · `artifacts/`(데이터) · `src/pok/{kb,index,pob,engine,artifacts,mcp}`.
 
 ---
 
@@ -183,19 +183,20 @@ artifacts/builds/<id>          ──[승격: reference 가치 판단]───�
 - ✅ 3계층 데이터 분리(정본/산출물/파생)와 저장 위치 (§3)
 - ✅ `artifacts/` 산출물 스토어 + 승격 경로 (§6)
 - ✅ 엔진 = 결정적 도구 상자, 생성 판단은 skills/+에이전트 (§1)
-- ✅ PoB 격리 = `src/poe2_wiki/pob/` + `external/pob/` (§1)
+- ✅ PoB 격리 = `src/pok/pob/` + `external/pob/` (§1)
 - ✅ 인덱스 self-healing을 **코드로** 보장 (§5)
 - ✅ 지침 거버넌스 3층 + AGENTS/CLAUDE 페어링 (§7)
 - ✅ 구조 변경 = 사용자 상호협의 강제 (§0)
 - ✅ 의존 방향 단방향 (§4)
+- ✅ **패키지명 = `pok` (Path of Knowledge)** — PoB 작명 규칙 계승, 2026-07-29 확정
+- ✅ **import-linter 도입** — 계층 위반은 CI 실패 (P0)
+- ✅ 원시 스냅샷 = 별도 데이터 repo ([KB_INGEST](KB_INGEST.md) KI-1)
 
-## 9. 미결 사항 (사용자 결정 대기)
+## 9. 미결 사항 (파킹 — 해당 로드맵 단계에서 결정, [ROADMAP](ROADMAP.md) 참조)
 
-1. **인사이트 3계층** — canonical / durable / season 승격 구조를 지금 확정할지, 로드맵(BLUEPRINT §15-2) 때 미룰지. (현재 `knowledge/insights/` 단일)
-2. **`build-id` 체계** — 해시 기반(재현성) vs 타임스탬프+슬러그(가독성) vs 병행.
-3. **보존 정책** — `artifacts/sessions`·`feedback` 무기한 vs N일/승격 후 아카이브.
-4. **`artifacts/` git 추적 여부** — 현재 제안: gitignore(운영 데이터), 정본 진입은 승격만.
-5. **패키지명** — 현재 작업 기본값 `poe2_wiki`. 변경 시 구조 변경 규칙(§0) 적용.
-6. **import-linter 도입** — 계층 위반을 CI에서 실패시킬지(권장) 규약으로만 둘지.
+1. **인사이트 3계층** (canonical/durable/season) → P5 학습 루프에서
+2. **`build-id` 체계** (해시 vs 타임스탬프+슬러그 vs 병행) → P3 빌드 생성에서
+3. **보존 정책** (`sessions`·`feedback` 아카이브 시점) → P5에서
+4. **`artifacts/` 중 builds·sessions·feedback의 멀티 PC 동기화** (데이터 repo 확장 여부) → P3에서
 
-> 미결이 정리되면 이 문서를 갱신하고 BLUEPRINT v0.6에 반영한다.
+> 파킹 항목이 결정될 때마다 이 문서를 갱신한다.

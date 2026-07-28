@@ -48,7 +48,7 @@
 - **②③④ 분리 원칙**: 파서(소스 취약성)와 병합(정책)을 섞지 않는다. poe2db HTML이 바뀌면 ②만 수정.
 - **멱등**: ①만 네트워크. ②~⑤는 원시에서 결정적 재실행(파서 수정 시 재스크래핑 불필요).
 - **매칭 실패 = 에러가 아니라 리포트 항목** — 신규 엔티티인지 누락인지 ⑥에서 사람이 판별.
-- 코드 위치: `src/poe2_wiki/kb/ingest/` (fetch/·parsers/·match·merge·report — 기존 경계 내).
+- 코드 위치: `src/pok/kb/ingest/` (fetch/·parsers/·match·merge·report — 기존 경계 내).
 
 ## 3. 체크포인트 — 멀티 PC·분담 대응 (KI-4)
 
