@@ -1,0 +1,72 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pok"
+version = "0.0.1"
+description = "PoK (Path of Knowledge) — PoE2 AI Wiki engine: KB + MCP tools + PoB-oracle build generation"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "skerfolg", email = "sk.erfolg@gmail.com" }]
+# 런타임 의존성은 로드맵 단계별로 추가한다 (P0 = 골격만).
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "import-linter>=2",
+    "pre-commit>=3.8",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pok"]
+
+# ── 품질 도구 ──────────────────────────────────────────────
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "UP",       # pyupgrade
+    "B",        # bugbear
+    "SIM",      # simplify
+    "RUF",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["pok"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+# ── 계층 경계 강제 (PROJECT_STRUCTURE §4) ─────────────────────
+# 위반 시 lint-imports 실패 → pre-commit·CI 실패.
+# 같은 층의 "|" 구분 모듈은 서로 import 금지(독립).
+
+[tool.importlinter]
+root_package = "pok"
+
+[[tool.importlinter.contracts]]
+name = "의존 방향 단방향: mcp → engine → (index|pob|live|cost|learning|artifacts) → kb → (i18n|common)"
+type = "layers"
+layers = [
+    "pok.mcp",
+    "pok.engine",
+    "pok.index | pok.pob | pok.live | pok.cost | pok.learning | pok.artifacts",
+    "pok.kb",
+    "pok.i18n | pok.common",
+]

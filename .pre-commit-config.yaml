@@ -1,0 +1,26 @@
+# pre-commit: 커밋 전 자동 검사 (설치: pre-commit install)
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-json
+      - id: check-yaml
+      - id: check-added-large-files   # 대용량 실수 커밋 방지 (원시/산출물은 git 밖)
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.6
+    hooks:
+      - id: ruff          # lint (+ import 정렬)
+        args: [--fix]
+      - id: ruff-format   # 포맷
+
+  - repo: local
+    hooks:
+      - id: import-linter  # 계층 경계 위반 = 커밋 실패 (PROJECT_STRUCTURE §4)
+        name: import-linter
+        entry: lint-imports
+        language: system
+        pass_filenames: false
+        files: ^src/

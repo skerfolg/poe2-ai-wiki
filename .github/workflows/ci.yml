@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    # D21: Windows(주) + macOS 둘 다 항상 검증
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint (ruff)
+        run: ruff check src tests && ruff format --check src tests
+      - name: Types (mypy)
+        run: mypy
+      - name: Layer boundaries (import-linter)   # PROJECT_STRUCTURE §4 — 위반 = 실패
+        run: lint-imports
+      - name: Tests (pytest)
+        run: pytest
