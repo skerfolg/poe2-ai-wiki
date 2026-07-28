@@ -11,19 +11,41 @@ env/
 .coverage
 htmlcov/
 
-# --- 프로젝트 산출물/캐시 (비커밋) ---
-# KB 파생 검색 인덱스 (정본 텍스트에서 재생성 가능)
+# --- ② 산출물 (재생성 불가·계보 有) : gitignore, 단 위치 지침(AGENTS/CLAUDE)은 추적 ---
+/artifacts/*
+!/artifacts/AGENTS.md
+!/artifacts/CLAUDE.md
+!/artifacts/builds/
+!/artifacts/sessions/
+!/artifacts/feedback/
+!/artifacts/live-snapshots/
+/artifacts/builds/*
+/artifacts/sessions/*
+/artifacts/feedback/raw/*
+/artifacts/feedback/candidates/*
+/artifacts/live-snapshots/*
+!.gitkeep
+
+# --- ③ 파생/캐시 (정본에서 재생성 가능) : 전부 gitignore ---
+# KB 파생 검색 인덱스 (knowledge/ 에서 self-healing으로 재생성)
+/var/*
+!/var/.gitkeep
+!/var/pob-cache/
+!/var/live/
+/var/pob-cache/*
+/var/live/*
 index.sqlite
 *.sqlite
 *.sqlite3
-# 라이브 시세/거래소 캐시
-data_cache/
-# PoB 독립 클론 (대용량, 머신별 setup 스크립트로 설치; season-pob-map이 커밋 핀 기록)
-pob-versions/
-pob_clones/
 # 벡터 인덱스 (후속)
 *.lance/
 .chroma/
+
+# --- PoB 독립 클론 (대용량, scripts/setup 으로 설치; pob/versions.py 가 커밋 핀 기록) ---
+/external/*
+!/external/pob/
+/external/pob/*
+!/external/pob/.gitkeep
 
 # --- Claude Code (개인/로컬 설정) ---
 .claude/settings.local.json
