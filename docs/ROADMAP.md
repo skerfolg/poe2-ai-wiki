@@ -3,7 +3,10 @@
 > **문서 상태**: v0.1 (2026-07-29) — 확정. BLUEPRINT §15-2 "재구축 로드맵/MVP"의 상세.
 > **설계 근거**: "KB 먼저"(BLUEPRINT §7·§17) + "코드 먼저, 수집은 그 다음"(KB_INGEST KI-7) + 반프록시(AD-8) — 각 단계의 완료는 느낌이 아니라 **측정 가능한 Exit 기준**으로 판정한다.
 > **변경 규칙**: 단계 순서·Exit 기준의 구조적 변경은 사용자 상호협의 후에만.
-> **진행 상태**: ✅ P0 완료 → ✅ **P1a 완료** (2026-07-29, 시드 35·vocab v1·스키마·store 4층 검증·index self-healing, pytest 13 ✓, CI Win+mac green) → **현재: P1b** — 젬 파이프라인 **완주** (fetch 1,992 → parse/match → KI-8 판정(사람 승인 반영) → merge): **KB 923 레코드** (벌크 888 NDJSON + 시드 35, GAME_DATA 796). 확장 순서는 KB_INGEST §6-2 (다음: ② 패시브 트리). 정리 대기: 미매칭 시드 8건(support.pierce 등 — 실페이지는 티어드 Pierce_I~III), 보류 58건. 신규 PC 셋업: `gh auth login` → clone → `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"` → `.venv/bin/pre-commit install`.
+> **진행 상태**: ✅ P0 완료 → ✅ **P1a 완료** (2026-07-29, 시드 35·vocab v1·스키마·store 4층 검증·index self-healing, pytest 13 ✓, CI Win+mac green) → **현재: P1b** — ① 젬 + ② 패시브 트리 완료 → **KB 5,483 레코드**. 다음: KB_INGEST §6-2 ③ 유니크 아이템.
+> - ① 젬 900 수록 (fetch 1,992 → KI-8 판정 → merge, GAME_DATA 796)
+> - ② 트리 4,569 수록 (일괄 엔드포인트 2회 수집, 청크 분할 merge, 엣지 6,070 보존)
+> - 사람 확인 대기: mastery 21(PoB 미지원 'The Unseen Path'), 젬 보류 58, 미매칭 시드 9(support.pierce·passive.acrobatics — 실데이터는 티어드/개명 추정) 신규 PC 셋업: `gh auth login` → clone → `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"` → `.venv/bin/pre-commit install`.
 
 ---
 
