@@ -5,8 +5,8 @@
 > **변경 규칙**: 단계 순서·Exit 기준의 구조적 변경은 사용자 상호협의 후에만.
 > **진행 상태**: ✅ P0 완료 → ✅ **P1a 완료** (2026-07-29, 시드 35·vocab v1·스키마·store 4층 검증·index self-healing, pytest 13 ✓, CI Win+mac green) → **현재: P1b** — ① 젬 + ② 패시브 트리 완료 → **KB 5,483 레코드**. 다음: KB_INGEST §6-2 ③ 유니크 아이템.
 > - ① 젬 900 수록 (fetch 1,992 → KI-8 판정 → merge, GAME_DATA 796)
-> - ② 트리 4,569 수록 (일괄 엔드포인트 2회 수집, 청크 분할 merge, 엣지 6,070 보존)
-> - 사람 확인 대기: mastery 21(PoB 미지원 'The Unseen Path'), 젬 보류 58, 미매칭 시드 9(support.pierce·passive.acrobatics — 실데이터는 티어드/개명 추정) 신규 PC 셋업: `gh auth login` → clone → `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"` → `.venv/bin/pre-commit install`.
+> - ② 트리 4,548 수록 (일괄 엔드포인트 2회 수집, 청크 분할 merge, 엣지 6,070 보존). 마스터리 368 제외 확정(구역 라벨/그래픽, 사람 판정)
+> - 사람 확인 대기: 젬 보류 58, 미매칭 시드 9(support.pierce·passive.acrobatics — 실데이터는 티어드/개명 추정) 신규 PC 셋업: `gh auth login` → clone → `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"` → `.venv/bin/pre-commit install`.
 
 ---
 
