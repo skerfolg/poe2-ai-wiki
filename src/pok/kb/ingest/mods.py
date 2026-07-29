@@ -299,6 +299,87 @@ def process_mods(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
     return report
 
 
+# 수록 판정 (사람 승인 2026-07-29, KI-3):
+#   A = 일반 풀 — corrupted·rune·flask·charm·jewel 전량 + item 중 획득 경로 보유분
+#   B = item-exclusive 전량 (특정 아이템 고정 모드 — 스폰 가중치가 없는 게 정상)
+#   C = item 풀인데 스폰 불가 ∧ 에센스 아님 → **보류**(미수록). KI-8상 획득 양성 증거 없음.
+_ALWAYS_INCLUDE = frozenset({"item-exclusive", "corrupted", "rune", "flask", "charm", "jewel"})
+
+
+def is_included(mod: dict[str, Any]) -> bool:
+    """A·B 수록 판정. item 전용 풀만 획득 경로를 요구한다 (KI-8의 신호 A)."""
+    if set(mod["origins"]) & _ALWAYS_INCLUDE:
+        return True
+    return bool(mod.get("acquisition"))
+
+
+def _write_shards(
+    out_dir: Path, prefix: str, records: list[dict[str, Any]], max_bytes: int = 1_500_000
+) -> list[str]:
+    """id 순으로 NDJSON 샤드에 쓰고 파일명을 돌려준다 (샤드당 크기 상한 준수).
+
+    pre-commit의 대용량 파일 차단(2MB)에 걸리지 않도록 나눈다 — 벌크 카탈로그는
+    NDJSON 샤드라는 KD-1 배치를 그대로 따르며, 분할 단위는 크기뿐이다.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: list[str] = []
+    part: list[str] = []
+    size, idx = 0, 1
+    for rec in sorted(records, key=lambda r: str(r["id"])):
+        line = json.dumps(rec, ensure_ascii=False) + "\n"
+        encoded = len(line.encode("utf-8"))
+        if part and size + encoded > max_bytes:
+            name = f"{prefix}-{idx:02d}.ndjson"
+            (out_dir / name).write_text("".join(part), encoding="utf-8")
+            written.append(name)
+            part, size, idx = [], 0, idx + 1
+        part.append(line)
+        size += encoded
+    if part:
+        name = f"{prefix}-{idx:02d}.ndjson"
+        (out_dir / name).write_text("".join(part), encoding="utf-8")
+        written.append(name)
+    return written
+
+
+def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
+    """승인 범위(A·B)를 knowledge/에 기록하고 전체 재검증한다 (KI-3 게이트 뒤에서만)."""
+    from pok.kb.ingest.merge import POB_COMMIT
+    from pok.kb.store import load as store_load
+
+    mods = json.loads((out_dir / "mods.json").read_text(encoding="utf-8"))
+    bases = json.loads((out_dir / "base_items.json").read_text(encoding="utf-8"))
+
+    included = [m for m in mods if is_included(m)]
+    held = [m for m in mods if not is_included(m)]
+
+    mod_dir = knowledge / "game-data" / "modifiers"
+    base_dir = knowledge / "game-data" / "base-items"
+    for stale in list(mod_dir.glob("*.ndjson")) + list(base_dir.glob("*.ndjson")):
+        stale.unlink()  # 샤드 경계가 바뀌어도 잔재가 남지 않게 (멱등)
+
+    by_pool: dict[str, list[dict[str, Any]]] = {}
+    for m in included:
+        by_pool.setdefault(m["origins"][0], []).append(mod_to_record(m, patch, POB_COMMIT))
+    mod_files: list[str] = []
+    for pool, recs in sorted(by_pool.items()):
+        mod_files += _write_shards(mod_dir, pool, recs)
+
+    base_files = _write_shards(
+        base_dir, "bases", [base_to_record(b, patch, POB_COMMIT) for b in bases]
+    )
+
+    after = store_load(knowledge.parent)  # 스키마·중복·참조 무결성 전량 재검증
+    return {
+        "mods_included": len(included),
+        "mods_held": len(held),  # C — 승인 대기, 미수록
+        "mods_by_pool": {k: len(v) for k, v in sorted(by_pool.items())},
+        "bases_written": len(bases),
+        "shards": {"modifiers": len(mod_files), "base-items": len(base_files)},
+        "kb_total": len(after.records),
+    }
+
+
 def mod_to_record(item: dict[str, Any], patch: str, pob_commit: str) -> dict[str, Any]:
     """중간 레코드 → Modifier envelope 레코드 (merge 단계, 승인 후 사용)."""
     data: dict[str, Any] = {

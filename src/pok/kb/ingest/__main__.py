@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_mods = sub.add_parser("mods", help="베이스+모드 풀(④): process (PoB 덤프 소스, 오프라인)")
     p_mods.add_argument("--patch", required=True)
-    p_mods.add_argument("step", choices=["process"])
+    p_mods.add_argument("step", choices=["process", "merge"])
 
     p_tree = sub.add_parser("tree", help="패시브 트리: fetch(일괄 2회)|process(청크 분류)|merge")
     p_tree.add_argument("--patch", required=True)
@@ -150,18 +150,28 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
     elif args.cmd == "mods":
-        from pok.kb.ingest.mods import process_mods
-
         out_dir = project_root() / "var" / "ingest" / args.patch
-        mods_report = process_mods(raw_dir, out_dir)
-        print(
-            json.dumps(
-                {k: v for k, v in mods_report.items() if k != "verification"},
-                ensure_ascii=False,
-                indent=1,
+        if args.step == "process":
+            from pok.kb.ingest.mods import process_mods
+
+            mods_report = process_mods(raw_dir, out_dir)
+            print(
+                json.dumps(
+                    {k: v for k, v in mods_report.items() if k != "verification"},
+                    ensure_ascii=False,
+                    indent=1,
+                )
             )
-        )
-        print(f"리포트: {raw_dir / 'pob' / 'mods-report.json'}")
+            print(f"리포트: {raw_dir / 'pob' / 'mods-report.json'}")
+        else:
+            from pok.common.paths import knowledge_dir
+            from pok.kb.ingest.mods import merge_mods
+
+            print(
+                json.dumps(
+                    merge_mods(out_dir, knowledge_dir(), args.patch), ensure_ascii=False, indent=1
+                )
+            )
     elif args.cmd == "tree":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest import tree as tree_mod
