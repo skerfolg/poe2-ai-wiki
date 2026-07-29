@@ -1,0 +1,82 @@
+{
+  "$id": "item.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Item.data (P1b ③ 유니크 — 베이스/모드/획득)",
+  "type": "object",
+  "properties": {
+    "rarity": {
+      "enum": [
+        "unique",
+        "rare",
+        "magic",
+        "normal"
+      ]
+    },
+    "base_type": {
+      "type": "string"
+    },
+    "base_type_ko": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string",
+      "description": "PoB 분류 (amulet, body, ring…)"
+    },
+    "class_group": {
+      "enum": [
+        "weapon",
+        "armour",
+        "other",
+        "cultivated"
+      ],
+      "description": "poe2db 목록 분류"
+    },
+    "implicits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "explicits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "implicits_ko": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "explicits_ko": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "requires": {
+      "type": "string"
+    },
+    "variants": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "PoB 변형 이력 — 현재 패치본만 모드에 반영됨"
+    },
+    "mod_tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "pob_computable": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "rarity"
+  ],
+  "additionalProperties": true
+}

@@ -52,6 +52,10 @@ def main(argv: list[str] | None = None) -> int:
     p_oil.add_argument("--patch", required=True)
     p_oil.add_argument("step", choices=["fetch", "apply"])
 
+    p_uni = sub.add_parser("uniques", help="유니크 아이템: fetch|process|merge")
+    p_uni.add_argument("--patch", required=True)
+    p_uni.add_argument("step", choices=["fetch", "process", "merge"])
+
     p_tree = sub.add_parser("tree", help="패시브 트리: fetch(일괄 2회)|process(청크 분류)|merge")
     p_tree.add_argument("--patch", required=True)
     p_tree.add_argument("step", choices=["fetch", "process", "merge"])
@@ -118,6 +122,28 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(
                 json.dumps(oils.apply_to_kb(raw_dir, knowledge_dir()), ensure_ascii=False, indent=1)
+            )
+    elif args.cmd == "uniques":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest import uniques_page
+
+        out_dir = project_root() / "var" / "ingest" / args.patch
+        if args.step == "fetch":
+            print(json.dumps(uniques_page.fetch_pages(raw_dir), ensure_ascii=False, indent=1))
+        elif args.step == "process":
+            pob = project_root() / "external" / "pob" / "5d173cb" / "src" / "Data" / "Uniques"
+            print(
+                json.dumps(
+                    uniques_page.process(raw_dir, pob, out_dir), ensure_ascii=False, indent=1
+                )
+            )
+        else:
+            print(
+                json.dumps(
+                    uniques_page.merge(out_dir, knowledge_dir(), args.patch),
+                    ensure_ascii=False,
+                    indent=1,
+                )
             )
     elif args.cmd == "tree":
         from pok.common.paths import knowledge_dir
