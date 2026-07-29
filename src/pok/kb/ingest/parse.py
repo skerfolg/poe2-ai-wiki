@@ -32,6 +32,27 @@ def _title_name(soup: BeautifulSoup) -> str:
     return t.split(" - PoE2DB")[0].strip()
 
 
+# 태그 토큰: 짧은 단어(구) — 숫자·콜론·긴 서술문 배제
+_TAG_TOKEN = re.compile(r"^[A-Za-z][A-Za-z' ]{0,24}$")
+
+
+def _extract_tags(stats_text: str) -> list[str]:
+    """`.Stats` 선두의 태그 나열만 추출.
+
+    페이지 유형별 종결자: 스킬 젬 = 'Tier:' / 서포트 젬 = 'Category :'.
+    종결자 이전 구간을 쉼표로 나눠 **태그 형태 토큰만** 접두 스캔으로 취한다
+    (첫 비태그 토큰에서 중단 — 설명문 유입 차단, 0.5.4b 763건 오염 실증 후 강화).
+    """
+    head = re.split(r"Tier:|Category\s*:", stats_text)[0]
+    tags: list[str] = []
+    for token in head.split(","):
+        token = token.strip()
+        if not token or not _TAG_TOKEN.match(token) or len(token.split()) > 3:
+            break
+        tags.append(token)
+    return tags
+
+
 def parse_detail(html: str) -> DetailPage:
     soup = BeautifulSoup(html, "html.parser")
     page = DetailPage(name=_title_name(soup))
@@ -50,8 +71,7 @@ def parse_detail(html: str) -> DetailPage:
         m = re.search(r"Tier:\s*(\d+)", text)
         if m:
             page.tier = int(m.group(1))
-        tags_part = text.split("Tier:")[0]
-        page.tags = [t.strip() for t in tags_part.split(",") if t.strip()]
+        page.tags = _extract_tags(text)
 
     for card in soup.select("div.card"):
         header = card.select_one(".card-header")

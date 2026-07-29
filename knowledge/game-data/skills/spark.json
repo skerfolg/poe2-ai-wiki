@@ -2,28 +2,36 @@
   "id": "skill.spark",
   "type": "Skill",
   "name": {
-    "ko": "스파크",
+    "ko": "전기불꽃",
     "en": "Spark"
   },
   "tags": [
+    "duration",
     "lightning",
     "projectile",
-    "spell"
+    "repeatable"
   ],
   "data": {
     "category": "spell",
     "damage_types": [
       "lightning"
     ],
-    "cost_resource": "mana"
+    "cost_resource": "mana",
+    "description": "Launch a spray of sparking Projectiles that travel erratically along the ground until they hit an enemy or expire. Consumes a Cold Infusion if possible to fire many sparks in a circle.",
+    "tier": 1
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Spark",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemSpark",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ],
   "relations": [

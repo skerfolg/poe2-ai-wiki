@@ -6,26 +6,34 @@
     "en": "Gas Arrow"
   },
   "tags": [
+    "aoe",
     "chaos",
+    "duration",
+    "fire",
     "projectile",
-    "attack",
-    "bow",
-    "aoe"
+    "repeatable"
   ],
   "data": {
     "category": "attack",
     "damage_types": [
       "chaos"
     ],
-    "cost_resource": "mana"
+    "cost_resource": "mana",
+    "description": "Fire a noxious arrow at the ground, creating a cloud of flammable poisonous gas at the end of its flight. The cloud will detonate if hit by a Detonator skill or if an Ignited enemy touches it, creating a fiery explosion.",
+    "tier": 7
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Gas_Arrow",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemGasArrow",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ],
   "conditions": [

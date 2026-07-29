@@ -2,7 +2,7 @@
   "id": "support.controlled-destruction",
   "type": "Support",
   "name": {
-    "ko": "통제된 파괴",
+    "ko": "제어된 파괴",
     "en": "Controlled Destruction"
   },
   "tags": [
@@ -11,15 +11,22 @@
   "data": {
     "applies_to_tags": [
       "spell"
-    ]
+    ],
+    "description": "Supports Spells that Hit enemies, boosting their damage but preventing them from dealing Critical Hits.",
+    "tier": 1
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Controlled_Destruction",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemControlledDestructionSupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ]
 }

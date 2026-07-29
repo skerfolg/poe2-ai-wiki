@@ -2,28 +2,37 @@
   "id": "skill.ice-nova",
   "type": "Skill",
   "name": {
-    "ko": "얼음 신성",
+    "ko": "얼음 폭발",
     "en": "Ice Nova"
   },
   "tags": [
-    "cold",
     "aoe",
-    "spell"
+    "cold",
+    "duration",
+    "nova",
+    "repeatable"
   ],
   "data": {
     "category": "spell",
     "damage_types": [
       "cold"
     ],
-    "cost_resource": "mana"
+    "cost_resource": "mana",
+    "description": "Conjure a wave of ice in all directions, Knocking Back enemies based on how close they are to you. Casting Ice Nova targeting near a Frostbolt Projectile will cause it to originate from the Frostbolt instead of you. Consumes a Cold Infusion if possible to leave a patch of Chilled Ground.",
+    "tier": 1
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Ice_Nova",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemIceNova",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ],
   "relations": [

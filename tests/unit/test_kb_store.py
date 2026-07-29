@@ -18,7 +18,8 @@ def test_seed_kb_loads_and_validates() -> None:
     store = load()
     assert len(store.records) >= 30, "시드는 30개 이상"
     spark = store.get("skill.spark")
-    assert spark.name_ko == "스파크"
+    # 공식 한국어명 (poe2db kr) — 수작성 추정('스파크')이 ingest로 교정된 사례
+    assert spark.name_ko == "전기불꽃"
     assert "lightning" in spark.tags
 
 

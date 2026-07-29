@@ -6,25 +6,33 @@
     "en": "Lightning Arrow"
   },
   "tags": [
+    "aoe",
+    "chaining",
     "lightning",
     "projectile",
-    "attack",
-    "bow"
+    "repeatable"
   ],
   "data": {
     "category": "attack",
     "damage_types": [
       "lightning"
     ],
-    "cost_resource": "mana"
+    "cost_resource": "mana",
+    "description": "Fire a charged arrow at the target. On hitting an enemy or wall, the arrow will fire Chaining Lightning beams at nearby enemies.",
+    "tier": 1
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Lightning_Arrow",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemLightningArrow",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ],
   "conditions": [

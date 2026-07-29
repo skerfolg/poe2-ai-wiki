@@ -6,26 +6,33 @@
     "en": "Hammer of the Gods"
   },
   "tags": [
-    "physical",
-    "attack",
-    "slam",
     "aoe",
-    "mace"
+    "conditional",
+    "duration",
+    "melee",
+    "slam"
   ],
   "data": {
     "category": "attack",
     "damage_types": [
       "physical"
     ],
-    "cost_resource": "mana"
+    "cost_resource": "mana",
+    "description": "Build Glory by Heavy Stunning enemies. When you have maximum Glory you may entreat the Ancestors to crush your enemies, manifesting a massive hammer that falls from the sky onto your target, Slamming into the ground after a short duration and dealing immense damage based on your weapon.",
+    "tier": 13
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Hammer_of_the_Gods",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemHammerOfTheGods",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ],
   "relations": [

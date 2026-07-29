@@ -133,10 +133,22 @@ def load(root: Path | None = None) -> Store:
     }
     subjects: dict[str, Any] = schemas["vocab/condition-subjects.json"]["subjects"]
 
+    # 개별 JSON(큐레이션) + NDJSON 샤드(벌크, KD-1) 모두 수집
+    sources: list[tuple[Path, Any]] = []
+    for p in sorted((kdir / "game-data").rglob("*.json")):
+        sources.append((p, _load_json(p)))
+    for p in sorted((kdir / "game-data").rglob("*.ndjson")):
+        for line_no, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
+            if not line.strip():
+                continue
+            try:
+                sources.append((p, json.loads(line)))
+            except json.JSONDecodeError as e:
+                raise KBValidationError([f"{p}:{line_no}: NDJSON 파싱 실패 — {e}"]) from e
+
     errors: list[str] = []
     records: dict[str, Record] = {}
-    for p in sorted((kdir / "game-data").rglob("*.json")):
-        raw = _load_json(p)
+    for p, raw in sources:
         rel = p.relative_to(kdir)
 
         env_errors = list(envelope.iter_errors(raw))

@@ -45,6 +45,9 @@ def main(argv: list[str] | None = None) -> int:
     p_proc = sub.add_parser("process", help="parse→match→KI-8 판정→리포트 (오프라인)")
     p_proc.add_argument("--patch", required=True)
 
+    p_merge = sub.add_parser("merge", help="수록 판정분 → knowledge/ 기록 (④, 승인 후에만)")
+    p_merge.add_argument("--patch", required=True)
+
     args = ap.parse_args(argv)
     raw_dir = _raw_dir(args.patch)
 
@@ -85,6 +88,13 @@ def main(argv: list[str] | None = None) -> int:
         report = process_patch(raw_dir, out_dir)
         print(json.dumps(report["totals"], ensure_ascii=False, indent=1))
         print(f"리포트: {raw_dir / 'report.json'}")
+    elif args.cmd == "merge":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest.merge import merge_patch
+
+        inter = project_root() / "var" / "ingest" / args.patch / "intermediate.json"
+        summary = merge_patch(raw_dir, inter, knowledge_dir(), args.patch)
+        print(json.dumps(summary, ensure_ascii=False, indent=1))
     return 0
 
 

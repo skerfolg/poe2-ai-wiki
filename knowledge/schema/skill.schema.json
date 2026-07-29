@@ -1,7 +1,7 @@
 {
   "$id": "skill.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Skill.data (P1a 최소 — P1b에서 상세화)",
+  "title": "Skill.data (P1b — category는 태그로 추론 가능할 때만 기록)",
   "type": "object",
   "properties": {
     "category": {
@@ -36,8 +36,6 @@
       ]
     }
   },
-  "required": [
-    "category"
-  ],
+  "required": [],
   "additionalProperties": true
 }

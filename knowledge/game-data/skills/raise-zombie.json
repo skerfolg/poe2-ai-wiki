@@ -2,25 +2,31 @@
   "id": "skill.raise-zombie",
   "type": "Skill",
   "name": {
-    "ko": "좀비 소생",
+    "ko": "좀비 소환",
     "en": "Raise Zombie"
   },
   "tags": [
-    "minion",
-    "spell",
-    "persistent"
+    "duration",
+    "physical"
   ],
   "data": {
     "category": "minion",
-    "cost_resource": "spirit"
+    "cost_resource": "spirit",
+    "description": "Consume a Corpse or Power Charge to create a short-lived Zombie. Zombies created from Power Charges are Empowered and also create two additional non-empowered Zombies.",
+    "tier": 5
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Raise_Zombie",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemRaiseZombie",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ],
   "relations": [

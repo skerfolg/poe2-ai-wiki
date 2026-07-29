@@ -76,10 +76,10 @@ def test_search_roundtrip(kb_env: tuple[Path, Path]) -> None:
     hits = search("spark", root=root, db_path=db)
     assert any(h.id == "skill.spark" for h in hits)
 
-    hits_ko = search("스파크", root=root, db_path=db)
-    assert any(h.id == "skill.spark" for h in hits_ko), "한국어 이름 검색"
+    hits_ko = search("전기불꽃", root=root, db_path=db)
+    assert any(h.id == "skill.spark" for h in hits_ko), "한국어 이름 검색 (공식 용어)"
 
-    hits_tag = search(tags=["lightning"], type_="Skill", root=root, db_path=db)
+    hits_tag = search(tags=["lightning"], type_="Skill", limit=200, root=root, db_path=db)
     assert {h.id for h in hits_tag} >= {"skill.spark", "skill.lightning-arrow"}
 
 

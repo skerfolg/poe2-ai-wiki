@@ -6,24 +6,32 @@
     "en": "Contagion"
   },
   "tags": [
-    "chaos",
     "aoe",
-    "spell"
+    "chaos",
+    "duration",
+    "repeatable"
   ],
   "data": {
     "category": "spell",
     "damage_types": [
       "chaos"
     ],
-    "cost_resource": "mana"
+    "cost_resource": "mana",
+    "description": "Afflict a single enemy with a Debuff that deals Chaos damage over time. If the enemy dies while affected by Contagion, it spreads itself, Curses, and other Chaos damage over time Debuffs on the target to nearby enemies. This refreshes their durations. Reanimating or detonating a corpse affected by Contagion will cause the Minion or explosion to spread Contagion on hit.",
+    "tier": 1
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Contagion",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemContagion",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ],
   "relations": [
