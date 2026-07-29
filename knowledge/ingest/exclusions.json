@@ -226,5 +226,15 @@
    "approved": "2026-07-29 user",
    "note": "PoB에만 존재·poe2db 무등재 — PoE1 잔재 판정"
   }
+ ],
+ "visual_only_tree": [
+  {
+   "kind": "mastery",
+   "count": 368,
+   "patch": "0.5.4b",
+   "approved": "2026-07-29 user",
+   "reason": "트리 구역 라벨/배경 그래픽 — PoB isOnlyImage(type=OnlyImage, 할당·계산 불가), masteryEffects 양 소스 0건, Paths_Not_Taken 선택 목록에 Mastery 0건",
+   "note": "실제 '보이지 않는 길' 조건부 효과 노드는 별개(isMastery=False)로 이미 수록됨(176건)"
+  }
  ]
 }

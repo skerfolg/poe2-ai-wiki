@@ -33,9 +33,15 @@ POB_TREE_REL = "src/TreeData/0_5/tree.json"
 _UNIMPLEMENTED = re.compile(r"\[(DNT|UNUSED|DNT-UNUSED)[^\]]*\]|^DNT[ _-]", re.I)
 
 # 처리 청크 (분할 단위) — 앞쪽일수록 큐레이션 가치가 높다
-# mastery: poe2db에만 존재(PoB 0개) — 0.5 신규 'The Unseen Path' 시스템으로 보임.
-# 젬의 "구현·PoB 미지원 → 보존" 선례 적용, pob_computable=false로 표시 (사람 확인 대기)
-CHUNKS = ("keystone", "ascendancy-start", "notable", "mastery", "jewel", "small")
+CHUNKS = ("keystone", "ascendancy-start", "notable", "jewel", "small")
+
+# mastery(368) = 트리 구역 라벨/배경 그래픽. KB 수록 대상 아님 (사람 판정 2026-07-29):
+#   · PoB가 isOnlyImage → type="OnlyImage"로 분류 (할당·계산 불가, PassiveTree.lua:223)
+#   · masteryEffects가 양 소스 0건, stats는 비었거나 "Requires The Unseen Path" 한 줄뿐
+#   · '가지 않은 길'(Paths_Not_Taken) 선택 가능 노드 목록에 Mastery 이름이 0건
+# 실제 '보이지 않는 길' 조건부 효과 노드는 isMastery=False인 별개 노드들로,
+# notable/small 청크에 이미 수록됨 (0.5.4b 기준 176건).
+EXCLUDED_KINDS = ("mastery",)
 
 
 def node_kind(node: dict[str, Any]) -> str:
@@ -114,8 +120,8 @@ def process_tree(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
         unimpl = bool(_UNIMPLEMENTED.search(name_en))
         # 어센던시 시작·주얼 슬롯은 stats가 없는 게 정상 (효과 아닌 구조 노드)
         has_effect = bool(stats) or kind in {"keystone", "jewel", "ascendancy-start"}
-        structural = kind in {"jewel", "ascendancy-start", "mastery"}
-        if unimpl or not (has_effect and (in_pob or structural)):
+        structural = kind in {"jewel", "ascendancy-start"}
+        if kind in EXCLUDED_KINDS or unimpl or not (has_effect and (in_pob or structural)):
             excluded.append(f"{nid}:{name_en}")
             continue
         kr_node = kr_nodes.get(nid) or {}

@@ -10,6 +10,7 @@ from pok.kb.ingest.tree_merge import merge_tree
 
 
 def test_node_kind_precedence() -> None:
+    # mastery는 분류는 하되 KB 수록에서 제외된다 (EXCLUDED_KINDS)
     assert node_kind({"isMastery": True, "isNotable": True}) == "mastery"
     assert node_kind({"isAscendancyStart": True}) == "ascendancy-start"
     assert node_kind({"isKeystone": True}) == "keystone"
@@ -72,6 +73,28 @@ def _write_tree_fixtures(raw: Path) -> None:
         ),
         encoding="utf-8",
     )
+
+
+def test_mastery_excluded_from_kb(tmp_path: Path) -> None:
+    """마스터리는 트리 구역 라벨/배경 그래픽 — KB 수록 금지 (사람 판정 2026-07-29)."""
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    _write_tree_fixtures(raw)
+    us = json.loads((raw / "tree/poe2db_us.json").read_text(encoding="utf-8"))
+    us["nodes"]["9"] = {
+        "name": "Armour Mastery",
+        "isMastery": True,
+        "stats": ["Requires The Unseen Path"],  # stats가 있어도 제외
+        "connections": [],
+    }
+    (raw / "tree/poe2db_us.json").write_text(json.dumps(us), encoding="utf-8")
+    pob = json.loads((raw / "tree/pob_tree.json").read_text(encoding="utf-8"))
+    pob["nodes"]["9"] = {"name": "Armour Mastery"}  # PoB에 있어도 제외
+    (raw / "tree/pob_tree.json").write_text(json.dumps(pob), encoding="utf-8")
+
+    report = process_tree(raw, out)
+    assert "mastery" not in report["included"]
+    assert not (out / "tree_mastery.json").exists()
+    assert any("Armour Mastery" in e for e in report["excluded_sample"])
 
 
 def test_process_tree_verdicts(tmp_path: Path) -> None:
