@@ -2,7 +2,7 @@
   "id": "passive.chaos-inoculation",
   "type": "Passive",
   "name": {
-    "ko": "카오스 접종",
+    "ko": "카오스 면역",
     "en": "Chaos Inoculation"
   },
   "tags": [
@@ -11,15 +11,27 @@
     "energy-shield"
   ],
   "data": {
-    "kind": "keystone"
+    "kind": "keystone",
+    "node_id": "56349",
+    "stats": [
+      "최대 생명력을 1로 변경\n카오스 피해 및 출혈에 면역"
+    ],
+    "stats_en": [
+      "Maximum Life is 1\nImmune to [Chaos] Damage and [Bleeding]"
+    ],
+    "connections": []
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/passive-skill-tree/#56349",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "TreeData/0_5 node 56349",
+      "patch": "0.5.4b"
     }
   ],
   "relations": [

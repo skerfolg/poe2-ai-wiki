@@ -2,7 +2,7 @@
   "id": "passive.eldritch-battery",
   "type": "Passive",
   "name": {
-    "ko": "섬뜩한 전지",
+    "ko": "섬뜩한 충전기",
     "en": "Eldritch Battery"
   },
   "tags": [
@@ -11,15 +11,27 @@
     "mana"
   ],
   "data": {
-    "kind": "keystone"
+    "kind": "keystone",
+    "node_id": "57513",
+    "stats": [
+      "에너지 보호막 최대치의 100%를 마나 최대치로 전환\n마나 소모량 2배"
+    ],
+    "stats_en": [
+      "[StatConversion|Convert] 100% of maximum [EnergyShield|Energy Shield] to maximum Mana\nMana Costs are Doubled"
+    ],
+    "connections": []
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/passive-skill-tree/#57513",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "TreeData/0_5 node 57513",
+      "patch": "0.5.4b"
     }
   ],
   "relations": [

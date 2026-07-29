@@ -2,23 +2,35 @@
   "id": "passive.mind-over-matter",
   "type": "Passive",
   "name": {
-    "ko": "물질을 넘어선 정신",
-    "en": "Mind over Matter"
+    "ko": "물질보다 정신",
+    "en": "Mind Over Matter"
   },
   "tags": [
     "keystone",
     "mana"
   ],
   "data": {
-    "kind": "keystone"
+    "kind": "keystone",
+    "node_id": "45918",
+    "stats": [
+      "모든 피해를 생명력 대신 마나로 소모\n마나 회복 속도 50% 감폭"
+    ],
+    "stats_en": [
+      "All [DamageTypes|Damage] is taken from Mana before Life\n50% less Mana Recovery Rate"
+    ],
+    "connections": []
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/passive-skill-tree/#45918",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "TreeData/0_5 node 45918",
+      "patch": "0.5.4b"
     }
   ],
   "relations": [

@@ -48,6 +48,16 @@ def main(argv: list[str] | None = None) -> int:
     p_merge = sub.add_parser("merge", help="수록 판정분 → knowledge/ 기록 (④, 승인 후에만)")
     p_merge.add_argument("--patch", required=True)
 
+    p_tree = sub.add_parser("tree", help="패시브 트리: fetch(일괄 2회)|process(청크 분류)|merge")
+    p_tree.add_argument("--patch", required=True)
+    p_tree.add_argument("step", choices=["fetch", "process", "merge"])
+    p_tree.add_argument(
+        "--kind",
+        choices=["keystone", "ascendancy-start", "notable", "mastery", "jewel", "small", "all"],
+        default="all",
+        help="merge 분할 단위",
+    )
+
     args = ap.parse_args(argv)
     raw_dir = _raw_dir(args.patch)
 
@@ -95,6 +105,23 @@ def main(argv: list[str] | None = None) -> int:
         inter = project_root() / "var" / "ingest" / args.patch / "intermediate.json"
         summary = merge_patch(raw_dir, inter, knowledge_dir(), args.patch)
         print(json.dumps(summary, ensure_ascii=False, indent=1))
+    elif args.cmd == "tree":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest import tree as tree_mod
+
+        out_dir = project_root() / "var" / "ingest" / args.patch
+        if args.step == "fetch":
+            pob = project_root() / "external" / "pob" / "5d173cb"
+            print(json.dumps(tree_mod.fetch_tree(raw_dir, pob), ensure_ascii=False, indent=1))
+        elif args.step == "process":
+            print(json.dumps(tree_mod.process_tree(raw_dir, out_dir), ensure_ascii=False, indent=1))
+        else:
+            from pok.kb.ingest.tree_merge import merge_tree
+
+            kinds = tree_mod.CHUNKS if args.kind == "all" else (args.kind,)
+            for kind in kinds:
+                chunk_summary = merge_tree(out_dir, knowledge_dir(), args.patch, kind)
+                print(f"{kind}: {json.dumps(chunk_summary, ensure_ascii=False)}")
     return 0
 
 

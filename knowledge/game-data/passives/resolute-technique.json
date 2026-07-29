@@ -10,15 +10,29 @@
     "attack"
   ],
   "data": {
-    "kind": "keystone"
+    "kind": "keystone",
+    "node_id": "44017",
+    "stats": [
+      "정확도 2배\n치명타 명중 불가"
+    ],
+    "stats_en": [
+      "[Accuracy] Rating is Doubled\nNever deal [Critical|Critical Hits]"
+    ],
+    "connections": [
+      "4527"
+    ]
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/passive-skill-tree/#44017",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "TreeData/0_5 node 44017",
+      "patch": "0.5.4b"
     }
   ],
   "notes": "명중 100% / 치명타 불가"

@@ -2,7 +2,7 @@
   "id": "passive.pain-attunement",
   "type": "Passive",
   "name": {
-    "ko": "고통 조율",
+    "ko": "고통의 조율",
     "en": "Pain Attunement"
   },
   "tags": [
@@ -11,15 +11,27 @@
     "life"
   ],
   "data": {
-    "kind": "keystone"
+    "kind": "keystone",
+    "node_id": "55048",
+    "stats": [
+      "생명력이 최대일 때 치명타 피해 보너스 30% 감폭\n낮은 생명력 상태일 때 치명타 피해 보너스 30% 증폭"
+    ],
+    "stats_en": [
+      "30% less [CriticalDamageBonus|Critical Damage Bonus] when on Full Life\n30% more Critical Damage Bonus when on [LowLife|Low Life]"
+    ],
+    "connections": []
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/passive-skill-tree/#55048",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "TreeData/0_5 node 55048",
+      "patch": "0.5.4b"
     }
   ],
   "conditions": [

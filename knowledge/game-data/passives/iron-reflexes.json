@@ -2,7 +2,7 @@
   "id": "passive.iron-reflexes",
   "type": "Passive",
   "name": {
-    "ko": "강철 반사신경",
+    "ko": "철의 반사신경",
     "en": "Iron Reflexes"
   },
   "tags": [
@@ -11,15 +11,29 @@
     "armour"
   ],
   "data": {
-    "kind": "keystone"
+    "kind": "keystone",
+    "node_id": "28492",
+    "stats": [
+      "모든 회피를 방어도로 전환"
+    ],
+    "stats_en": [
+      "[StatConversion|Converts] all [Evasion|Evasion Rating] to [Armour]"
+    ],
+    "connections": [
+      "54099"
+    ]
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/passive-skill-tree/#28492",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "TreeData/0_5 node 28492",
+      "patch": "0.5.4b"
     }
   ],
   "relations": [

@@ -1,0 +1,154 @@
+"""패시브 트리 수집·정형화 (KB_INGEST §6-2 ②).
+
+젬과 다른 점:
+- 수집이 **일괄 엔드포인트 2회**(kr/us)로 끝난다 — 개별 페이지 스크래핑 불필요.
+- 규모가 커서(5천여 노드) **종류별 청크**로 분할 처리한다 (keystone→notable→jewel→small).
+- 연결(connections)은 P4 트리 최적화(Steiner)의 기반이라 **엣지를 보존**한다.
+
+KI-8 신호 (트리판):
+  A = 구현 증거: 이름에 DNT/UNUSED 표식 없음 AND (stats 있음 OR 키스톤/구조 노드)
+  P = PoB tree.json 존재
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import time
+from pathlib import Path
+from typing import Any
+
+import httpx
+
+from pok.kb.ingest.sources import USER_AGENT
+
+# poe2db 트리 일괄 데이터 (4.5 = PoE2 0.5 트리 버전)
+TREE_DATA_URL = "https://poe2db.tw/data/passive-skill-tree/4.5/data_{lang}.json"
+TREE_LANGS = ("us", "kr")
+
+# PoB 트리 (게임파일 유래 — 교차 대사 축)
+POB_TREE_REL = "src/TreeData/0_5/tree.json"
+
+# 미구현 표식 (poe2db가 명시) — 예: "[DNT-UNUSED] Templar1Notable1"
+_UNIMPLEMENTED = re.compile(r"\[(DNT|UNUSED|DNT-UNUSED)[^\]]*\]|^DNT[ _-]", re.I)
+
+# 처리 청크 (분할 단위) — 앞쪽일수록 큐레이션 가치가 높다
+# mastery: poe2db에만 존재(PoB 0개) — 0.5 신규 'The Unseen Path' 시스템으로 보임.
+# 젬의 "구현·PoB 미지원 → 보존" 선례 적용, pob_computable=false로 표시 (사람 확인 대기)
+CHUNKS = ("keystone", "ascendancy-start", "notable", "mastery", "jewel", "small")
+
+
+def node_kind(node: dict[str, Any]) -> str:
+    if node.get("isMastery"):
+        return "mastery"
+    if node.get("isAscendancyStart"):
+        return "ascendancy-start"
+    if node.get("isKeystone"):
+        return "keystone"
+    if node.get("isNotable"):
+        return "notable"
+    if node.get("isJewelSocket"):
+        return "jewel"
+    return "small"
+
+
+def fetch_tree(raw_dir: Path, pob_dir: Path, client: httpx.Client | None = None) -> dict[str, Any]:
+    """poe2db 일괄 JSON(kr/us) + PoB tree.json을 원시로 저장한다 (멱등)."""
+    out = raw_dir / "tree"
+    out.mkdir(parents=True, exist_ok=True)
+    own = client is None
+    c = client or httpx.Client(
+        headers={"User-Agent": USER_AGENT}, timeout=60, follow_redirects=True
+    )
+    saved: dict[str, Any] = {}
+    try:
+        for lang in TREE_LANGS:
+            dst = out / f"poe2db_{lang}.json"
+            if dst.exists():
+                saved[lang] = "skipped"
+                continue
+            r = c.get(TREE_DATA_URL.format(lang=lang))
+            r.raise_for_status()
+            dst.write_bytes(r.content)
+            saved[lang] = len(r.content)
+            time.sleep(1.0)  # 정중함 정책
+    finally:
+        if own:
+            c.close()
+
+    pob_src = pob_dir / POB_TREE_REL
+    pob_dst = out / "pob_tree.json"
+    if pob_src.exists() and not pob_dst.exists():
+        pob_dst.write_bytes(pob_src.read_bytes())
+        saved["pob"] = pob_dst.stat().st_size
+    return saved
+
+
+def _load(raw_dir: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    out = raw_dir / "tree"
+    us = json.loads((out / "poe2db_us.json").read_text(encoding="utf-8"))
+    kr = json.loads((out / "poe2db_kr.json").read_text(encoding="utf-8"))
+    pob = json.loads((out / "pob_tree.json").read_text(encoding="utf-8"))
+    return us, kr, pob
+
+
+def process_tree(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
+    """판정·분류하고 청크별 중간 산출물을 만든다."""
+    us, kr, pob = _load(raw_dir)
+    kr_nodes = kr["nodes"]
+    pob_by_name = {
+        str(v.get("name", "")).lower()
+        for v in pob.get("nodes", {}).values()
+        if isinstance(v, dict) and v.get("name")
+    }
+
+    chunks: dict[str, list[dict[str, Any]]] = {k: [] for k in CHUNKS}
+    excluded: list[str] = []
+    for nid, node in us["nodes"].items():
+        if not isinstance(node, dict) or not node.get("name") or nid == "root":
+            continue
+        name_en = str(node["name"])
+        kind = node_kind(node)
+        stats = [str(s) for s in (node.get("stats") or [])]
+        in_pob = name_en.lower() in pob_by_name
+        unimpl = bool(_UNIMPLEMENTED.search(name_en))
+        # 어센던시 시작·주얼 슬롯은 stats가 없는 게 정상 (효과 아닌 구조 노드)
+        has_effect = bool(stats) or kind in {"keystone", "jewel", "ascendancy-start"}
+        structural = kind in {"jewel", "ascendancy-start", "mastery"}
+        if unimpl or not (has_effect and (in_pob or structural)):
+            excluded.append(f"{nid}:{name_en}")
+            continue
+        kr_node = kr_nodes.get(nid) or {}
+        chunks[kind].append(
+            {
+                "node_id": nid,
+                "kind": kind,
+                "name_en": name_en,
+                "name_ko": str(kr_node.get("name") or name_en),
+                "stats_en": stats,
+                "stats_ko": [str(s) for s in (kr_node.get("stats") or [])],
+                "ascendancy": node.get("ascendancyName"),
+                "connections": sorted(
+                    str(c["id"]) for c in (node.get("connections") or []) if isinstance(c, dict)
+                ),
+                "in_pob": in_pob,
+            }
+        )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for kind, items in chunks.items():
+        (out_dir / f"tree_{kind}.json").write_text(
+            json.dumps(items, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+        )
+    report = {
+        "poe2db_nodes": len(us["nodes"]),
+        "pob_named_nodes": len(pob_by_name),
+        "included": {k: len(v) for k, v in chunks.items()},
+        "included_total": sum(len(v) for v in chunks.values()),
+        "excluded": len(excluded),
+        "excluded_sample": excluded[:20],
+    }
+    (raw_dir / "tree" / "report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return report

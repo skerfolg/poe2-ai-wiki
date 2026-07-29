@@ -11,15 +11,29 @@
     "weapon"
   ],
   "data": {
-    "kind": "keystone"
+    "kind": "keystone",
+    "node_id": "32349",
+    "stats": [
+      "양손 도끼, 철퇴, 검을 한손에 장착할 수 있음\n무도 무기의 능력치 요구사항이 세 배로 적용\n힘이 부여하는 기본 생명력 절반으로 감소"
+    ],
+    "stats_en": [
+      "You can wield [Two-Handed] [Axe|Axes], [Mace|Maces] and [Sword|Swords] in one hand\nTriple [Attributes|Attribute] requirements of [MartialWeapon|Martial Weapons]\nInherent Life granted by [Strength] is halved"
+    ],
+    "connections": [
+      "3446"
+    ]
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/passive-skill-tree/#32349",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "TreeData/0_5 node 32349",
+      "patch": "0.5.4b"
     }
   ],
   "conditions": [

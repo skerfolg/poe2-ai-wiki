@@ -7,7 +7,10 @@ repos:
       - id: trailing-whitespace
       - id: check-json
       - id: check-yaml
-      - id: check-added-large-files   # 대용량 실수 커밋 방지 (원시/산출물은 git 밖)
+      # 대용량 실수 커밋 방지 (원시/산출물은 git 밖). 정본 KB의 벌크 NDJSON 샤드는
+      # 의도된 대용량 텍스트라 2MB까지 허용 — 그 이상이면 샤드를 더 쪼갤 신호로 본다.
+      - id: check-added-large-files
+        args: [--maxkb=2048]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.9.6

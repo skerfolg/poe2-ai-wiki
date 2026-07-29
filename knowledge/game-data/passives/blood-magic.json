@@ -2,7 +2,7 @@
   "id": "passive.blood-magic",
   "type": "Passive",
   "name": {
-    "ko": "피의 마법",
+    "ko": "혈마법",
     "en": "Blood Magic"
   },
   "tags": [
@@ -10,15 +10,29 @@
     "life"
   ],
   "data": {
-    "kind": "keystone"
+    "kind": "keystone",
+    "node_id": "51749",
+    "stats": [
+      "마나 없음\n스킬의 마나 소모가 생명력 소모로 전환"
+    ],
+    "stats_en": [
+      "You have no Mana\nSkill Mana Costs [StatConversion|Converted] to Life Costs"
+    ],
+    "connections": [
+      "30141"
+    ]
   },
-  "verification": "UNVERIFIED",
+  "verification": "GAME_DATA",
   "sources": [
     {
-      "src": "community",
-      "ref": "seed:hand-authored",
-      "patch": "0.5.0",
-      "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/passive-skill-tree/#51749",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "TreeData/0_5 node 51749",
+      "patch": "0.5.4b"
     }
   ],
   "relations": [
