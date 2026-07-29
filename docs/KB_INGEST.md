@@ -112,6 +112,14 @@ artifacts/ingest-raw/<patch>/          # = 데이터 repo 체크아웃
 | stats 빈 어센던시 노터블 5건이 제외되며 실존 노드 13개가 트리에서 끊김 | 5건을 **구조 노드로 수록** | `tree.process_tree`의 `hub` |
 | `Nebuloch`·`Nightfall`·`Prism Guardian`의 베이스타입이 PoB와 다름 | **poe2db 기준**(사람 판정) — KB는 이미 poe2db 값 | 데이터 변경 없음 |
 | 유니크 획득 경로 커버리지 0% | **수집하지 않기로 확정** — 유니크는 고정 경로가 아니라 사냥 산물이라 KB에 담을 실익이 적다. 특정 보스 한정분은 필요해지면 재검토 | ⑧ 리포트의 유니크 0%는 결함이 아님 |
+| `Attribute` 소형 노드 293개가 "힘·민첩·지능을 각각 +5"로 읽힘 | 실제로는 **셋 중 택1**(사람 판정) → 선택지를 stats에서 빼고 **구조 필드로 승격** | `data.attribute_choice = {value, options}` |
+| 그 외 내부 stat id 32줄 (`focus decay delay ms 5000`, `carried_spectral_bell` …) | **보존**(사람 판정) — 노드 고유의 조건·한계치일 수 있어, 지우면 예상 못 한 리스크를 안은 빌드나 성립하지 않는 조건이 나온다 | 손대지 않음 |
+
+**`attribute_choice` 승격의 근거**: 삭제만 하면 오답("셋 다 부여")은 없어지지만 **선택지 자체가 사라진다**.
+이 노드는 아이템 착용·스킬 사용 요구치를 맞추거나 스탯 스태킹을 하려고 **능동적으로 골라 찍는** 노드라
+(사용자 지적), 생성기가 "무엇을 고를지" 결정하려면 기계가 읽을 수 있어야 한다 — 조건 1급 필드(RC1).
+`passive.schema.json`이 `additionalProperties: true`라 스키마 변경 없이 들어간다.
+**제거 규칙은 이 패턴에만 좁혀 적용한다** — 내부 stat id처럼 보인다고 일괄 삭제하지 않는다.
 
 **3b 분할 규칙 — 왜 "두 언어의 합의"인가**: poe2db의 `\n`은 **효과 경계**일 때도 있고
 (`Avatar of Fire`: "…Converted to Fire Damage\n Deal no Non-Fire Damage") **단순 줄바꿈**일 때도 있다

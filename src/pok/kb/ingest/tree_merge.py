@@ -52,6 +52,10 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
     }
     if item.get("ascendancy"):
         data["ascendancy"] = item["ascendancy"]
+    if item.get("attribute_choice"):
+        # 셋 중 택1 — 평평한 stats로 두면 "셋 다 부여"로 읽힌다 (tree.extract_attribute_choice).
+        # 요구치 충족·스탯 스태킹 판단에 쓰이므로 기계가 읽을 수 있는 형태로 둔다.
+        data["attribute_choice"] = item["attribute_choice"]
     if not item["in_pob"]:
         data["pob_computable"] = False
     sources: list[dict[str, Any]] = [

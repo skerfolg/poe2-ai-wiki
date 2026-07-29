@@ -92,6 +92,49 @@ def normalize_stats(en_raw: Any, ko_raw: Any) -> tuple[list[str], list[str]]:
     return en_out, ko_out
 
 
+# '+N to any Attribute' 소형 노드 — 뒤따르는 세 줄은 **선택지**이지 동시 부여가 아니다.
+_ANY_ATTRIBUTE = re.compile(r"^\+(\d+) to any Attribute$")
+_ATTRIBUTE_OPTION = re.compile(r"^base (strength|dexterity|intelligence) (\d+)$")
+
+
+def extract_attribute_choice(
+    stats_en: list[str], stats_ko: list[str]
+) -> tuple[list[str], list[str], dict[str, Any] | None]:
+    """능력치 선택 노드의 선택지를 stats에서 빼내 구조 필드로 올린다.
+
+    poe2db는 표시 문구("+5 to any Attribute") 뒤에 고를 수 있는 능력치를 내부 stat id로
+    덧붙인다. 이걸 평평한 stats에 두면 읽는 쪽이 **"힘·민첩·지능을 각각 +5씩 준다"**로
+    해석한다 — 실제로는 **셋 중 하나를 고르는** 노드다(사람 판정 2026-07-29).
+    PoB도 표시 문구 한 줄만 갖고 있다.
+
+    삭제만 하면 이번엔 선택지가 사라져 생성기가 "무엇을 고를지"를 결정할 수 없다.
+    아이템·스킬 요구치 충족과 스탯 스태킹의 핵심 노드라(사용자 지적) 기계가 쓸 수 있는
+    형태로 남겨야 한다 — 조건 1급 필드 원칙(RC1)의 적용 지점.
+
+    ⚠️ 이 규칙은 **이 패턴에만** 적용한다. 다른 내부 stat id(`focus decay delay ms 5000`
+    등 32줄)는 노드 고유의 조건·한계치를 담고 있을 수 있어 **보존**한다(사람 판정) —
+    지우면 예상 못 한 리스크를 안은 빌드나 성립하지 않는 조건이 나올 수 있다.
+    """
+    if not stats_en:
+        return stats_en, stats_ko, None
+    head = _ANY_ATTRIBUTE.match(stats_en[0])
+    if head is None:
+        return stats_en, stats_ko, None
+    value = int(head.group(1))
+    options: list[str] = []
+    drop: set[int] = set()
+    for i, line in enumerate(stats_en[1:], start=1):
+        m = _ATTRIBUTE_OPTION.match(line)
+        if m and int(m.group(2)) == value:
+            options.append(m.group(1))
+            drop.add(i)
+    if not options:
+        return stats_en, stats_ko, None
+    keep_en = [s for i, s in enumerate(stats_en) if i not in drop]
+    keep_ko = [s for i, s in enumerate(stats_ko) if i not in drop]
+    return keep_en, keep_ko, {"value": value, "options": options}
+
+
 def norm_stat(raw: str) -> str:
     """⑥ 효과 대조용 정규화 — 마크업·공백·대소문자 차이를 지운다.
 
@@ -267,6 +310,7 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
 
     chunks: dict[str, list[dict[str, Any]]] = {k: [] for k in CHUNKS}
     excluded: list[str] = []
+    attribute_choices = 0
     db_entities: list[SourceEntity] = []  # ⑥ — 보정 전 원본 이름으로 담는다
     for nid, node in us["nodes"].items():
         if not isinstance(node, dict) or not node.get("name") or nid == "root":
@@ -306,6 +350,9 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
             continue
         kr_node = kr_nodes.get(nid) or {}
         stats_en, stats_ko = normalize_stats(stats, kr_node.get("stats"))
+        stats_en, stats_ko, attribute_choice = extract_attribute_choice(stats_en, stats_ko)
+        if attribute_choice is not None:
+            attribute_choices += 1
         chunks[kind].append(
             {
                 "node_id": nid,
@@ -323,6 +370,7 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
                 ),
                 "in_pob": in_pob,
                 "structural": structural,  # ⑦ 면제 대상 (효과 없는 게 정상)
+                "attribute_choice": attribute_choice,  # 셋 중 택1 (None이면 해당 없음)
             }
         )
 
@@ -342,6 +390,7 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
         "excluded_sample": excluded[:20],
         "name_overrides": len(name_overrides),
         "name_overrides_sample": name_overrides[:20],
+        "attribute_choice_nodes": attribute_choices,
         "verification": verification,
     }
     (raw_dir / "tree" / "report.json").write_text(

@@ -240,6 +240,36 @@ def test_normalize_stats_keeps_arrays_aligned() -> None:
     assert en == ["A B"] and ko == []
 
 
+def test_attribute_choice_is_promoted_not_summed() -> None:
+    """능력치 노드는 셋 중 택1 — 평평한 stats로 두면 '셋 다 +5'로 읽힌다."""
+    from pok.kb.ingest.tree import extract_attribute_choice
+
+    en, ko, choice = extract_attribute_choice(
+        ["+5 to any Attribute", "base strength 5", "base dexterity 5", "base intelligence 5"],
+        ["아무 능력치나 +5", "힘 +5", "민첩 +5", "지능 +5"],
+    )
+    assert en == ["+5 to any Attribute"] and ko == ["아무 능력치나 +5"]
+    assert choice == {"value": 5, "options": ["strength", "dexterity", "intelligence"]}
+
+
+def test_attribute_choice_leaves_other_internal_stats_alone() -> None:
+    """다른 내부 stat id는 노드 고유의 조건·한계치라 보존한다 (사람 판정 2026-07-29).
+
+    지우면 예상 못 한 리스크를 안은 빌드나, 성립하지 않는 조건이 나올 수 있다.
+    """
+    from pok.kb.ingest.tree import extract_attribute_choice
+
+    stats = ["Grants Skill: Encase in Jade", "max jade stacks 10"]
+    en, _ko, choice = extract_attribute_choice(stats, ["젬 부여", "max jade stacks 10"])
+    assert en == stats and choice is None, "'to any Attribute' 머리글이 없으면 손대지 않는다"
+
+    # 수치가 어긋나는 줄은 선택지로 보지 않는다
+    en, _, choice = extract_attribute_choice(
+        ["+5 to any Attribute", "base strength 9"], ["아무 능력치나 +5", "힘 +9"]
+    )
+    assert en == ["+5 to any Attribute", "base strength 9"] and choice is None
+
+
 def test_ascendancy_hub_node_is_included(tmp_path: Path) -> None:
     """stats 빈 어센던시 노터블은 구조 노드 — 빼면 매달린 실존 노드가 끊긴다."""
     raw, out = tmp_path / "raw", tmp_path / "out"
