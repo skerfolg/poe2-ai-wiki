@@ -25,6 +25,8 @@ _TYPE_SCHEMA = {
     "Passive": "passive.schema.json",
     "Resource": "resource.schema.json",
     "Defence": "defence.schema.json",
+    "Item": "item.schema.json",  # P1b ③ 유니크 + ④ 베이스
+    "Modifier": "modifier.schema.json",  # P1b ④ 모드 풀 (RC4 근거)
     # 나머지 타입은 P1b에서 스키마 추가 시 등록
 }
 

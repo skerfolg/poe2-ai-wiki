@@ -1,0 +1,368 @@
+"""베이스 아이템 + 모드 풀 수집·정형화 (KB_INGEST §6-2 ④, RC4 근거).
+
+소스는 PoB 덤프 단독이다 — 제작규칙(접사 종류·ilvl·그룹 배타·스폰 가중치)이
+`ModItem.lua` 계열에 전부 들어 있다. poe2db는 후속 단계에서 ko 이름·교차 대사 축으로
+추가한다(리포트의 cross_pending 참고).
+
+획득 경로(⑧)의 원천:
+  · item      → 일반 제작 화폐 스폰 풀 (spawn_weights에 양수 가중치 존재)
+  · corrupted → 바알 오브
+  · rune      → 룬 소켓
+  · essence   → Essence.lua가 "모드 키 → 어느 에센스가 부여하는가"의 매핑이다
+                (에센스 자체가 모드가 아니라 ⑧ 데이터)
+  · item-exclusive 중 spawn_weights 없는 것 → 획득 경로 불명 — ⑧이 드러낸다
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from pok.kb.ingest.merge import slug_to_id_part
+from pok.kb.ingest.verify import (
+    SourceEntity,
+    acquisition_coverage,
+    cross_source,
+    substance_floor,
+    verification_block,
+)
+
+# PoB type → affix_type
+_AFFIX_TYPE = {"Prefix": "prefix", "Suffix": "suffix", "Corrupted": "corrupted", "Rune": "rune"}
+
+# 모드 파일 → origin (파일 계보)
+MOD_FILES = (
+    ("moditem.json", "item"),
+    ("moditemexclusive.json", "item-exclusive"),
+    ("modcorrupted.json", "corrupted"),
+    ("modflask.json", "flask"),
+    ("modcharm.json", "charm"),
+    ("modjewel.json", "jewel"),
+)
+
+
+def _texts(raw: dict[str, Any]) -> list[str]:
+    """숫자 키("1","2"…)로 들어온 효과 줄들을 순서대로."""
+    keys = sorted((k for k in raw if k.isdigit()), key=int)
+    return [str(raw[k]) for k in keys]
+
+
+def _spawn_weights(raw: dict[str, Any]) -> dict[str, int]:
+    keys = raw.get("weightKey") or []
+    vals = raw.get("weightVal") or []
+    return {str(k): int(v) for k, v in zip(keys, vals, strict=False)}
+
+
+def essence_acquisition(essence: dict[str, Any]) -> tuple[dict[str, list[str]], list[str]]:
+    """Essence.lua → (모드 키 → ["essence:<이름>"…], 깨진 참조 목록)."""
+    routes_of: dict[str, set[str]] = {}
+    for v in essence.values():
+        mods = v.get("mods")
+        name = str(v.get("name", ""))
+        if not isinstance(mods, dict):
+            continue
+        for mod_key in mods.values():  # 같은 에센스가 여러 슬롯에 같은 모드를 부여 → dedup
+            routes_of.setdefault(str(mod_key), set()).add(f"essence:{name}")
+    by_mod = {k: sorted(v) for k, v in routes_of.items()}
+    return by_mod, sorted(by_mod)
+
+
+def parse_mod(
+    key: str, raw: dict[str, Any], origin: str, essence_routes: dict[str, list[str]]
+) -> dict[str, Any]:
+    """모드 원시 1건 → 중간 레코드."""
+    weights = _spawn_weights(raw)
+    acquisition: list[str] = []
+    spawnable = any(w > 0 for w in weights.values())
+    if origin in ("item", "item-exclusive", "flask", "charm", "jewel") and spawnable:
+        acquisition.append("crafting-currency")
+    elif origin == "corrupted":
+        acquisition.append("vaal-orb")
+    acquisition += essence_routes.get(key, [])
+
+    return {
+        "pob_key": key,
+        "affix_type": _AFFIX_TYPE.get(str(raw.get("type", "")), "prefix"),
+        "affix_name": str(raw.get("affix", "")),
+        "texts": _texts(raw),
+        "group": str(raw.get("group", "")),
+        "ilvl": int(raw.get("level", 0)),
+        "mod_tags": [str(t) for t in (raw.get("modTags") or [])],
+        "spawn_weights": weights,
+        "origin": origin,
+        "acquisition": acquisition,
+    }
+
+
+def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """룬 1건 → 중간 레코드 (슬롯군별 효과 보존)."""
+    per_slot: dict[str, list[str]] = {}
+    rank = 0
+    for slot, spec in raw.items():
+        if not isinstance(spec, dict):
+            continue
+        per_slot[slot] = _texts(spec)
+        ranks = spec.get("rank") or []
+        if ranks:
+            rank = int(ranks[0])
+    return {
+        "pob_key": name,
+        "affix_type": "rune",
+        "affix_name": name,
+        "per_slot": per_slot,
+        "rank": rank,
+        "origin": "rune",
+        "acquisition": ["rune-socket"],
+    }
+
+
+def parse_base(name: str, raw: dict[str, Any]) -> dict[str, Any]:
+    """베이스 아이템 1건 → 중간 레코드."""
+    out: dict[str, Any] = {
+        "name": name,
+        "item_class": str(raw.get("type", "")),
+        "category": str(raw.get("_base_file", "")),
+        "spawn_tags": {str(k): bool(v) for k, v in (raw.get("tags") or {}).items()},
+        "req": {str(k): v for k, v in (raw.get("req") or {}).items()}
+        if isinstance(raw.get("req"), dict)
+        else {},
+    }
+    # flask 수치는 ⑦(정보량 하한)이 잡아낸 누락분 — Flask엔 weapon/armour 대신
+    # flask={chargesMax, duration, life|mana}가 실린다 (0.5.4b 실측 18종)
+    for field in ("implicit", "socketLimit", "quality", "weapon", "armour", "flask", "subType"):
+        if raw.get(field) is not None:
+            out[{"socketLimit": "socket_limit", "subType": "sub_type"}.get(field, field)] = raw[
+                field
+            ]
+    if raw.get("implicitModTypes"):
+        out["implicit_mod_types"] = raw["implicitModTypes"]
+    return out
+
+
+# ⑦: 실질 수치 없이도 성립할 수 있는 클래스 (플라스크·주얼·부적 등은 별도 체계) —
+# 자동 제외하지 않는다. 리포트에 그대로 드러내 사람 판정을 받는다.
+def _base_substance(item: dict[str, Any]) -> tuple[str, ...]:
+    parts: list[str] = []
+    if item.get("implicit"):
+        parts.append(str(item["implicit"]))
+    for k in ("weapon", "armour", "flask"):
+        if item.get(k):
+            parts.append(json.dumps(item[k], sort_keys=True))
+    return tuple(parts)
+
+
+def mod_slug(pob_key: str) -> str:
+    """모드 id 슬러그 — 트레일링 `_` 변형을 보존한다.
+
+    GGG 데이터는 같은 이름의 신구 변형을 `Key`/`Key__`로 구분하는데(내용이 실제로
+    다르다 — 0.5.4b 실측: GrantCursePillarSkillUnique 쌍은 효과 줄 수·그룹이 다름),
+    slug_to_id_part는 언더스코어를 지워 충돌한다. 접미로 결정적으로 구분한다.
+    """
+    stripped = pob_key.rstrip("_")
+    n = len(pob_key) - len(stripped)
+    return slug_to_id_part(stripped) + (f"-alt{n}" if n else "")
+
+
+def _dedup_across_pools(
+    parsed: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int]:
+    """여러 풀에 **내용까지 동일**하게 실린 모드를 1건으로 병합한다.
+
+    실측(0.5.4b): 플라스크 충전 모드 24종이 ModFlask와 ModCharm에 완전 동일하게
+    존재. 계보는 origins 배열로 보존한다(조용한 폐기 금지). 내용이 다르면 병합하지
+    않는다 — 그 경우 id 충돌은 merge의 중복 검증이 잡아 사람에게 올라온다.
+    """
+    by_key: dict[str, dict[str, Any]] = {}
+    merged = 0
+    out: list[dict[str, Any]] = []
+    for src in parsed:
+        m = dict(src)  # 입력 무변이
+        m["origins"] = [m.pop("origin")]
+        prev = by_key.get(m["pob_key"])
+        if prev is not None:
+            same = {k: v for k, v in prev.items() if k != "origins"} == {
+                k: v for k, v in m.items() if k != "origins"
+            }
+            if same:
+                prev["origins"] = sorted(set(prev["origins"]) | set(m["origins"]))
+                merged += 1
+                continue
+        by_key.setdefault(m["pob_key"], m)
+        out.append(m)
+    return out, merged
+
+
+def process_mods(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
+    """PoB 덤프 → 중간 레코드 + 완전성 ⑥⑦⑧ 리포트 (네트워크 없음, 멱등)."""
+    pob = raw_dir / "pob"
+    essence = json.loads((pob / "essence.json").read_text(encoding="utf-8"))
+    essence_routes, essence_refs = essence_acquisition(essence)
+
+    parsed: list[dict[str, Any]] = []
+    for fname, origin in MOD_FILES:
+        data = json.loads((pob / fname).read_text(encoding="utf-8"))
+        parsed += [parse_mod(k, v, origin, essence_routes) for k, v in sorted(data.items())]
+    runes = json.loads((pob / "modrunes.json").read_text(encoding="utf-8"))
+    parsed += [parse_rune(k, v) for k, v in sorted(runes.items())]
+    mods, pool_merged = _dedup_across_pools(parsed)
+
+    bases_raw = json.loads((pob / "bases.json").read_text(encoding="utf-8"))
+    bases = [parse_base(k, v) for k, v in sorted(bases_raw.items())]
+
+    # ── 완전성 기준 ⑥⑦⑧ ──────────────────────────────────────
+    mod_keys = {m["pob_key"] for m in mods}
+    # ⑥-1 에센스 참조 무결성: 에센스가 가리키는 모드 키가 실존하는가
+    essence_cross = cross_source(
+        [SourceEntity(key=k, name=k) for k in essence_refs],
+        [SourceEntity(key=k, name=k) for k in sorted(mod_keys)],
+        labels=("essence-refs", "mods"),
+    )
+    # ⑥-2 태그 어휘 정합: 모드 spawn_weights의 태그가 실존 베이스 태그인가
+    #     (베이스에 없는 태그로만 스폰되는 모드 = 죽은 모드 or PoE1 잔재, KI-8)
+    base_tags = {t for b in bases for t in b["spawn_tags"]} | {"default"}
+    mod_tag_refs = sorted({t for m in mods for t in m.get("spawn_weights", {})})
+    tag_cross = cross_source(
+        [SourceEntity(key=t, name=t) for t in mod_tag_refs],
+        [SourceEntity(key=t, name=t) for t in sorted(base_tags)],
+        labels=("mod-weight-tags", "base-tags"),
+    )
+
+    mod_entities = [
+        SourceEntity(
+            key=m["pob_key"],
+            name=m.get("affix_name") or (m.get("texts") or [""])[0],
+            substance=tuple(
+                m.get("texts") or [x for v in m.get("per_slot", {}).values() for x in v]
+            ),
+            acquisition=tuple(m.get("acquisition") or []),
+        )
+        for m in mods
+    ]
+    base_entities = [
+        SourceEntity(
+            key=b["name"],
+            name=b["name"],
+            substance=_base_substance(b),
+            # 베이스는 일반 드랍/상점 — 상세 경로는 KB 대상 아님 (유니크 판정과 동일)
+            acquisition=("drop",),
+        )
+        for b in bases
+    ]
+
+    verification = verification_block(
+        cross=[essence_cross, tag_cross],
+        substance=[
+            substance_floor(mod_entities, scope="modifier:all"),
+            substance_floor(base_entities, scope="base-item:all"),
+        ],
+        acquisition=[
+            acquisition_coverage(
+                [e for e, m in zip(mod_entities, mods, strict=True) if origin in m["origins"]],
+                entity_type=f"modifier:{origin}",
+            )
+            for origin in ("item", "item-exclusive", "corrupted", "rune", "flask", "charm", "jewel")
+        ],
+    )
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "mods.json").write_text(
+        json.dumps(mods, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    )
+    (out_dir / "base_items.json").write_text(
+        json.dumps(bases, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    )
+
+    by_origin: dict[str, int] = {}
+    for m in mods:
+        for o in m["origins"]:
+            by_origin[o] = by_origin.get(o, 0) + 1
+    report: dict[str, Any] = {
+        "mods_total": len(mods),
+        "pool_merged_duplicates": pool_merged,
+        "mods_by_origin": dict(sorted(by_origin.items())),
+        "bases_total": len(bases),
+        "bases_by_class": dict(
+            sorted(
+                {
+                    c: sum(1 for b in bases if b["item_class"] == c)
+                    for c in {b["item_class"] for b in bases}
+                }.items()
+            )
+        ),
+        "cross_pending": "poe2db (ko 이름·카탈로그 대사) — 후속 fetch에서 ⑥ 완성",
+        "verification": verification,
+    }
+    (pob / "mods-report.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    return report
+
+
+def mod_to_record(item: dict[str, Any], patch: str, pob_commit: str) -> dict[str, Any]:
+    """중간 레코드 → Modifier envelope 레코드 (merge 단계, 승인 후 사용)."""
+    data: dict[str, Any] = {
+        "affix_type": item["affix_type"],
+        "origins": item["origins"],
+        "pob_key": item["pob_key"],
+    }
+    for k in (
+        "affix_name",
+        "texts",
+        "per_slot",
+        "group",
+        "ilvl",
+        "rank",
+        "mod_tags",
+        "spawn_weights",
+        "acquisition",
+    ):
+        if item.get(k) or item.get(k) == 0:
+            data[k] = item[k]
+    name_en = item.get("affix_name") or (item.get("texts") or ["(unnamed)"])[0]
+    return {
+        "id": f"modifier.{mod_slug(item['pob_key'])}",
+        "type": "Modifier",
+        "name": {"ko": name_en, "en": name_en},  # ko는 poe2db 대사 후 갱신
+        "tags": [],
+        "data": data,
+        "verification": "POB_CODE",  # PoB 단독 소스 — poe2db 대사 후 GAME_DATA 승격
+        "sources": [
+            {
+                "src": "pob",
+                "ref": "Data/" + "+".join(item["origins"]),
+                "patch": patch,
+                "pob": pob_commit,
+            }
+        ],
+    }
+
+
+def base_to_record(item: dict[str, Any], patch: str, pob_commit: str) -> dict[str, Any]:
+    """중간 레코드 → Item(베이스) envelope 레코드 (merge 단계, 승인 후 사용)."""
+    data: dict[str, Any] = {"rarity": "normal"}
+    for k in (
+        "item_class",
+        "category",
+        "implicit",
+        "implicit_mod_types",
+        "spawn_tags",
+        "weapon",
+        "armour",
+        "flask",
+        "sub_type",
+        "socket_limit",
+        "quality",
+        "req",
+    ):
+        if item.get(k):
+            data[k] = item[k]
+    return {
+        "id": f"item.{slug_to_id_part(item['name'])}",
+        "type": "Item",
+        "name": {"ko": item["name"], "en": item["name"]},  # ko는 poe2db 대사 후 갱신
+        "tags": [],
+        "data": data,
+        "verification": "POB_CODE",
+        "sources": [{"src": "pob", "ref": "Data/Bases", "patch": patch, "pob": pob_commit}],
+    }
