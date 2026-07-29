@@ -12,7 +12,9 @@ license = { text = "Proprietary" }
 authors = [{ name = "skerfolg", email = "sk.erfolg@gmail.com" }]
 # 런타임 의존성은 로드맵 단계별로 추가한다.
 dependencies = [
-    "jsonschema>=4.23",  # P1a: KB 레코드 스키마 검증 (KB_DATA_MODEL §9)
+    "jsonschema>=4.23",       # P1a: KB 레코드 스키마 검증 (KB_DATA_MODEL §9)
+    "httpx>=0.27",            # P1b: ingest fetch (KB_INGEST §1)
+    "beautifulsoup4>=4.12",   # P1b: poe2db HTML 파싱
 ]
 
 [project.optional-dependencies]
@@ -23,6 +25,7 @@ dev = [
     "import-linter>=2",
     "pre-commit>=3.8",
     "types-jsonschema>=4.23",
+    "types-beautifulsoup4>=4.12",
 ]
 
 [tool.hatch.build.targets.wheel]

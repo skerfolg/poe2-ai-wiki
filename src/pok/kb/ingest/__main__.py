@@ -1,0 +1,74 @@
+"""ingest CLI — kb-ingest 스킬이 호출하는 진입점 (KI-7: 수집=코드).
+
+사용:
+  python -m pok.kb.ingest plan   --patch 0.5.4b
+  python -m pok.kb.ingest fetch  --patch 0.5.4b [--limit N] [--rate 1.0] [--lang us kr]
+  python -m pok.kb.ingest status --patch 0.5.4b
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from pok.common.paths import project_root
+from pok.kb.ingest.fetch import run_fetch, status_report
+from pok.kb.ingest.plan import build_plan
+
+
+def _raw_dir(patch: str) -> Path:
+    return project_root() / "artifacts" / "ingest-raw" / patch
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="pok.kb.ingest")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p_plan = sub.add_parser("plan", help="목록 페이지 수집 → fetch-plan.json (이미 있으면 불변)")
+    p_plan.add_argument("--patch", required=True)
+    p_plan.add_argument("--category", nargs="*", default=None)
+
+    p_fetch = sub.add_parser("fetch", help="계획 항목 수집 (멱등·체크포인트·레이트리밋)")
+    p_fetch.add_argument("--patch", required=True)
+    p_fetch.add_argument("--limit", type=int, default=None)
+    p_fetch.add_argument("--rate", type=float, default=1.0)
+    p_fetch.add_argument("--lang", nargs="*", default=None)
+
+    p_status = sub.add_parser("status", help="계획 대비 진행 요약")
+    p_status.add_argument("--patch", required=True)
+
+    args = ap.parse_args(argv)
+    raw_dir = _raw_dir(args.patch)
+
+    if args.cmd == "plan":
+        plan = build_plan(args.patch, raw_dir, args.category)
+        for key, cat in plan["categories"].items():
+            listed, planned = cat["listed_count"], cat["planned_count"]
+            flag = "" if listed == planned else f"  ⚠ 표시 {listed} ≠ 계획 {planned}"
+            print(f"{key}: planned={planned} listed={listed}{flag}")
+    elif args.cmd == "fetch":
+        plan_path = raw_dir / "fetch-plan.json"
+        if not plan_path.exists():
+            print("fetch-plan.json 없음 — 먼저 plan을 실행하세요", file=sys.stderr)
+            return 1
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        s = run_fetch(plan, raw_dir, rate_seconds=args.rate, limit=args.limit, langs=args.lang)
+        print(f"fetched={s.fetched} skipped={s.skipped} failed={s.failed} remaining={s.remaining}")
+    elif args.cmd == "status":
+        plan_path = raw_dir / "fetch-plan.json"
+        if not plan_path.exists():
+            print("fetch-plan.json 없음", file=sys.stderr)
+            return 1
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
+        c = status_report(plan, raw_dir)
+        line = f"planned={c['planned']} fetched={c['fetched']}"
+        print(line + f" failed={c['failed']} pending={c['pending']}")
+        done = c["planned"] > 0 and c["pending"] == 0 and c["failed"] == 0
+        print("완전성 기준 ① (계획 대비 완수):", "통과" if done else "미달")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
