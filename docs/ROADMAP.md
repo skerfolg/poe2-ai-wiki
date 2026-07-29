@@ -3,10 +3,11 @@
 > **문서 상태**: v0.1 (2026-07-29) — 확정. BLUEPRINT §15-2 "재구축 로드맵/MVP"의 상세.
 > **설계 근거**: "KB 먼저"(BLUEPRINT §7·§17) + "코드 먼저, 수집은 그 다음"(KB_INGEST KI-7) + 반프록시(AD-8) — 각 단계의 완료는 느낌이 아니라 **측정 가능한 Exit 기준**으로 판정한다.
 > **변경 규칙**: 단계 순서·Exit 기준의 구조적 변경은 사용자 상호협의 후에만.
-> **진행 상태**: ✅ P0 완료 → ✅ **P1a 완료** (2026-07-29, 시드 35·vocab v1·스키마·store 4층 검증·index self-healing, pytest 13 ✓, CI Win+mac green) → **현재: P1b** — ① 젬 + ② 패시브 트리 완료 → **KB 5,462 레코드**. 다음: KB_INGEST §6-2 ③ 유니크 아이템.
+> **진행 상태**: ✅ P0 완료 → ✅ **P1a 완료** (2026-07-29, 시드 35·vocab v1·스키마·store 4층 검증·index self-healing, pytest 13 ✓, CI Win+mac green) → **현재: P1b** — ①젬 + ②트리 + ③유니크 완료 → **KB 5,955 레코드**. 다음: KB_INGEST §6-2 ④ 베이스 아이템 + 모드 풀(제작규칙 RC4 설계 동반).
 > - ① 젬 900 수록 (fetch 1,992 → KI-8 판정 → merge, GAME_DATA 796)
 > - ② 트리 4,548 수록 (일괄 엔드포인트 2회 수집, 청크 분할 merge, 엣지 6,070 보존). 마스터리 368 제외 확정(구역 라벨/그래픽, 사람 판정)
-> - 사람 확인 대기: 젬 보류 58, 미매칭 시드 9(support.pierce·passive.acrobatics — 실데이터는 티어드/개명 추정)
+> - ③ 유니크 493 수록 (무기88·방어구219·기타138·재배48, PoB 대사 469, 변형은 현재 패치본만) + 성유 부여방법 884 노드 보강
+> - 사람 확인 대기: 젬 보류 58, 미매칭 시드 9(support.pierce·passive.acrobatics — 실데이터는 티어드/개명 추정), PoB 전용 유니크 11
 >
 > **신규 PC 셋업**: `gh auth login` → clone → `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"` → `.venv/bin/pre-commit install` → 데이터 repo clone(`gh repo clone skerfolg/poe2-ai-wiki-data artifacts/ingest-raw`)
 
