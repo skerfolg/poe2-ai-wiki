@@ -17,21 +17,27 @@ from bs4 import BeautifulSoup, Tag
 from pok.kb.ingest.sources import CATEGORIES, POE2DB_BASE, USER_AGENT, Category
 
 
-def extract_items(listing_html: str) -> list[str]:
+def extract_items(listing_html: str, extractor: str = "tables") -> list[str]:
     """목록 HTML → 상세 페이지 이름 목록.
 
-    시그널: 테이블 내부 + data-hover 속성을 가진 /us/ 앵커 (정찰로 확정한 패턴).
+    시그널: (tables=테이블 | cards=카드) 내부 + data-hover 속성의 /us/ 앵커.
     """
     soup = BeautifulSoup(listing_html, "html.parser")
+    containers = soup.find_all("table") if extractor == "tables" else soup.select("div.card")
     names: set[str] = set()
-    for table in soup.find_all("table"):
-        if not isinstance(table, Tag):
+    for box in containers:
+        if not isinstance(box, Tag):
             continue
-        for a in table.find_all("a", href=True):
+        for a in box.find_all("a", href=True):
             if not isinstance(a, Tag):
                 continue
             href = str(a["href"])
-            if href.startswith("/us/") and "#" not in href and a.get("data-hover"):
+            if (
+                href.startswith("/us/")
+                and "#" not in href
+                and "?" not in href
+                and a.get("data-hover")
+            ):
                 names.add(href.removeprefix("/us/"))
     return sorted(names)
 
@@ -69,7 +75,7 @@ def build_plan(
             evidence.parent.mkdir(parents=True, exist_ok=True)
             evidence.write_bytes(r.content)
 
-            items = extract_items(r.text)
+            items = extract_items(r.text, cat.extractor)
             categories[cat.key] = {
                 "listing_url": POE2DB_BASE + cat.listing_path,
                 "listed_count": extract_listed_count(r.text, cat.count_prefix),
@@ -87,5 +93,46 @@ def build_plan(
         "categories": categories,
     }
     raw_dir.mkdir(parents=True, exist_ok=True)
+    plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return plan
+
+
+def extend_plan(
+    raw_dir: Path,
+    category_keys: list[str],
+    client: httpx.Client | None = None,
+) -> dict[str, Any]:
+    """확정된 plan에 **새 카테고리를 append**한다 (기존 카테고리는 불변).
+
+    계획 확장은 append-only — 완전성 기준 ①의 분모가 커지는 방향만 허용된다.
+    """
+    plan_path = raw_dir / "fetch-plan.json"
+    plan: dict[str, Any] = json.loads(plan_path.read_text(encoding="utf-8"))
+    new_keys = [k for k in category_keys if k not in plan["categories"]]
+    if not new_keys:
+        return plan
+
+    own_client = client is None
+    c = client or httpx.Client(
+        headers={"User-Agent": USER_AGENT}, timeout=30, follow_redirects=True
+    )
+    try:
+        for key in new_keys:
+            cat = CATEGORIES[key]
+            r = c.get(POE2DB_BASE + cat.listing_path)
+            r.raise_for_status()
+            evidence = raw_dir / "poe2db" / "us" / f"_listing_{cat.key}.html"
+            evidence.parent.mkdir(parents=True, exist_ok=True)
+            evidence.write_bytes(r.content)
+            items = extract_items(r.text, cat.extractor)
+            plan["categories"][key] = {
+                "listing_url": POE2DB_BASE + cat.listing_path,
+                "listed_count": extract_listed_count(r.text, cat.count_prefix),
+                "planned_count": len(items),
+                "items": items,
+            }
+    finally:
+        if own_client:
+            c.close()
     plan_path.write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return plan

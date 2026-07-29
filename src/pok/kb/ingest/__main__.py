@@ -29,6 +29,9 @@ def main(argv: list[str] | None = None) -> int:
     p_plan = sub.add_parser("plan", help="목록 페이지 수집 → fetch-plan.json (이미 있으면 불변)")
     p_plan.add_argument("--patch", required=True)
     p_plan.add_argument("--category", nargs="*", default=None)
+    p_plan.add_argument(
+        "--extend", nargs="*", default=None, help="확정 plan에 새 카테고리 append (append-only)"
+    )
 
     p_fetch = sub.add_parser("fetch", help="계획 항목 수집 (멱등·체크포인트·레이트리밋)")
     p_fetch.add_argument("--patch", required=True)
@@ -46,7 +49,12 @@ def main(argv: list[str] | None = None) -> int:
     raw_dir = _raw_dir(args.patch)
 
     if args.cmd == "plan":
-        plan = build_plan(args.patch, raw_dir, args.category)
+        if args.extend:
+            from pok.kb.ingest.plan import extend_plan
+
+            plan = extend_plan(raw_dir, args.extend)
+        else:
+            plan = build_plan(args.patch, raw_dir, args.category)
         for key, cat in plan["categories"].items():
             listed, planned = cat["listed_count"], cat["planned_count"]
             flag = "" if listed == planned else f"  ⚠ 표시 {listed} ≠ 계획 {planned}"

@@ -24,11 +24,16 @@ class Category:
     key: str
     listing_path: str  # 예: /us/Skill_Gems
     count_prefix: str  # 헤더의 개수 표기 접두 (예: "Skill Gems /427")
+    extractor: str = "tables"  # tables | cards (목록 페이지 구조)
 
 
-# P1b 1차 범위: 젬 3종 (uniques·modifiers·passives는 파서와 함께 확장)
+# P1b 1차 범위: 젬 4종 (uniques·modifiers·passives는 파서와 함께 확장)
+# lineage-supports: 위키형 페이지(카드 구조), 보스/장소 페이지 혼입 → parse가 젬만 판별
 CATEGORIES: dict[str, Category] = {
     "skill-gems": Category("skill-gems", "/us/Skill_Gems", "Skill Gems"),
     "support-gems": Category("support-gems", "/us/Support_Gems", "Support Gems"),
     "spirit-gems": Category("spirit-gems", "/us/Spirit_Gems", "Spirit Gems"),
+    "lineage-supports": Category(
+        "lineage-supports", "/us/Lineage_Supports", "lineage GemTags", extractor="cards"
+    ),
 }

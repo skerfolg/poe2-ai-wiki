@@ -13,11 +13,18 @@ from typing import Any
 
 from pok.kb.ingest.parse import DetailPage, parse_detail, parse_name_only, pob_gems_by_name
 
-# KI-8 판정값
+# KI-8 판정값 (v2 — 2026-07-29 사람 판정 반영)
 IMPLEMENTED = "implemented"  # A ∧ P → KB 수록
-GHOST = "ghost"  # ¬A ∧ ¬P → 자동 제외 (리포트 명시)
-NO_POB = "implemented-no-pob"  # A ∧ ¬P → 개별 판단 (PoB 계산 불가 플래그 후보)
-POB_ONLY = "pob-only-or-parse-gap"  # ¬A ∧ P → 개별 판단 (PoB 잔재 or 파싱 실패)
+GHOST = "ghost"  # ¬A ∧ ¬P, 규칙 미해당 → 사람 판단 대기 (다음 패치 신규 유령이 여기 옴)
+NO_POB = "implemented-no-pob"  # A ∧ ¬P → 수록 + PoB 계산 불가 플래그 (사람 판정: 보존)
+POB_ONLY = "pob-only-or-parse-gap"  # ¬A ∧ P, 규칙 미해당 → 보류
+LINEAGE = "include-lineage"  # 혈통 서포트 — 실존 아이템 (사람 판정)
+BASIC = "include-basic-attack"  # 무기 기본 공격 — 기본 제공 (사람 판정)
+SUPERSEDED = "excluded-superseded"  # 다른 젬으로 통합됨 (원장 근거)
+NOT_A_GEM = "not-a-gem-page"  # 젬 페이지 아님 (보스/장소 등 — lineage 목록 혼입분)
+
+# KB 수록 대상 판정
+INCLUDE_VERDICTS = frozenset({IMPLEMENTED, NO_POB, LINEAGE, BASIC})
 
 
 @dataclass
@@ -36,9 +43,26 @@ class ProcessedItem:
     verdict: str = GHOST
 
 
-def _classify(has_acquisition: bool, in_pob: bool) -> str:
+def _classify(
+    has_acquisition: bool,
+    in_pob: bool,
+    *,
+    is_gem: bool = True,
+    is_lineage: bool = False,
+    is_basic: bool = False,
+    superseded: bool = False,
+) -> str:
+    """KI-8 매트릭스 + 사람 판정 규칙(혈통·기본공격·통합). 규칙이 매트릭스에 우선."""
+    if not is_gem:
+        return NOT_A_GEM
+    if superseded:
+        return SUPERSEDED
+    if is_basic:
+        return BASIC
     if has_acquisition and in_pob:
         return IMPLEMENTED
+    if is_lineage:
+        return LINEAGE
     if has_acquisition:
         return NO_POB
     if in_pob:
@@ -46,12 +70,32 @@ def _classify(has_acquisition: bool, in_pob: bool) -> str:
     return GHOST
 
 
-def process_patch(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
+def _load_rulings(knowledge: Path) -> tuple[dict[str, str], set[str], set[str]]:
+    """정본 원장 로드 → (superseded slug→대상, poe1 잔재 PoB 이름, 기본공격 slug)."""
+    superseded: dict[str, str] = {}
+    remnants: set[str] = set()
+    basics: set[str] = set()
+    exc_path = knowledge / "ingest" / "exclusions.json"
+    if exc_path.exists():
+        exc = json.loads(exc_path.read_text(encoding="utf-8"))
+        superseded = {e["slug"]: e["merged_into"] for e in exc.get("superseded", [])}
+        remnants = {e["pob_name"].lower() for e in exc.get("poe1_remnant_pob", [])}
+    basic_path = knowledge / "ingest" / "basic-attacks.json"
+    if basic_path.exists():
+        basics = set(json.loads(basic_path.read_text(encoding="utf-8"))["slugs"])
+    return superseded, remnants, basics
+
+
+def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -> dict[str, Any]:
     """plan의 전 항목을 파싱·매칭·판정하고 리포트 데이터를 반환한다."""
+    from pok.common.paths import knowledge_dir
+
     plan = json.loads((raw_dir / "fetch-plan.json").read_text(encoding="utf-8"))
     pob_by_name = pob_gems_by_name(
         json.loads((raw_dir / "pob" / "gems.json").read_text(encoding="utf-8"))
     )
+    superseded_map, remnant_names, basic_slugs = _load_rulings(knowledge or knowledge_dir())
+    lineage_slugs = set(plan["categories"].get("lineage-supports", {}).get("items", []))
 
     # 같은 페이지가 여러 카테고리 목록에 실릴 수 있음(예: spirit ⊂ support) → slug 단위 dedup
     slug_categories: dict[str, list[str]] = {}
@@ -74,6 +118,9 @@ def process_patch(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
             continue
         name_ko = parse_name_only(kr_path.read_text(encoding="utf-8")) if kr_path.exists() else None
         pob = pob_by_name.get(page.name.lower())
+        # 젬 판별: Level Effect 표 또는 Tier — 몬스터/맵 페이지도 .Stats(tags)는 가지므로
+        # tags만으로는 불충분 (lineage 목록 혼입 보스 페이지로 실증, 2026-07-29)
+        is_gem = page.has_level_effect or page.tier is not None
         item = ProcessedItem(
             slug=slug,
             categories=cat_keys,
@@ -86,16 +133,24 @@ def process_patch(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
             has_level_effect=page.has_level_effect,
             in_pob=pob is not None,
             pob_meta_id=str(pob["_meta_id"]) if pob else None,
-            verdict=_classify(bool(page.acquisition), pob is not None),
+            verdict=_classify(
+                bool(page.acquisition),
+                pob is not None,
+                is_gem=is_gem,
+                is_lineage=slug in lineage_slugs,
+                is_basic=slug in basic_slugs,
+                superseded=slug in superseded_map,
+            ),
         )
         items.append(item)
 
     # PoB에만 있는 젬 (poe2db 계획에 아예 없음) — 역방향 누락 감지 (기준 ②)
+    # 원장의 PoE1 잔재 판정(승인됨)은 제외하고, 새로 나타난 것만 리포트
     plan_names = {i.name_en.lower() for i in items}
     pob_unmatched = sorted(
         str(g.get("name"))
         for name, g in pob_by_name.items()
-        if name not in plan_names and g.get("gemType") != "Meta"
+        if name not in plan_names and name not in remnant_names and g.get("gemType") != "Meta"
     )
 
     by_verdict: dict[str, list[ProcessedItem]] = {}
@@ -114,10 +169,12 @@ def process_patch(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
             k: {"listed": c["listed_count"], "planned": c["planned_count"]}
             for k, c in plan["categories"].items()
         },
+        "include_total": sum(1 for i in items if i.verdict in INCLUDE_VERDICTS),
         "ghosts": sorted(i.slug for i in by_verdict.get(GHOST, [])),
-        "needs_review_no_pob": sorted(i.slug for i in by_verdict.get(NO_POB, [])),
-        "needs_review_pob_only": sorted(i.slug for i in by_verdict.get(POB_ONLY, [])),
-        "pob_unmatched": pob_unmatched,
+        "hold_pob_only": sorted(i.slug for i in by_verdict.get(POB_ONLY, [])),
+        "excluded_superseded": sorted(i.slug for i in by_verdict.get(SUPERSEDED, [])),
+        "not_a_gem": sorted(i.slug for i in by_verdict.get(NOT_A_GEM, [])),
+        "pob_unmatched_new": pob_unmatched,
         "parse_failures": parse_failures,
     }
 

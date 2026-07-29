@@ -45,11 +45,19 @@ def test_parse_name_only_kr() -> None:
 
 
 def test_classify_matrix() -> None:
-    """KI-8 판정 매트릭스 4분면."""
+    """KI-8 판정 매트릭스 4분면 + 사람 판정 규칙 우선순위."""
     assert _classify(True, True) == IMPLEMENTED
     assert _classify(False, False) == GHOST
     assert _classify(True, False) == NO_POB
     assert _classify(False, True) == POB_ONLY
+    # 사람 판정 규칙 (2026-07-29 승인)
+    from pok.kb.ingest.process import BASIC, LINEAGE, NOT_A_GEM, SUPERSEDED
+
+    assert _classify(False, False, is_gem=False) == NOT_A_GEM, "보스/맵 페이지"
+    assert _classify(False, False, superseded=True) == SUPERSEDED, "통합된 젬"
+    assert _classify(False, False, is_basic=True) == BASIC, "무기 기본공격"
+    assert _classify(False, True, is_lineage=True) == LINEAGE, "혈통 서포트"
+    assert _classify(True, True, is_lineage=True) == IMPLEMENTED, "A∧P는 lineage보다 우선"
 
 
 def test_process_end_to_end(tmp_path: Path) -> None:
@@ -100,7 +108,7 @@ def test_process_end_to_end(tmp_path: Path) -> None:
     assert report["totals"]["processed"] == 2, "카테고리 중복 dedup"
     assert report["totals"][IMPLEMENTED] == 1
     assert report["ghosts"] == ["Bane"], "획득 없음 ∧ PoB 없음 → 유령"
-    assert report["pob_unmatched"] == ["Ancient Relic"], "PoB 잔재 역방향 감지 (기준 ②)"
+    assert report["pob_unmatched_new"] == ["Ancient Relic"], "PoB 잔재 역방향 감지 (기준 ②)"
 
     items = json.loads((tmp_path / "out/intermediate.json").read_text(encoding="utf-8"))
     spark = next(i for i in items if i["slug"] == "Spark")
