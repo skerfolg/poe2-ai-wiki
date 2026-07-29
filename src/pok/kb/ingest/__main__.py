@@ -39,6 +39,9 @@ def main(argv: list[str] | None = None) -> int:
     p_status = sub.add_parser("status", help="계획 대비 진행 요약")
     p_status.add_argument("--patch", required=True)
 
+    p_proc = sub.add_parser("process", help="parse→match→KI-8 판정→리포트 (오프라인)")
+    p_proc.add_argument("--patch", required=True)
+
     args = ap.parse_args(argv)
     raw_dir = _raw_dir(args.patch)
 
@@ -67,6 +70,13 @@ def main(argv: list[str] | None = None) -> int:
         print(line + f" failed={c['failed']} pending={c['pending']}")
         done = c["planned"] > 0 and c["pending"] == 0 and c["failed"] == 0
         print("완전성 기준 ① (계획 대비 완수):", "통과" if done else "미달")
+    elif args.cmd == "process":
+        from pok.kb.ingest.process import process_patch
+
+        out_dir = project_root() / "var" / "ingest" / args.patch
+        report = process_patch(raw_dir, out_dir)
+        print(json.dumps(report["totals"], ensure_ascii=False, indent=1))
+        print(f"리포트: {raw_dir / 'report.json'}")
     return 0
 
 
