@@ -153,3 +153,60 @@ def test_edges_are_undirected_when_expanded(tmp_path: Path) -> None:
             adj.setdefault(it["node_id"], set()).add(target)
             adj.setdefault(target, set()).add(it["node_id"])
     assert adj["1"] == {"2"}, "Chaos Inoculation은 저장상 빈 connections지만 이웃이 있다"
+
+
+def test_clean_name_strips_markup() -> None:
+    """poe2db가 남긴 위키 마크업을 제거한다 (0.5.4b: 15건)."""
+    from pok.kb.ingest.tree import clean_name
+
+    assert clean_name("[Jewel] Socket") == "Jewel Socket"
+    assert clean_name("[SinisterJewelSockets|Sinister] [Jewel] Socket") == "Sinister Jewel Socket"
+    assert clean_name("  Inherited Strength  ") == "Inherited Strength"
+    assert clean_name("Pyromancer") == "Pyromancer"
+
+
+def test_pob_name_wins_on_mismatch(tmp_path: Path) -> None:
+    """같은 노드 id인데 이름이 다르면 PoB(게임파일 유래)를 따른다.
+
+    실측 근거(0.5.4b): poe2db 트리 JSON이 구 어센던시명을 유지 —
+    Arsonist→Pyromancer, Necromancer→Lich 등 5건. poe2db 웹페이지는 PoB와 일치.
+    """
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    (raw / "tree").mkdir(parents=True)
+    (raw / "tree/poe2db_us.json").write_text(
+        json.dumps(
+            {
+                "nodes": {
+                    "14265": {
+                        "name": "Arsonist",
+                        "isNotable": True,
+                        "stats": ["20% increased Fire Damage"],
+                        "connections": [],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (raw / "tree/poe2db_kr.json").write_text(
+        json.dumps({"nodes": {"14265": {"name": "화염 피해", "stats": []}}}), encoding="utf-8"
+    )
+    (raw / "tree/pob_tree.json").write_text(
+        json.dumps({"nodes": {"14265": {"name": "Pyromancer"}}}), encoding="utf-8"
+    )
+
+    # 한국어 보정표 (정본)
+    knowledge = tmp_path / "knowledge"
+    (knowledge / "ingest").mkdir(parents=True)
+    (knowledge / "ingest/name-overrides.json").write_text(
+        json.dumps(
+            {"nodes": {"14265": {"en": "Pyromancer", "ko": "화염술사"}}}, ensure_ascii=False
+        ),
+        encoding="utf-8",
+    )
+
+    report = process_tree(raw, out, knowledge)
+    assert report["name_overrides"] == 1
+    items = json.loads((out / "tree_notable.json").read_text(encoding="utf-8"))
+    assert items[0]["name_en"] == "Pyromancer", "PoB 이름 채택"
+    assert items[0]["name_ko"] == "화염술사", "한국어는 보정표 (JSON의 '화염 피해'는 효과 문구)"
