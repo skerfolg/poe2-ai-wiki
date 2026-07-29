@@ -236,5 +236,14 @@
    "reason": "트리 구역 라벨/배경 그래픽 — PoB isOnlyImage(type=OnlyImage, 할당·계산 불가), masteryEffects 양 소스 0건, Paths_Not_Taken 선택 목록에 Mastery 0건",
    "note": "실제 '보이지 않는 길' 조건부 효과 노드는 별개(isMastery=False)로 이미 수록됨(176건)"
   }
+ ],
+ "oil_page_not_in_tree": [
+  {
+   "name": "Pyromancer",
+   "patch": "0.5.4b",
+   "source": "poe2db Liquid_Emotions > Liquid Emotions Passives",
+   "reason": "성유 부여 목록에 있으나 패시브 트리 데이터(poe2db·PoB 양쪽)에 노드가 없음",
+   "note": "PoE1 마녀 어센던시명과 동일 — 잔재 가능성. 다음 패치 재검증 대상"
+  }
  ]
 }

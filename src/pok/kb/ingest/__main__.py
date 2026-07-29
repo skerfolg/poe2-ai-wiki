@@ -48,6 +48,10 @@ def main(argv: list[str] | None = None) -> int:
     p_merge = sub.add_parser("merge", help="수록 판정분 → knowledge/ 기록 (④, 승인 후에만)")
     p_merge.add_argument("--patch", required=True)
 
+    p_oil = sub.add_parser("oils", help="성유(액체 감정) 부여 정보: fetch|apply")
+    p_oil.add_argument("--patch", required=True)
+    p_oil.add_argument("step", choices=["fetch", "apply"])
+
     p_tree = sub.add_parser("tree", help="패시브 트리: fetch(일괄 2회)|process(청크 분류)|merge")
     p_tree.add_argument("--patch", required=True)
     p_tree.add_argument("step", choices=["fetch", "process", "merge"])
@@ -105,6 +109,16 @@ def main(argv: list[str] | None = None) -> int:
         inter = project_root() / "var" / "ingest" / args.patch / "intermediate.json"
         summary = merge_patch(raw_dir, inter, knowledge_dir(), args.patch)
         print(json.dumps(summary, ensure_ascii=False, indent=1))
+    elif args.cmd == "oils":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest import liquid_emotions as oils
+
+        if args.step == "fetch":
+            print(json.dumps(oils.fetch_pages(raw_dir), ensure_ascii=False, indent=1))
+        else:
+            print(
+                json.dumps(oils.apply_to_kb(raw_dir, knowledge_dir()), ensure_ascii=False, indent=1)
+            )
     elif args.cmd == "tree":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest import tree as tree_mod

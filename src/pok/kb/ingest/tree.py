@@ -103,7 +103,7 @@ def process_tree(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
     us, kr, pob = _load(raw_dir)
     kr_nodes = kr["nodes"]
     pob_by_name = {
-        str(v.get("name", "")).lower()
+        str(v.get("name", "")).strip().lower()  # 양쪽 다 strip해야 대조가 맞는다
         for v in pob.get("nodes", {}).values()
         if isinstance(v, dict) and v.get("name")
     }
@@ -113,7 +113,7 @@ def process_tree(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
     for nid, node in us["nodes"].items():
         if not isinstance(node, dict) or not node.get("name") or nid == "root":
             continue
-        name_en = str(node["name"])
+        name_en = str(node["name"]).strip()  # 원본에 후행 공백이 섞여 있음 (8건 실측)
         kind = node_kind(node)
         stats = [str(s) for s in (node.get("stats") or [])]
         in_pob = name_en.lower() in pob_by_name
@@ -130,7 +130,7 @@ def process_tree(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
                 "node_id": nid,
                 "kind": kind,
                 "name_en": name_en,
-                "name_ko": str(kr_node.get("name") or name_en),
+                "name_ko": str(kr_node.get("name") or name_en).strip(),
                 "stats_en": stats,
                 "stats_ko": [str(s) for s in (kr_node.get("stats") or [])],
                 "ascendancy": node.get("ascendancyName"),
