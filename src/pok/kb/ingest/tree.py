@@ -21,6 +21,13 @@ from typing import Any
 import httpx
 
 from pok.kb.ingest.sources import USER_AGENT
+from pok.kb.ingest.verify import (
+    SourceEntity,
+    acquisition_coverage,
+    cross_source,
+    substance_floor,
+    verification_block,
+)
 
 # poe2db 트리 일괄 데이터 (4.5 = PoE2 0.5 트리 버전)
 TREE_DATA_URL = "https://poe2db.tw/data/passive-skill-tree/4.5/data_{lang}.json"
@@ -36,9 +43,21 @@ _UNIMPLEMENTED = re.compile(r"\[(DNT|UNUSED|DNT-UNUSED)[^\]]*\]|^DNT[ _-]", re.I
 _MARKUP = re.compile(r"\[([^\]|]+)\|([^\]]+)\]|\[([^\]]+)\]")
 
 
+_WS = re.compile(r"\s+")
+
+
 def clean_name(raw: str) -> str:
     """위키 마크업 제거 + 공백 정리 (poe2db 원본에 잔재가 섞여 있음)."""
     return _MARKUP.sub(lambda m: m.group(2) or m.group(3) or "", raw).strip()
+
+
+def norm_stat(raw: str) -> str:
+    """⑥ 효과 대조용 정규화 — 마크업·공백·대소문자 차이를 지운다.
+
+    poe2db는 `[Projectile|Projectile] [Stun|Stun Buildup]`처럼 위키 링크를 남기고
+    PoB는 평문이다. 정규화 없이 대조하면 4,255/4,914가 "불일치"로 나와 무용하다.
+    """
+    return _WS.sub(" ", clean_name(raw)).strip().lower()
 
 
 # 처리 청크 (분할 단위) — 앞쪽일수록 큐레이션 가치가 높다
@@ -121,6 +140,76 @@ def _name_overrides(knowledge: Path | None) -> dict[str, dict[str, str]]:
     return nodes
 
 
+def _oil_grantable(raw_dir: Path) -> set[str]:
+    """성유(액체 감정)로 부여 가능한 노드 이름 — 원시가 있을 때만 (⑧ 획득 경로).
+
+    트리 데이터엔 "어떻게 얻는가"가 없다. poe2db Liquid_Emotions 페이지가 유일한 출처라
+    아직 수집 전이면 빈 집합 — 그 경우 커버리지가 낮게 나오는 것 자체가 수집 누락 신호다.
+    """
+    src = raw_dir / "liquid-emotions" / "us.html"
+    if not src.exists():
+        return set()
+    from pok.kb.ingest.liquid_emotions import parse_page
+
+    return set(parse_page(src.read_text(encoding="utf-8")))
+
+
+def _verify(
+    raw_dir: Path,
+    db_entities: list[SourceEntity],
+    pob_nodes: dict[str, Any],
+    chunks: dict[str, list[dict[str, Any]]],
+) -> dict[str, Any]:
+    """완전성 기준 ⑥⑦⑧ (KB_INGEST §4) — 판정하지 않고 리포트만 한다."""
+    pob_entities = [
+        SourceEntity(
+            key=nid,
+            name=clean_name(str(v["name"])),
+            sets={"stats": frozenset(norm_stat(str(s)) for s in (v.get("stats") or []))},
+        )
+        for nid, v in pob_nodes.items()
+        if isinstance(v, dict) and v.get("name")
+    ]
+
+    included = [n for items in chunks.values() for n in items]
+    included_ids = {n["node_id"] for n in included}
+    # 저장은 단방향이므로 양방향으로 펼쳐야 "트리로 도달 가능"을 제대로 센다
+    degree: dict[str, int] = {}
+    for n in included:
+        for target in n["connections"]:
+            if target in included_ids:
+                degree[n["node_id"]] = degree.get(n["node_id"], 0) + 1
+                degree[target] = degree.get(target, 0) + 1
+    oils = _oil_grantable(raw_dir)
+
+    inc_entities: list[SourceEntity] = []
+    for n in included:
+        routes: list[str] = []
+        if degree.get(n["node_id"]):
+            routes.append("tree-edge")
+        if n["name_en"] in oils:
+            routes.append("liquid-emotion")
+        if n["kind"] == "ascendancy-start":
+            routes.append("ascendancy-choice")
+        inc_entities.append(
+            SourceEntity(
+                key=n["node_id"],
+                name=n["name_en"],
+                substance=tuple(n["stats_en"]),
+                acquisition=tuple(routes),
+                structural=n["kind"] in {"jewel", "ascendancy-start"},
+            )
+        )
+
+    return verification_block(
+        cross=[
+            cross_source(db_entities, pob_entities, labels=("poe2db", "pob"), compare_names=True)
+        ],
+        substance=[substance_floor(inc_entities, scope="passive:included")],
+        acquisition=[acquisition_coverage(inc_entities, entity_type="passive")],
+    )
+
+
 def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -> dict[str, Any]:
     """판정·분류하고 청크별 중간 산출물을 만든다."""
     us, kr, pob = _load(raw_dir)
@@ -137,10 +226,18 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
 
     chunks: dict[str, list[dict[str, Any]]] = {k: [] for k in CHUNKS}
     excluded: list[str] = []
+    db_entities: list[SourceEntity] = []  # ⑥ — 보정 전 원본 이름으로 담는다
     for nid, node in us["nodes"].items():
         if not isinstance(node, dict) or not node.get("name") or nid == "root":
             continue
         name_en = clean_name(str(node["name"]))  # 마크업·공백 잔재 정리
+        db_entities.append(
+            SourceEntity(
+                key=nid,
+                name=name_en,
+                sets={"stats": frozenset(norm_stat(str(s)) for s in (node.get("stats") or []))},
+            )
+        )
         # 같은 노드 id인데 이름이 다르면 PoB(게임파일 유래)를 따른다.
         # poe2db 트리 JSON이 구 이름을 남겨둔 사례 실측(0.5.4b: 22건 —
         # 'Arsonist'→Pyromancer, 'Necromancer'→Lich 등. poe2db 웹페이지는 PoB와 일치)
@@ -183,6 +280,8 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
         (out_dir / f"tree_{kind}.json").write_text(
             json.dumps(items, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
         )
+
+    verification = _verify(raw_dir, db_entities, pob_nodes, chunks)
     report = {
         "poe2db_nodes": len(us["nodes"]),
         "pob_named_nodes": len(pob_by_name),
@@ -192,6 +291,7 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
         "excluded_sample": excluded[:20],
         "name_overrides": len(name_overrides),
         "name_overrides_sample": name_overrides[:20],
+        "verification": verification,
     }
     (raw_dir / "tree" / "report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

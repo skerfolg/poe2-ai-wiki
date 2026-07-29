@@ -34,7 +34,7 @@ P0 부트스트랩
 |---|---|---|
 | **P0. 부트스트랩** (짧게) | `pyproject.toml`(패키지 `pok`)·common·pre-commit·CI 골격·**import-linter**(계층 위반=CI 실패) | `pip install -e .` 성공 + 빈 테스트 통과 + 의존 방향 위반 시 CI 실패 확인 |
 | **P1a. 시드 KB 실증** | condition vocab v1 + `knowledge/schema/` 작성 → **손으로 소수 레코드**(스킬10·서포트10·패시브10) 작성 → store 로드·검증·인덱스 빌드·검색·관계 순회 전 구간 통과. 스키마 결함을 "30개 수정"으로 조기 발견 | 시드 30개가 스키마 검증+`ensure_index()` 3트리거+`search_kb` 왕복을 통과. 시드는 이후 `tests/` 픽스처로 영구 재사용 |
-| **P1b. ingest 구현·대량 수집** | ingest CLI(fetch·parse·match·merge·report) + PoB 덤프 스크립트 → **저비용 에이전트로 수집 가동**(kb-ingest 스킬, KI-7) + 서술 재작성 병행(KI-2) | **완전성 5중 기준(KB_INGEST §4) 전부 통과한 첫 KB 커밋** + 증거 체인(manifest→데이터 repo) 성립 |
+| **P1b. ingest 구현·대량 수집** | ingest CLI(fetch·parse·match·merge·report) + PoB 덤프 스크립트 → **저비용 에이전트로 수집 가동**(kb-ingest 스킬, KI-7) + 서술 재작성 병행(KI-2) | **완전성 8중 기준(KB_INGEST §4) 전부 통과한 첫 KB 커밋** + 증거 체인(manifest→데이터 repo) 성립 |
 | **P2. MCP 조회** — M1 | FastMCP 서버 + `search_kb`/`get_entry`(D14 2단계) + 관계 그래프 순회 도구. **한국어 부분어 검색 개선 검토**(현 unicode61은 '불꽃'→'전기불꽃' 미매칭, 2026-07-29 실증 — FTS5 trigram/prefix 후보) | **Claude/Codex 대화에서 실제 KB 질의 응답** — 위키 엔진 탄생 |
 | **P3. PoB 계산+빌드 생성** — ★MVP | (진입 스파이크: headless 계산 왕복 Win/mac 검증) → PoB 어댑터·daemon·codec·버전맵 → `assemble`/`compute_pob`/`check_item_legality` → build-generation 스킬(후보 2~3 → 사용자 선택 → 3티어 조립·검증, D24/D18) | 자연어 요청 → **PoB 코드 산출** + `validation.json`에 다차원 목적(RC3) 실측 기록 |
 | **P4. 트리 최적화** | `evaluate_delta`·`connect_anchors`(Steiner)·`optimize_tree` + PoB 상주 프로세스 성능(D23) | 베이스라인 대비 **포인트마다 PoB 델타로 정당화**되는 개선 산출 |

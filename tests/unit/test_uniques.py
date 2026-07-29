@@ -104,6 +104,68 @@ def test_page_parse_requires_and_groups() -> None:
     assert items[2].class_group == "cultivated", "재배판은 별도 분류"
 
 
+# 재배 카드가 base_type 자리에 모드 조각을 담은 형태 (0.5.4b 실측 47건의 최소 재현)
+BROKEN_CULTIVATED_HTML = """
+<html><body>
+<div class="card"><h5 class="card-header">Armour Unique /2</h5>
+ <div class="card-body"><div class="row">
+  <div><span>Bramblejack</span><span>Rusted Cuirass</span>
+       <span>+(60-100) to maximum Life</span></div>
+  <div><span>Tabula Rasa</span><span>Simple Robe</span></div>
+ </div></div></div>
+<div class="card"><h5 class="card-header">Cultivated Uniques /1</h5>
+ <div class="card-body"><div class="row">
+  <div><span>Bramblejack</span><span>(100</span><span>-150) to maximum Life</span></div>
+ </div></div></div>
+</body></html>
+"""
+
+POB_LUA = """
+[[
+Bramblejack
+Rusted Cuirass
+{tags:life}+(60-100) to maximum Life
+]]
+[[
+Ghostwrithe
+Silk Robe
+]]
+"""
+
+
+def test_process_report_carries_verification(tmp_path: Path) -> None:
+    """⑥⑦⑧이 유니크 리포트에 자동으로 실린다 (KB_INGEST §4)."""
+    import json
+
+    from pok.kb.ingest.uniques_page import process
+
+    raw, pob_dir, out = tmp_path / "raw", tmp_path / "pob", tmp_path / "out"
+    (raw / "uniques").mkdir(parents=True)
+    pob_dir.mkdir(parents=True)
+    (raw / "uniques/us.html").write_text(BROKEN_CULTIVATED_HTML, encoding="utf-8")
+    (raw / "uniques/kr.html").write_text(BROKEN_CULTIVATED_HTML, encoding="utf-8")
+    (pob_dir / "body.lua").write_text(POB_LUA, encoding="utf-8")
+
+    v = process(raw, pob_dir, out)["verification"]
+    cross = v["6_cross_source"][0]
+    dup = cross["duplicate_key_conflict_in_poe2db"]
+    assert dup["count"] == 1, "⑥ 이름으로 dedup되며 조용히 버려지던 재배판 base_type 충돌"
+    assert dup["sample"][0]["poe2db#2"] == "(100"
+    assert cross["only_in_pob"]["sample"] == ["Ghostwrithe"], "⑥ 양방향 — PoB 단독"
+
+    floor = v["7_substance_floor"][0]
+    assert floor["checked"] == 3
+    assert [x["name"] for x in floor["empty"]["sample"]] == ["Tabula Rasa"], (
+        "⑦ 모드가 하나도 없는 수록 항목"
+    )
+
+    acq = v["8_acquisition_coverage"][0]
+    assert (acq["entity_type"], acq["coverage"]) == ("unique", 0.0), (
+        "⑧ 드랍 출처 미수집 — 0 자체가 누락 신호"
+    )
+    assert json.loads((raw / "uniques/report.json").read_text(encoding="utf-8"))["verification"]
+
+
 def test_cultivated_gets_distinct_id() -> None:
     """같은 이름의 재배판은 별개 아이템이므로 id가 갈린다."""
     from pok.kb.ingest.uniques_page import _to_record

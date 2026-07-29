@@ -20,7 +20,14 @@ import httpx
 from bs4 import BeautifulSoup, Tag
 
 from pok.kb.ingest.sources import USER_AGENT
-from pok.kb.ingest.uniques import parse_pob_uniques
+from pok.kb.ingest.uniques import UniqueItem, parse_pob_uniques
+from pok.kb.ingest.verify import (
+    SourceEntity,
+    acquisition_coverage,
+    cross_source,
+    substance_floor,
+    verification_block,
+)
 
 PAGE_URL = "https://poe2db.tw/{lang}/Unique_item"
 LANGS = ("us", "kr")
@@ -131,6 +138,50 @@ def parse_page(html: str, kr: bool = False) -> list[PageUnique]:
     return out
 
 
+def _verify(
+    page: list[PageUnique], pob: dict[str, UniqueItem], items: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """완전성 기준 ⑥⑦⑧ (KB_INGEST §4) — 판정하지 않고 리포트만 한다.
+
+    ⑧ 유니크의 획득 경로(드랍 출처)는 목록 페이지에 없다 → 커버리지 0이 정상 출력이며,
+    그 0 자체가 "상세 페이지 수집이 필요하다"는 누락 신호다(조용히 넘어가지 않는다).
+    """
+    return verification_block(
+        cross=[
+            cross_source(
+                [
+                    SourceEntity(key=u.name, name=u.name, facts={"base_type": u.base_type.strip()})
+                    for u in page
+                ],
+                [
+                    SourceEntity(key=u.name, name=u.name, facts={"base_type": u.base_type.strip()})
+                    for u in pob.values()
+                ],
+                labels=("poe2db", "pob"),
+            )
+        ],
+        substance=[
+            substance_floor(
+                (
+                    SourceEntity(
+                        key=i["name_en"],
+                        name=i["name_en"],
+                        substance=tuple(i["implicits"]) + tuple(i["explicits"]),
+                    )
+                    for i in items
+                ),
+                scope="unique:included",
+            )
+        ],
+        acquisition=[
+            acquisition_coverage(
+                (SourceEntity(key=i["name_en"], name=i["name_en"]) for i in items),
+                entity_type="unique",
+            )
+        ],
+    )
+
+
 def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
     """poe2db 목록과 PoB 데이터를 대사해 중간 산출물 + 리포트를 만든다."""
     src = raw_dir / "uniques"
@@ -181,6 +232,7 @@ def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
         "page_only": sum(1 for i in items if not i["in_pob"]),
         "pob_only": len(pob_only),
         "pob_only_sample": pob_only[:20],
+        "verification": _verify(us, pob, items),
     }
     (raw_dir / "uniques" / "report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

@@ -155,6 +155,58 @@ def test_edges_are_undirected_when_expanded(tmp_path: Path) -> None:
     assert adj["1"] == {"2"}, "Chaos Inoculation은 저장상 빈 connections지만 이웃이 있다"
 
 
+def test_verification_criteria_in_tree_report(tmp_path: Path) -> None:
+    """⑥⑦⑧이 트리 리포트에 자동으로 실린다 (KB_INGEST §4)."""
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    _write_tree_fixtures(raw)
+    # PoB 쪽 효과 문구가 한 줄 더 있는 노드 — ⑥ 집합 차집합으로 잡힌다
+    pob = json.loads((raw / "tree/pob_tree.json").read_text(encoding="utf-8"))
+    pob["nodes"]["1"]["stats"] = ["Maximum Life becomes 1"]
+    pob["nodes"]["2"]["stats"] = ["10% increased [Chaos] Damage", "Also grants Resistance"]
+    (raw / "tree/pob_tree.json").write_text(json.dumps(pob), encoding="utf-8")
+
+    v = process_tree(raw, out)["verification"]
+    cross = v["6_cross_source"][0]
+    assert cross["name_mismatch"]["count"] == 0
+    stats = cross["set_diff"]["stats"]
+    assert stats["only_in_pob"]["sample"][0]["values"] == ["also grants resistance"]
+    assert stats["only_in_poe2db"]["count"] == 0, "마크업 차이는 정규화로 흡수 (norm_stat)"
+    assert cross["only_in_poe2db"]["count"] == 2, "⑥ 양방향 — DNT·PoB 부재 노드"
+    assert cross["only_in_pob"]["count"] == 0
+
+    floor = v["7_substance_floor"][0]
+    assert floor["empty"]["count"] == 0
+    assert floor["structural_exempt"] == 1, "어센던시 시작점은 효과 없는 게 정상"
+
+    acq = v["8_acquisition_coverage"][0]
+    assert (acq["entity_type"], acq["total"], acq["coverage"]) == ("passive", 3, 1.0)
+    assert acq["routes_top"] == {"tree-edge": 2, "ascendancy-choice": 1}
+
+
+def test_acquisition_coverage_flags_node_severed_from_tree(tmp_path: Path) -> None:
+    """⑧ 이웃이 전부 제외되면 실존 노드가 트리에서 끊긴다 — 커버리지가 알려준다.
+
+    실측(0.5.4b): stats가 빈 '전문화' 노터블이 제외되면서 Far Shot·Point Blank 등
+    18개 노드가 엣지를 잃었다.
+    """
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    _write_tree_fixtures(raw)
+    us = json.loads((raw / "tree/poe2db_us.json").read_text(encoding="utf-8"))
+    us["nodes"]["7"] = {
+        "name": "Far Shot",
+        "isKeystone": True,
+        "stats": ["Attacks have increased Damage at range"],
+        "connections": [{"id": "4"}],  # 4 = PoB 부재로 제외되는 노드
+    }
+    (raw / "tree/poe2db_us.json").write_text(json.dumps(us), encoding="utf-8")
+    pob = json.loads((raw / "tree/pob_tree.json").read_text(encoding="utf-8"))
+    pob["nodes"]["7"] = {"name": "Far Shot"}
+    (raw / "tree/pob_tree.json").write_text(json.dumps(pob), encoding="utf-8")
+
+    acq = process_tree(raw, out)["verification"]["8_acquisition_coverage"][0]
+    assert {m["name"] for m in acq["missing"]["sample"]} == {"Far Shot"}
+
+
 def test_clean_name_strips_markup() -> None:
     """poe2db가 남긴 위키 마크업을 제거한다 (0.5.4b: 15건)."""
     from pok.kb.ingest.tree import clean_name
