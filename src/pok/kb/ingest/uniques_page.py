@@ -114,9 +114,14 @@ def parse_page(html: str, kr: bool = False) -> list[PageUnique]:
             ]
             if len(lines) < 2:
                 continue
-            name, base_type = lines[0], lines[1]
+            # 재배(cultivated) 카드는 **베이스타입 줄이 없다** — 이름 다음이 바로 모드다.
+            # 예전엔 lines[1]("(100" 같은 모드 조각)을 베이스로 잡아 48건 전부 오염됐다.
+            # 베이스는 동명 일반판에서 승계한다(process()).
+            if group == "cultivated":
+                name, base_type, rest = lines[0], "", lines[1:]
+            else:
+                name, base_type, rest = lines[0], lines[1], lines[2:]
             requires = None
-            rest = lines[2:]
             if rest and rest[0].startswith(req_marker):
                 # "Requires:" 다음은 레벨·능력치 요구 — 개수가 가변이라 패턴으로 끊는다
                 req_parts: list[str] = []
@@ -138,10 +143,11 @@ def parse_page(html: str, kr: bool = False) -> list[PageUnique]:
     return out
 
 
-def _verify(
-    page: list[PageUnique], pob: dict[str, UniqueItem], items: list[dict[str, Any]]
-) -> dict[str, Any]:
+def _verify(pob: dict[str, UniqueItem], items: list[dict[str, Any]]) -> dict[str, Any]:
     """완전성 기준 ⑥⑦⑧ (KB_INGEST §4) — 판정하지 않고 리포트만 한다.
+
+    poe2db 쪽은 **정형화 후**(items)를 본다 — KB에 실제로 들어갈 값을 검증해야 하고,
+    재배판 베이스 승계 같은 보정이 반영된 뒤라야 중복 key 충돌이 진짜 결함만 가리킨다.
 
     ⑧ 유니크의 획득 경로(드랍 출처)는 목록 페이지에 없다 → 커버리지 0이 정상 출력이며,
     그 0 자체가 "상세 페이지 수집이 필요하다"는 누락 신호다(조용히 넘어가지 않는다).
@@ -150,8 +156,12 @@ def _verify(
         cross=[
             cross_source(
                 [
-                    SourceEntity(key=u.name, name=u.name, facts={"base_type": u.base_type.strip()})
-                    for u in page
+                    SourceEntity(
+                        key=i["name_en"],
+                        name=i["name_en"],
+                        facts={"base_type": str(i["base_type"]).strip()},
+                    )
+                    for i in items
                 ],
                 [
                     SourceEntity(key=u.name, name=u.name, facts={"base_type": u.base_type.strip()})
@@ -189,21 +199,35 @@ def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
     kr = parse_page((src / "kr.html").read_text(encoding="utf-8"), kr=True)
     pob = {i.name: i for i in parse_pob_uniques(pob_dir)}
 
-    # 한국어: 같은 카드·같은 순서로 대응 (개수 일치 시에만)
-    kr_by_name: dict[str, PageUnique] = {}
-    if len(us) == len(kr):
-        kr_by_name = {u.name: k for u, k in zip(us, kr, strict=True)}
+    # 한국어: 같은 카드·같은 순서로 **위치 대응** (개수 일치 시에만).
+    # 이름으로 짝지으면 재배판이 동명 일반판을 덮어쓴다 (0.5.4b: 48건).
+    aligned = len(us) == len(kr)
+
+    # 재배판은 베이스타입 줄이 없다 → 동명 일반판에서 승계
+    base_of = {u.name: u.base_type for u in us if u.class_group != "cultivated" and u.base_type}
+    base_ko_of: dict[str, str] = {}
+    if aligned:
+        base_ko_of = {
+            u.name: k.base_type
+            for u, k in zip(us, kr, strict=True)
+            if u.class_group != "cultivated" and k.base_type
+        }
+    unresolved_base: list[str] = []
 
     items: list[dict[str, Any]] = []
-    for u in us:
+    for idx, u in enumerate(us):
         p = pob.get(u.name)
-        k = kr_by_name.get(u.name)
+        k = kr[idx] if aligned else None
+        base_type = u.base_type or base_of.get(u.name, "")
+        base_type_ko = (k.base_type if k else None) or base_ko_of.get(u.name)
+        if not base_type:
+            unresolved_base.append(u.name)
         items.append(
             {
                 "name_en": u.name,
                 "name_ko": k.name if k else u.name,
-                "base_type": u.base_type,
-                "base_type_ko": k.base_type if k else None,
+                "base_type": base_type,
+                "base_type_ko": base_type_ko,
                 "class_group": u.class_group,
                 "category": p.category if p else None,
                 "requires": u.requires,
@@ -226,13 +250,17 @@ def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
     report = {
         "page_items": len(us),
         "kr_items": len(kr),
-        "kr_aligned": bool(kr_by_name),
+        "kr_aligned": aligned,
+        "cultivated_base_inherited": sum(
+            1 for u in us if u.class_group == "cultivated" and base_of.get(u.name)
+        ),
+        "unresolved_base_type": unresolved_base,
         "pob_items": len(pob),
         "matched_pob": sum(1 for i in items if i["in_pob"]),
         "page_only": sum(1 for i in items if not i["in_pob"]),
         "pob_only": len(pob_only),
         "pob_only_sample": pob_only[:20],
-        "verification": _verify(us, pob, items),
+        "verification": _verify(pob, items),
     }
     (raw_dir / "uniques" / "report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

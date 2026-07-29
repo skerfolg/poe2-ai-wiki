@@ -207,6 +207,90 @@ def test_acquisition_coverage_flags_node_severed_from_tree(tmp_path: Path) -> No
     assert {m["name"] for m in acq["missing"]["sample"]} == {"Far Shot"}
 
 
+def test_normalize_stats_splits_only_on_bilingual_agreement() -> None:
+    """3b: `\\n`은 효과 경계일 때도, 단순 줄바꿈일 때도 있다 — 두 언어의 합의로 가른다."""
+    from pok.kb.ingest.tree import normalize_stats
+
+    # 효과 경계: 양 언어가 같은 자리에서 끊는다 → 분할
+    en, ko = normalize_stats(
+        ["75% of Damage Converted to [Fire] Damage\nDeal no Non-Fire Damage"],
+        ["피해의 75%를 화염 피해로 전환\n화염 피해만 줄 수 있음"],
+    )
+    assert en == ["75% of Damage Converted to Fire Damage", "Deal no Non-Fire Damage"]
+    assert ko == ["피해의 75%를 화염 피해로 전환", "화염 피해만 줄 수 있음"]
+
+    # 단순 줄바꿈: 한국어는 한 줄 → 접어서 문장을 살린다 (PoB도 여기서 잘못 쪼갠다)
+    en, ko = normalize_stats(
+        ["+1% to all [MaximumResistances|Maximum Elemental Resistances] if you have at\nleast 5"],
+        ["보조 젬을 5개 이상 장착한 경우 모든 원소 저항 최대치 +1%"],
+    )
+    assert en == ["+1% to all Maximum Elemental Resistances if you have at least 5"]
+    assert len(en) == len(ko)
+
+
+def test_normalize_stats_keeps_arrays_aligned() -> None:
+    """분할 여부와 무관하게 en/ko 배열 길이가 같아야 한다 (위치 대응 보장)."""
+    from pok.kb.ingest.tree import normalize_stats
+
+    en, ko = normalize_stats(["A\nB", "C"], ["가\n나", "다"])
+    assert en == ["A", "B", "C"] and ko == ["가", "나", "다"]
+
+    # 항목 수 자체가 다르면 짝지을 수 없다 → 분할 없이 접기만
+    en, ko = normalize_stats(["A\nB"], [])
+    assert en == ["A B"] and ko == []
+
+
+def test_ascendancy_hub_node_is_included(tmp_path: Path) -> None:
+    """stats 빈 어센던시 노터블은 구조 노드 — 빼면 매달린 실존 노드가 끊긴다."""
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    _write_tree_fixtures(raw)
+    us = json.loads((raw / "tree/poe2db_us.json").read_text(encoding="utf-8"))
+    us["nodes"]["6"] = {
+        "name": "Projectile Proximity Specialisation",
+        "isNotable": True,
+        "stats": [],
+        "ascendancyName": "Ranger1",
+        "connections": [],
+    }
+    us["nodes"]["7"] = {
+        "name": "Far Shot",
+        "isKeystone": True,
+        "stats": ["Projectiles deal more damage at range"],
+        "connections": [{"id": "6"}],
+    }
+    (raw / "tree/poe2db_us.json").write_text(json.dumps(us), encoding="utf-8")
+    pob = json.loads((raw / "tree/pob_tree.json").read_text(encoding="utf-8"))
+    pob["nodes"]["6"] = {"name": "Projectile Proximity Specialisation"}
+    pob["nodes"]["7"] = {"name": "Far Shot"}
+    (raw / "tree/pob_tree.json").write_text(json.dumps(pob), encoding="utf-8")
+
+    report = process_tree(raw, out)
+    notables = json.loads((out / "tree_notable.json").read_text(encoding="utf-8"))
+    hub = next(n for n in notables if n["name_en"] == "Projectile Proximity Specialisation")
+    assert hub["structural"], "⑦ 면제 대상 — 효과가 없는 게 정상"
+    acq = report["verification"]["8_acquisition_coverage"][0]
+    assert acq["missing"]["count"] == 0, "허브가 살아 Far Shot이 트리에 붙는다"
+    assert acq["routes_top"]["ascendancy-choice"] >= 1
+
+
+def test_ascendancy_placeholder_stays_excluded(tmp_path: Path) -> None:
+    """미구현 자리표는 stats도 PoB 항목도 없어 허브 규칙에 걸리지 않는다."""
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    _write_tree_fixtures(raw)
+    us = json.loads((raw / "tree/poe2db_us.json").read_text(encoding="utf-8"))
+    us["nodes"]["8"] = {
+        "name": "AscendancyTemplar1Small7",
+        "isNotable": True,
+        "stats": [],
+        "ascendancyName": "Templar1",
+        "connections": [],
+    }
+    (raw / "tree/poe2db_us.json").write_text(json.dumps(us), encoding="utf-8")
+
+    report = process_tree(raw, out)
+    assert any("AscendancyTemplar1Small7" in e for e in report["excluded_sample"])
+
+
 def test_clean_name_strips_markup() -> None:
     """poe2db가 남긴 위키 마크업을 제거한다 (0.5.4b: 15건)."""
     from pok.kb.ingest.tree import clean_name

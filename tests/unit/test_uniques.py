@@ -146,11 +146,18 @@ def test_process_report_carries_verification(tmp_path: Path) -> None:
     (raw / "uniques/kr.html").write_text(BROKEN_CULTIVATED_HTML, encoding="utf-8")
     (pob_dir / "body.lua").write_text(POB_LUA, encoding="utf-8")
 
-    v = process(raw, pob_dir, out)["verification"]
+    report = process(raw, pob_dir, out)
+    assert report["cultivated_base_inherited"] == 1, "재배판은 동명 일반판의 베이스를 승계"
+    assert report["unresolved_base_type"] == []
+    items = json.loads((out / "uniques.json").read_text(encoding="utf-8"))
+    cult = next(i for i in items if i["class_group"] == "cultivated")
+    assert cult["base_type"] == "Rusted Cuirass", "모드 조각 '(100'이 아니라 진짜 베이스"
+
+    v = report["verification"]
     cross = v["6_cross_source"][0]
-    dup = cross["duplicate_key_conflict_in_poe2db"]
-    assert dup["count"] == 1, "⑥ 이름으로 dedup되며 조용히 버려지던 재배판 base_type 충돌"
-    assert dup["sample"][0]["poe2db#2"] == "(100"
+    assert cross["duplicate_key_conflict_in_poe2db"]["count"] == 0, (
+        "⑥ 승계 후에는 동명 재배판과 일반판의 base_type이 같다"
+    )
     assert cross["only_in_pob"]["sample"] == ["Ghostwrithe"], "⑥ 양방향 — PoB 단독"
 
     floor = v["7_substance_floor"][0]
@@ -164,6 +171,45 @@ def test_process_report_carries_verification(tmp_path: Path) -> None:
         "⑧ 드랍 출처 미수집 — 0 자체가 누락 신호"
     )
     assert json.loads((raw / "uniques/report.json").read_text(encoding="utf-8"))["verification"]
+
+
+VARIANT_BASE = """
+Voll's Protector
+{variant:1}Ironclad Vestments
+{variant:2}Plated Vestments
+Variant: Pre 0.1.1
+Variant: Pre 0.4.0
+Variant: Current
+{variant:1}(100-150)% increased Armour and Energy Shield
+{variant:2}(150-200)% increased Armour and Energy Shield
+25% reduced maximum Mana
+"""
+
+META_BEFORE_BASE = """
+Hand of Wisdom and Action
+Variant: Pre 0.2.0
+Variant: Current
+Source: Drops from unique{Xesht, We That Are One}
+{variant:1}Furtive Wraps
+{variant:2}Spiral Wraps
++(15-25) to Dexterity
+"""
+
+
+def test_variant_base_type_falls_back_to_last_declared() -> None:
+    """현재 변형에 베이스 선언이 없으면 마지막 선언분을 쓴다 (poe2db와 일치)."""
+    item = parse_block(VARIANT_BASE, "body")
+    assert item is not None
+    assert item.base_type == "Plated Vestments", "변형 3엔 선언이 없어 변형 2의 베이스"
+    assert item.explicits == ["25% reduced maximum Mana"], "과거 변형 전용 모드는 버린다"
+
+
+def test_base_type_after_meta_lines() -> None:
+    """메타 줄(Variant/Source)이 이름과 베이스 사이에 끼어도 베이스를 찾는다."""
+    item = parse_block(META_BEFORE_BASE, "gloves")
+    assert item is not None
+    assert item.base_type == "Spiral Wraps", "예전엔 'Variant: Pre 0.2.0'을 베이스로 잡았다"
+    assert item.explicits == ["+(15-25) to Dexterity"]
 
 
 def test_cultivated_gets_distinct_id() -> None:

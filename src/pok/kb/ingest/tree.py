@@ -51,6 +51,47 @@ def clean_name(raw: str) -> str:
     return _MARKUP.sub(lambda m: m.group(2) or m.group(3) or "", raw).strip()
 
 
+def _stat_lines(entry: str) -> list[str]:
+    """항목 1개를 개행 기준으로 쪼개고 마크업·공백을 정리한다."""
+    return [t for t in (clean_name(p).strip() for p in str(entry).split("\n")) if t]
+
+
+def _fold(entry: str) -> str:
+    """개행을 공백으로 접는다 — 줄바꿈이 효과 경계가 아닐 때의 안전한 처리."""
+    return " ".join(_stat_lines(entry))
+
+
+def normalize_stats(en_raw: Any, ko_raw: Any) -> tuple[list[str], list[str]]:
+    """stats를 en/ko 쌍으로 정규화한다 (KB_INGEST §4-0의 3a·3b 결정).
+
+    - **마크업 제거**(3a): poe2db가 `[Projectile|Projectile]` 같은 위키 링크를 남긴다.
+    - **개행 분할은 en/ko 항목 수가 일치할 때만**(3b): poe2db의 `\\n`은 효과 경계일 때도
+      있고(`Avatar of Fire`) 단순 줄바꿈일 때도 있다(`Crystalline Resistance`의
+      "…if you have at\\nleast 5 Red…"). 어느 소스도 단독 정답이 아니므로 — PoB도 같은
+      자리를 잘못 쪼갠다 — **두 언어의 합의**를 기준으로 삼고, 합의가 없으면 접는다.
+      이렇게 하면 두 배열의 길이가 구조적으로 같아진다(위치 대응 보장).
+    """
+    en_e = [str(s) for s in (en_raw or [])]
+    ko_e = [str(s) for s in (ko_raw or [])]
+    if len(en_e) != len(ko_e):
+        # 항목 수 자체가 다르면 짝지을 수 없다 → 분할하지 않고 각자 접기만
+        return [t for t in map(_fold, en_e) if t], [t for t in map(_fold, ko_e) if t]
+
+    en_out: list[str] = []
+    ko_out: list[str] = []
+    for e, k in zip(en_e, ko_e, strict=True):
+        ep, kp = _stat_lines(e), _stat_lines(k)
+        if len(ep) > 1 and len(ep) == len(kp):
+            en_out += ep
+            ko_out += kp
+            continue
+        fe, fk = _fold(e), _fold(k)
+        if fe or fk:
+            en_out.append(fe)
+            ko_out.append(fk)
+    return en_out, ko_out
+
+
 def norm_stat(raw: str) -> str:
     """⑥ 효과 대조용 정규화 — 마크업·공백·대소문자 차이를 지운다.
 
@@ -189,7 +230,7 @@ def _verify(
             routes.append("tree-edge")
         if n["name_en"] in oils:
             routes.append("liquid-emotion")
-        if n["kind"] == "ascendancy-start":
+        if n["kind"] == "ascendancy-start" or (n["structural"] and n.get("ascendancy")):
             routes.append("ascendancy-choice")
         inc_entities.append(
             SourceEntity(
@@ -197,7 +238,7 @@ def _verify(
                 name=n["name_en"],
                 substance=tuple(n["stats_en"]),
                 acquisition=tuple(routes),
-                structural=n["kind"] in {"jewel", "ascendancy-start"},
+                structural=bool(n["structural"]),
             )
         )
 
@@ -249,13 +290,22 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
         stats = [str(s) for s in (node.get("stats") or [])]
         in_pob = pob_name is not None or name_en.lower() in pob_by_name
         unimpl = bool(_UNIMPLEMENTED.search(name_en))
-        # 어센던시 시작·주얼 슬롯은 stats가 없는 게 정상 (효과 아닌 구조 노드)
-        has_effect = bool(stats) or kind in {"keystone", "jewel", "ascendancy-start"}
-        structural = kind in {"jewel", "ascendancy-start"}
+        # 어센던시 '선택 허브' — 효과가 없는 것이 정상인 구조 노드 (사람 판정 2026-07-29).
+        # 여기 매달린 실존 노드가 허브를 빼면 트리에서 끊긴다 (0.5.4b: 13노드 —
+        # Far Shot·Point Blank는 'Projectile Proximity Specialisation'(데드아이)에,
+        # 혼합물 5종은 'Brew Concoction'(패스파인더)에만 연결돼 있다).
+        # 미구현 자리표(AscendancyTemplar1Small7 등)는 PoB에 없어 그대로 제외된다.
+        hub = bool(
+            kind == "notable" and not stats and pob_name is not None and node.get("ascendancyName")
+        )
+        # 어센던시 시작·주얼 슬롯도 stats가 없는 게 정상 (효과 아닌 구조 노드)
+        structural = kind in {"jewel", "ascendancy-start"} or hub
+        has_effect = bool(stats) or kind == "keystone" or structural
         if kind in EXCLUDED_KINDS or unimpl or not (has_effect and (in_pob or structural)):
             excluded.append(f"{nid}:{name_en}")
             continue
         kr_node = kr_nodes.get(nid) or {}
+        stats_en, stats_ko = normalize_stats(stats, kr_node.get("stats"))
         chunks[kind].append(
             {
                 "node_id": nid,
@@ -265,13 +315,14 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
                     ko_overrides.get(nid, {}).get("ko")
                     or clean_name(str(kr_node.get("name") or name_en))
                 ),
-                "stats_en": stats,
-                "stats_ko": [str(s) for s in (kr_node.get("stats") or [])],
+                "stats_en": stats_en,
+                "stats_ko": stats_ko,
                 "ascendancy": node.get("ascendancyName"),
                 "connections": sorted(
                     str(c["id"]) for c in (node.get("connections") or []) if isinstance(c, dict)
                 ),
                 "in_pob": in_pob,
+                "structural": structural,  # ⑦ 면제 대상 (효과 없는 게 정상)
             }
         )
 
