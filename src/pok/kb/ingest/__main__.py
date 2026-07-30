@@ -63,6 +63,12 @@ def main(argv: list[str] | None = None) -> int:
     p_cur = sub.add_parser("currency", help="화폐 아이템(④ 보강): merge (Stackable_Currency 원시)")
     p_cur.add_argument("--patch", required=True)
 
+    p_nar = sub.add_parser(
+        "narrative", help="⑤ 서술: fetch(poe2wiki 원문)|check(wiki 산출물 게이트)"
+    )
+    p_nar.add_argument("--patch", required=True)
+    p_nar.add_argument("step", choices=["fetch", "check"])
+
     p_manifest = sub.add_parser(
         "manifest", help="증거 체인 기록 (KB_INGEST §5): 데이터repo·PoB commit → knowledge/ingest/"
     )
@@ -206,6 +212,22 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         print(f"리포트: {raw_dir / 'currency' / 'report.json'}")
+    elif args.cmd == "narrative":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest import narrative
+
+        if args.step == "fetch":
+            targets = narrative.curated_targets(knowledge_dir())
+            print(
+                json.dumps(
+                    narrative.fetch_narratives(raw_dir, targets), ensure_ascii=False, indent=1
+                )
+            )
+        else:
+            result = narrative.check_wiki_docs(knowledge_dir())
+            print(json.dumps(result, ensure_ascii=False, indent=1))
+            if result["errors"]:
+                return 1
     elif args.cmd == "manifest":
         import subprocess
 
