@@ -1,0 +1,177 @@
+"""합성 아이템 적법성 검증 — RC4 (절대 못 만드는 아이템 거부).
+
+결정적 대조만 한다(AD-3): 아이템 텍스트의 모드 줄 하나하나를 KB Modifier와
+매칭해 ① 존재 ② 수치가 티어 범위 안 ③ ilvl 충족 ④ 베이스에 스폰 가능
+⑤ 접사 수(희귀 ≤3/≤3, 마법 ≤1/≤1) ⑥ 같은 group 중복 금지를 검사한다.
+
+매칭 키 = 숫자·범위를 `#`로 치환한 정규화 텍스트 (KB texts와 동일 규칙).
+스폰 판정: 베이스 spawn_tags 중 weight>0가 있으면 통과. weight가 전부 0이어도
+acquisition에 essence·desecrated 등 비-크래프팅 경로가 있으면 CONDITIONAL
+(경로 명시) — C-2 판정(2026-07-30)에서 확립한 "weight 0 ≠ 죽은 모드" 원칙.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from pok.kb.store import load as store_load
+
+_NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
+_RANGE = re.compile(r"\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)")
+
+
+def _norm(text: str) -> str:
+    """수치·범위 → '#' 정규화 (매칭 키)."""
+    return _NUM.sub("#", text).strip().lower()
+
+
+@dataclass(frozen=True)
+class LineVerdict:
+    line: str
+    status: str  # LEGAL | CONDITIONAL | ILLEGAL | UNKNOWN
+    modifier_id: str | None = None
+    reason: str = ""
+
+
+@dataclass(frozen=True)
+class LegalityReport:
+    verdicts: tuple[LineVerdict, ...]
+    errors: tuple[str, ...] = field(default=())  # 구조 위반 (접사 수·group 중복 등)
+
+    @property
+    def is_legal(self) -> bool:
+        return not self.errors and all(v.status in ("LEGAL", "CONDITIONAL") for v in self.verdicts)
+
+
+class ItemLegalityChecker:
+    """KB를 인덱싱해 두고 아이템 텍스트를 검사한다 (로드 1회, 검사 N회)."""
+
+    def __init__(self, knowledge: Path) -> None:
+        kb = store_load(knowledge.parent if knowledge.name == "knowledge" else knowledge)
+        self._bases: dict[str, dict[str, Any]] = {}
+        self._mods: dict[str, list[dict[str, Any]]] = {}  # 정규화 텍스트 → 후보 레코드들
+        for r in kb.records.values():
+            if r.type == "Item" and r.raw.get("data", {}).get("category"):
+                self._bases[r.name_en.lower()] = r.raw
+            elif r.type == "Modifier" and "item" in r.raw.get("data", {}).get("origins", []):
+                for text in r.raw["data"].get("texts", []):
+                    self._mods.setdefault(_norm(text), []).append(r.raw)
+
+    def check(self, item_text: str) -> LegalityReport:
+        rarity, base_name, ilvl, mod_lines = _parse_item(item_text)
+        base = self._bases.get(base_name.lower())
+        errors: list[str] = []
+        if base is None:
+            errors.append(f"베이스 미확인: {base_name!r}")
+        verdicts: list[LineVerdict] = []
+        matched: dict[str, dict[str, Any]] = {}  # modifier id → record (하이브리드 중복 제거)
+        for line in mod_lines:
+            verdict = self._check_line(line, base, ilvl)
+            verdicts.append(verdict)
+            if verdict.modifier_id:
+                matched[verdict.modifier_id] = next(
+                    m
+                    for cands in self._mods.values()
+                    for m in cands
+                    if m["id"] == verdict.modifier_id
+                )
+        # 접사 수·group 배타 (매칭된 모드 기준 — UNKNOWN 줄은 여기 안 들어간다)
+        limit = {"rare": 3, "magic": 1}.get(rarity, 3)
+        counts = {"prefix": 0, "suffix": 0}
+        groups: dict[str, str] = {}
+        for rec in matched.values():
+            d = rec["data"]
+            affix = d.get("affix_type")
+            if affix in counts:
+                counts[affix] += 1
+            g = d.get("group")
+            if g:
+                if g in groups:
+                    errors.append(f"group 중복: {g} ({groups[g]} vs {rec['id']})")
+                groups[g] = rec["id"]
+        for affix, n in counts.items():
+            if n > limit:
+                errors.append(f"{affix} {n}개 — {rarity} 한도 {limit} 초과")
+        return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+
+    def _check_line(self, line: str, base: dict[str, Any] | None, ilvl: int) -> LineVerdict:
+        candidates = self._mods.get(_norm(line), [])
+        if not candidates:
+            return LineVerdict(line, "UNKNOWN", reason="KB에 일치하는 모드 텍스트 없음")
+        reasons: list[str] = []
+        for rec in candidates:
+            d = rec["data"]
+            ok, why = _values_in_range(line, d.get("texts", []))
+            if not ok:
+                reasons.append(f"{rec['id']}: {why}")
+                continue
+            if int(d.get("ilvl", 1)) > ilvl:
+                reasons.append(f"{rec['id']}: 요구 ilvl {d['ilvl']} > 아이템 {ilvl}")
+                continue
+            if base is not None:
+                weights = d.get("spawn_weights", {})
+                tags = base.get("data", {}).get("spawn_tags", [])
+                if any(weights.get(t, 0) > 0 for t in tags):
+                    return LineVerdict(line, "LEGAL", rec["id"])
+                routes = [a for a in d.get("acquisition", []) if a not in ("crafting-currency",)]
+                if routes:
+                    return LineVerdict(
+                        line, "CONDITIONAL", rec["id"], f"경로 한정: {', '.join(routes)}"
+                    )
+                reasons.append(f"{rec['id']}: 이 베이스에 스폰 불가 (weight 0·경로 없음)")
+                continue
+            return LineVerdict(line, "LEGAL", rec["id"])
+        return LineVerdict(line, "ILLEGAL", reason=" / ".join(reasons))
+
+
+def _parse_item(text: str) -> tuple[str, str, int, list[str]]:
+    """buildxml.ItemSpec.text 형식 파서 (우리가 생성하는 형식 — 엄격)."""
+    lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
+    if not lines or not lines[0].lower().startswith("rarity:"):
+        raise ValueError("첫 줄이 'Rarity:' 가 아님")
+    rarity = lines[0].split(":", 1)[1].strip().lower()
+    if rarity in ("normal",):
+        base_name, rest = lines[1], lines[2:]
+    else:
+        if len(lines) < 3:
+            raise ValueError("이름·베이스 줄 부족")
+        base_name, rest = lines[2], lines[3:]
+    ilvl = 1
+    mod_lines: list[str] = []
+    for ln in rest:
+        low = ln.lower()
+        if low.startswith("item level:"):
+            ilvl = int(ln.split(":", 1)[1].strip())
+        elif low.startswith(("quality:", "sockets:", "--")):
+            continue
+        else:
+            mod_lines.append(ln)
+    return rarity, base_name, ilvl, mod_lines
+
+
+def _values_in_range(line: str, texts: list[str]) -> tuple[bool, str]:
+    """줄의 수치들이 어느 한 티어 텍스트의 범위 안에 있는지."""
+    line_nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", line)]
+    for text in texts:
+        if _norm(text) != _norm(line):
+            continue
+        spans = list(_NUM.finditer(text))
+        if len(spans) != len(line_nums):
+            continue
+        fit = True
+        for span, v in zip(spans, line_nums, strict=True):
+            m = _RANGE.fullmatch(span.group())
+            if m:
+                lo, hi = float(m.group(1)), float(m.group(2))
+                if not lo <= v <= hi:
+                    fit = False
+                    break
+            elif float(span.group()) != v:
+                fit = False
+                break
+        if fit:
+            return True, ""
+    return False, f"수치 {line_nums} 가 티어 범위 밖"
