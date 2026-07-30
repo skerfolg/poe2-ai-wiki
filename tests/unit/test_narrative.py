@@ -34,8 +34,14 @@ def _repo(tmp_path: Path) -> Path:
     return knowledge
 
 
-def _doc(id_: str = "skill.testspark", label: str = "UNVERIFIED", revid: str = "123") -> str:
-    return f"---\nid: {id_}\nlabel: {label}\nsource_revid: {revid}\n---\n\n# 본문\n"
+def _doc(
+    id_: str = "skill.testspark",
+    label: str = "UNVERIFIED",
+    revid: str = "123",
+    verified_by: str = "",
+) -> str:
+    vb = f"verified_by: {verified_by}\n" if verified_by else ""
+    return f"---\nid: {id_}\nlabel: {label}\n{vb}source_revid: {revid}\n---\n\n# 본문\n"
 
 
 def test_curated_targets_are_individual_json_only(tmp_path: Path) -> None:
@@ -57,11 +63,21 @@ def test_check_wiki_docs_gates(tmp_path: Path) -> None:
     (w / "bad-id.md").write_text(_doc(id_="skill.ghost"), encoding="utf-8")
     (w / "bad-label.md").write_text(_doc(label="TRUSTED"), encoding="utf-8")
     (w / "no-front.md").write_text("# front-matter 없음\n", encoding="utf-8")
+    # 승격 근거 규칙: UNVERIFIED 초과 라벨은 verified_by 필수
+    (w / "promoted-ok.md").write_text(
+        _doc(label="SUPPORTED_INFERENCE", verified_by="model-spotcheck 2026-07-30"),
+        encoding="utf-8",
+    )
+    (w / "promoted-bad.md").write_text(_doc(label="IN_GAME"), encoding="utf-8")
 
     result = check_wiki_docs(knowledge)
-    assert result["checked"] == 4
+    assert result["checked"] == 6
     errors = "\n".join(result["errors"])
     assert "skill.ghost" in errors and "가 KB에 없음" in errors
     assert "TRUSTED" in errors and "어휘 밖" in errors
     assert "front-matter 없음" in errors
+    assert "promoted-bad.md" in errors and "verified_by 없음" in errors, (
+        "근거 없는 승격은 게이트가 거부"
+    )
     assert "ok.md" not in errors, "정상 문서는 통과"
+    assert "promoted-ok.md" not in errors, "근거 있는 승격은 통과"

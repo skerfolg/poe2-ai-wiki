@@ -160,4 +160,8 @@ def check_wiki_docs(knowledge: Path) -> dict[str, Any]:
             errors.append(f"{rel}: id '{rid}' 가 KB에 없음")
         if meta.get("label") and meta["label"] not in labels:
             errors.append(f"{rel}: label '{meta['label']}' 어휘 밖")
+        # 승격 근거 강제: UNVERIFIED 초과 라벨은 검증 주체 기록이 있어야 한다
+        # (스팟체크=모델/사람, 인게임 확인=사용자 — 근거 없는 승격은 게이트가 거부)
+        if meta.get("label") and meta["label"] != "UNVERIFIED" and not meta.get("verified_by"):
+            errors.append(f"{rel}: label {meta['label']} 인데 verified_by 없음")
     return {"checked": checked, "errors": errors}

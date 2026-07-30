@@ -208,7 +208,12 @@ knowledge/ 커밋 (본 repo)
 ② 패시브 트리 (PoB TreeData 덤프 — 쉬움, P4 트리 최적화 대비)
 ③ 유니크 아이템
 ④ 베이스 아이템 + 모드 풀 (제작규칙 RC4 설계 동반 — Modifier 스키마 상세화 필요)
-⑤ 서술 트랙 가동 (KI-2, poe2wiki 재작성 — KI-7 §6-1) ← **가동 (2026-07-30)**: 수집기·wiki 게이트(`narrative fetch|check`) + 파일럿 2건
+⑤ 서술 트랙 가동 (KI-2, poe2wiki 재작성 — KI-7 §6-1) ← **가동 (2026-07-30)**: 수집기·wiki 게이트(`narrative fetch|check`) + 35건 완성.
+   **서술 라벨 승격 규칙 (사용자 확정 2026-07-30 — 사람 전수 검증은 비현실적)**:
+   `UNVERIFIED` →(모델 스팟체크: 원문 revid·구조 레코드 대조, 별도 패스)→ `SUPPORTED_INFERENCE`
+   →(대화·플레이에서 인게임 확인 시 **건별 즉시**)→ `IN_GAME` →(패치노트 근거)→ `CONFIRMED_OFFICIAL`.
+   모순 발견 시 `CONTRADICTED`(경고 노출). 승격은 front-matter `verified_by` 필수 — 게이트가 강제.
+   '판단 노트' 섹션은 우리 추론 층이라 검증 대상 외 (그래서 상한이 SUPPORTED_INFERENCE).
 ⑥ 화폐·룬·웨이스톤·콘텐츠 (P3~P4 필요 시점에)
    └ 예외: **제작 화폐 259종은 ④로 앞당겨 수록** (2026-07-30 사용자 지적·승인 —
      모드 획득 경로가 화폐를 가리키는데 화폐 레코드가 없었다. 제작규칙과 한 몸)
