@@ -51,7 +51,9 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
         "connections": item["connections"],  # P4 Steiner 기반 (엣지 보존)
     }
     if item.get("ascendancy"):
-        data["ascendancy"] = item["ascendancy"]
+        data["ascendancy"] = item["ascendancy"]  # 내부 코드 (계보·정렬용)
+    if item.get("ascendancy_name"):
+        data["ascendancy_name"] = item["ascendancy_name"]  # 실명 {en, ko} — 표시용
     if item.get("attribute_choice"):
         # 셋 중 택1 — 평평한 stats로 두면 "셋 다 부여"로 읽힌다 (tree.extract_attribute_choice).
         # 요구치 충족·스탯 스태킹 판단에 쓰이므로 기계가 읽을 수 있는 형태로 둔다.
