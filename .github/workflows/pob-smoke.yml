@@ -1,0 +1,74 @@
+# headless PoB 계산 왕복 스모크 — Windows·macOS 양쪽에서 검증 (P3 Phase 0).
+# PoB 소스는 knowledge/ingest/manifest.json의 pob_commit과 같은 고정 커밋을 클론한다
+# (증거 체인 유지 — 커밋을 올릴 때는 manifest와 함께 움직일 것).
+name: pob-smoke
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/pob_smoke.lua"
+      - ".github/workflows/pob-smoke.yml"
+  pull_request:
+    paths:
+      - "scripts/pob_smoke.lua"
+      - ".github/workflows/pob-smoke.yml"
+
+env:
+  POB_REPO: https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git
+  POB_COMMIT: 5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PoB 클론 캐시
+        id: pob-cache
+        uses: actions/cache@v4
+        with:
+          path: pob
+          key: pob-${{ env.POB_COMMIT }}
+
+      - name: PoB 소스 (고정 커밋)
+        if: steps.pob-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          git init pob
+          git -C pob remote add origin "$POB_REPO"
+          git -C pob fetch --depth 1 origin "$POB_COMMIT"
+          git -C pob checkout FETCH_HEAD
+
+      - name: LuaJIT 설치 (macOS)
+        if: runner.os == 'macOS'
+        run: brew install luajit
+
+      - name: LuaJIT 설치 (Windows, MSYS2)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-luajit
+
+      - name: 스모크 실행 (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cd pob/src
+          echo "" | LUA_PATH="./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;" \
+            luajit "$GITHUB_WORKSPACE/scripts/pob_smoke.lua" | tee out.log
+          grep -q "^POK_OK$" out.log
+
+      - name: 스모크 실행 (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          cd pob/src
+          echo "" | LUA_PATH="./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;" \
+            luajit "$GITHUB_WORKSPACE/scripts/pob_smoke.lua" | tee out.log
+          grep -q "^POK_OK$" out.log

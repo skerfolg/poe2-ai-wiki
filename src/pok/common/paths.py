@@ -39,3 +39,10 @@ def var_dir(root: Path | None = None) -> Path:
 def index_db_path(root: Path | None = None) -> Path:
     """파생 검색 인덱스 (self-healing 대상)."""
     return var_dir(root) / "index.sqlite"
+
+
+def artifacts_dir(root: Path | None = None) -> Path:
+    """② 산출물 (gitignore, 재생성 불가 — 계보 manifest와 함께 보존). 없으면 생성."""
+    p = (root or project_root()) / "artifacts"
+    p.mkdir(parents=True, exist_ok=True)
+    return p
