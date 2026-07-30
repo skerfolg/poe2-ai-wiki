@@ -10,14 +10,15 @@
   시작점과 연결되지 않은 노드는 PoB가 로드 시 소리 없이 해제 → runner가
   POK_ALLOC과 요청 집합을 비교해 적법성을 판정한다.
 
-아이템(<Items>)은 Phase 2(engine 적법성 검사와 함께)에서 확장한다 — 아이템
-텍스트 포맷은 아직 스파이크로 실증하지 않았다.
+아이템: `<Item id="N">raw 텍스트</Item>` + `<ItemSet><Slot name=… itemId=…/>`
+(Phase 2 스파이크 실측 — Altar Robe에 '+100 to maximum Life'가 Life에 반영됨).
+텍스트의 적법성(모드 풀·ilvl)은 engine의 몫 — 여기는 직렬화만 한다.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from xml.sax.saxutils import quoteattr
+from xml.sax.saxutils import escape, quoteattr
 
 TARGET_VERSION = "0_1"  # 빌드 포맷 버전 (게임 버전 아님!)
 TREE_VERSION = "0_5"
@@ -57,6 +58,21 @@ class SkillGroupSpec:
 
 
 @dataclass(frozen=True)
+class ItemSpec:
+    """장착 아이템 하나 — PoB raw 텍스트 형식 (실측 2026-07-30).
+
+    text 형식: `Rarity: RARE|UNIQUE|MAGIC|NORMAL` 줄, 이름 줄, 베이스 줄,
+    이후 `Item Level: N`·모드 줄들. 베이스명은 PoB uniques/bases DB와 일치해야
+    파싱된다(KB base-items의 name.en 그대로 사용 가능 — id 공간 일치 실측).
+    slot은 PoB 슬롯명: Weapon 1|Weapon 2|Helmet|Body Armour|Gloves|Boots|
+    Amulet|Ring 1|Ring 2|Belt|Charm 1…
+    """
+
+    slot: str
+    text: str
+
+
+@dataclass(frozen=True)
 class BuildSpec:
     """PoB에 계산을 맡길 빌드 정의 — KB id 공간과 호환되는 최소 스펙."""
 
@@ -65,6 +81,7 @@ class BuildSpec:
     level: int = 90
     tree_nodes: tuple[int, ...] = ()  # KB node_id 그대로 (연결성은 호출자 책임)
     skills: tuple[SkillGroupSpec, ...] = ()
+    items: tuple[ItemSpec, ...] = ()
     main_socket_group: int = 1
     config: tuple[tuple[str, str | int | bool], ...] = field(default=())  # Input name→value
 
@@ -106,6 +123,27 @@ def to_xml(spec: BuildSpec) -> str:
         for name, value in spec.config
     )
 
+    # 아이템: <Item id=N>raw</Item> + ItemSet/Slot 연결 (텍스트는 escape만 — PoB가 파싱)
+    seen_slots: set[str] = set()
+    for item in spec.items:
+        if item.slot in seen_slots:
+            raise ValueError(f"슬롯 중복: {item.slot!r}")
+        seen_slots.add(item.slot)
+    item_els = "\n".join(
+        f'    <Item id="{i}">{escape(item.text)}</Item>'
+        for i, item in enumerate(spec.items, start=1)
+    )
+    slot_els = "\n".join(
+        f'      <Slot name={quoteattr(item.slot)} itemId="{i}"/>'
+        for i, item in enumerate(spec.items, start=1)
+    )
+    items_xml = (
+        f'  <Items activeItemSet="1">\n{item_els}\n'
+        f'    <ItemSet id="1" title="pok">\n{slot_els}\n    </ItemSet>\n  </Items>'
+        if spec.items
+        else "  <Items/>"
+    )
+
     nodes = ",".join(str(n) for n in spec.tree_nodes)
     build_attrs = (
         f'level="{spec.level}" characterLevelAutoMode="false" '
@@ -128,7 +166,7 @@ def to_xml(spec: BuildSpec) -> str:
   <Tree activeSpec="1">
     <Spec {spec_attrs}/>
   </Tree>
-  <Items/>
+{items_xml}
   <Config>
 {config_inputs}
   </Config>

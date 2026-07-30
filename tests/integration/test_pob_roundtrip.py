@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from pok.pob.buildxml import BuildSpec, GemSpec, SkillGroupSpec
+from pok.pob.buildxml import BuildSpec, GemSpec, ItemSpec, SkillGroupSpec
+from pok.pob.daemon import PobDaemon
 from pok.pob.runner import run_build
 from pok.pob.versions import find_luajit, resolve_snapshot
 
@@ -67,3 +68,41 @@ def test_캐시_왕복() -> None:
     second = run_build(SPEC)
     assert second.cached
     assert second.stats == first.stats
+
+
+ROBE = ItemSpec(
+    slot="Body Armour",
+    text=(
+        "Rarity: RARE\n"
+        "Pok Test Robe\n"
+        "Altar Robe\n"  # KB item.altar-robe — 베이스명 그대로 (id 공간 일치)
+        "Item Level: 80\n"
+        "+100 to maximum Life\n"
+        "+50% to Fire Resistance"
+    ),
+)
+
+
+def test_아이템이_계산에_반영된다() -> None:
+    # Phase 2 스파이크 실측: +100 생명력 → Life 1187→1292 (베이스 부수 효과 포함),
+    # +50% 화염 저항 → -50→0, Altar Robe 베이스 ES 95.
+    result = run_build(
+        BuildSpec(class_name="Sorceress", ascendancy="Sorceress1", items=(ROBE,)),
+        use_cache=False,
+    )
+    assert result.stats["Life"] == 1292
+    assert result.stats["FireResist"] == 0
+    assert result.stats["EnergyShield"] == 95
+
+
+def test_데몬_다회_계산() -> None:
+    with PobDaemon() as d:
+        base = d.compute_build(BuildSpec(class_name="Sorceress", ascendancy="Sorceress1"))
+        with_items = d.compute_build(
+            BuildSpec(class_name="Sorceress", ascendancy="Sorceress1", items=(ROBE,))
+        )
+        tree = d.compute_build(SPEC)
+    assert base.stats["Life"] == 1187
+    assert with_items.stats["Life"] == 1292
+    assert tree.is_tree_legal
+    assert tree.stats["TotalDPS"] == pytest.approx(97.3214, abs=0.01)

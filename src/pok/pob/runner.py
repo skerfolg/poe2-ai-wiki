@@ -47,12 +47,14 @@ def _cache_path(xml_text: str, commit: str) -> Path:
     return var_dir() / "pob-cache" / f"{digest}.json"
 
 
-def _parse(stdout: str) -> tuple[dict[str, float], dict[str, object], tuple[int, ...]]:
+def parse_lines(
+    lines: list[str],
+) -> tuple[dict[str, float], dict[str, object], tuple[int, ...]]:
+    """POK_* 프로토콜 공통 파서 (driver·daemon 동일 계약). POK_ERR는 예외로 승격."""
     meta: dict[str, object] = {}
     stats: dict[str, float] = {}
     alloc: tuple[int, ...] = ()
-    ok = False
-    for line in stdout.splitlines():
+    for line in lines:
         if line.startswith("POK_META:"):
             meta = json.loads(line[len("POK_META:") :])
         elif line.startswith("POK_ALLOC:"):
@@ -61,12 +63,18 @@ def _parse(stdout: str) -> tuple[dict[str, float], dict[str, object], tuple[int,
             stats = {k: float(v) for k, v in json.loads(line[len("POK_JSON:") :]).items()}
         elif line.startswith("POK_ERR:"):
             raise PobRunError(line[len("POK_ERR:") :])
-        elif line == "POK_OK":
-            ok = True
-    if not ok:
-        tail = "\n".join(stdout.splitlines()[-8:])
-        raise PobRunError(f"드라이버가 POK_OK 없이 종료:\n{tail}")
+    if not stats or not meta:
+        tail = "\n".join(lines[-8:])
+        raise PobRunError(f"POK_META/POK_JSON 누락:\n{tail}")
     return stats, meta, alloc
+
+
+def _parse(stdout: str) -> tuple[dict[str, float], dict[str, object], tuple[int, ...]]:
+    lines = stdout.splitlines()
+    result = parse_lines(lines)  # POK_ERR 사유가 있으면 여기서 먼저 예외로 승격
+    if "POK_OK" not in lines:
+        raise PobRunError("드라이버가 POK_OK 없이 종료:\n" + "\n".join(lines[-8:]))
+    return result
 
 
 def run_xml(
