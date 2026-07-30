@@ -29,9 +29,11 @@ mcp: FastMCP = FastMCP(
     "pok",
     instructions=(
         "PoE2 지식베이스(패치 0.5.x). 2단계 조회: search_kb로 후보를 좁히고 "
-        "get_entry로 필요한 필드만 가져올 것(토큰 절약). 레코드의 verification "
-        "라벨(GAME_DATA > POB_CODE ≈ IN_GAME > SUPPORTED_INFERENCE > UNVERIFIED, "
-        "CONTRADICTED=모순 경고)을 판단 신뢰도에 반영할 것."
+        "get_entry로 필요한 필드만 가져올 것(토큰 절약). 질의는 게임 텍스트 용어로 "
+        "— 유저 은어('스태킹')가 아니라 효과 문구('최대 생명력', 'maximum Life')가 "
+        "매칭된다. 다단어는 AND 매칭. 레코드의 verification 라벨(GAME_DATA > "
+        "POB_CODE ≈ IN_GAME > SUPPORTED_INFERENCE > UNVERIFIED, CONTRADICTED=모순 "
+        "경고)을 판단 신뢰도에 반영할 것."
     ),
 )
 

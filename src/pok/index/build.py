@@ -16,7 +16,7 @@ from pok.common.paths import index_db_path, knowledge_dir
 from pok.kb.store import Store, load
 
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # v2: fts에 body(효과 텍스트) 추가 — '생명력 증가' 같은 효과 질의 지원
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -30,8 +30,44 @@ CREATE INDEX idx_tags_tag ON tags(tag);
 CREATE TABLE relations (src TEXT NOT NULL, rel TEXT NOT NULL, target TEXT NOT NULL);
 CREATE INDEX idx_rel_src ON relations(src);
 CREATE INDEX idx_rel_target ON relations(target);  -- 역방향 조회 = 인덱스가 제공 (정본은 정방향만)
-CREATE VIRTUAL TABLE fts USING fts5(id UNINDEXED, name_ko, name_en, tags, notes);
+CREATE VIRTUAL TABLE fts USING fts5(id UNINDEXED, name_ko, name_en, tags, notes, body);
 """
+
+# data 안에서 검색 가치가 있는 텍스트 필드 (효과·설명 — 한/영)
+_BODY_FIELDS = (
+    "stats",
+    "stats_en",
+    "texts",
+    "texts_ko",
+    "effect",
+    "effect_ko",
+    "description",
+    "implicit",
+    "affix_name",
+)
+
+
+def _fts_body(raw: dict[str, object]) -> str:
+    """레코드의 효과·설명 텍스트를 한 덩어리로 — FTS body 컬럼.
+
+    실측(2026-07-30): 이름·태그만 색인하면 '생명력 증가'류 효과 질의가 0건이라
+    MCP 소비 에이전트가 파일 grep으로 도피한다 — 효과 텍스트가 검색의 본체다.
+    """
+    data_obj = raw.get("data")
+    data: dict[str, object] = data_obj if isinstance(data_obj, dict) else {}
+    parts: list[str] = []
+    for key in _BODY_FIELDS:
+        v = data.get(key)
+        if isinstance(v, str):
+            parts.append(v)
+        elif isinstance(v, list):
+            parts += [str(x) for x in v]
+    per_slot = data.get("per_slot")
+    if isinstance(per_slot, dict):
+        for slot_lines in per_slot.values():
+            if isinstance(slot_lines, list):
+                parts += [str(x) for x in slot_lines]
+    return " ".join(parts)
 
 
 def source_fingerprint(kdir: Path) -> str:
@@ -78,8 +114,15 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
                 [(r.id, e["rel"], e["target"]) for e in r.relations],
             )
             con.execute(
-                "INSERT INTO fts VALUES (?,?,?,?,?)",
-                (r.id, r.name_ko, r.name_en, " ".join(r.tags), str(r.raw.get("notes", ""))),
+                "INSERT INTO fts VALUES (?,?,?,?,?,?)",
+                (
+                    r.id,
+                    r.name_ko,
+                    r.name_en,
+                    " ".join(r.tags),
+                    str(r.raw.get("notes", "")),
+                    _fts_body(r.raw),
+                ),
             )
         con.commit()
     finally:
