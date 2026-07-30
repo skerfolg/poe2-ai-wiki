@@ -36,4 +36,7 @@ CATEGORIES: dict[str, Category] = {
     "lineage-supports": Category(
         "lineage-supports", "/us/Lineage_Supports", "lineage GemTags", extractor="cards"
     ),
+    # ④ 모드 카탈로그: Modifiers 허브가 아이템 클래스별 페이지(#ModifiersCalc)를 가리킨다.
+    # PoB 스폰 가중치가 성겨(가중치 0인 실존 모드 다수) poe2db가 획득 판정의 교차 축.
+    "modifier-pages": Category("modifier-pages", "/us/Modifiers", "Modifiers", extractor="modcalc"),
 }

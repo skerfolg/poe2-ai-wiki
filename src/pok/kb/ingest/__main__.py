@@ -58,7 +58,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p_mods = sub.add_parser("mods", help="베이스+모드 풀(④): process (PoB 덤프 소스, 오프라인)")
     p_mods.add_argument("--patch", required=True)
-    p_mods.add_argument("step", choices=["process", "merge"])
+    p_mods.add_argument("step", choices=["process", "merge", "catalog"])
 
     p_tree = sub.add_parser("tree", help="패시브 트리: fetch(일괄 2회)|process(청크 분류)|merge")
     p_tree.add_argument("--patch", required=True)
@@ -163,6 +163,19 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             print(f"리포트: {raw_dir / 'pob' / 'mods-report.json'}")
+        elif args.step == "catalog":
+            from pok.kb.ingest.mod_catalog import process_catalog
+
+            plan = json.loads((raw_dir / "fetch-plan.json").read_text(encoding="utf-8"))
+            cat_report = process_catalog(raw_dir, out_dir, plan)
+            print(
+                json.dumps(
+                    {k: v for k, v in cat_report.items() if k != "verification"},
+                    ensure_ascii=False,
+                    indent=1,
+                )
+            )
+            print(f"리포트: {raw_dir / 'modifiers' / 'catalog-report.json'}")
         else:
             from pok.common.paths import knowledge_dir
             from pok.kb.ingest.mods import merge_mods
