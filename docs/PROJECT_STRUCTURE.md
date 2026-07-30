@@ -195,7 +195,7 @@ artifacts/builds/<id>          ──[승격: reference 가치 판단]───�
 ## 9. 미결 사항 (파킹 — 해당 로드맵 단계에서 결정, [ROADMAP](ROADMAP.md) 참조)
 
 1. **인사이트 3계층** (canonical/durable/season) → P5 학습 루프에서
-2. **`build-id` 체계** (해시 vs 타임스탬프+슬러그 vs 병행) → P3 빌드 생성에서
+2. ~~**`build-id` 체계**~~ ✅ **타임스탬프+슬러그** (예: `20260730-spark-stormweaver`, 사용자 확정 2026-07-30). 사람이 읽고 대화에서 지칭하기 쉬운 쪽을 우선 — 내용 추적·중복 탐지는 manifest의 해시로 보완.
 3. **보존 정책** (`sessions`·`feedback` 아카이브 시점) → P5에서
 4. **`artifacts/` 중 builds·sessions·feedback의 멀티 PC 동기화** (데이터 repo 확장 여부) → P3에서
 
