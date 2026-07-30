@@ -406,6 +406,8 @@ def desecrated_to_records(
                 "scope": scope,  # equipment | jewel | waystone
                 "acquisition": ["desecration"],
             }
+            if row.get("text_ko"):
+                data["texts_ko"] = [row["text_ko"]]
             if row.get("ilvl"):
                 data["ilvl"] = row["ilvl"]
             if row.get("mod_tags"):
@@ -421,7 +423,10 @@ def desecrated_to_records(
                 {
                     "id": rid,
                     "type": "Modifier",
-                    "name": {"ko": row["affix_name"], "en": row["affix_name"]},
+                    "name": {
+                        "ko": row.get("affix_name_ko") or row["affix_name"],
+                        "en": row["affix_name"],
+                    },
                     "tags": [],
                     "data": data,
                     "verification": "SUPPORTED_INFERENCE",  # poe2db 단독 소스
@@ -453,11 +458,16 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     bases = json.loads((out_dir / "base_items.json").read_text(encoding="utf-8"))
 
     match_path = out_dir / "catalog_match.json"
-    match: dict[str, list[str]] = (
+    match: dict[str, dict[str, Any]] = (
         json.loads(match_path.read_text(encoding="utf-8")) if match_path.exists() else {}
     )
+    catalog_path = out_dir / "mod_catalog.json"
+    catalog: dict[str, dict[str, Any]] = (
+        json.loads(catalog_path.read_text(encoding="utf-8")) if catalog_path.exists() else {}
+    )
     for m in mods:  # poe2db 풀 = 획득 경로 (E-2 실존 풀 연결 포함)
-        routes = [f"poe2db:{p}" for p in match.get(m["pob_key"], [])]
+        info = match.get(m["pob_key"]) or {}
+        routes = [f"poe2db:{p}" for p in info.get("pools", [])]
         if routes:
             m["acquisition"] = sorted(set(m.get("acquisition") or []) | set(routes))
 
@@ -476,21 +486,56 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
         stale.unlink()  # 샤드 경계가 바뀌어도 잔재가 남지 않게 (멱등)
 
     by_pool: dict[str, list[dict[str, Any]]] = {}
+    ko_attached = 0
+    upgraded = 0
     for m in included:
-        by_pool.setdefault(m["origins"][0], []).append(mod_to_record(m, patch, POB_COMMIT))
+        rec = mod_to_record(m, patch, POB_COMMIT)
+        info = match.get(m["pob_key"]) or {}
+        entry = catalog.get(info.get("key") or "")
+        if entry is not None:
+            # 양 소스(poe2db∧PoB) 확인 → GAME_DATA 승격 (유니크 때의 라벨 규칙과 동일)
+            rec["verification"] = "GAME_DATA"
+            upgraded += 1
+            rec["sources"].append(
+                {"src": "poe2db", "ref": "us/<class>#ModifiersCalc", "patch": patch}
+            )
+            # 이름 ko는 poe2db 접사명이 PoB 접사명과 일치할 때만 — Alloy 계열은
+            # poe2db Name이 부여 화폐명이라 그대로 쓰면 접사명이 화폐명으로 오염된다
+            # (실측: 'of the Stars'에 '회오리바람 합금'이 붙음)
+            same_affix = (
+                str(entry.get("affix_name", "")).strip().lower()
+                == str(m.get("affix_name", "")).strip().lower()
+            )
+            if entry.get("affix_name_ko") and same_affix:
+                rec["name"]["ko"] = entry["affix_name_ko"]
+                ko_attached += 1
+            if entry.get("texts_ko"):
+                rec["data"]["texts_ko"] = entry["texts_ko"]
+        by_pool.setdefault(m["origins"][0], []).append(rec)
+
+    base_ko_path = out_dir / "base_names_ko.json"
+    base_names_ko: dict[str, str] = (
+        json.loads(base_ko_path.read_text(encoding="utf-8")) if base_ko_path.exists() else {}
+    )
 
     desecrated_path = out_dir / "desecrated.json"
     if desecrated_path.exists():
-        catalog = json.loads((out_dir / "mod_catalog.json").read_text(encoding="utf-8"))
         tables = json.loads(desecrated_path.read_text(encoding="utf-8"))
         by_pool["desecrated"] = desecrated_to_records(tables, catalog, patch)
     mod_files: list[str] = []
     for pool, recs in sorted(by_pool.items()):
         mod_files += _write_shards(mod_dir, pool, recs)
 
-    base_files = _write_shards(
-        base_dir, "bases", [base_to_record(b, patch, POB_COMMIT) for b in bases]
-    )
+    base_records = []
+    base_ko_attached = 0
+    for b in bases:
+        rec = base_to_record(b, patch, POB_COMMIT)
+        ko = base_names_ko.get(b["name"])
+        if ko:
+            rec["name"]["ko"] = ko
+            base_ko_attached += 1
+        base_records.append(rec)
+    base_files = _write_shards(base_dir, "bases", base_records)
 
     after = store_load(knowledge.parent)  # 스키마·중복·참조 무결성 전량 재검증
     return {
@@ -500,6 +545,8 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
             1 for m in included if any(str(r).startswith("poe2db:") for r in m["acquisition"])
         ),
         "mods_by_pool": {k: len(v) for k, v in sorted(by_pool.items())},
+        "verification_upgraded": upgraded,  # POB_CODE → GAME_DATA (양 소스 확인)
+        "ko_names": {"mods": ko_attached, "bases": base_ko_attached},
         "bases_written": len(bases),
         "shards": {"modifiers": len(mod_files), "base-items": len(base_files)},
         "kb_total": len(after.records),

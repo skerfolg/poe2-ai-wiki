@@ -60,6 +60,11 @@ def main(argv: list[str] | None = None) -> int:
     p_mods.add_argument("--patch", required=True)
     p_mods.add_argument("step", choices=["process", "merge", "catalog"])
 
+    p_manifest = sub.add_parser(
+        "manifest", help="증거 체인 기록 (KB_INGEST §5): 데이터repo·PoB commit → knowledge/ingest/"
+    )
+    p_manifest.add_argument("--patch", required=True)
+
     p_tree = sub.add_parser("tree", help="패시브 트리: fetch(일괄 2회)|process(청크 분류)|merge")
     p_tree.add_argument("--patch", required=True)
     p_tree.add_argument("step", choices=["fetch", "process", "merge"])
@@ -185,6 +190,32 @@ def main(argv: list[str] | None = None) -> int:
                     merge_mods(out_dir, knowledge_dir(), args.patch), ensure_ascii=False, indent=1
                 )
             )
+    elif args.cmd == "manifest":
+        import subprocess
+
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest.merge import POB_COMMIT
+
+        def _git_head(cwd: Path) -> str:
+            return subprocess.run(
+                ["git", "-C", str(cwd), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+
+        manifest = {
+            "patch": args.patch,
+            "data_repo": "https://github.com/skerfolg/poe2-ai-wiki-data",
+            "data_repo_commit": _git_head(raw_dir),
+            "pob_commit": POB_COMMIT,
+            "tool": "pok.kb.ingest",
+            "note": "이 값으로 knowledge/ 커밋 → 원시까지 기계적 역추적 (KB_INGEST §5)",
+        }
+        dst = knowledge_dir() / "ingest" / "manifest.json"
+        dst.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(json.dumps(manifest, ensure_ascii=False, indent=1))
+        print(f"기록: {dst}")
     elif args.cmd == "tree":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest import tree as tree_mod

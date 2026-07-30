@@ -331,7 +331,12 @@ def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
     (out / "mods.json").write_text(json.dumps(pob_mods), encoding="utf-8")
     (out / "base_items.json").write_text("[]", encoding="utf-8")
     (out / "catalog_match.json").write_text(
-        json.dumps({"AlloyX1": ["perfect_essence"], "Strength1": ["normal", "chronomancy"]}),
+        json.dumps(
+            {
+                "AlloyX1": {"pools": ["perfect_essence"], "key": "kalloy"},
+                "Strength1": {"pools": ["normal", "chronomancy"], "key": "kstr"},
+            }
+        ),
         encoding="utf-8",
     )
     (out / "mod_catalog.json").write_text(
@@ -346,11 +351,36 @@ def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
                     "pools": {"desecrated": ["Body_Armours_str"]},
                     "mod_tags": [],
                     "drop_chance": None,
-                }
+                },
+                "kstr": {
+                    "affix_name": "of the Brute",
+                    "affix_name_ko": "- 짐승",
+                    "texts_ko": ["힘 +(5-8)"],
+                    "ilvl": 1,
+                    "affix_type": "suffix",
+                    "families": ["strength"],
+                    "texts": ["+(5-8) to Strength"],
+                    "pools": {"normal": ["Amulets"]},
+                    "mod_tags": [],
+                    "drop_chance": 1000,
+                },
+                "kalloy": {
+                    "affix_name": "Celestial Alloy",  # 화폐명 — PoB 접사명과 다름
+                    "affix_name_ko": "천상의 합금",
+                    "texts_ko": ["집정관 버프 지속시간 증가"],
+                    "ilvl": 45,
+                    "affix_type": "suffix",
+                    "families": ["archonduration"],
+                    "texts": ["(35-42)% increased Archon Buff duration"],
+                    "pools": {"perfect_essence": ["Amulets"]},
+                    "mod_tags": [],
+                    "drop_chance": None,
+                },
             }
         ),
         encoding="utf-8",
     )
+    (out / "base_names_ko.json").write_text("{}", encoding="utf-8")
     (out / "desecrated.json").write_text(
         json.dumps(
             {
@@ -400,6 +430,12 @@ def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
     )
     records = {json.loads(line)["id"]: json.loads(line) for line in shard_text.splitlines()}
     assert records["modifier.alloyx1"]["data"]["acquisition"] == ["poe2db:perfect_essence"]
+    assert records["modifier.alloyx1"]["verification"] == "GAME_DATA", "양 소스 확인 → 승격"
+    assert records["modifier.alloyx1"]["name"]["ko"] == "of the Stars", (
+        "poe2db 접사명이 화폐명이면 name.ko 오염 금지 — texts_ko만"
+    )
+    assert records["modifier.alloyx1"]["data"]["texts_ko"] == ["집정관 버프 지속시간 증가"]
+    assert records["modifier.strength1"]["name"]["ko"] == "- 짐승", "접사명 일치 → ko 부착"
     assert records["modifier.strength1"]["data"]["acquisition"] == [
         "crafting-currency",
         "poe2db:chronomancy",

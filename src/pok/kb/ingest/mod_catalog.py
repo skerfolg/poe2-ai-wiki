@@ -110,7 +110,8 @@ def parse_desecrated(html: str) -> dict[str, list[dict[str, Any]]]:
             continue
         first_row = table.select("tr")[0]
         header_cells = [th.get_text(" ", strip=True) for th in first_row.select("th,td")]
-        has_level = "Level" in header_cells  # Waystone 테이블은 Level 열이 없다 (3열)
+        # Waystone 테이블은 Level 열이 없다(3열) · kr은 '레벨' 표기
+        has_level = any(h in ("Level", "레벨") for h in header_cells)
         rows: list[dict[str, Any]] = []
         for tr in table.select("tr")[1:]:  # 첫 행 = 헤더
             tds = tr.select("td")
@@ -137,6 +138,28 @@ def parse_desecrated(html: str) -> dict[str, list[dict[str, Any]]]:
     return out
 
 
+_ITEM_CARD = re.compile(r"(?:Item|아이템)\s*/\s*\d+")
+
+
+def parse_base_item_names(html: str) -> dict[str, str]:
+    """클래스 페이지의 '<Class> Item /N' 카드 → {href 슬러그: 표시 이름}.
+
+    href(영문 페이지 슬러그)가 언어와 무관한 공통 키다 — data-hover는 kr에서
+    CDN 해시 URL로 바뀌어 조인 축이 못 된다(실측).
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    out: dict[str, str] = {}
+    for card in soup.select("div.card"):
+        header = card.select_one(".card-header")
+        if header is None or not _ITEM_CARD.search(header.get_text(" ", strip=True)):
+            continue
+        for a in card.select("a.whiteitem[href]"):
+            name = a.get_text(strip=True)
+            if name:
+                out.setdefault(str(a["href"]), name)
+    return out
+
+
 def _norm_text(s: str) -> str:
     """대조용 텍스트 정규화 — 수치 범위 표기·공백·대소문자 차이를 지운다."""
     s = s.replace("\u2014", "-").replace("\u2013", "-")  # em/en dash
@@ -160,16 +183,27 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
     catalog: dict[str, dict[str, Any]] = {}  # match_key → 항목(+등장 페이지·풀)
     parsed_pages = 0
     missing_pages: list[str] = []
+    base_hover_en: dict[str, str] = {}
+    base_hover_ko: dict[str, str] = {}
+    ko_zip_mismatch = 0  # us/kr 항목 정렬키가 어긋난 것 (ko 부착 스킵)
     for slug in pages:
         path = raw_dir / "poe2db" / "us" / f"{slug}.html"
         if not path.exists():
             missing_pages.append(slug)
             continue
-        pools = parse_modsview(path.read_text(encoding="utf-8"))
+        html_us = path.read_text(encoding="utf-8")
+        pools = parse_modsview(html_us)
+        kr_path = raw_dir / "poe2db" / "kr" / f"{slug}.html"
+        html_kr = kr_path.read_text(encoding="utf-8") if kr_path.exists() else ""
+        pools_kr = parse_modsview(html_kr) if html_kr else {}
+        base_hover_en.update(parse_base_item_names(html_us))
+        if html_kr:
+            base_hover_ko.update(parse_base_item_names(html_kr))
         if pools:
             parsed_pages += 1
         for pool, mods in pools.items():
-            for m in mods:
+            kr_mods = pools_kr.get(pool) or []
+            for idx, m in enumerate(mods):
                 key = match_key(m["affix_name"], m["families"], m["ilvl"])
                 slot = catalog.setdefault(
                     key,
@@ -188,10 +222,36 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
                 if norm not in (_norm_text(t) for t in slot["texts"]):
                     slot["texts"].append(m["text"])
                 slot["pools"].setdefault(pool, []).append(slug)
+                # ko: 같은 (페이지,풀)의 같은 위치 — 정렬키(ilvl, families)가 같을 때만
+                # (kr ModsView의 families/Level은 영문 그대로라 검증 축으로 쓸 수 있다)
+                if idx < len(kr_mods):
+                    k = kr_mods[idx]
+                    if (k["ilvl"], k["families"]) == (m["ilvl"], m["families"]):
+                        slot.setdefault("affix_name_ko", k["affix_name"])
+                        if k["text"] not in slot.setdefault("texts_ko", []):
+                            slot["texts_ko"].append(k["text"])
+                    else:
+                        ko_zip_mismatch += 1
+
+    # 베이스 아이템 ko: data-hover(언어 무관 메타데이터 키)로 조인
+    base_names_ko = {
+        base_hover_en[h]: base_hover_ko[h]
+        for h in base_hover_en.keys() & base_hover_ko.keys()
+        if base_hover_en[h] != base_hover_ko[h]
+    }
 
     desecrated = parse_desecrated(
         (raw_dir / "modifiers" / "desecrated.us.html").read_text(encoding="utf-8")
     )
+    kr_desecrated_path = raw_dir / "modifiers" / "desecrated.kr.html"
+    if kr_desecrated_path.exists():
+        desecrated_kr = parse_desecrated(kr_desecrated_path.read_text(encoding="utf-8"))
+        for scope, rows in desecrated.items():
+            kr_rows = desecrated_kr.get(scope) or []
+            for idx, row in enumerate(rows):
+                if idx < len(kr_rows) and kr_rows[idx]["ilvl"] == row["ilvl"]:
+                    row["affix_name_ko"] = kr_rows[idx]["affix_name"]
+                    row["text_ko"] = kr_rows[idx]["text"]
 
     # ── ⑥ 교차: poe2db 카탈로그 ↔ PoB 수록·보류 모드 ─────────────
     from pok.kb.ingest.mods import is_included
@@ -225,23 +285,33 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
         for tx in v["texts"]:
             db_texts.setdefault(_norm_text(tx), set()).update(v["pools"])
 
-    def _pools_for(m: dict[str, Any]) -> tuple[str, set[str]]:
+    db_fam_lvl_key: dict[str, str] = {}  # (family|ilvl) → 대표 catalog_key
+    for ck, v in catalog.items():
+        for fam in v["families"]:
+            db_fam_lvl_key.setdefault(f"{fam}|{v['ilvl']}", ck)
+    db_text_key: dict[str, str] = {}
+    for ck, v in catalog.items():
+        for tx in v["texts"]:
+            db_text_key.setdefault(_norm_text(tx), ck)
+
+    def _pools_for(m: dict[str, Any]) -> tuple[str, set[str], str | None]:
         key = match_key(m.get("affix_name", ""), [m.get("group", "")], m.get("ilvl", 0))
         if key in db_keys:
-            return "key", set(catalog[key]["pools"])
+            return "key", set(catalog[key]["pools"]), key
         fam_key = f"{str(m.get('group', '')).lower()}|{m.get('ilvl', 0)}"
         if fam_key in db_fam_lvl:
-            return "key", db_fam_lvl[fam_key]
+            return "key", db_fam_lvl[fam_key], db_fam_lvl_key.get(fam_key)
         texts = [str(t) for t in (m.get("texts") or [])]
         candidates = [_norm_text(t) for t in texts]
         if len(texts) > 1:
             candidates.append(_norm_text(" ".join(texts)))
-        hit = next((db_texts[c] for c in candidates if c in db_texts), None)
-        if hit is not None:
-            return "text", set(hit)
-        return "none", set()
+        hit_key = next((db_text_key[c] for c in candidates if c in db_text_key), None)
+        if hit_key is not None:
+            return "text", set(catalog[hit_key]["pools"]), hit_key
+        return "none", set(), None
 
-    match_result: dict[str, list[str]] = {}  # pob_key → poe2db 풀들 (merge가 획득 경로로 부착)
+    # pob_key → {pools, catalog_key} (merge가 획득 경로·ko·GAME_DATA 승격에 쓴다)
+    match_result: dict[str, dict[str, Any]] = {}
     held = [m for m in pob_mods if not is_included(m)]
     held_keys = {m["pob_key"] for m in held}
     confirmed: list[str] = []
@@ -251,9 +321,9 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
     for m in pob_mods:
         if m["affix_type"] not in ("prefix", "suffix"):
             continue
-        how, pools_hit = _pools_for(m)
+        how, pools_hit, catalog_key = _pools_for(m)
         if pools_hit:
-            match_result[m["pob_key"]] = sorted(pools_hit)
+            match_result[m["pob_key"]] = {"pools": sorted(pools_hit), "key": catalog_key}
         if m["pob_key"] not in held_keys:
             continue
         if how == "key":
@@ -285,6 +355,10 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
     (out_dir / "desecrated.json").write_text(
         json.dumps(desecrated, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
     )
+    (out_dir / "base_names_ko.json").write_text(
+        json.dumps(dict(sorted(base_names_ko.items())), ensure_ascii=False, indent=1) + "\n",
+        encoding="utf-8",
+    )
     pool_counts: dict[str, int] = {}
     for v in catalog.values():
         for pool in v["pools"]:
@@ -306,6 +380,11 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
         },
         "matched_total": len(match_result),
         "revival_candidates": sorted(revival)[:30],
+        "ko": {
+            "catalog_with_ko": sum(1 for v in catalog.values() if v.get("affix_name_ko")),
+            "zip_mismatch_skipped": ko_zip_mismatch,
+            "base_names_ko": len(base_names_ko),
+        },
         "verification": verification_block(cross=[cross]),
     }
     (raw_dir / "modifiers" / "catalog-report.json").write_text(
