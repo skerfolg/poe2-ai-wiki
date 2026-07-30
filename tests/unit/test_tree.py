@@ -303,6 +303,34 @@ def test_ascendancy_hub_node_is_included(tmp_path: Path) -> None:
     assert acq["routes_top"]["ascendancy-choice"] >= 1
 
 
+def test_ascendancy_code_gets_display_name(tmp_path: Path) -> None:
+    """어센던시 코드(Druid1…)에 시작 노드의 실명(en/ko)을 부착한다.
+
+    M1 첫 실사용 피드백(2026-07-30): 코드가 그대로 노출되면 사용자가 못 읽는다 —
+    매핑은 추측이 아니라 시작 노드 데이터에서 온다.
+    """
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    _write_tree_fixtures(raw)
+    us = json.loads((raw / "tree/poe2db_us.json").read_text(encoding="utf-8"))
+    us["nodes"]["6"] = {
+        "name": "Nature Notable",
+        "isNotable": True,
+        "stats": ["10% increased Nature"],
+        "ascendancyName": "Druid1",
+        "connections": [],
+    }
+    (raw / "tree/poe2db_us.json").write_text(json.dumps(us), encoding="utf-8")
+    pob = json.loads((raw / "tree/pob_tree.json").read_text(encoding="utf-8"))
+    pob["nodes"]["6"] = {"name": "Nature Notable"}
+    (raw / "tree/pob_tree.json").write_text(json.dumps(pob), encoding="utf-8")
+
+    process_tree(raw, out)
+    notables = json.loads((out / "tree_notable.json").read_text(encoding="utf-8"))
+    n = next(x for x in notables if x["name_en"] == "Nature Notable")
+    # 픽스처의 Druid1 시작 노드 이름 = Oracle (name_ko는 kr 픽스처의 '오라클')
+    assert n["ascendancy_name"]["en"] == "Oracle"
+
+
 def test_ascendancy_placeholder_stays_excluded(tmp_path: Path) -> None:
     """미구현 자리표는 stats도 PoB 항목도 없어 허브 규칙에 걸리지 않는다."""
     raw, out = tmp_path / "raw", tmp_path / "out"

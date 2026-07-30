@@ -374,6 +374,19 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
             }
         )
 
+    # 어센던시 코드(Witch1…) → 실명 (시작 노드가 곧 매핑표 — 추측 없이 데이터로).
+    # M1 첫 실사용 피드백(2026-07-30): 코드가 그대로 노출되면 사용자가 못 읽는다.
+    asc_names: dict[str, dict[str, str]] = {
+        n["ascendancy"]: {"en": n["name_en"], "ko": n["name_ko"]}
+        for n in chunks["ascendancy-start"]
+        if n.get("ascendancy")
+    }
+    for items in chunks.values():
+        for n in items:
+            named = asc_names.get(n.get("ascendancy") or "")
+            if named:
+                n["ascendancy_name"] = named
+
     out_dir.mkdir(parents=True, exist_ok=True)
     for kind, items in chunks.items():
         (out_dir / f"tree_{kind}.json").write_text(
