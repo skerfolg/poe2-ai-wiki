@@ -3,15 +3,34 @@
   "status": "draft-for-review",
   "note": "판 규칙(RC4) 초안 — 모드 수준 규칙(그룹 배타·ilvl·spawn_weights)은 modifiers/ 레코드에 있고, 이 파일은 그 위의 판 규칙만 담는다. 게임 상수라 사용자 확정 전까지 UNVERIFIED. 확정 시 verification을 올리고 sources를 채운다.",
   "affix_caps": {
-    "verification": "UNVERIFIED",
     "equipment": {
-      "normal": { "prefixes": 0, "suffixes": 0 },
-      "magic": { "prefixes": 1, "suffixes": 1 },
-      "rare": { "prefixes": 3, "suffixes": 3 }
+      "verification": "IN_GAME",
+      "approved": "2026-07-30 user",
+      "normal": {
+        "prefixes": 0,
+        "suffixes": 0
+      },
+      "magic": {
+        "prefixes": 1,
+        "suffixes": 1
+      },
+      "rare": {
+        "prefixes": 3,
+        "suffixes": 3
+      }
     },
     "jewel": {
-      "note": "미확정 — 희귀 주얼의 접사 한도(2/2 여부) 사용자 확인 필요",
-      "rare": { "prefixes": null, "suffixes": null }
+      "verification": "IN_GAME",
+      "approved": "2026-07-30 user",
+      "rare": {
+        "prefixes": 2,
+        "suffixes": 2
+      },
+      "season_override": {
+        "season": "0.5",
+        "rule": "총 5모드까지 — 3/2 또는 2/3 가능 (시즌 한정 메커니즘)",
+        "note": "다음 시즌 유지 여부 불명 — 시즌 전환 시 재확인 필수 (사용자 판정)"
+      }
     },
     "waystone": {
       "note": "미확정 — §6-2 ⑥(웨이스톤) 수집 시점에 확정"
@@ -48,7 +67,15 @@
     }
   },
   "sources": [
-    { "src": "poe2db", "ref": "https://poe2db.tw/us/Crafting", "patch": "0.5.4b" },
-    { "src": "poe2db", "ref": "https://poe2db.tw/us/Essence", "patch": "0.5.4b" }
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Crafting",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Essence",
+      "patch": "0.5.4b"
+    }
   ]
 }
