@@ -282,3 +282,130 @@ def test_seed_records_pass_schema_roundtrip(tmp_path: Path) -> None:
     kb = store_load(root)
     assert len(kb.records) == 7
     assert kb.records["modifier.strength1"].type == "Modifier"
+
+
+def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
+    """2026-07-30 승인 반영 — 카탈로그 확인분 승격 · 미확인분 원장 · Desecrated 신규."""
+    import shutil
+
+    from pok.common.paths import project_root
+    from pok.kb.ingest.mods import merge_mods
+
+    out = tmp_path / "out"
+    out.mkdir()
+    pob_mods = [
+        {  # 카탈로그 확인 → 승격 + poe2db 경로
+            "pob_key": "AlloyX1",
+            "affix_type": "suffix",
+            "affix_name": "of the Stars",
+            "texts": ["(35-42)% increased Archon Buff duration"],
+            "group": "ArchonDuration",
+            "ilvl": 45,
+            "spawn_weights": {"default": 0},
+            "origins": ["item"],
+            "acquisition": [],
+        },
+        {  # 카탈로그 미확인 → 제외 + 원장
+            "pob_key": "DeadZeal1",
+            "affix_type": "suffix",
+            "affix_name": "of Zeal",
+            "texts": ["(3-4)% increased Attack and Cast Speed"],
+            "group": "AttackAndCastSpeed",
+            "ilvl": 15,
+            "spawn_weights": {"default": 0},
+            "origins": ["item"],
+            "acquisition": [],
+        },
+        {  # 일반 수록분 — poe2db 풀 경로가 추가로 붙는다 (E-2 유지)
+            "pob_key": "Strength1",
+            "affix_type": "suffix",
+            "affix_name": "of the Brute",
+            "texts": ["+(5-8) to Strength"],
+            "group": "Strength",
+            "ilvl": 1,
+            "spawn_weights": {"ring": 1},
+            "origins": ["item"],
+            "acquisition": ["crafting-currency"],
+        },
+    ]
+    (out / "mods.json").write_text(json.dumps(pob_mods), encoding="utf-8")
+    (out / "base_items.json").write_text("[]", encoding="utf-8")
+    (out / "catalog_match.json").write_text(
+        json.dumps({"AlloyX1": ["perfect_essence"], "Strength1": ["normal", "chronomancy"]}),
+        encoding="utf-8",
+    )
+    (out / "mod_catalog.json").write_text(
+        json.dumps(
+            {
+                "k1": {
+                    "affix_name": "Lightless",
+                    "ilvl": 1,
+                    "affix_type": "prefix",
+                    "families": ["armourincrease"],
+                    "texts": ["(5-10)% increased Armour"],
+                    "pools": {"desecrated": ["Body_Armours_str"]},
+                    "mod_tags": [],
+                    "drop_chance": None,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (out / "desecrated.json").write_text(
+        json.dumps(
+            {
+                "equipment": [
+                    {
+                        "affix_name": "Lightless",
+                        "ilvl": 1,
+                        "affix_type": "prefix",
+                        "text": "(5-10)% increased Armour",
+                        "mod_tags": ["kurgal_mod"],
+                    }
+                ],
+                "waystone": [
+                    {
+                        "affix_name": "Abyssal",
+                        "ilvl": 0,
+                        "affix_type": "prefix",
+                        "text": "Abyssal Monsters grant (50-100)% increased Experience",
+                        "mod_tags": [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    root = tmp_path / "repo"
+    knowledge = root / "knowledge"
+    root.mkdir()
+    (root / "pyproject.toml").write_text("", encoding="utf-8")
+    shutil.copytree(project_root() / "knowledge" / "schema", knowledge / "schema")
+    (knowledge / "ingest").mkdir()
+    (knowledge / "game-data").mkdir()
+
+    summary = merge_mods(out, knowledge, "t")
+    assert summary["mods_included"] == 2, "확인분 승격 + 기존 수록분"
+    assert summary["mods_excluded_to_ledger"] == 1, "미확인분은 원장으로"
+    assert summary["mods_by_pool"]["desecrated"] == 2
+    assert summary["kb_total"] == 4
+
+    ledger = json.loads((knowledge / "ingest" / "exclusions.json").read_text(encoding="utf-8"))
+    assert ledger["unobtainable_mods"][0]["pob_keys"] == ["DeadZeal1"]
+
+    shard_text = "".join(
+        p.read_text(encoding="utf-8")
+        for p in (knowledge / "game-data" / "modifiers").glob("*.ndjson")
+    )
+    records = {json.loads(line)["id"]: json.loads(line) for line in shard_text.splitlines()}
+    assert records["modifier.alloyx1"]["data"]["acquisition"] == ["poe2db:perfect_essence"]
+    assert records["modifier.strength1"]["data"]["acquisition"] == [
+        "crafting-currency",
+        "poe2db:chronomancy",
+        "poe2db:normal",
+    ], "E-2 유지 — 실존 풀이 획득 경로로 붙는다"
+    des = next(r for r in records.values() if "desecrated" in r["data"]["origins"])
+    assert des["verification"] == "SUPPORTED_INFERENCE", "poe2db 단독 소스"
+    lightless = records["modifier.desecrated-equipment-lightless-5-10-increased-armour"]
+    assert lightless["data"]["applicable_pages"] == ["Body_Armours_str"], "카탈로그로 클래스 보강"

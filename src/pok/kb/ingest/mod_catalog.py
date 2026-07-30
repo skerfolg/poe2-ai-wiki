@@ -108,12 +108,15 @@ def parse_desecrated(html: str) -> dict[str, list[dict[str, Any]]]:
         table = card.select_one("table")
         if table is None:
             continue
+        first_row = table.select("tr")[0]
+        header_cells = [th.get_text(" ", strip=True) for th in first_row.select("th,td")]
+        has_level = "Level" in header_cells  # Waystone 테이블은 Level 열이 없다 (3열)
         rows: list[dict[str, Any]] = []
         for tr in table.select("tr")[1:]:  # 첫 행 = 헤더
             tds = tr.select("td")
-            if len(tds) < 4:
+            if len(tds) < (4 if has_level else 3):
                 continue
-            desc = tds[3]
+            desc = tds[3 if has_level else 2]
             tags = [
                 str(b["data-tag"])
                 for b in desc.select("span.badge[data-tag]")
@@ -124,8 +127,8 @@ def parse_desecrated(html: str) -> dict[str, list[dict[str, Any]]]:
             rows.append(
                 {
                     "affix_name": tds[0].get_text(" ", strip=True),
-                    "ilvl": int(tds[1].get_text(strip=True) or 0),
-                    "affix_type": tds[2].get_text(strip=True).lower(),
+                    "ilvl": int(tds[1].get_text(strip=True) or 0) if has_level else 0,
+                    "affix_type": tds[2 if has_level else 1].get_text(strip=True).lower(),
                     "text": _strip_html(desc.decode_contents()),
                     "mod_tags": tags,
                 }
@@ -208,9 +211,10 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
     ]
     cross = cross_source(db_entities, pob_entities, labels=("poe2db", "pob"))
 
-    # 보류(C) 867건의 poe2db 실존 판정 — 계단식: 이름키 → (패밀리+ilvl) → 텍스트.
+    # 전 모드의 poe2db 실존 판정 — 계단식: 이름키 → (패밀리+ilvl) → 텍스트(결합 포함).
     # Alloy 계열은 poe2db Name이 접사명이 아니라 부여 화폐 링크라 이름 매칭이 원천 불가
     # (실측: AlloyArchonDuration1은 perfect_essence 풀의 (archonduration, 45)와 대응).
+    # 하이브리드는 PoB 두 줄 ↔ poe2db 한 줄 → 결합 텍스트로 흡수.
     db_keys = set(catalog)
     db_fam_lvl: dict[str, set[str]] = {}
     for v in catalog.values():
@@ -220,41 +224,66 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
     for v in catalog.values():
         for tx in v["texts"]:
             db_texts.setdefault(_norm_text(tx), set()).update(v["pools"])
+
+    def _pools_for(m: dict[str, Any]) -> tuple[str, set[str]]:
+        key = match_key(m.get("affix_name", ""), [m.get("group", "")], m.get("ilvl", 0))
+        if key in db_keys:
+            return "key", set(catalog[key]["pools"])
+        fam_key = f"{str(m.get('group', '')).lower()}|{m.get('ilvl', 0)}"
+        if fam_key in db_fam_lvl:
+            return "key", db_fam_lvl[fam_key]
+        texts = [str(t) for t in (m.get("texts") or [])]
+        candidates = [_norm_text(t) for t in texts]
+        if len(texts) > 1:
+            candidates.append(_norm_text(" ".join(texts)))
+        hit = next((db_texts[c] for c in candidates if c in db_texts), None)
+        if hit is not None:
+            return "text", set(hit)
+        return "none", set()
+
+    match_result: dict[str, list[str]] = {}  # pob_key → poe2db 풀들 (merge가 획득 경로로 부착)
     held = [m for m in pob_mods if not is_included(m)]
+    held_keys = {m["pob_key"] for m in held}
     confirmed: list[str] = []
     confirmed_pools: dict[str, int] = {}
     text_only: list[str] = []
     unmatched: list[str] = []
-    for m in held:
-        key = match_key(m.get("affix_name", ""), [m.get("group", "")], m.get("ilvl", 0))
-        fam_key = f"{str(m.get('group', '')).lower()}|{m.get('ilvl', 0)}"
-        pools_hit: set[str] = set()
-        if key in db_keys:
+    for m in pob_mods:
+        if m["affix_type"] not in ("prefix", "suffix"):
+            continue
+        how, pools_hit = _pools_for(m)
+        if pools_hit:
+            match_result[m["pob_key"]] = sorted(pools_hit)
+        if m["pob_key"] not in held_keys:
+            continue
+        if how == "key":
             confirmed.append(m["pob_key"])
-            pools_hit = set(catalog[key]["pools"])
-        elif fam_key in db_fam_lvl:
-            confirmed.append(m["pob_key"])
-            pools_hit = db_fam_lvl[fam_key]
+        elif how == "text":
+            text_only.append(m["pob_key"])
         else:
-            # 텍스트 매칭: 줄 단위 + **결합** — 하이브리드 모드는 PoB가 두 줄로,
-            # poe2db가 한 줄로 싣는다 (실측: AlloyAccuracyAttackSpeedHybrid1 =
-            # 'Celestial Alloy'의 "+(327-427) to Accuracy Rating (5-8)% increased …")
-            texts = [str(t) for t in (m.get("texts") or [])]
-            candidates = [_norm_text(t) for t in texts]
-            if len(texts) > 1:
-                candidates.append(_norm_text(" ".join(texts)))
-            hit = next((db_texts[c] for c in candidates if c in db_texts), None)
-            if hit is not None:
-                text_only.append(m["pob_key"])
-                pools_hit = hit
-            else:
-                unmatched.append(m["pob_key"])
+            unmatched.append(m["pob_key"])
         for pool in pools_hit:
             confirmed_pools[pool] = confirmed_pools.get(pool, 0) + 1
+
+    # 부활 감지 (KI-8): 원장에 제외된 키가 카탈로그에 다시 나타나면 리포트
+    from pok.common.paths import knowledge_dir
+
+    revival: list[str] = []
+    ledger_path = knowledge_dir() / "ingest" / "exclusions.json"
+    if ledger_path.exists():
+        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+        for entry in ledger.get("unobtainable_mods", []):
+            revival += [k for k in entry.get("pob_keys", []) if k in match_result]
 
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "mod_catalog.json").write_text(
         json.dumps(catalog, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    )
+    (out_dir / "catalog_match.json").write_text(
+        json.dumps(match_result, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
+    )
+    (out_dir / "desecrated.json").write_text(
+        json.dumps(desecrated, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
     )
     pool_counts: dict[str, int] = {}
     for v in catalog.values():
@@ -275,6 +304,8 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
             "unmatched": len(unmatched),
             "unmatched_sample": sorted(unmatched)[:30],
         },
+        "matched_total": len(match_result),
+        "revival_candidates": sorted(revival)[:30],
         "verification": verification_block(cross=[cross]),
     }
     (raw_dir / "modifiers" / "catalog-report.json").write_text(

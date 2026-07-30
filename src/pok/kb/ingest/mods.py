@@ -342,16 +342,133 @@ def _write_shards(
     return written
 
 
+def _record_exclusions(knowledge: Path, patch: str, pob_keys: list[str], evidence: str) -> int:
+    """미획득 모드를 제외 원장에 기록한다 (KI-8 — 매 패치 재검증·부활 감지 대상).
+
+    같은 패치의 기존 기재는 교체한다(재실행 멱등). 다른 패치 기재는 보존.
+    """
+    path = knowledge / "ingest" / "exclusions.json"
+    ledger: dict[str, Any] = (
+        json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"version": 1}
+    )
+    prior: list[dict[str, Any]] = ledger.get("unobtainable_mods") or []
+    entries = [e for e in prior if e.get("patch") != patch]
+    entries.append(
+        {
+            "patch": patch,
+            "approved": "2026-07-30 user",
+            "evidence": evidence,
+            "pob_keys": sorted(pob_keys),
+        }
+    )
+    ledger["unobtainable_mods"] = entries
+    path.write_text(json.dumps(ledger, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    return len(pob_keys)
+
+
+def desecrated_to_records(
+    tables: dict[str, list[dict[str, Any]]],
+    catalog: dict[str, dict[str, Any]],
+    patch: str,
+) -> list[dict[str, Any]]:
+    """Desecrated 테이블 → Modifier 레코드 (poe2db 단독 소스 — PoB에 없는 신규 모드군).
+
+    id는 (대상군, 접사명, 효과 텍스트)에서 결정적으로 만든다 — 같은 접사명이 다른
+    효과로 수십 번 나오기 때문(Amanamu's 등). 카탈로그 desecrated 풀과 텍스트로
+    맞으면 적용 클래스·패밀리를 보강한다.
+    """
+    from pok.kb.ingest.mod_catalog import _norm_text as norm_text
+
+    cat_by_text: dict[str, dict[str, Any]] = {}
+    for v in catalog.values():
+        if "desecrated" in v.get("pools", {}):
+            for tx in v["texts"]:
+                cat_by_text.setdefault(norm_text(tx), v)
+
+    records: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for scope, rows in sorted(tables.items()):
+        for row in rows:
+            base = slug_to_id_part(f"desecrated {scope} {row['affix_name']} {row['text']}")[:90]
+            rid = f"modifier.{base}"
+            n = 2
+            while rid in seen:  # 같은 (군·접사·텍스트)가 겹치면 결정적 접미
+                rid = f"modifier.{base}-{n}"
+                n += 1
+            seen.add(rid)
+            data: dict[str, Any] = {
+                "affix_type": row["affix_type"]
+                if row["affix_type"] in ("prefix", "suffix")
+                else "prefix",
+                "origins": ["desecrated"],
+                "affix_name": row["affix_name"],
+                "texts": [row["text"]],
+                "scope": scope,  # equipment | jewel | waystone
+                "acquisition": ["desecration"],
+            }
+            if row.get("ilvl"):
+                data["ilvl"] = row["ilvl"]
+            if row.get("mod_tags"):
+                data["mod_tags"] = row["mod_tags"]
+            hit = cat_by_text.get(norm_text(row["text"]))
+            if hit:
+                if hit.get("families"):
+                    data["group"] = "+".join(hit["families"])
+                pages = sorted({p for p in hit["pools"].get("desecrated", [])})
+                if pages:
+                    data["applicable_pages"] = pages
+            records.append(
+                {
+                    "id": rid,
+                    "type": "Modifier",
+                    "name": {"ko": row["affix_name"], "en": row["affix_name"]},
+                    "tags": [],
+                    "data": data,
+                    "verification": "SUPPORTED_INFERENCE",  # poe2db 단독 소스
+                    "sources": [
+                        {
+                            "src": "poe2db",
+                            "ref": "https://poe2db.tw/us/Desecrated_Modifiers",
+                            "patch": patch,
+                        }
+                    ],
+                }
+            )
+    return records
+
+
 def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
-    """승인 범위(A·B)를 knowledge/에 기록하고 전체 재검증한다 (KI-3 게이트 뒤에서만)."""
+    """승인 범위를 knowledge/에 기록하고 전체 재검증한다 (KI-3 게이트 뒤에서만).
+
+    2026-07-30 승인 확장:
+      · poe2db 카탈로그(catalog_match.json)에 잡힌 보류 모드 → 수록 승격
+      · 잡히지 않은 보류 모드 → 제외 + 원장 기록 (양 소스 모두 획득 경로 없음)
+      · 수록 모드 전체에 poe2db 풀 획득 경로(poe2db:<pool>) 부착
+      · Desecrated 테이블(249) → 신규 Modifier 레코드 (poe2db 단독)
+    """
     from pok.kb.ingest.merge import POB_COMMIT
     from pok.kb.store import load as store_load
 
     mods = json.loads((out_dir / "mods.json").read_text(encoding="utf-8"))
     bases = json.loads((out_dir / "base_items.json").read_text(encoding="utf-8"))
 
+    match_path = out_dir / "catalog_match.json"
+    match: dict[str, list[str]] = (
+        json.loads(match_path.read_text(encoding="utf-8")) if match_path.exists() else {}
+    )
+    for m in mods:  # poe2db 풀 = 획득 경로 (E-2 실존 풀 연결 포함)
+        routes = [f"poe2db:{p}" for p in match.get(m["pob_key"], [])]
+        if routes:
+            m["acquisition"] = sorted(set(m.get("acquisition") or []) | set(routes))
+
     included = [m for m in mods if is_included(m)]
     held = [m for m in mods if not is_included(m)]
+    excluded_count = _record_exclusions(
+        knowledge,
+        patch,
+        [m["pob_key"] for m in held],
+        "PoB 스폰 가중치 전부 0 ∧ 에센스 매핑 없음 ∧ poe2db 카탈로그(클래스별 전 풀) 미등재",
+    )
 
     mod_dir = knowledge / "game-data" / "modifiers"
     base_dir = knowledge / "game-data" / "base-items"
@@ -361,6 +478,12 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     by_pool: dict[str, list[dict[str, Any]]] = {}
     for m in included:
         by_pool.setdefault(m["origins"][0], []).append(mod_to_record(m, patch, POB_COMMIT))
+
+    desecrated_path = out_dir / "desecrated.json"
+    if desecrated_path.exists():
+        catalog = json.loads((out_dir / "mod_catalog.json").read_text(encoding="utf-8"))
+        tables = json.loads(desecrated_path.read_text(encoding="utf-8"))
+        by_pool["desecrated"] = desecrated_to_records(tables, catalog, patch)
     mod_files: list[str] = []
     for pool, recs in sorted(by_pool.items()):
         mod_files += _write_shards(mod_dir, pool, recs)
@@ -372,7 +495,10 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     after = store_load(knowledge.parent)  # 스키마·중복·참조 무결성 전량 재검증
     return {
         "mods_included": len(included),
-        "mods_held": len(held),  # C — 승인 대기, 미수록
+        "mods_excluded_to_ledger": excluded_count,  # 원장 기록 (KI-8 부활 감지 대상)
+        "mods_with_poe2db_routes": sum(
+            1 for m in included if any(str(r).startswith("poe2db:") for r in m["acquisition"])
+        ),
         "mods_by_pool": {k: len(v) for k, v in sorted(by_pool.items())},
         "bases_written": len(bases),
         "shards": {"modifiers": len(mod_files), "base-items": len(base_files)},

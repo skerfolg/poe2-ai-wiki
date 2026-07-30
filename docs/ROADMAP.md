@@ -3,12 +3,12 @@
 > **문서 상태**: v0.1 (2026-07-29) — 확정. BLUEPRINT §15-2 "재구축 로드맵/MVP"의 상세.
 > **설계 근거**: "KB 먼저"(BLUEPRINT §7·§17) + "코드 먼저, 수집은 그 다음"(KB_INGEST KI-7) + 반프록시(AD-8) — 각 단계의 완료는 느낌이 아니라 **측정 가능한 Exit 기준**으로 판정한다.
 > **변경 규칙**: 단계 순서·Exit 기준의 구조적 변경은 사용자 상호협의 후에만.
-> **진행 상태**: ✅ P0 완료 → ✅ **P1a 완료** (2026-07-29, 시드 35·vocab v1·스키마·store 4층 검증·index self-healing, pytest 13 ✓, CI Win+mac green) → **현재: P1b** — ①젬 + ②트리 + ③유니크 완료 → **KB 15,802 레코드**. 완전성 기준 8중 확장(⑥⑦⑧) 가동 + 그로 드러난 결함 4건 교정 완료. ④ 베이스+모드 풀 수록 (모드 8,074 + 베이스 1,768). 보류: 획득 경로 없는 item 모드 867(C)·수치 없는 베이스 24(D)·⑥ 발견 137(E) — 사람 판정 대기.
+> **진행 상태**: ✅ P0 완료 → ✅ **P1a 완료** (2026-07-29, 시드 35·vocab v1·스키마·store 4층 검증·index self-healing, pytest 13 ✓, CI Win+mac green) → **현재: P1b** — ①젬 + ②트리 + ③유니크 완료 → **KB 16,236 레코드**. 완전성 기준 8중 확장(⑥⑦⑧) 가동 + 그로 드러난 결함 4건 교정 완료. ④ 베이스+모드 풀 수록 완료 (모드 8,508 + 베이스 1,768) — poe2db 카탈로그 교차로 보류 867 판정(185 승격·682 원장 제외), Desecrated 249 신규, poe2db:<pool> 획득 경로 3,616건 부착.
 > - ① 젬 900 수록 (fetch 1,992 → KI-8 판정 → merge, GAME_DATA 796)
 > - ② 트리 4,553 수록 (일괄 엔드포인트 2회 수집, 청크 분할 merge, 엣지 보존). 마스터리 368 제외 확정(구역 라벨/그래픽, 사람 판정) + 어센던시 선택 허브 5 수록(끊겼던 13노드 복구) + stats 마크업·개행 정규화 + 능력치 택1 노드 293 구조 승격(`attribute_choice`)
 > - ③ 유니크 493 수록 (무기88·방어구219·기타138·재배48, PoB 대사 469, 변형은 현재 패치본만) + 성유 부여방법 884 노드 보강. 재배판 베이스타입 48건 승계·PoB 변형 베이스 6건 교정
-> - ④ 모드 8,074 + 베이스 1,768 수록 (PoB 덤프 단독, POB_CODE 라벨 — poe2db 대사 후 GAME_DATA 승격 예정). 제작규칙 RC4의 원천(그룹 배타·ilvl·스폰 가중치) 확보
-> - 사람 확인 대기: 모드 C 867·베이스 D 24·⑥ E 137, 젬 보류 58, 미매칭 시드 9(support.pierce·passive.acrobatics — 실데이터는 티어드/개명 추정), PoB 전용 유니크 11
+> - ④ 모드 8,508 + 베이스 1,768 수록. 제작규칙 RC4 원천(그룹 배타·ilvl·스폰 가중치·DropChance) 확보. poe2db 카탈로그 2,677항목 교차: 보류 867 → 185 승격 + 682 원장 제외(unobtainable_mods, 부활 감지), Desecrated 249 신규(SUPPORTED_INFERENCE), poe2db:<pool> 획득 경로 3,616건
+> - 사람 확인 대기: 젬 보류 58, 미매칭 시드 9(support.pierce·passive.acrobatics — 실데이터는 티어드/개명 추정), PoB 전용 유니크 11
 >
 > **신규 PC 셋업**: `gh auth login` → clone → `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"` → `.venv/bin/pre-commit install` → 데이터 repo clone(`gh repo clone skerfolg/poe2-ai-wiki-data artifacts/ingest-raw`)
 

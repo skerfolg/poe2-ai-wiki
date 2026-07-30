@@ -51,9 +51,9 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "enum": ["item", "item-exclusive", "corrupted", "rune", "flask", "charm", "jewel"]
+        "enum": ["item", "item-exclusive", "corrupted", "rune", "flask", "charm", "jewel", "desecrated"]
       },
-      "description": "모드 풀 출처들 (PoB 파일 계보 — 같은 모드가 여러 풀에 실릴 수 있다, 0.5.4b: flask∩charm 24종). 획득 방법은 acquisition에"
+      "description": "모드 풀 출처들 (PoB 파일 계보 + desecrated=poe2db 단독 훼손 부여 — 같은 모드가 여러 풀에 실릴 수 있다, 0.5.4b: flask∩charm 24종). 획득 방법은 acquisition에"
     },
     "acquisition": {
       "type": "array",

@@ -121,6 +121,28 @@ artifacts/ingest-raw/<patch>/          # = 데이터 repo 체크아웃
 `passive.schema.json`이 `additionalProperties: true`라 스키마 변경 없이 들어간다.
 **제거 규칙은 이 패턴에만 좁혀 적용한다** — 내부 stat id처럼 보인다고 일괄 삭제하지 않는다.
 
+### 4-3. 모드 획득 판정 — 양 소스 교차가 필수인 이유 (2026-07-30 확정)
+
+**PoB 스폰 가중치만으로 모드의 획득 가능성을 판정할 수 없다** (사용자 지적으로 확정):
+PoE2에서 PoB의 weightVal이 성기게 채워져 있어, 가중치 0인 모드에 에센스·완벽한
+에센스(Alloy)·브리치·훼손 등으로 **실제 획득 가능한 모드가 섞여 있다**.
+
+- **교차 축**: poe2db 클래스 페이지(`/us/<class>#ModifiersCalc`)의 임베디드 JSON —
+  획득 경로별 풀(normal·corrupted·desecrated·essence·perfect_essence·breach_*·
+  chronomancy/berserking/… )과 DropChance(진짜 가중치)가 통째로 실려 있다.
+- **매칭**: 계단식 — (접사명,패밀리,ilvl) 키 → (패밀리,ilvl) → 정규화 텍스트(결합 포함).
+  Alloy 계열은 poe2db Name이 접사명이 아니라 부여 화폐 링크(이름 매칭 원천 불가),
+  하이브리드는 PoB 두 줄 ↔ poe2db 한 줄.
+- **판정 결과 (0.5.4b, 승인 2026-07-30)**: 보류 867 중 **185 승격**(poe2db 확인,
+  poe2db:<pool> 획득 경로 부착) · **682 제외 + 원장 기록**(양 소스 모두 획득 경로 없음).
+  원장(`unobtainable_mods`)은 매 패치 재검증 — 카탈로그에 다시 나타나면 부활 후보 리포트.
+- **E-2 재판정**: "베이스에 없는 태그로만 스폰" 155건은 삭제가 아니라 **실존 풀**
+  (chronomancy·berserking·decay·soul·marksman·destruction — poe2db 확인)이었다.
+  삭제 판정을 철회하고 poe2db:<pool> 경로를 부착했다. 검증기의 태그-어휘 교차는
+  "spawn_weights 축"만 보므로 별도 경로 풀을 죽은 태그로 오인할 수 있다 — ⑥ 해석 주의.
+- **Desecrated 249종**: PoB에 아예 없는 신규 모드군(equipment 198·jewel 32·waystone 19)
+  → poe2db 단독 소스로 신규 수록 (SUPPORTED_INFERENCE).
+
 **3b 분할 규칙 — 왜 "두 언어의 합의"인가**: poe2db의 `\n`은 **효과 경계**일 때도 있고
 (`Avatar of Fire`: "…Converted to Fire Damage\n Deal no Non-Fire Damage") **단순 줄바꿈**일 때도 있다
 (`Crystalline Resistance`: "…if you have at\n least 5 Red…"). 어느 소스도 단독 정답이 아니다 —
