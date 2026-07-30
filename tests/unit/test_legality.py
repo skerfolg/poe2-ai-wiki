@@ -49,3 +49,20 @@ def test_티어_범위_밖_수치는_거부(checker: ItemLegalityChecker) -> Non
     )
     assert report.verdicts[0].status in ("ILLEGAL", "UNKNOWN")
     assert not report.is_legal
+
+
+def test_유니크는_KB_실존과_롤_범위로_판정(checker: ItemLegalityChecker) -> None:
+    report = checker.check(
+        "Rarity: UNIQUE\nLiminal Coil\nTwisted Wand\nItem Level: 80\n"
+        "113% increased Spell Damage\n"
+        "Curses you inflict ignore Curse limit\n"
+        "Spell Hits Gain 31% of Damage as Extra Chaos Damage per Curse on target"
+    )
+    assert report.is_legal, report
+    report2 = checker.check(
+        "Rarity: UNIQUE\nLiminal Coil\nTwisted Wand\nItem Level: 80\n"
+        "500% increased Spell Damage"  # 롤 범위(71-113) 밖
+    )
+    assert not report2.is_legal
+    report3 = checker.check("Rarity: UNIQUE\n존재하지 않는 유니크\nTwisted Wand")
+    assert not report3.is_legal
