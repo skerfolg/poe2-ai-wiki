@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "pok": {
+      "command": ".venv/bin/python",
+      "args": ["-m", "pok.mcp"],
+      "env": { "PYTHONPATH": "src" }
+    }
+  }
+}
