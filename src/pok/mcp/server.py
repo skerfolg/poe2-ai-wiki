@@ -6,6 +6,8 @@
   search_kb  1단계 — 압축 히트 (id·이름·태그·검증 라벨만)
   get_entry  2단계 — 선별 상세 (fields로 필요한 필드만, 서술은 요청 시)
   related    관계 순회 — 정방향(정본) + 역방향(인덱스 생성) typed edges
+  compute_pob / evaluate_delta / check_item_legality / assemble_pob
+             빌드·계산 (P3, tools/build.py — PoB 오라클·RC4 검증·기록)
 
 실행: PYTHONPATH=src python -m pok.mcp   (stdio)
 등록: claude mcp add pok -- <venv>/bin/python -m pok.mcp  (env PYTHONPATH=src)
@@ -24,6 +26,7 @@ from pok.common.paths import knowledge_dir
 from pok.index.search import get_entry as _get_entry
 from pok.index.search import related as _related
 from pok.index.search import search as _search
+from pok.mcp.tools import build as _build
 
 mcp: FastMCP = FastMCP(
     "pok",
@@ -89,6 +92,13 @@ def related(id: str, rel: str | None = None) -> list[dict[str, str]]:
     rel로 특정 관계만(triggers|enables|scales_with|consumes|recovers|converts|
     reserves|conflicts_with|mitigates|requires|replaces|overlaps|invalidated_by)."""
     return _related(id, rel=rel)
+
+
+# 빌드·계산 도구 (P3) — 시그니처·독스트링은 tools/build.py 가 정본
+compute_pob = mcp.tool(_build.compute_pob)
+evaluate_delta = mcp.tool(_build.evaluate_delta)
+check_item_legality = mcp.tool(_build.check_item_legality)
+assemble_pob = mcp.tool(_build.assemble_pob)
 
 
 def main() -> None:

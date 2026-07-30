@@ -17,7 +17,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
+from typing import Any
 from xml.sax.saxutils import escape, quoteattr
 
 TARGET_VERSION = "0_1"  # 빌드 포맷 버전 (게임 버전 아님!)
@@ -84,6 +85,33 @@ class BuildSpec:
     items: tuple[ItemSpec, ...] = ()
     main_socket_group: int = 1
     config: tuple[tuple[str, str | int | bool], ...] = field(default=())  # Input name→value
+
+
+def spec_from_dict(data: dict[str, Any]) -> BuildSpec:
+    """JSON 친화 dict → BuildSpec (MCP 도구 입력 경로). 모르는 키는 즉시 거부."""
+    allowed = {f.name for f in fields(BuildSpec)}
+    unknown = set(data) - allowed
+    if unknown:
+        raise ValueError(f"모르는 키: {sorted(unknown)} (허용: {sorted(allowed)})")
+    skills = tuple(
+        SkillGroupSpec(
+            gems=tuple(GemSpec(**g) for g in grp.get("gems", [])),
+            **{k: v for k, v in grp.items() if k != "gems"},
+        )
+        for grp in data.get("skills", [])
+    )
+    items = tuple(ItemSpec(**it) for it in data.get("items", []))
+    config = tuple((str(k), v) for k, v in dict(data.get("config", {})).items())
+    return BuildSpec(
+        class_name=data["class_name"],
+        ascendancy=data["ascendancy"],
+        level=int(data.get("level", 90)),
+        tree_nodes=tuple(int(n) for n in data.get("tree_nodes", [])),
+        skills=skills,
+        items=items,
+        main_socket_group=int(data.get("main_socket_group", 1)),
+        config=config,
+    )
 
 
 def _config_value_attrs(value: str | int | bool) -> str:
