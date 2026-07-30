@@ -126,7 +126,12 @@ def fetch_narratives(
 # ── 재작성 산출물 검증 (코드 게이트 — KI-7 장치 ②·④) ─────────────
 
 _FRONT = re.compile(r"\A---\n(.*?)\n---\n", re.S)
-_REQUIRED_KEYS = ("id", "label", "source_revid")
+_REQUIRED_KEYS = (
+    "id",
+    "label",
+    "lang",
+    "source_revid",
+)  # lang: 다국어 대비 (사용자 승인 2026-07-30)
 
 
 def check_wiki_docs(knowledge: Path) -> dict[str, Any]:

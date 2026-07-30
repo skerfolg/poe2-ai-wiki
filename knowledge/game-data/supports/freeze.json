@@ -1,0 +1,44 @@
+{
+  "id": "support.freeze",
+  "type": "Support",
+  "name": {
+    "ko": "동결",
+    "en": "Freeze"
+  },
+  "tags": [
+    "cold"
+  ],
+  "data": {
+    "description": "Supports any skill that Hits enemies, making it more effective at Freezing enemies.",
+    "tier": 2
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Freeze",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemFreezeSupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    }
+  ],
+  "conditions": [
+    {
+      "text": "냉각된 적 대상 보너스",
+      "expr": {
+        "subject": "enemy.status",
+        "op": "has",
+        "value": "chilled"
+      },
+      "satisfiable_by": [
+        "skill.ice-nova"
+      ],
+      "uptime": "conditional"
+    }
+  ],
+  "notes": "구명칭 시드 support.glaciation(빙결화)에서 병합 — 0.3.0 개명·티어화 (사용자 승인 2026-07-30)"
+}

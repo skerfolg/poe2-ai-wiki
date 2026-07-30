@@ -9,7 +9,8 @@
 > - ③ 유니크 493 수록 (무기88·방어구219·기타138·재배48, PoB 대사 469, 변형은 현재 패치본만) + 성유 부여방법 884 노드 보강. 재배판 베이스타입 48건 승계·PoB 변형 베이스 6건 교정
 > - ④ 모드 8,508 + 베이스 1,768 수록. 제작규칙 RC4 원천(그룹 배타·ilvl·스폰 가중치·DropChance) 확보. poe2db 카탈로그 2,677항목 교차: 보류 867 → 185 승격 + 682 원장 제외(unobtainable_mods, 부활 감지), Desecrated 249 신규(SUPPORTED_INFERENCE), poe2db:<pool> 획득 경로 3,616건
 > - ⑤ 서술 트랙: poe2wiki 원문 35/35 수집(revid 증거) + 자체 재작성 35건 knowledge/wiki/ 수록(UNVERIFIED, 코드 게이트 통과). 발견: Acrobatics 키스톤은 0.3.0에서 게임 제거, 시드 서포트 5종은 개명·티어화(Inspiration→Efficiency I 등) — 시드 정리 후속 판단 대기
-> - 사람 확인 대기: 젬 보류 58, 미매칭 시드 9(support.pierce·passive.acrobatics — 실데이터는 티어드/개명 추정), PoB 전용 유니크 11
+> - 시드 정리(2026-07-30 승인): Acrobatics 제거(0.3.0 게임 제거, 원장 기록) · 개명 4종 병합(inspiration→efficiency-i, martial-tempo→rapid-attacks-i, scattershot→multishot-i, glaciation→freeze — 수작업 관계 이전, 큐레이션 승격)
+> - 사람 확인 대기: 젬 보류 58, 미매칭 시드 잔여 4(fire-infusion=젬 아닌 메커니즘화·pierce=티어드·chain·unleash — 처리 방향 판단 필요), PoB 전용 유니크 11
 >
 > **신규 PC 셋업**: `gh auth login` → clone → `python3.13 -m venv .venv && .venv/bin/pip install -e ".[dev]"` → `.venv/bin/pre-commit install` → 데이터 repo clone(`gh repo clone skerfolg/poe2-ai-wiki-data artifacts/ingest-raw`)
 

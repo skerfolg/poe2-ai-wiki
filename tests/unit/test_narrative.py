@@ -41,7 +41,7 @@ def _doc(
     verified_by: str = "",
 ) -> str:
     vb = f"verified_by: {verified_by}\n" if verified_by else ""
-    return f"---\nid: {id_}\nlabel: {label}\n{vb}source_revid: {revid}\n---\n\n# 본문\n"
+    return f"---\nid: {id_}\nlabel: {label}\nlang: ko\n{vb}source_revid: {revid}\n---\n\n# 본문\n"
 
 
 def test_curated_targets_are_individual_json_only(tmp_path: Path) -> None:

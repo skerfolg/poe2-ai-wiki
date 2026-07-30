@@ -2,6 +2,7 @@
 id: passive.resolute-technique
 label: SUPPORTED_INFERENCE
 verified_by: model-spotcheck 2026-07-30 (원문 revid·KB 구조 레코드 대조, 메커니즘 섹션 모순 0)
+lang: ko
 source: poe2wiki
 source_title: Resolute Technique
 source_revid: 96553
