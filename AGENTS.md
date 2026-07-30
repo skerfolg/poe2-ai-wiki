@@ -3,6 +3,14 @@
 PoE2 지식 **엔진** + Claude/Codex용 **MCP 도구·스킬**. 웹서비스 아님.
 **단일 진실 소스**: [docs/BLUEPRINT.md](docs/BLUEPRINT.md)(방향·결정) · [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)(구조).
 
+## KB 질의는 MCP 도구로 (파일 탐색 금지)
+
+**PoE2 게임 지식 질문("~에 좋은 노드/모드/아이템은?")은 `pok` MCP 도구로 답한다:**
+`search_kb`(키워드는 게임 용어로 — 예: "생명력 증가" type=Passive) → `get_entry`(fields 선별) → `related`(관계 순회).
+`knowledge/` NDJSON·`external/pob`를 Grep/Read로 뒤지지 말 것 — 16,000+ 레코드를 파일로 탐색하면
+수 분·수천 토큰이 들지만 search_kb는 1콜이다 (실측 2026-07-30: 파일 탐색 7분 vs 도구 1초).
+파일 직접 접근은 ingest 개발·검증 작업에만.
+
 ## 철칙 (항상 적용)
 
 1. ⛔ **구조 임의 변경 금지** — 디렉터리 구성·모듈 경계·저장 위치·의존 방향 변경은 **반드시 사용자와 상호협의 후에만**. (기존 모듈 안에 파일 추가는 허용, 새 최상위 폴더·경계 이동은 합의 필요.)

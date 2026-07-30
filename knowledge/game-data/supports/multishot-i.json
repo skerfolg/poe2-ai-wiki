@@ -1,0 +1,30 @@
+{
+  "id": "support.multishot-i",
+  "type": "Support",
+  "name": {
+    "ko": "다중 사격 I",
+    "en": "Multishot I"
+  },
+  "tags": [
+    "projectile"
+  ],
+  "data": {
+    "description": "Supports Projectile skills, making them fire extra Projectiles. Also lowers Attack and Cast speed of supported skills, as well as lessening their damage.",
+    "tier": 1
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Multishot_I",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemMultishotSupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    }
+  ],
+  "notes": "구명칭 시드 support.scattershot(산탄)에서 병합 — 0.3.0 개명·티어화 (사용자 승인 2026-07-30)"
+}

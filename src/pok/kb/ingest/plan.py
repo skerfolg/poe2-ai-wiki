@@ -20,11 +20,25 @@ from pok.kb.ingest.sources import CATEGORIES, POE2DB_BASE, USER_AGENT, Category
 def extract_items(listing_html: str, extractor: str = "tables") -> list[str]:
     """목록 HTML → 상세 페이지 이름 목록.
 
-    시그널: (tables=테이블 | cards=카드) 내부 + data-hover 속성의 /us/ 앵커.
+    extractor:
+      tables/cards — (테이블|카드) 내부 + data-hover 속성의 /us/ 앵커
+      modcalc      — Modifiers 허브의 `#ModifiersCalc` 앵커 (아이템 클래스별 모드 페이지.
+                     일부는 `/us/` 접두 없는 상대경로 — Urn_Relic 등)
     """
     soup = BeautifulSoup(listing_html, "html.parser")
-    containers = soup.find_all("table") if extractor == "tables" else soup.select("div.card")
     names: set[str] = set()
+    if extractor == "modcalc":
+        for a in soup.find_all("a", href=True):
+            if not isinstance(a, Tag):
+                continue
+            href = str(a["href"])
+            if href.endswith("#ModifiersCalc"):
+                slug = href.removesuffix("#ModifiersCalc").removeprefix("/us/").strip("/")
+                if slug:
+                    names.add(slug)
+        return sorted(names)
+
+    containers = soup.find_all("table") if extractor == "tables" else soup.select("div.card")
     for box in containers:
         if not isinstance(box, Tag):
             continue

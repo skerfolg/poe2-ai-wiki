@@ -1,0 +1,35 @@
+{
+  "id": "support.efficiency-i",
+  "type": "Support",
+  "name": {
+    "ko": "효율 I",
+    "en": "Efficiency I"
+  },
+  "tags": [],
+  "data": {
+    "description": "Supports any skill, making it cost less to use. Cannot support skills which reserve Spirit.",
+    "tier": 1
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Efficiency_I",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Metadata/Items/Gems/SkillGemEfficiencySupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    }
+  ],
+  "relations": [
+    {
+      "rel": "mitigates",
+      "target": "resource.mana",
+      "note": "비용 감소"
+    }
+  ],
+  "notes": "구명칭 시드 support.inspiration(고취)에서 병합 — 0.3.0 개명·티어화 (사용자 승인 2026-07-30)"
+}

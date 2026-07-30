@@ -63,7 +63,13 @@ local function write_json(path, tbl)
 end
 
 -- ── 1) 순수 return 테이블 파일 (PoB 환경 불필요) ─────────────────
-local PURE = { "Gems", "Costs", "Global", "Misc" }
+-- Mod*: 제작규칙(RC4)의 원천 — type(Prefix/Suffix)·level(ilvl)·group(배타)·
+--       weightKey/weightVal(적용 가능 베이스)·modTags 가 전부 들어 있다.
+local PURE = {
+  "Gems", "Costs", "Global", "Misc",
+  "ModItem", "ModItemExclusive", "ModRunes", "ModCorrupted", "Essence",
+  "ModFlask", "ModCharm", "ModJewel",  -- 태그 어휘 교차(⑥)가 잡아낸 누락분
+}
 for _, name in ipairs(PURE) do
   local path = pob_src .. "/Data/" .. name .. ".lua"
   local chunk, err = loadfile(path)
@@ -78,6 +84,36 @@ for _, name in ipairs(PURE) do
     print("skip " .. name .. " (" .. tostring(err) .. ")")
   end
 end
+
+-- ── 1b) Bases/*.lua — vararg 주입형 (`local itemBases = ...`) ──────
+-- 파일마다 같은 테이블을 넘겨 하나로 모은다. 파일명 = 분류(mace, helmet…)는
+-- 항목별 _base_file 로 보존한다 (PoB type 필드와 별개의 수집 계보).
+local bases_out, bases_loaded, bases_failed = {}, 0, {}
+local base_dir = pob_src .. "/Data/Bases"
+local bp = io.popen('ls "' .. base_dir .. '"/*.lua 2>/dev/null')
+for path in bp:lines() do
+  local chunk, err = loadfile(path)
+  if chunk then
+    local file_key = path:match("([^/]+)%.lua$")
+    local sink = {}
+    local ok, e = pcall(chunk, sink)
+    if ok then
+      for name, base in pairs(sink) do
+        base._base_file = file_key
+        bases_out[name] = base
+      end
+      bases_loaded = bases_loaded + 1
+    else
+      bases_failed[#bases_failed + 1] = path .. ": " .. tostring(e)
+    end
+  else
+    bases_failed[#bases_failed + 1] = path .. ": " .. tostring(err)
+  end
+end
+bp:close()
+write_json(out_dir .. "/bases.json", bases_out)
+print(string.format("bases files loaded=%d failed=%d", bases_loaded, #bases_failed))
+for _, f in ipairs(bases_failed) do print("  FAIL " .. f) end
 
 -- ── 2) Skills/*.lua — 경량 스텁 주입 로드 ──────────────────────
 -- 파일 서명: local skills, mod, flag, skill = ...  + 전역 SkillType/ModFlag 등 참조

@@ -71,7 +71,10 @@ def search(
     try:
         where, params = [], []
         if query:
-            safe = '"' + query.replace('"', '""') + '"'
+            # 토큰별 quote 후 AND — '생명력 증가'가 "최대 생명력 10% 증가"에 매칭되게
+            # (정확 구문으로 감싸면 인접하지 않은 다단어 질의가 전부 0건이 된다, 실측)
+            tokens = [t for t in query.split() if t]
+            safe = " AND ".join('"' + t.replace('"', '""') + '"' for t in tokens)
             where.append("r.id IN (SELECT id FROM fts WHERE fts MATCH ?)")
             params.append(safe)
         if type_:

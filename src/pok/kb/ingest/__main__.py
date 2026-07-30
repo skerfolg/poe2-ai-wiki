@@ -56,6 +56,24 @@ def main(argv: list[str] | None = None) -> int:
     p_uni.add_argument("--patch", required=True)
     p_uni.add_argument("step", choices=["fetch", "process", "merge"])
 
+    p_mods = sub.add_parser("mods", help="베이스+모드 풀(④): process (PoB 덤프 소스, 오프라인)")
+    p_mods.add_argument("--patch", required=True)
+    p_mods.add_argument("step", choices=["process", "merge", "catalog"])
+
+    p_cur = sub.add_parser("currency", help="화폐 아이템(④ 보강): merge (Stackable_Currency 원시)")
+    p_cur.add_argument("--patch", required=True)
+
+    p_nar = sub.add_parser(
+        "narrative", help="⑤ 서술: fetch(poe2wiki 원문)|check(wiki 산출물 게이트)"
+    )
+    p_nar.add_argument("--patch", required=True)
+    p_nar.add_argument("step", choices=["fetch", "check"])
+
+    p_manifest = sub.add_parser(
+        "manifest", help="증거 체인 기록 (KB_INGEST §5): 데이터repo·PoB commit → knowledge/ingest/"
+    )
+    p_manifest.add_argument("--patch", required=True)
+
     p_tree = sub.add_parser("tree", help="패시브 트리: fetch(일괄 2회)|process(청크 분류)|merge")
     p_tree.add_argument("--patch", required=True)
     p_tree.add_argument("step", choices=["fetch", "process", "merge"])
@@ -145,6 +163,97 @@ def main(argv: list[str] | None = None) -> int:
                     indent=1,
                 )
             )
+    elif args.cmd == "mods":
+        out_dir = project_root() / "var" / "ingest" / args.patch
+        if args.step == "process":
+            from pok.kb.ingest.mods import process_mods
+
+            mods_report = process_mods(raw_dir, out_dir)
+            print(
+                json.dumps(
+                    {k: v for k, v in mods_report.items() if k != "verification"},
+                    ensure_ascii=False,
+                    indent=1,
+                )
+            )
+            print(f"리포트: {raw_dir / 'pob' / 'mods-report.json'}")
+        elif args.step == "catalog":
+            from pok.kb.ingest.mod_catalog import process_catalog
+
+            plan = json.loads((raw_dir / "fetch-plan.json").read_text(encoding="utf-8"))
+            cat_report = process_catalog(raw_dir, out_dir, plan)
+            print(
+                json.dumps(
+                    {k: v for k, v in cat_report.items() if k != "verification"},
+                    ensure_ascii=False,
+                    indent=1,
+                )
+            )
+            print(f"리포트: {raw_dir / 'modifiers' / 'catalog-report.json'}")
+        else:
+            from pok.common.paths import knowledge_dir
+            from pok.kb.ingest.mods import merge_mods
+
+            print(
+                json.dumps(
+                    merge_mods(out_dir, knowledge_dir(), args.patch), ensure_ascii=False, indent=1
+                )
+            )
+    elif args.cmd == "currency":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest.currency import process_and_merge
+
+        cur_report = process_and_merge(raw_dir, knowledge_dir(), args.patch)
+        print(
+            json.dumps(
+                {k: v for k, v in cur_report.items() if k != "verification"},
+                ensure_ascii=False,
+                indent=1,
+            )
+        )
+        print(f"리포트: {raw_dir / 'currency' / 'report.json'}")
+    elif args.cmd == "narrative":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest import narrative
+
+        if args.step == "fetch":
+            targets = narrative.curated_targets(knowledge_dir())
+            print(
+                json.dumps(
+                    narrative.fetch_narratives(raw_dir, targets), ensure_ascii=False, indent=1
+                )
+            )
+        else:
+            result = narrative.check_wiki_docs(knowledge_dir())
+            print(json.dumps(result, ensure_ascii=False, indent=1))
+            if result["errors"]:
+                return 1
+    elif args.cmd == "manifest":
+        import subprocess
+
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest.merge import POB_COMMIT
+
+        def _git_head(cwd: Path) -> str:
+            return subprocess.run(
+                ["git", "-C", str(cwd), "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+
+        manifest = {
+            "patch": args.patch,
+            "data_repo": "https://github.com/skerfolg/poe2-ai-wiki-data",
+            "data_repo_commit": _git_head(raw_dir),
+            "pob_commit": POB_COMMIT,
+            "tool": "pok.kb.ingest",
+            "note": "이 값으로 knowledge/ 커밋 → 원시까지 기계적 역추적 (KB_INGEST §5)",
+        }
+        dst = knowledge_dir() / "ingest" / "manifest.json"
+        dst.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(json.dumps(manifest, ensure_ascii=False, indent=1))
+        print(f"기록: {dst}")
     elif args.cmd == "tree":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest import tree as tree_mod

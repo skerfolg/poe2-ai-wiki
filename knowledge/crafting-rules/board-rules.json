@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "status": "confirmed",
+  "note": "판 규칙(RC4) — 모드 수준 규칙(그룹 배타·ilvl·spawn_weights)은 modifiers/ 레코드에, 이 파일은 판 규칙. 접사 한도·화폐 동작은 사용자 확정(2026-07-30). 시즌 전환 시 season_override·insights 재검증.",
+  "affix_caps": {
+    "equipment": {
+      "verification": "IN_GAME",
+      "approved": "2026-07-30 user",
+      "normal": {
+        "prefixes": 0,
+        "suffixes": 0
+      },
+      "magic": {
+        "prefixes": 1,
+        "suffixes": 1
+      },
+      "rare": {
+        "prefixes": 3,
+        "suffixes": 3
+      }
+    },
+    "jewel": {
+      "verification": "IN_GAME",
+      "approved": "2026-07-30 user",
+      "rare": {
+        "prefixes": 2,
+        "suffixes": 2
+      },
+      "season_override": {
+        "season": "0.5",
+        "rule": "총 5모드까지 — 3/2 또는 2/3 가능 (시즌 한정 메커니즘)",
+        "note": "다음 시즌 유지 여부 불명 — 시즌 전환 시 재확인 필수 (사용자 판정)"
+      }
+    },
+    "waystone": {
+      "note": "미확정 — §6-2 ⑥(웨이스톤) 수집 시점에 확정"
+    }
+  },
+  "group_exclusion": {
+    "verification": "GAME_DATA",
+    "rule": "같은 group(ModFamily)의 모드는 한 아이템에 동시에 붙지 못한다",
+    "source_note": "modifiers/ 레코드의 data.group — PoB ModItem.lua group ∧ poe2db ModFamilyList 양 소스 일치"
+  },
+  "ilvl_gate": {
+    "verification": "GAME_DATA",
+    "rule": "모드는 아이템 레벨 ≥ data.ilvl 일 때만 부여 가능",
+    "source_note": "modifiers/ 레코드의 data.ilvl (PoB level ∧ poe2db Level 일치)"
+  },
+  "currency_actions": {
+    "verification": "IN_GAME",
+    "approved": "2026-07-30 user",
+    "actions": {
+      "transmutation": "일반 → 마법 (모드 1개)",
+      "augmentation": "마법에 모드 1개 추가",
+      "regal": "마법 → 희귀 (모드 1개 추가)",
+      "exalted": "희귀에 모드 1개 추가",
+      "chaos": "희귀의 무작위 모드 1개 제거 후 1개 추가",
+      "alchemy": "일반 → 희귀 (모드 4개)",
+      "annulment": "무작위 모드 1개 제거",
+      "divine": "모드 수치 재굴림 (모드 자체는 불변)",
+      "vaal": "타락 — 예측 불가 변형, 이후 변경 불가. corrupted 풀 모드 부여 가능",
+      "essence_lesser_greater": "마법 → 희귀, 보장 모드 추가. 일반→마법은 성립하지 않는다 (사용자 확정)",
+      "essence_normal": "희귀의 무작위 모드 1개 제거 후 보장 모드 추가",
+      "alloy": "희귀의 무작위 모드 1개 제거 후 보장 모드 추가 — perfect_essence 풀 (Verisium Alloy 계열)",
+      "desecration": "훼손 부여 — desecrated 풀 (아마나무·쿠르갈·울라만 계열). 화폐는 중첩 가능 화폐 탭(Stackable_Currency)에 위치",
+      "rune": "소켓에 룬 장착 — 모드가 아니라 소켓 효과 (modifiers/ rune 풀)"
+    },
+    "insights": [
+      {
+        "id": "chaos-lock-technique",
+        "season": "0.5",
+        "text": "카오스 오브는 '1개 제거 후 1개 추가'이므로, 원하는 접두(또는 접미) 3줄을 먼저 완성하면 그 3줄은 고정된 채 나머지 2줄만 변경을 시도할 수 있다 — 한쪽이 3줄이면 그쪽엔 더 추가할 수 없어 실패 처리되기 때문 (사용자 실증, 현 시즌 기준)",
+        "verification": "IN_GAME"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Crafting",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Essence",
+      "patch": "0.5.4b"
+    }
+  ]
+}

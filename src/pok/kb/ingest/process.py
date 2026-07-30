@@ -12,6 +12,13 @@ from pathlib import Path
 from typing import Any
 
 from pok.kb.ingest.parse import DetailPage, parse_detail, parse_name_only, pob_gems_by_name
+from pok.kb.ingest.verify import (
+    SourceEntity,
+    acquisition_coverage,
+    cross_source,
+    substance_floor,
+    verification_block,
+)
 
 # KI-8 판정값 (v2 — 2026-07-29 사람 판정 반영)
 IMPLEMENTED = "implemented"  # A ∧ P → KB 수록
@@ -25,6 +32,17 @@ NOT_A_GEM = "not-a-gem-page"  # 젬 페이지 아님 (보스/장소 등 — line
 
 # KB 수록 대상 판정
 INCLUDE_VERDICTS = frozenset({IMPLEMENTED, NO_POB, LINEAGE, BASIC})
+
+# ⑥ 태그 대조 정규화 — 두 소스가 같은 개념을 다르게 표기한다
+_TAG_ALIAS = {"aoe": "area"}
+# PoB 태그 중 게임 표시 태그가 아닌 구조 표식 — poe2db에 없는 게 정상이라 대조에서 뺀다
+# (_norm_tag를 통과한 형태로 적는다 — 밑줄은 하이픈이 된다)
+_POB_STRUCTURAL_TAGS = frozenset({"support", "active-skill", "grants-active-skill"})
+
+
+def _norm_tag(tag: str) -> str:
+    t = tag.strip().lower().replace(" ", "-").replace("_", "-")
+    return _TAG_ALIAS.get(t, t)
 
 
 @dataclass
@@ -41,6 +59,33 @@ class ProcessedItem:
     in_pob: bool = False
     pob_meta_id: str | None = None
     verdict: str = GHOST
+
+
+def _poe2db_entity(item: ProcessedItem) -> SourceEntity:
+    """수집 항목 → 검증기 정규형. 젬의 실질 정보 = 태그·설명·레벨효과표."""
+    substance = list(item.tags)
+    if item.description:
+        substance.append(item.description)
+    if item.has_level_effect:
+        substance.append("level-effect-table")
+    return SourceEntity(
+        key=item.name_en.lower(),
+        name=item.name_en,
+        substance=tuple(substance),
+        acquisition=tuple(item.acquisition),
+        facts={"tier": str(item.tier)} if item.tier is not None else {},
+        sets={"tags": frozenset(_norm_tag(t) for t in item.tags)},
+    )
+
+
+def _pob_entity(key: str, gem: dict[str, Any]) -> SourceEntity:
+    tags = {_norm_tag(t) for t, on in (gem.get("tags") or {}).items() if on}
+    return SourceEntity(
+        key=key,
+        name=str(gem.get("name", key)),
+        facts={"tier": str(gem["Tier"])} if gem.get("Tier") is not None else {},
+        sets={"tags": frozenset(tags - _POB_STRUCTURAL_TAGS)},
+    )
 
 
 def _classify(
@@ -157,6 +202,26 @@ def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -
     for i in items:
         by_verdict.setdefault(i.verdict, []).append(i)
 
+    # 완전성 기준 ⑥⑦⑧ (KB_INGEST §4) — 판정하지 않고 리포트만 한다
+    included = [i for i in items if i.verdict in INCLUDE_VERDICTS]
+    pob_entities = [
+        _pob_entity(name, g) for name, g in pob_by_name.items() if g.get("gemType") != "Meta"
+    ]
+    verification = verification_block(
+        cross=[
+            cross_source(
+                [_poe2db_entity(i) for i in items],
+                pob_entities,
+                labels=("poe2db", "pob"),
+                known_only_in_secondary=remnant_names,
+            )
+        ],
+        substance=[substance_floor((_poe2db_entity(i) for i in included), scope="gem:included")],
+        acquisition=[
+            acquisition_coverage((_poe2db_entity(i) for i in included), entity_type="gem")
+        ],
+    )
+
     report: dict[str, Any] = {
         "patch": plan["patch"],
         "totals": {
@@ -176,6 +241,7 @@ def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -
         "not_a_gem": sorted(i.slug for i in by_verdict.get(NOT_A_GEM, [])),
         "pob_unmatched_new": pob_unmatched,
         "parse_failures": parse_failures,
+        "verification": verification,
     }
 
     out_dir.mkdir(parents=True, exist_ok=True)

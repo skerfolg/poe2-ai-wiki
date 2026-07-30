@@ -97,7 +97,12 @@ def test_process_end_to_end(tmp_path: Path) -> None:
     (raw / "pob/gems.json").write_text(
         json.dumps(
             {
-                "Metadata/SkillGemSpark": {"name": "Spark", "gemType": "Spell"},
+                "Metadata/SkillGemSpark": {
+                    "name": "Spark",
+                    "gemType": "Spell",
+                    "Tier": 5,  # 페이지는 7 → ⑥ 값 불일치
+                    "tags": {"spell": True, "lightning": True, "active_skill": True},
+                },
                 "Metadata/OldPoE1Gem": {"name": "Ancient Relic", "gemType": "Spell"},
             }
         ),
@@ -115,3 +120,48 @@ def test_process_end_to_end(tmp_path: Path) -> None:
     assert spark["name_ko"] == "스파크"
     assert sorted(spark["categories"]) == ["skill-gems", "spirit-gems"]
     assert (raw / "report.json").exists(), "리포트 = 데이터 repo 증거"
+
+    # 완전성 기준 ⑥⑦⑧ (KB_INGEST §4)
+    v = report["verification"]
+    cross = v["6_cross_source"][0]
+    assert cross["fact_mismatch"]["by_field"] == {"tier": 1}, "⑥ 같은 젬인데 Tier가 다르다"
+    assert cross["only_in_poe2db"]["sample"] == ["Bane"], "⑥ 양방향 — poe2db 단독"
+    assert cross["only_in_pob"]["sample"] == ["Ancient Relic"], "⑥ 양방향 — PoB 단독"
+    tags = cross["set_diff"]["tags"]
+    assert tags["only_in_pob"]["sample"][0]["values"] == ["lightning"], "구조 태그는 대조에서 제외"
+    assert tags["only_in_poe2db"]["sample"][0]["values"] == ["fire"]
+    assert v["7_substance_floor"][0]["empty"]["count"] == 0
+    acq = v["8_acquisition_coverage"][0]
+    assert (acq["entity_type"], acq["coverage"]) == ("gem", 1.0)
+    assert acq["routes_top"] == {"Uncut Skill Gem": 1}
+
+
+def test_report_flags_gem_without_acquisition_route(tmp_path: Path) -> None:
+    """⑧ 수록됐는데 획득 경로가 없는 젬 — 커버리지가 떨어지고 명단에 오른다."""
+    raw = tmp_path / "raw"
+    (raw / "poe2db" / "us").mkdir(parents=True)
+    (raw / "pob").mkdir(parents=True)
+    (raw / "fetch-plan.json").write_text(
+        json.dumps(
+            {
+                "patch": "t",
+                "categories": {
+                    "lineage-supports": {
+                        "listed_count": 1,
+                        "planned_count": 1,
+                        "items": ["Ahns_Citadel"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (raw / "poe2db/us/Ahns_Citadel.html").write_text(
+        _detail_html("Ahn's Citadel", acquisition=False), encoding="utf-8"
+    )
+    (raw / "pob/gems.json").write_text(json.dumps({}), encoding="utf-8")
+
+    report = process_patch(raw, tmp_path / "out")
+    acq = report["verification"]["8_acquisition_coverage"][0]
+    assert (acq["total"], acq["coverage"]) == (1, 0.0), "혈통 서포트는 수록되나 From 카드가 없다"
+    assert acq["missing"]["sample"] == [{"key": "ahn's citadel", "name": "Ahn's Citadel"}]

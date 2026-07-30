@@ -1,0 +1,36 @@
+---
+id: passive.iron-reflexes
+label: SUPPORTED_INFERENCE
+verified_by: model-spotcheck 2026-07-30 (원문 revid·KB 구조 레코드 대조, 메커니즘 섹션 모순 0)
+lang: ko
+source: poe2wiki
+source_title: Iron Reflexes
+source_revid: 113033
+source_timestamp: 2026-05-28
+patch: 0.5.4b
+---
+
+# 철의 반사신경 (Iron Reflexes)
+
+회피 수치를 전부 제거하고 **방어도(Armour)로 전환**하는 키스톤.
+회피 장비를 입고도 방어도 빌드로 사는 선택이다.
+
+## 메커니즘
+
+- 전환 대상은 **flat 회피의 합** (장비·기타 flat 회피). 전환된 값은 방어도
+  수정치(`증가/증폭`)의 적용을 받는다:
+  `(flat 방어도 + flat 회피) × (1 + 방어도 증가 합) × (방어도 증폭들)`
+- 반대로 `회피 증가/증폭`은 **완전히 무의미**해진다.
+- 같은 효과의 유니크 수정치와 중복 이득 없음.
+
+## 판단 노트 (생성기 관점)
+
+- 관계: `converts → defence.evasion`. 장비 평가 규칙이 바뀐다 — 회피 flat은
+  방어도 flat과 등가, 회피%는 가치 0, 방어도%의 가치는 상승(모수가 커지므로).
+- 회피/방어도 하이브리드 장비(str_dex 계열)가 실질 순수 방어도 장비가 된다.
+- 엔트로피 회피의 불확실성을 싫어하는 안정 지향 빌드의 표준 선택지.
+
+## 패치 이력 요점
+
+- 0.2.0f: 회피의 1%가 상시 방어도로 새던 버그 수정 (전환량 정상화).
+- 0.1.0: 출시.

@@ -1,16 +1,58 @@
 {
   "$id": "item.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Item.data (P1b ③ 유니크 — 베이스/모드/획득)",
+  "title": "Item.data (P1b ③ 유니크 + ④ 베이스 아이템)",
   "type": "object",
   "properties": {
+    "item_class": {
+      "type": "string",
+      "description": "베이스: PoB type (One Hand Mace, Helmet, Ring…)"
+    },
+    "implicit": {
+      "type": "string",
+      "description": "베이스: 내재 모드 텍스트"
+    },
+    "implicit_mod_types": {
+      "type": "array",
+      "items": { "type": "array", "items": { "type": "string" } }
+    },
+    "spawn_tags": {
+      "type": "object",
+      "description": "베이스: PoB 스폰 태그 → Modifier.spawn_weights와 대조해 합법 모드 풀 판정 (RC4). envelope tags(게임 공식 표시 태그)와 별개",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "weapon": {
+      "type": "object",
+      "description": "무기 수치 (PoB 키 원형 보존: PhysicalMin/Max, CritChanceBase, AttackRateBase, Range…)"
+    },
+    "armour": {
+      "type": "object",
+      "description": "방어 수치 (Armour, Evasion, EnergyShield…)"
+    },
+    "flask": {
+      "type": "object",
+      "description": "플라스크 수치 (chargesMax, chargesUsed, duration, life|mana)"
+    },
+    "sub_type": {
+      "type": "string",
+      "description": "PoB subType (Life, Mana, Armour…)"
+    },
+    "socket_limit": { "type": "integer" },
+    "quality": { "type": "integer" },
+    "req": {
+      "type": "object",
+      "description": "착용 요구치 { level, str, dex, int }",
+      "additionalProperties": { "type": "number" }
+    },
     "rarity": {
       "enum": [
         "unique",
         "rare",
         "magic",
-        "normal"
-      ]
+        "normal",
+        "currency"
+      ],
+      "description": "currency = 화폐 아이템 (§6-2 ⑥ 중 제작 화폐를 ④로 앞당김 — 사용자 승인 2026-07-30)"
     },
     "base_type": {
       "type": "string"
