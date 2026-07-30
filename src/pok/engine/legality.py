@@ -52,9 +52,12 @@ class ItemLegalityChecker:
     def __init__(self, knowledge: Path) -> None:
         kb = store_load(knowledge.parent if knowledge.name == "knowledge" else knowledge)
         self._bases: dict[str, dict[str, Any]] = {}
+        self._uniques: dict[str, dict[str, Any]] = {}  # 유니크 이름 → 레코드
         self._mods: dict[str, list[dict[str, Any]]] = {}  # 정규화 텍스트 → 후보 레코드들
         for r in kb.records.values():
-            if r.type == "Item" and r.raw.get("data", {}).get("category"):
+            if r.type == "Item" and r.raw.get("data", {}).get("rarity") == "unique":
+                self._uniques[r.name_en.lower()] = r.raw  # 유니크 우선 (category도 가질 수 있다)
+            elif r.type == "Item" and r.raw.get("data", {}).get("category"):
                 self._bases[r.name_en.lower()] = r.raw
             elif r.type == "Modifier" and "item" in r.raw.get("data", {}).get("origins", []):
                 for text in r.raw["data"].get("texts", []):
@@ -62,6 +65,8 @@ class ItemLegalityChecker:
 
     def check(self, item_text: str) -> LegalityReport:
         rarity, base_name, ilvl, mod_lines = _parse_item(item_text)
+        if rarity == "unique":
+            return self._check_unique(item_text)
         base = self._bases.get(base_name.lower())
         errors: list[str] = []
         if base is None:
@@ -96,6 +101,34 @@ class ItemLegalityChecker:
             if n > limit:
                 errors.append(f"{affix} {n}개 — {rarity} 한도 {limit} 초과")
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+
+    def _check_unique(self, item_text: str) -> LegalityReport:
+        """유니크 = 고정 모드 아이템. 이름이 KB 유니크에 실존하고 각 모드 줄의
+        수치가 KB explicits의 롤 범위 안이면 LEGAL (모드풀 검사 부적용)."""
+        lines = [ln.strip() for ln in item_text.strip().splitlines() if ln.strip()]
+        name = lines[1] if len(lines) > 1 else ""
+        rec = self._uniques.get(name.lower())
+        if rec is None:
+            return LegalityReport(verdicts=(), errors=(f"KB에 없는 유니크: {name!r}",))
+        known = [
+            _norm(t) for t in rec["data"].get("explicits", []) + rec["data"].get("implicits", [])
+        ]
+        ranged = rec["data"].get("explicits", []) + rec["data"].get("implicits", [])
+        verdicts: list[LineVerdict] = []
+        for ln in lines[3:]:
+            low = ln.lower()
+            if low.startswith(("item level:", "quality:", "sockets:", "implicits:", "--")):
+                continue
+            if _norm(ln) not in known:
+                verdicts.append(LineVerdict(ln, "UNKNOWN", reason="유니크 고정 모드에 없음"))
+                continue
+            ok, why = _values_in_range(ln, ranged)
+            verdicts.append(
+                LineVerdict(ln, "LEGAL", rec["id"])
+                if ok
+                else LineVerdict(ln, "ILLEGAL", rec["id"], f"롤 범위 밖: {why}")
+            )
+        return LegalityReport(verdicts=tuple(verdicts))
 
     def _check_line(self, line: str, base: dict[str, Any] | None, ilvl: int) -> LineVerdict:
         candidates = self._mods.get(_norm(line), [])
