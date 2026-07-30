@@ -1,0 +1,136 @@
+"""BuildSpec → PathOfBuilding2 XML 직렬화 — 스파이크로 실증한 계약의 코드화.
+
+계약 (Phase 0 실측, scripts/pob_smoke.lua 머리주석과 동일 근거):
+- 루트는 `PathOfBuilding2`, `targetVersion`은 **빌드 포맷 버전 "0_1" 고정**
+  (게임 버전 아님 — 다른 값이면 변환 팝업으로 조기 return, Tree/Skills 무증상 유실).
+- 클래스는 신형식 `classInternalId`(아래 표) + `ascendancyInternalId`
+  ("Sorceress1" 등 — KB Passive 레코드의 `ascendancy` 코드와 동일 체계).
+- `characterLevelAutoMode="false"` 로 명시 레벨 고정.
+- 트리 노드 id는 KB(poe2db)·PoB 공통 id 공간 (실측: 5642=Behemoth 일치).
+  시작점과 연결되지 않은 노드는 PoB가 로드 시 소리 없이 해제 → runner가
+  POK_ALLOC과 요청 집합을 비교해 적법성을 판정한다.
+
+아이템(<Items>)은 Phase 2(engine 적법성 검사와 함께)에서 확장한다 — 아이템
+텍스트 포맷은 아직 스파이크로 실증하지 않았다.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from xml.sax.saxutils import quoteattr
+
+TARGET_VERSION = "0_1"  # 빌드 포맷 버전 (게임 버전 아님!)
+TREE_VERSION = "0_5"
+
+# PoB latestTree.classIntegerIdMap 실측 (0.5 트리) — 항등이지만 이름 매핑이 목적
+CLASS_INTERNAL_ID = {
+    "Witch": 1,
+    "Ranger": 2,
+    "Warrior": 6,
+    "Sorceress": 7,
+    "Huntress": 8,
+    "Mercenary": 9,
+    "Monk": 10,
+    "Druid": 11,
+}
+
+
+@dataclass(frozen=True)
+class GemSpec:
+    """스킬 그룹 내 젬 하나. gem_id는 PoB gemId (예: Metadata/.../SkillGemSpark)."""
+
+    gem_id: str
+    name: str  # nameSpec (표시명)
+    level: int = 20
+    quality: int = 0
+    enabled: bool = True
+
+
+@dataclass(frozen=True)
+class SkillGroupSpec:
+    """소켓 그룹 — 액티브 젬 + 서포트 젬들. slot은 PoB 슬롯명."""
+
+    gems: tuple[GemSpec, ...]
+    slot: str = "Weapon 1"
+    enabled: bool = True
+    main_active_skill: int = 1
+
+
+@dataclass(frozen=True)
+class BuildSpec:
+    """PoB에 계산을 맡길 빌드 정의 — KB id 공간과 호환되는 최소 스펙."""
+
+    class_name: str  # CLASS_INTERNAL_ID 키
+    ascendancy: str  # KB 어센던시 코드 = PoB ascendancyInternalId ("Sorceress1"…)
+    level: int = 90
+    tree_nodes: tuple[int, ...] = ()  # KB node_id 그대로 (연결성은 호출자 책임)
+    skills: tuple[SkillGroupSpec, ...] = ()
+    main_socket_group: int = 1
+    config: tuple[tuple[str, str | int | bool], ...] = field(default=())  # Input name→value
+
+
+def _config_value_attrs(value: str | int | bool) -> str:
+    if isinstance(value, bool):
+        return f'boolean="{"true" if value else "false"}"'
+    if isinstance(value, int):
+        return f'number="{value}"'
+    return f"string={quoteattr(value)}"
+
+
+def to_xml(spec: BuildSpec) -> str:
+    """BuildSpec → PoB가 그대로 로드하는 PathOfBuilding2 XML."""
+    if spec.class_name not in CLASS_INTERNAL_ID:
+        raise ValueError(
+            f"알 수 없는 클래스: {spec.class_name!r} (허용: {sorted(CLASS_INTERNAL_ID)})"
+        )
+    if not 1 <= spec.level <= 100:
+        raise ValueError(f"레벨 범위 밖: {spec.level}")
+
+    skill_groups: list[str] = []
+    for group in spec.skills:
+        gems = "\n".join(
+            f"        <Gem gemId={quoteattr(g.gem_id)} variantId={quoteattr(g.name)} "
+            f'level="{g.level}" quality="{g.quality}" '
+            f'enabled="{"true" if g.enabled else "false"}" nameSpec={quoteattr(g.name)}/>'
+            for g in group.gems
+        )
+        skill_groups.append(
+            f'      <Skill enabled="{"true" if group.enabled else "false"}" label="" '
+            f'slot={quoteattr(group.slot)} mainActiveSkill="{group.main_active_skill}">\n'
+            f"{gems}\n      </Skill>"
+        )
+    skills_xml = "\n".join(skill_groups)
+
+    config_inputs = "\n".join(
+        f"    <Input name={quoteattr(name)} {_config_value_attrs(value)}/>"
+        for name, value in spec.config
+    )
+
+    nodes = ",".join(str(n) for n in spec.tree_nodes)
+    build_attrs = (
+        f'level="{spec.level}" characterLevelAutoMode="false" '
+        f'targetVersion="{TARGET_VERSION}" className={quoteattr(spec.class_name)} '
+        f'mainSocketGroup="{spec.main_socket_group}"'
+    )
+    spec_attrs = (
+        f'title="pok" treeVersion="{TREE_VERSION}" '
+        f'classInternalId="{CLASS_INTERNAL_ID[spec.class_name]}" '
+        f"ascendancyInternalId={quoteattr(spec.ascendancy)} nodes={quoteattr(nodes)}"
+    )
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding2>
+  <Build {build_attrs}/>
+  <Skills sortGemsByDPS="true" activeSkillSet="1">
+    <SkillSet id="1">
+{skills_xml}
+    </SkillSet>
+  </Skills>
+  <Tree activeSpec="1">
+    <Spec {spec_attrs}/>
+  </Tree>
+  <Items/>
+  <Config>
+{config_inputs}
+  </Config>
+</PathOfBuilding2>
+"""
