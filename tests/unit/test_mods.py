@@ -445,3 +445,88 @@ def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
     assert des["verification"] == "SUPPORTED_INFERENCE", "poe2db 단독 소스"
     lightless = records["modifier.desecrated-equipment-lightless-5-10-increased-armour"]
     assert lightless["data"]["applicable_pages"] == ["Body_Armours_str"], "카탈로그로 클래스 보강"
+
+
+CURRENCY_HTML_US = """
+<html><body>
+<div class="card"><h5 class="card-header">Stackable Currency Item /2</h5>
+<div class="row">
+ <div class="col"><a class="item_currency" href="Chaos_Orb">Chaos Orb</a>
+   <div>Stack Size:</div><div>1 / 20</div>
+   <div>Removes a random modifier</div><div>from a rare item</div></div>
+ <div class="col"><a class="item_currency" href="Runic_Alloy">Runic Alloy</a>
+   <div>Stack Size:</div><div>1 / 10</div>
+   <div>Augments a Rare item</div></div>
+</div></div>
+<div class="card"><h5 class="card-header">Essence /1</h5>
+<div class="row">
+ <div class="col"><a class="item_currency" href="Runic_Alloy">Runic Alloy</a>
+   <div>Stack Size:</div><div>1 / 10</div>
+   <div>Augments a Rare item</div></div>
+</div></div>
+<div class="card"><h5 class="card-header">Splinter Item /1</h5>
+<div class="row">
+ <div class="col"><a class="item_currency" href="Breach_Splinter">Breach Splinter</a>
+   <div>Stack Size:</div><div>1 / 300</div></div>
+</div></div>
+</body></html>
+"""
+
+CURRENCY_HTML_KR = (
+    CURRENCY_HTML_US.replace("Stackable Currency Item /2", "중첩 가능 화폐 아이템 /2")
+    .replace("Essence /1", "에센스 /1")
+    .replace("Splinter Item /1", "Splinter 아이템 /1")
+    .replace(">Chaos Orb</a>", ">카오스 오브</a>")
+    .replace("Stack Size:", "중첩 개수:")
+    .replace(
+        "<div>Removes a random modifier</div><div>from a rare item</div>",
+        "<div>희귀 아이템의</div><div>무작위 속성 제거</div>",
+    )
+)
+
+
+def test_currency_parse_and_merge(tmp_path: Path) -> None:
+    """화폐 수록 (④ 보강, 승인 2026-07-30) — href 조인·카드 중복 dedup·⑦."""
+    import shutil
+
+    from pok.common.paths import project_root
+    from pok.kb.ingest.currency import parse_page, process_and_merge
+
+    us = parse_page(CURRENCY_HTML_US)
+    assert set(us) == {"Chaos_Orb", "Runic_Alloy", "Breach_Splinter"}
+    assert us["Chaos_Orb"]["effect"] == "Removes a random modifier from a rare item", (
+        "키워드 링크로 쪼개진 텍스트를 공백으로 복원"
+    )
+    assert us["Chaos_Orb"]["stack_size"] == 20
+    assert us["Runic_Alloy"]["category"] == "stackable", (
+        "Stackable∩Essence 중복 게재는 첫 카드 분류 유지 (Alloy 13종 실측)"
+    )
+
+    raw = tmp_path / "raw"
+    (raw / "currency").mkdir(parents=True)
+    (raw / "currency" / "stackable.us.html").write_text(CURRENCY_HTML_US, encoding="utf-8")
+    (raw / "currency" / "stackable.kr.html").write_text(CURRENCY_HTML_KR, encoding="utf-8")
+    root = tmp_path / "repo"
+    knowledge = root / "knowledge"
+    root.mkdir()
+    (root / "pyproject.toml").write_text("", encoding="utf-8")
+    shutil.copytree(project_root() / "knowledge" / "schema", knowledge / "schema")
+    (knowledge / "game-data").mkdir()
+
+    report = process_and_merge(raw, knowledge, "t")
+    assert report["written"] == 3 and report["kb_total"] == 3
+    assert report["by_category"] == {"splinter": 1, "stackable": 2}
+    assert report["ko_names"] == 1, "카오스 오브만 ko가 다르다 (픽스처)"
+    floor = report["verification"]["7_substance_floor"][0]
+    assert [x["name"] for x in floor["empty"]["sample"]] == ["Breach Splinter"], (
+        "⑦ 효과 문구 없는 교환 재화 — 자동 제외하지 않고 리포트"
+    )
+
+    shard = (knowledge / "game-data" / "currency" / "currency-01.ndjson").read_text(
+        encoding="utf-8"
+    )
+    recs = {json.loads(x)["id"]: json.loads(x) for x in shard.splitlines()}
+    chaos = recs["item.chaos-orb"]
+    assert chaos["data"]["rarity"] == "currency"
+    assert chaos["name"]["ko"] == "카오스 오브"
+    assert chaos["data"]["effect_ko"] == "희귀 아이템의 무작위 속성 제거"

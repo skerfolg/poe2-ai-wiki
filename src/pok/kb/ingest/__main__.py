@@ -60,6 +60,9 @@ def main(argv: list[str] | None = None) -> int:
     p_mods.add_argument("--patch", required=True)
     p_mods.add_argument("step", choices=["process", "merge", "catalog"])
 
+    p_cur = sub.add_parser("currency", help="화폐 아이템(④ 보강): merge (Stackable_Currency 원시)")
+    p_cur.add_argument("--patch", required=True)
+
     p_manifest = sub.add_parser(
         "manifest", help="증거 체인 기록 (KB_INGEST §5): 데이터repo·PoB commit → knowledge/ingest/"
     )
@@ -190,6 +193,19 @@ def main(argv: list[str] | None = None) -> int:
                     merge_mods(out_dir, knowledge_dir(), args.patch), ensure_ascii=False, indent=1
                 )
             )
+    elif args.cmd == "currency":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest.currency import process_and_merge
+
+        cur_report = process_and_merge(raw_dir, knowledge_dir(), args.patch)
+        print(
+            json.dumps(
+                {k: v for k, v in cur_report.items() if k != "verification"},
+                ensure_ascii=False,
+                indent=1,
+            )
+        )
+        print(f"리포트: {raw_dir / 'currency' / 'report.json'}")
     elif args.cmd == "manifest":
         import subprocess
 
