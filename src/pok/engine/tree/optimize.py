@@ -50,10 +50,20 @@ class Step:
 
 
 @dataclass(frozen=True)
+class Pruned:
+    """가지치기로 제거된 노드 — 단독 기여가 ~0임을 실측한 근거 포함."""
+
+    node_id: int
+    name: str
+    removal_deltas: dict[str, float]  # 제거 시 스탯 변화 (죽은 노드면 전부 ~0)
+
+
+@dataclass(frozen=True)
 class OptimizeResult:
     spec: BuildSpec  # 최적화 후
     result: PobResult  # 최종 실측
     steps: tuple[Step, ...]  # 채택 순서대로 (각각 델타 근거)
+    pruned: tuple[Pruned, ...]  # 가지치기로 회수된 죽은 노드들
     rejected_rounds: int  # 양의 점수 후보가 없어 중단됐으면 1
 
 
@@ -76,31 +86,107 @@ def optimize_tree(
     """
     measure = tuple(stats or objective.weights.keys())
     steps: list[Step] = []
+    pruned: list[Pruned] = []
+    banned: set[int] = set()  # 가지치기로 죽은 노드 판정 — 재채택 금지 (무한 루프 방지)
     current = spec
     budget = point_budget
+    rejected = 0
     with PobDaemon() as daemon:
-        while budget > 0:
-            tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
-            cands = [
-                nid
-                for nid, _, d in graph.candidates(tree_now, max_dist=candidate_radius)
-                if d <= budget
-            ][:max_candidates_per_round]
-            if not cands:
-                break
-            deltas = evaluate_node_deltas(current, graph, cands, stats=measure, daemon=daemon)
-            base = daemon.compute_build(current)
-            scored = sorted(
-                ((objective.score(nd, base.stats), nd) for nd in deltas),
-                key=lambda x: -x[0],
+        while True:
+            # ── 그리디 채택 ──
+            while budget > 0:
+                tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
+                cands = [
+                    nid
+                    for nid, _, d in graph.candidates(tree_now, max_dist=candidate_radius)
+                    if d <= budget and nid not in banned
+                ][:max_candidates_per_round]
+                if not cands:
+                    break
+                deltas = evaluate_node_deltas(current, graph, cands, stats=measure, daemon=daemon)
+                base = daemon.compute_build(current)
+                scored = sorted(
+                    ((objective.score(nd, base.stats), nd) for nd in deltas),
+                    key=lambda x: -x[0],
+                )
+                affordable = [(s, nd) for s, nd in scored if nd.points <= budget and s > 0]
+                if not affordable:
+                    rejected = 1
+                    break
+                best_score, best = affordable[0]
+                current = dataclasses.replace(
+                    current, tree_nodes=tuple(current.tree_nodes) + best.path
+                )
+                budget -= best.points
+                steps.append(Step(node_delta=best, score=best_score))
+            # ── 가지치기: 채택 끝단의 단독 기여 격리 → ~0이면 제거·환급 ──
+            current, newly_pruned, refund = _prune_dead_ends(
+                spec, current, steps, graph, objective, daemon, measure
             )
-            affordable = [(s, nd) for s, nd in scored if nd.points <= budget and s > 0]
-            if not affordable:
-                final = daemon.compute_build(current)
-                return OptimizeResult(current, final, tuple(steps), rejected_rounds=1)
-            best_score, best = affordable[0]
-            current = dataclasses.replace(current, tree_nodes=tuple(current.tree_nodes) + best.path)
-            budget -= best.points
-            steps.append(Step(node_delta=best, score=best_score))
+            pruned.extend(newly_pruned)
+            banned.update(p.node_id for p in newly_pruned)
+            if refund == 0 or rejected:
+                break  # 환급 없으면 안정, 후보 소진이면 재탐색 무의미
+            budget += refund
         final = daemon.compute_build(current)
-    return OptimizeResult(current, final, tuple(steps), rejected_rounds=0)
+    return OptimizeResult(current, final, tuple(steps), tuple(pruned), rejected_rounds=rejected)
+
+
+_PRUNE_EPS = 1e-6  # PoB는 결정적 — 죽은 노드의 제거 델타는 정확히 0
+
+
+def _prune_dead_ends(
+    original: BuildSpec,
+    current: BuildSpec,
+    steps: list[Step],
+    graph: TreeGraph,
+    objective: Objective,
+    daemon: PobDaemon,
+    measure: tuple[str, ...],
+) -> tuple[BuildSpec, list[Pruned], int]:
+    """채택된 끝단 노드부터 안쪽으로, 제거해도 목적 손실이 없는 노드를 걷어낸다.
+
+    발견 배경(2026-07-31 실증): 채택 단위가 "노터블+연결 경로" 묶음이라
+    경로 소노드의 가치에 죽은 노터블(예: 미니언 조건 — 미니언 없는 빌드)이
+    무임승차할 수 있다. 제거는 항상 실측으로 정당화한다 — 가치 있는 경로
+    소노드는 손실이 측정되므로 남는다. 원래 스펙의 노드는 건드리지 않는다.
+    """
+    protected = set(original.tree_nodes) | {s.node_delta.node_id for s in steps}
+    start = graph.start_of(current.class_name)
+    removed: list[Pruned] = []
+    base = daemon.compute_build(current)
+    for step in steps:
+        chain_head = step.node_delta.node_id
+        cursor: int | None = chain_head
+        while cursor is not None:
+            alloc = set(current.tree_nodes)
+            neighbors = [n for n in graph.adj[cursor] if n in alloc or n == start]
+            if len(neighbors) > 1:  # 분기점 — 다른 가지가 걸려 있어 제거 불가
+                break
+            if cursor != chain_head and cursor in protected:
+                break  # 다른 채택 노터블/원본 노드는 건드리지 않는다
+            variant = dataclasses.replace(
+                current, tree_nodes=tuple(n for n in current.tree_nodes if n != cursor)
+            )
+            result = daemon.compute_build(variant)
+            if result.pruned_nodes:
+                break  # 연결이 깨지면 제거 불가 (이론상 도달 안 함 — 방어)
+            deltas = {k: result.stats.get(k, 0.0) - base.stats.get(k, 0.0) for k in measure}
+            loss = sum(
+                w * (deltas.get(s, 0.0) / max(abs(base.stats.get(s, 0.0)), 1.0))
+                for s, w in objective.weights.items()
+            )
+            if loss < -_PRUNE_EPS:
+                break  # 제거하면 손해 — 이 노드부터는 가치가 있다
+            node = graph.nodes.get(cursor)
+            removed.append(
+                Pruned(
+                    node_id=cursor,
+                    name=(node.name_ko or node.name_en) if node else str(cursor),
+                    removal_deltas=deltas,
+                )
+            )
+            current = variant
+            base = result
+            cursor = neighbors[0] if neighbors and neighbors[0] != start else None
+    return current, removed, len(removed)

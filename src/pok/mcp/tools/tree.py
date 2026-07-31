@@ -62,7 +62,15 @@ def optimize_tree(
             }
             for s in out.steps
         ],
-        "spent_points": sum(s.node_delta.points for s in out.steps),
+        "pruned": [
+            {
+                "node_id": p.node_id,
+                "name": p.name,
+                "removal_deltas": {k: round(v, 2) for k, v in p.removal_deltas.items()},
+            }
+            for p in out.pruned
+        ],
+        "spent_points": sum(s.node_delta.points for s in out.steps) - len(out.pruned),
         "stopped_no_positive": bool(out.rejected_rounds),
         "tree_nodes": list(out.spec.tree_nodes),
         "final_stats": {k: out.result.stats[k] for k in weights if k in out.result.stats},
