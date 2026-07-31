@@ -69,6 +69,7 @@ local PURE = {
   "Gems", "Costs", "Global", "Misc",
   "ModItem", "ModItemExclusive", "ModRunes", "ModCorrupted", "Essence",
   "ModFlask", "ModCharm", "ModJewel",  -- 태그 어휘 교차(⑥)가 잡아낸 누락분
+  "ModVeiled",  -- UniqueHeart*(우물의 심장 훼손 풀)·HistoricAbyssJewel* 원천
 }
 for _, name in ipairs(PURE) do
   local path = pob_src .. "/Data/" .. name .. ".lua"
