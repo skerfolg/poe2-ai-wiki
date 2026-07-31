@@ -44,8 +44,14 @@ _SUFFIX_EFFECT = re.compile(r"^(\d+(?:\.\d+)?)% increased Effect of Suffixes$", 
 
 
 def _norm(text: str) -> str:
-    """수치·범위 → '#' 정규화 (매칭 키)."""
-    return _NUM.sub("#", text).strip().lower()
+    """수치·범위 → '#' 정규화 (매칭 키).
+
+    공백도 정규화한다: 연속 공백 붕괴 + '%' 앞 공백 제거 — 훼손 풀 원문은
+    "(10-18) % chance…"처럼 % 앞에 공백이 있어 인게임 표기("14% chance…")와
+    키가 어긋난다 (양쪽 모두 이 함수를 거치므로 대칭 안전).
+    """
+    collapsed = " ".join(_NUM.sub("#", text).split())
+    return collapsed.replace(" %", "%").lower()
 
 
 def _expand_enum(text: str) -> list[str]:
@@ -112,9 +118,11 @@ class ItemLegalityChecker:
                 self._uniques[r.name_en.lower()] = r.raw  # 유니크 우선 (category도 가질 수 있다)
             elif r.type == "Item" and r.raw.get("data", {}).get("category"):
                 self._bases[r.name_en.lower()] = r.raw
-            elif r.type == "Modifier" and {"item", "jewel"} & set(
+            elif r.type == "Modifier" and {"item", "jewel", "desecrated"} & set(
                 r.raw.get("data", {}).get("origins", [])
-            ):  # jewel origin도 크래프팅 풀 — 주얼 베이스 검증에 필요 (2026-07-31)
+            ):  # jewel origin도 크래프팅 풀 — 주얼 베이스 검증에 필요 (2026-07-31).
+                # desecrated도 합성 검증 풀에 포함(사용자 지시 2026-07-31) —
+                # spawn_weights가 없어 _route_base_fit의 pages/scope 신호로 판정된다.
                 for text in r.raw["data"].get("texts", []):
                     self._mods.setdefault(_norm(text), []).append(r.raw)
             elif r.type == "Modifier" and "heart-of-the-well" in r.raw.get("data", {}).get(

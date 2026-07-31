@@ -179,6 +179,20 @@ def test_경로_베이스_적합성_pages_scope(checker: ItemLegalityChecker) ->
     assert _route_base_fit({"acquisition": ["poe2db:liquid"]}, jewel) == (True, "")
 
 
+def test_훼손_모드는_합성_검증_풀에_포함(checker: ItemLegalityChecker) -> None:
+    """훼손(desecrated) origins도 검증 풀 포함(사용자 지시 2026-07-31) —
+    spawn_weights가 없어 applicable_pages/scope로 베이스 적합성을 판정한다.
+    원문 "(10-18) % chance…"의 % 앞 공백은 _norm 공백 정규화로 흡수."""
+    line = "14% chance for Charms you use to not consume Charges"  # Belts, ilvl 65
+    ok = checker.check(f"Rarity: RARE\nPok Belt\nHeavy Belt\nItem Level: 81\n{line}")
+    v = ok.verdicts[0]
+    assert v.status == "CONDITIONAL" and "desecration" in v.reason, v
+    wrong_base = checker.check(f"Rarity: RARE\nPok Jewel\nDiamond\nItem Level: 81\n{line}")
+    assert wrong_base.verdicts[0].status == "ILLEGAL", wrong_base.verdicts
+    low_ilvl = checker.check(f"Rarity: RARE\nPok Belt\nHeavy Belt\nItem Level: 60\n{line}")
+    assert low_ilvl.verdicts[0].status == "ILLEGAL", low_ilvl.verdicts
+
+
 def test_장비는_여전히_3_3_한도(checker: ItemLegalityChecker) -> None:
     limits, total, label = checker._affix_limits("rare", None)
     assert (limits["prefix"], limits["suffix"], total) == (3, 3, 6)
