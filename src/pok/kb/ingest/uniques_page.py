@@ -242,6 +242,11 @@ def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
             }
         )
 
+    # 고유 주얼 13종 보정 — PoB Generated.lua(코드 생성분) 미수록·변형 평탄화 교정
+    from pok.kb.ingest.jewel_fixes import apply_jewel_fixes
+
+    jewel_fixed = apply_jewel_fixes(items)
+
     pob_only = sorted(set(pob) - {u.name for u in us})
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "uniques.json").write_text(
@@ -255,6 +260,7 @@ def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
             1 for u in us if u.class_group == "cultivated" and base_of.get(u.name)
         ),
         "unresolved_base_type": unresolved_base,
+        "jewel_fixed": jewel_fixed,
         "pob_items": len(pob),
         "matched_pob": sum(1 for i in items if i["in_pob"]),
         "page_only": sum(1 for i in items if not i["in_pob"]),
@@ -278,7 +284,7 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
         "implicits": item["implicits"],
         "explicits": item["explicits"],
     }
-    for key in ("base_type_ko", "category", "requires"):
+    for key in ("base_type_ko", "category", "requires", "explicits_ko", "radius", "limited_to"):
         if item.get(key):
             data[key] = item[key]
     if item.get("variants"):

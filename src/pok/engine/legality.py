@@ -26,11 +26,29 @@ from pok.kb.store import load as store_load
 
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
 _RANGE = re.compile(r"\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)")
+# 선택지 열거 "(A/B/C)" — 고유 주얼 롤 변형 표기 (jewel_fixes 규약). 범위 "(a-b)"와 구분됨
+_ENUM = re.compile(r"\(([^()]*/[^()]*)\)")
 
 
 def _norm(text: str) -> str:
     """수치·범위 → '#' 정규화 (매칭 키)."""
     return _NUM.sub("#", text).strip().lower()
+
+
+def _expand_enum(text: str) -> list[str]:
+    """ "(A/B/C)" 선택지 열거를 개별 텍스트들로 펼친다 (없으면 원문 그대로 1개).
+
+    고유 주얼의 롤 변형 표기(KB jewel_fixes 규약) — 실물 아이템엔 선택지 하나만
+    롤되므로, 대조는 펼친 각 형태와 해야 한다. 열거가 여러 개면 데카르트 곱.
+    """
+    m = _ENUM.search(text)
+    if m is None:
+        return [text]
+    out: list[str] = []
+    for option in m.group(1).split("/"):
+        head = text[: m.start()] + option + text[m.end() :]
+        out.extend(_expand_enum(head))
+    return out
 
 
 @dataclass(frozen=True)
@@ -156,10 +174,13 @@ class ItemLegalityChecker:
         rec = self._uniques.get(name.lower())
         if rec is None:
             return LegalityReport(verdicts=(), errors=(f"KB에 없는 유니크: {name!r}",))
-        known = [
-            _norm(t) for t in rec["data"].get("explicits", []) + rec["data"].get("implicits", [])
+        # "(A/B/C)" 선택지 열거(고유 주얼 롤 변형)는 펼쳐서 대조한다
+        ranged = [
+            e
+            for t in rec["data"].get("explicits", []) + rec["data"].get("implicits", [])
+            for e in _expand_enum(t)
         ]
-        ranged = rec["data"].get("explicits", []) + rec["data"].get("implicits", [])
+        known = [_norm(t) for t in ranged]
         verdicts: list[LineVerdict] = []
         for ln in lines[3:]:
             low = ln.lower()

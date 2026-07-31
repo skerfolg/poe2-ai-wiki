@@ -233,3 +233,32 @@ def test_cultivated_gets_distinct_id() -> None:
     cultivated = {**base, "class_group": "cultivated"}
     assert _to_record(base, "t")["id"] == "item.bramblejack"
     assert _to_record(cultivated, "t")["id"] == "item.bramblejack-cultivated"
+
+
+def test_jewel_fixes_scope() -> None:
+    """주얼 보정은 13종(15레코드)에만 닿고 다른 항목은 건드리지 않는다 (task #32)."""
+    from pok.kb.ingest.jewel_fixes import JEWEL_FIXES, apply_jewel_fixes
+
+    assert len(JEWEL_FIXES) == 15
+    items = [
+        {"name_en": "Megalomaniac", "class_group": "other", "explicits": ["Allocates"]},
+        {"name_en": "Astramentis", "class_group": "other", "explicits": ["+(50-100)"]},
+    ]
+    assert apply_jewel_fixes(items) == 1
+    assert items[0]["explicits"] == [
+        "Allocates Passive Skill",
+        "Allocates Passive Skill",
+        "Allocates Passive Skill",
+        "Corrupted",
+    ]
+    assert items[1]["explicits"] == ["+(50-100)"]  # 비대상 불변
+
+
+def test_jewel_fixes_no_fragments() -> None:
+    """보정 결과에 조각 줄("+"·"(1"·"—" 따위)이 남지 않는다."""
+    from pok.kb.ingest.jewel_fixes import JEWEL_FIXES
+
+    for (name, _), fix in JEWEL_FIXES.items():
+        for line in fix.get("explicits", []) + fix.get("explicits_ko", []):
+            assert len(line) > 3 or line == "타락", (name, line)
+            assert "—" not in line, (name, line)

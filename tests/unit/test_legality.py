@@ -132,3 +132,43 @@ def test_유니크는_KB_실존과_롤_범위로_판정(checker: ItemLegalityChe
     assert not report2.is_legal
     report3 = checker.check("Rarity: UNIQUE\n존재하지 않는 유니크\nTwisted Wand")
     assert not report3.is_legal
+
+
+def test_열거_펼치기() -> None:
+    from pok.engine.legality import _expand_enum
+
+    assert _expand_enum("Allocates (2/3/4) Sinister Jewel sockets") == [
+        "Allocates 2 Sinister Jewel sockets",
+        "Allocates 3 Sinister Jewel sockets",
+        "Allocates 4 Sinister Jewel sockets",
+    ]
+    # 범위 "(a-b)"는 열거가 아니다 — 원문 그대로
+    assert _expand_enum("(0-150)% increased Effect") == ["(0-150)% increased Effect"]
+
+
+def test_유니크_주얼_롤_변형은_열거_대조로_판정(checker: ItemLegalityChecker) -> None:
+    """KB 고유 주얼의 "(A/B/C)" 열거(jewel_fixes 규약) ↔ 실물 한 롤 대조."""
+    ok = checker.check(
+        "Rarity: UNIQUE\nVoices\nSapphire\nItem Level: 80\n"
+        "Allocates 3 Sinister Jewel sockets\nCorrupted"
+    )
+    assert ok.is_legal, ok
+    bad = checker.check(
+        "Rarity: UNIQUE\nVoices\nSapphire\nItem Level: 80\n"
+        "Allocates 5 Sinister Jewel sockets"  # 2/3/4 밖
+    )
+    assert not bad.is_legal
+    cls = checker.check(
+        "Rarity: UNIQUE\nSplit Personality\nRuby\nItem Level: 80\n"
+        "Can Allocate Passive Skills from the Sorceress's starting point\nCorrupted"
+    )
+    assert cls.is_legal, cls
+
+
+def test_유니크_그랜드_스펙트럼_동명_3종_모두_대조된다(checker: ItemLegalityChecker) -> None:
+    for line in (
+        "2% increased Maximum Life per socketed Grand Spectrum",
+        "+6% to all Elemental Resistances per socketed Grand Spectrum",
+    ):
+        report = checker.check(f"Rarity: UNIQUE\nGrand Spectrum\nRuby\nItem Level: 80\n{line}")
+        assert report.is_legal, report
