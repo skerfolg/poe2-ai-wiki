@@ -36,10 +36,14 @@ def optimize_tree(
     weights: dict[str, float],
     point_budget: int,
     candidate_radius: int = 8,
+    jewel_templates: list[str] | None = None,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
     weights = 다축 정책(RC3), 예: {"CombinedDPS": 1.0, "Life": 0.6}.
+    jewel_templates = 소켓 평가용 가정 주얼 raw 텍스트들(빌드 컨셉에서 도출,
+    check_item_legality 통과분만) — 소켓 후보를 템플릿별 실측해 최선을 채택하고
+    steps의 jewel_text·결과 jewels에 기록한다(조달 가정임을 남길 것).
     소요: 라운드당 후보 ~40회 계산(각 ~0.1초) — 예산 30이면 수 분."""
     spec = spec_from_dict(build_spec)
     out = _optimize(
@@ -48,6 +52,7 @@ def optimize_tree(
         Objective(weights=weights),
         point_budget=point_budget,
         candidate_radius=candidate_radius,
+        jewel_templates=tuple(jewel_templates or ()),
     )
     return {
         "steps": [
@@ -59,9 +64,11 @@ def optimize_tree(
                 "path": list(s.node_delta.path),
                 "deltas": {k: round(v, 2) for k, v in s.node_delta.deltas.items()},
                 "score": round(s.score, 5),
+                "jewel_text": s.node_delta.jewel_text,
             }
             for s in out.steps
         ],
+        "jewels": [{"socket_node_id": j.socket_node_id, "text": j.text} for j in out.spec.jewels],
         "pruned_branches": [
             {
                 "endpoint": p.endpoint_id,

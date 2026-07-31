@@ -12,11 +12,12 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 from dataclasses import dataclass, field
 
 from pok.engine.tree.deltas import NodeDelta, evaluate_node_deltas
 from pok.engine.tree.graph import TreeGraph
-from pok.pob.buildxml import BuildSpec
+from pok.pob.buildxml import BuildSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
 from pok.pob.runner import PobResult
 
@@ -82,13 +83,17 @@ def optimize_tree(
     candidate_radius: int = 8,
     max_candidates_per_round: int = 40,
     stats: tuple[str, ...] | None = None,
+    jewel_templates: tuple[str, ...] = (),
 ) -> OptimizeResult:
     """포인트 예산 안에서 정책 점수가 양수인 최선 수를 반복 채택한다.
 
     후보 = 현재 트리에서 candidate_radius 안의 notable/keystone/jewel-socket
     (거리순 상한 max_candidates_per_round — 초과분은 다음 라운드에서 트리가
     자라며 자연히 반경에 들어온다). 주얼 소켓의 가치는 장착 주얼이 있어야
-    보이므로, 소켓을 평가하려면 spec.jewels에 후보 주얼을 미리 넣어둘 것.
+    보인다(빈 소켓 델타 0) — jewel_templates(가정 주얼 raw 텍스트들)를 주면
+    소켓 후보를 템플릿별로 실측해 목적 점수 최고인 템플릿으로 평가하고,
+    채택 시 spec.jewels에 해당 JewelSpec을 편입한다. 가지치기가 소켓을
+    제거하면 주얼도 함께 제거된다.
     """
     measure = tuple(stats or objective.weights.keys())
     steps: list[Step] = []
@@ -111,8 +116,17 @@ def optimize_tree(
                 ][:max_candidates_per_round]
                 if not cands:
                     break
-                deltas = evaluate_node_deltas(current, graph, cands, stats=measure, daemon=daemon)
                 base = daemon.compute_build(current)
+                deltas = evaluate_node_deltas(
+                    current,
+                    graph,
+                    cands,
+                    stats=measure,
+                    daemon=daemon,
+                    jewel_templates=jewel_templates,
+                    # 템플릿 선택도 같은 정책으로 — 기준은 이번 라운드의 실측 스탯
+                    jewel_score=functools.partial(objective.score, base_stats=base.stats),
+                )
                 scored = sorted(
                     ((objective.score(nd, base.stats), nd) for nd in deltas),
                     key=lambda x: -x[0],
@@ -122,8 +136,14 @@ def optimize_tree(
                     rejected = 1
                     break
                 best_score, best = affordable[0]
+                jewels = current.jewels
+                if best.jewel_text is not None:
+                    jewels = (
+                        *current.jewels,
+                        JewelSpec(socket_node_id=best.node_id, text=best.jewel_text),
+                    )
                 current = dataclasses.replace(
-                    current, tree_nodes=tuple(current.tree_nodes) + best.path
+                    current, tree_nodes=tuple(current.tree_nodes) + best.path, jewels=jewels
                 )
                 budget -= best.points
                 steps.append(Step(node_delta=best, score=best_score))
@@ -157,6 +177,15 @@ def _value(objective: Objective, result: PobResult) -> float:
 
 
 _Solution = tuple[BuildSpec, PobResult]
+
+
+def _with_tree(spec: BuildSpec, nodes: tuple[int, ...]) -> BuildSpec:
+    """tree_nodes 교체 + 트리에서 빠진 소켓의 주얼 동반 제거 (buildxml 계약:
+    소켓이 tree_nodes에 없으면 주얼 직렬화가 거부된다)."""
+    kept = set(nodes)
+    return dataclasses.replace(
+        spec, tree_nodes=nodes, jewels=tuple(j for j in spec.jewels if j.socket_node_id in kept)
+    )
 
 
 def _better(obj: Objective, a: _Solution | None, b: _Solution) -> _Solution:
@@ -199,17 +228,15 @@ def _prune_dead_branches(
         if len([n for n in graph.adj[endpoint] if n in alloc or n == start]) > 1:
             continue  # 분기점이 된 끝단은 다른 가지의 통로 — 건드리지 않는다
         # ① 끝단 단독 제거로 죽음 판정
-        probe = dataclasses.replace(
-            current, tree_nodes=tuple(n for n in current.tree_nodes if n != endpoint)
-        )
+        probe = _with_tree(current, tuple(n for n in current.tree_nodes if n != endpoint))
         probe_result = daemon.compute_build(probe)
         endpoint_deltas = {
             k: probe_result.stats.get(k, 0.0) - base.stats.get(k, 0.0) for k in measure
         }
         if any(abs(v) > _PRUNE_EPS for v in endpoint_deltas.values()):
             continue  # 끝단이 살아 있다 — 가지 유지
-        eo_current = dataclasses.replace(
-            eo_current, tree_nodes=tuple(n for n in eo_current.tree_nodes if n != endpoint)
+        eo_current = _with_tree(
+            eo_current, tuple(n for n in eo_current.tree_nodes if n != endpoint)
         )
         candidates.append((eo_current, daemon.compute_build(eo_current)))
         # ② 막다른 가지 수집: 끝단에서 안쪽으로 차수 1 연쇄 (보호 노드 전까지)
@@ -223,9 +250,7 @@ def _prune_dead_branches(
             chain.append(cursor)
             alloc.discard(cursor)
             cursor = neighbors[0] if neighbors and neighbors[0] != start else None
-        current = dataclasses.replace(
-            current, tree_nodes=tuple(n for n in current.tree_nodes if n not in set(chain))
-        )
+        current = _with_tree(current, tuple(n for n in current.tree_nodes if n not in set(chain)))
         base = daemon.compute_build(current)
         node = graph.nodes.get(endpoint)
         removed.append(

@@ -51,6 +51,72 @@ def test_티어_범위_밖_수치는_거부(checker: ItemLegalityChecker) -> Non
     assert not report.is_legal
 
 
+def _jewel(*mods: str) -> str:
+    return "Rarity: RARE\nPok Jewel\nSapphire\nItem Level: 81\n" + "\n".join(mods)
+
+
+# KB jewel-01.ndjson 실존 모드 (전부 최대 롤 — 티어 범위 검사도 함께 통과해야 한다)
+_PRE_SPELL = "15% increased Spell Damage"  # prefix, WeaponSpellDamage
+_PRE_TRIGGER = "Triggered Spells deal 18% increased Spell Damage"  # prefix
+_PRE_SUFFIX_EFFECT = "60% increased Effect of Suffixes"  # prefix (liquid 경로 — CONDITIONAL)
+_SUF_SPELL_CRIT = "15% increased Critical Hit Chance for Spells"  # suffix
+_SUF_SPELL_CRIT_DMG = "20% increased Critical Spell Damage Bonus"  # suffix
+_SUF_ATK_CRIT_DMG = "20% increased Critical Damage Bonus for Attack Damage"  # suffix
+_SUF_CRIT = "15% increased Critical Hit Chance"  # suffix, CriticalStrikeChance
+
+
+def test_주얼_기본_한도_2_2는_통과(checker: ItemLegalityChecker) -> None:
+    report = checker.check(_jewel(_PRE_SPELL, _PRE_TRIGGER, _SUF_SPELL_CRIT, _SUF_SPELL_CRIT_DMG))
+    assert report.is_legal, report
+
+
+def test_주얼_시즌_5줄_2접두_3접미는_통과(checker: ItemLegalityChecker) -> None:
+    """0.5 season_override — 총 5모드, 3접미/2접두 (crafting-rules/board-rules.json)."""
+    report = checker.check(
+        _jewel(
+            _PRE_SPELL,
+            _PRE_SUFFIX_EFFECT,
+            _SUF_SPELL_CRIT,
+            _SUF_SPELL_CRIT_DMG,
+            _SUF_ATK_CRIT_DMG,
+        )
+    )
+    assert report.is_legal, report
+
+
+def test_주얼_3접두_3접미는_거부(checker: ItemLegalityChecker) -> None:
+    """override는 총 5모드까지 — 3/3(총 6)은 불허."""
+    report = checker.check(
+        _jewel(
+            _PRE_SPELL,
+            _PRE_TRIGGER,
+            _PRE_SUFFIX_EFFECT,
+            _SUF_SPELL_CRIT,
+            _SUF_SPELL_CRIT_DMG,
+            _SUF_ATK_CRIT_DMG,
+        )
+    )
+    assert not report.is_legal
+    assert any("총한도" in e for e in report.errors), report.errors
+
+
+def test_주얼_4접미는_거부(checker: ItemLegalityChecker) -> None:
+    report = checker.check(
+        _jewel(_SUF_SPELL_CRIT, _SUF_SPELL_CRIT_DMG, _SUF_ATK_CRIT_DMG, _SUF_CRIT)
+    )
+    assert not report.is_legal
+    assert any("suffix 4개" in e for e in report.errors), report.errors
+
+
+def test_장비는_여전히_3_3_한도(checker: ItemLegalityChecker) -> None:
+    limits, total, label = checker._affix_limits("rare", None)
+    assert (limits["prefix"], limits["suffix"], total) == (3, 3, 6)
+    assert label == "equipment rare"
+    # 주얼 magic엔 카테고리 캡이 없다 — equipment magic 1/1로 폴백, override 미적용
+    limits, total, _ = checker._affix_limits("magic", "jewel")
+    assert (limits["prefix"], limits["suffix"], total) == (1, 1, 2)
+
+
 def test_유니크는_KB_실존과_롤_범위로_판정(checker: ItemLegalityChecker) -> None:
     report = checker.check(
         "Rarity: UNIQUE\nLiminal Coil\nTwisted Wand\nItem Level: 80\n"

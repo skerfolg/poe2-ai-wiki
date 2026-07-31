@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from pok.common.paths import knowledge_dir
@@ -49,6 +51,51 @@ def test_노드_델타_실측(graph: TreeGraph) -> None:
     assert d.points == 5  # 시작점에서 거리 5 (경로 포함 소모 포인트)
     assert d.deltas["CombinedDPS"] > 0
     assert d.per_point("CombinedDPS") > 0
+
+
+_SOCKET = 61419  # Sorceress 시작에서 최단 10포인트인 jewel-socket (KB 실측)
+_JEWEL_TMPL = (
+    "Rarity: RARE\nPok Jewel\nSapphire\nItem Level: 81\n"
+    "15% increased Spell Damage\n15% increased Critical Hit Chance for Spells"
+)
+
+
+def test_소켓은_가정_주얼과_함께_실측된다(graph: TreeGraph) -> None:
+    """빈 소켓은 델타 0 — jewel_templates가 있으면 가정 장착 델타로 평가된다."""
+    empty = evaluate_node_deltas(SPEC, graph, [_SOCKET], stats=("CombinedDPS",))
+    (e,) = empty
+    assert e.kind == "jewel-socket" and e.jewel_text is None
+
+    with_jewel = evaluate_node_deltas(
+        SPEC, graph, [_SOCKET], stats=("CombinedDPS",), jewel_templates=(_JEWEL_TMPL,)
+    )
+    (d,) = with_jewel
+    assert d.jewel_text == _JEWEL_TMPL, "채택된 템플릿이 NodeDelta에 기록된다"
+    assert d.deltas["CombinedDPS"] > e.deltas["CombinedDPS"], "주문 피해 주얼은 실측 우위"
+
+
+def test_최적화가_소켓을_채택하면_주얼이_스펙에_편입된다(graph: TreeGraph) -> None:
+    """소켓 직전까지 할당된 트리 + 강한 템플릿 → 소켓(1포인트)이 채택돼야 한다."""
+    allocated, _paths = graph.connect_anchors("Sorceress", [_SOCKET])
+    spec = dataclasses.replace(SPEC, tree_nodes=tuple(n for n in allocated if n != _SOCKET))
+    obj = Objective(weights={"CombinedDPS": 1.0})
+    out = optimize_tree(
+        spec,
+        graph,
+        obj,
+        # 반경 1 후보는 둘: Raw Power(실측 17.5)·소켓+주얼(실측 14.6) — 예산 2면 둘 다 채택
+        point_budget=2,
+        candidate_radius=1,
+        jewel_templates=(_JEWEL_TMPL,),
+    )
+    jewel_steps = [s for s in out.steps if s.node_delta.jewel_text is not None]
+    assert jewel_steps, "가정 주얼 델타가 양수면 소켓이 채택돼야 한다"
+    assert jewel_steps[0].node_delta.node_id == _SOCKET
+    # 채택된 소켓의 JewelSpec 편입 + buildxml 계약(소켓이 tree_nodes에 존재)
+    assert [j.socket_node_id for j in out.spec.jewels] == [_SOCKET]
+    assert out.spec.jewels[0].text == _JEWEL_TMPL
+    assert _SOCKET in out.spec.tree_nodes
+    assert not out.result.pruned_nodes
 
 
 def test_최적화_소예산(graph: TreeGraph) -> None:
