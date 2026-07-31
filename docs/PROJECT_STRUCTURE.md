@@ -1,6 +1,6 @@
 # PoE2 AI Wiki — 프로젝트 구조 (Project Structure)
 
-> **문서 상태**: v0.1 (2026-07-28) — 초안. BLUEPRINT §15-1 "프로젝트 구조" 결정의 상세.
+> **문서 상태**: v0.2 초안 (2026-07-31) — 설계 루프 반영: `artifacts/builds/<id>/design.md` 추가 · `artifacts/anchors/` 신설 · `engine/constraints` 예정 (BLUEPRINT §10.0 / D26·D27·D30, 사용자 협의 2026-07-31). v0.1 (2026-07-28) 기반. BLUEPRINT §15-1 "프로젝트 구조" 결정의 상세.
 > **관계**: [BLUEPRINT.md](BLUEPRINT.md)이 방향·결정(D1~D24)의 **단일 진실 소스**. 이 문서는 그 위의 **물리 구조 상세**다. 충돌 시 BLUEPRINT의 결정이 우선하되, 구조 표현은 이 문서를 따른다.
 > **확정 시**: 미결(§9)이 모두 정리되면 BLUEPRINT를 v0.6으로 갱신하고 §15-1을 "확정"으로 이동한다.
 
@@ -55,7 +55,8 @@ poe2-ai-wiki/
 │   ├── index/                    # 파생 검색 인덱스 빌더 (self-healing, §5)
 │   ├── pob/                      # ★ PoB 오라클 = 유일 비-Python 경계 (AD-1/AD-2, §9)
 │   ├── engine/                   # ★ 결정적 도구 상자 (지능 없음, AD-3)
-│   │   └── tree/                  #   트리 최적화 알고리즘 (Steiner + PoB실측, D23)
+│   │   ├── tree/                  #   트리 최적화 알고리즘 (Steiner + PoB실측, D23)
+│   │   └── constraints/           #   (예정) 설계 제약 검사기 — 포인트 예산·색상 장부·점유·자원 (D27, P4.5)
 │   ├── live/                     # 라이브 데이터 fetch (→ var/live)
 │   ├── cost/                     # 가격 추산 — 요청 시만 (D19)
 │   ├── learning/                 # 피드백/인사이트 로직 — 큐레이션 게이트 (§10.4)
@@ -71,7 +72,8 @@ poe2-ai-wiki/
 │   └── builds/                   #   reference Build 레코드 (승격된 것만)
 │
 ├── artifacts/                   # ══ ② 산출물 (재생성 불가·계보 有) — gitignore ══
-│   ├── builds/<build-id>/        #   manifest.json + build.pob + tiers/ + validation.json
+│   ├── builds/<build-id>/        #   manifest.json + design.md(설계 문서, D26·BUILD_DESIGN.md) + build.pob + tiers/ + validation.json
+│   ├── anchors/<anchor-id>/      #   ★ 검증된 외부 앵커 빌드 (poe.ninja 등, D30) — 코드 원문 + 계보 manifest (사용자 협의 2026-07-31)
 │   ├── sessions/<session-id>/    #   candidates/ + tree-search/ + choices.json
 │   ├── feedback/{raw,candidates}/#   큐레이션 대기 (→ knowledge/insights 승격)
 │   ├── live-snapshots/           #   산출물이 참조한 시세 스냅샷 (계보 고정)
@@ -191,6 +193,7 @@ artifacts/builds/<id>          ──[승격: reference 가치 판단]───�
 - ✅ **패키지명 = `pok` (Path of Knowledge)** — PoB 작명 규칙 계승, 2026-07-29 확정
 - ✅ **import-linter 도입** — 계층 위반은 CI 실패 (P0)
 - ✅ 원시 스냅샷 = 별도 데이터 repo ([KB_INGEST](KB_INGEST.md) KI-1)
+- ✅ **`artifacts/builds/<id>/design.md`(설계 문서, D26) + `artifacts/anchors/` 신설(외부 앵커 빌드, D30)** — §9 파킹이 아닌 확정, 근거: 사용자 협의 2026-07-31 (BLUEPRINT §10.0). `engine/constraints/`는 예정(D27, P4.5에서 구현)
 
 ## 9. 미결 사항 (파킹 — 해당 로드맵 단계에서 결정, [ROADMAP](ROADMAP.md) 참조)
 
