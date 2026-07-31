@@ -13,6 +13,7 @@ KI-8 신호 (트리판):
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from pathlib import Path
@@ -154,6 +155,44 @@ CHUNKS = ("keystone", "ascendancy-start", "notable", "jewel", "small")
 # 실제 '보이지 않는 길' 조건부 효과 노드는 isMastery=False인 별개 노드들로,
 # notable/small 청크에 이미 수록됨 (0.5.4b 기준 176건).
 EXCLUDED_KINDS = ("mastery",)
+
+
+def node_positions(pob: dict[str, Any]) -> dict[str, dict[str, float]]:
+    """PoB tree.json → 노드 최종 2D 좌표 (PassiveTree.lua:528-531과 동일 산식).
+
+    x = group.x + sin(angle)*orbitRadii[orbit], y = group.y - cos(angle)*orbitRadii[orbit].
+    angle = constants.orbitAnglesByOrbit[orbit][orbitIndex](라디안), scaleImage=1
+    (PassiveTree.lua:40). group은 Lua 1-based 배열 인덱스라 Python에선 -1 보정.
+
+    이 좌표 공간이 곧 **주얼 반경 판정 공간**이다: PoB는 소켓-노드 거리 제곱을
+    jewelRadius(Small=1000·Medium=1150·Large=1300·Very Large=1500, Time-Lost는
+    inner/outer 띠 — Modules/Data.lua) x 1.2(PassiveTreeJewelDistanceMultiplier,
+    Data/Misc.lua)의 제곱과 비교해 nodesInRadius를 만든다 (PassiveTree.lua:326-355).
+    반경 전략 모듈은 저장된 좌표로 같은 판정을 재현할 수 있다.
+    """
+    constants = pob.get("constants") or {}
+    groups = pob.get("groups") or []
+    angles = constants.get("orbitAnglesByOrbit") or []
+    radii = constants.get("orbitRadii") or []
+    out: dict[str, dict[str, float]] = {}
+    for nid, node in (pob.get("nodes") or {}).items():
+        if not isinstance(node, dict):
+            continue
+        g, orbit, oidx = node.get("group"), node.get("orbit"), node.get("orbitIndex")
+        if not (isinstance(g, int) and isinstance(orbit, int) and isinstance(oidx, int)):
+            continue
+        if not (1 <= g <= len(groups) and orbit < min(len(angles), len(radii))):
+            continue
+        if oidx >= len(angles[orbit]):
+            continue
+        group = groups[g - 1]
+        angle = float(angles[orbit][oidx])
+        out[str(nid)] = {
+            # round(3): 반올림 오차(≤1e-3)는 반경 경계(1000 단위)보다 6자릿수 아래
+            "x": round(float(group["x"]) + math.sin(angle) * radii[orbit], 3),
+            "y": round(float(group["y"]) - math.cos(angle) * radii[orbit], 3),
+        }
+    return out
 
 
 def node_kind(node: dict[str, Any]) -> str:
@@ -300,6 +339,7 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
     ko_overrides = _name_overrides(knowledge)
     kr_nodes = kr["nodes"]
     pob_nodes = pob.get("nodes", {})
+    positions = node_positions(pob)  # 주얼 반경 판정용 2D 좌표 (PoB와 동일 공간)
     pob_by_id = {
         nid: clean_name(str(v["name"]))
         for nid, v in pob_nodes.items()
@@ -371,6 +411,7 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
                 "in_pob": in_pob,
                 "structural": structural,  # ⑦ 면제 대상 (효과 없는 게 정상)
                 "attribute_choice": attribute_choice,  # 셋 중 택1 (None이면 해당 없음)
+                "position": positions.get(nid),  # PoB 좌표 공간 {x,y} (PoB 부재면 None)
             }
         )
 
@@ -399,6 +440,7 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
         "pob_named_nodes": len(pob_by_name),
         "included": {k: len(v) for k, v in chunks.items()},
         "included_total": sum(len(v) for v in chunks.values()),
+        "positioned": sum(1 for v in chunks.values() for n in v if n["position"] is not None),
         "excluded": len(excluded),
         "excluded_sample": excluded[:20],
         "name_overrides": len(name_overrides),

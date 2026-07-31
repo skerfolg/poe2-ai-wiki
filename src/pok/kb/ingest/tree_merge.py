@@ -50,6 +50,9 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
         "stats_en": item["stats_en"],
         "connections": item["connections"],  # P4 Steiner 기반 (엣지 보존)
     }
+    if item.get("position"):
+        # PoB 좌표 공간 {x,y} — 주얼 반경 판정(반경x1.2 거리 비교)과 동일 공간 (tree.node_positions)
+        data["position"] = item["position"]
     if item.get("ascendancy"):
         data["ascendancy"] = item["ascendancy"]  # 내부 코드 (계보·정렬용)
     if item.get("ascendancy_name"):
