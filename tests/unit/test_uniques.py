@@ -235,16 +235,16 @@ def test_cultivated_gets_distinct_id() -> None:
     assert _to_record(cultivated, "t")["id"] == "item.bramblejack-cultivated"
 
 
-def test_jewel_fixes_scope() -> None:
-    """주얼 보정은 13종(15레코드)에만 닿고 다른 항목은 건드리지 않는다 (task #32)."""
-    from pok.kb.ingest.jewel_fixes import JEWEL_FIXES, apply_jewel_fixes
+def test_unique_fixes_scope() -> None:
+    """큐레이션은 표에 있는 (이름, 분류)에만 닿고 다른 항목은 건드리지 않는다."""
+    from pok.kb.ingest.unique_fixes import UNIQUE_FIXES, apply_unique_fixes
 
-    assert len(JEWEL_FIXES) == 15
+    assert len(UNIQUE_FIXES) == 26  # 주얼 15레코드(task #32) + 비주얼 11레코드
     items = [
         {"name_en": "Megalomaniac", "class_group": "other", "explicits": ["Allocates"]},
         {"name_en": "Astramentis", "class_group": "other", "explicits": ["+(50-100)"]},
     ]
-    assert apply_jewel_fixes(items) == 1
+    assert apply_unique_fixes(items) == 1
     assert items[0]["explicits"] == [
         "Allocates Passive Skill",
         "Allocates Passive Skill",
@@ -254,11 +254,72 @@ def test_jewel_fixes_scope() -> None:
     assert items[1]["explicits"] == ["+(50-100)"]  # 비대상 불변
 
 
-def test_jewel_fixes_no_fragments() -> None:
+def test_unique_fixes_no_fragments() -> None:
     """보정 결과에 조각 줄("+"·"(1"·"—" 따위)이 남지 않는다."""
-    from pok.kb.ingest.jewel_fixes import JEWEL_FIXES
+    from pok.kb.ingest.unique_fixes import UNIQUE_FIXES
 
-    for (name, _), fix in JEWEL_FIXES.items():
+    for (name, _), fix in UNIQUE_FIXES.items():
         for line in fix.get("explicits", []) + fix.get("explicits_ko", []):
             assert len(line) > 3 or line == "타락", (name, line)
             assert "—" not in line, (name, line)
+
+
+ALT_VARIANT_BLOCK = """
+Mageblood
+Utility Belt
+Has Alt Variant: true
+Has Alt Variant Two: true
+Has Alt Variant Three: true
+Selected Variant: 1
+Selected Alt Variant: 2
+Selected Alt Variant Two: 3
+Selected Alt Variant Three: 4
+Allow Duplicate Variants: true
+Variant: Legacy of Amethyst
+Variant: Legacy of Topaz
+League: Runes of Aldur
+{variant:1}Legacy of Amethyst
+{variant:2}Legacy of Topaz
+Implicits: 2
+Has (1-3) Charm Slot
+20% of Flask Recovery applied Instantly
+All Mage's Legacies have (25-50)% increased effect per duplicate Mage's Legacy you have
+"""
+
+
+def test_alt_variant_meta_never_leaks() -> None:
+    """Alt Variant 계열 메타 줄이 모드로 새지 않는다 (0.5.4b: 4종 실증 후 강화)."""
+    item = parse_block(ALT_VARIANT_BLOCK, "belt")
+    assert item is not None
+    for line in item.implicits + item.explicits:
+        assert "Alt Variant" not in line and "Allow Duplicate" not in line, line
+
+
+DETAIL_HTML = """
+<html><body>
+<div class="newItemPopup UniquePopup">
+ <div class="content"><div class="Stats">
+  <div class="implicitMod">Adds a <a href="Delirium">Mirror of Delirium</a> to a Map<br/>
+   <span class="mod-value">10</span> uses remaining</div>
+  <div class="explicitMod">Map contains
+   <span class="mod-value">(14<span class="ndash">—</span>18)</span>
+   additional Abysses</div>
+  <div class="explicitMod"><span class="secondary">map abyss tower augment
+   quantity [-75]</span></div>
+ </div></div>
+</div>
+</body></html>
+"""
+
+
+def test_detail_cards_element_wise() -> None:
+    """상세 페이지 요소 단위 추출 — 조각 없음, `<br>`=줄 경계, secondary 제외."""
+    from pok.kb.ingest.uniques_page import _parse_detail_cards
+
+    cards = _parse_detail_cards(DETAIL_HTML)
+    assert len(cards) == 1
+    assert cards[0]["implicits"] == [
+        "Adds a Mirror of Delirium to a Map",
+        "10 uses remaining",
+    ]
+    assert cards[0]["explicits"] == ["Map contains (14-18) additional Abysses"]

@@ -147,7 +147,7 @@ def test_열거_펼치기() -> None:
 
 
 def test_유니크_주얼_롤_변형은_열거_대조로_판정(checker: ItemLegalityChecker) -> None:
-    """KB 고유 주얼의 "(A/B/C)" 열거(jewel_fixes 규약) ↔ 실물 한 롤 대조."""
+    """KB 고유 주얼의 "(A/B/C)" 열거(unique_fixes 규약) ↔ 실물 한 롤 대조."""
     ok = checker.check(
         "Rarity: UNIQUE\nVoices\nSapphire\nItem Level: 80\n"
         "Allocates 3 Sinister Jewel sockets\nCorrupted"

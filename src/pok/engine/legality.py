@@ -26,7 +26,7 @@ from pok.kb.store import load as store_load
 
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
 _RANGE = re.compile(r"\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)")
-# 선택지 열거 "(A/B/C)" — 고유 주얼 롤 변형 표기 (jewel_fixes 규약). 범위 "(a-b)"와 구분됨
+# 선택지 열거 "(A/B/C)" — 고유 주얼 롤 변형 표기 (unique_fixes 규약). 범위 "(a-b)"와 구분됨
 _ENUM = re.compile(r"\(([^()]*/[^()]*)\)")
 
 
@@ -38,7 +38,7 @@ def _norm(text: str) -> str:
 def _expand_enum(text: str) -> list[str]:
     """ "(A/B/C)" 선택지 열거를 개별 텍스트들로 펼친다 (없으면 원문 그대로 1개).
 
-    고유 주얼의 롤 변형 표기(KB jewel_fixes 규약) — 실물 아이템엔 선택지 하나만
+    고유 주얼의 롤 변형 표기(KB unique_fixes 규약) — 실물 아이템엔 선택지 하나만
     롤되므로, 대조는 펼친 각 형태와 해야 한다. 열거가 여러 개면 데카르트 곱.
     """
     m = _ENUM.search(text)
