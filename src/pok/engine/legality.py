@@ -26,7 +26,7 @@ from pok.kb.store import load as store_load
 
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
 _RANGE = re.compile(r"\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)")
-# 선택지 열거 "(A/B/C)" — 고유 주얼 롤 변형 표기 (jewel_fixes 규약). 범위 "(a-b)"와 구분됨
+# 선택지 열거 "(A/B/C)" — 고유 주얼 롤 변형 표기 (unique_fixes 규약). 범위 "(a-b)"와 구분됨
 _ENUM = re.compile(r"\(([^()]*/[^()]*)\)")
 # 접미어 효과 접두 (주얼) — 인게임 표시 접미 수치는 이 효과가 이미 곱해진 최종값이다.
 # PoB는 이 줄을 계산에 반영하지 않으므로(실측 2026-07-31: 효과 줄 유무 DPS 동일
@@ -43,7 +43,7 @@ def _norm(text: str) -> str:
 def _expand_enum(text: str) -> list[str]:
     """ "(A/B/C)" 선택지 열거를 개별 텍스트들로 펼친다 (없으면 원문 그대로 1개).
 
-    고유 주얼의 롤 변형 표기(KB jewel_fixes 규약) — 실물 아이템엔 선택지 하나만
+    고유 주얼의 롤 변형 표기(KB unique_fixes 규약) — 실물 아이템엔 선택지 하나만
     롤되므로, 대조는 펼친 각 형태와 해야 한다. 열거가 여러 개면 데카르트 곱.
     """
     m = _ENUM.search(text)
