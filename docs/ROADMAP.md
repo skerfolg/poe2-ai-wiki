@@ -43,7 +43,7 @@ P0 부트스트랩
 | **P3. PoB 계산+빌드 생성** — ★MVP | (진입 스파이크: headless 계산 왕복 Win/mac 검증) → PoB 어댑터·daemon·codec·버전맵 → `assemble`/`compute_pob`/`check_item_legality` → build-generation 스킬(후보 2~3 → 사용자 선택 → 3티어 조립·검증, D24/D18) | 자연어 요청 → **PoB 코드 산출** + `validation.json`에 다차원 목적(RC3) 실측 기록 |
 | **P4. 트리 최적화** | `evaluate_delta`·`connect_anchors`(Steiner)·`optimize_tree` + PoB 상주 프로세스 성능(D23). **현황(2026-07-31): 도구 상자 구현 완료 + 주얼 평가·전략 모듈 — Exit 판정 대기 중**(판정=사용자) | 베이스라인 대비 **포인트마다 PoB 델타로 정당화**되는 개선 산출 |
 | **P4.5. 빌드 설계 루프** *(2026-07-31 신설, 초안)* | BLUEPRINT §10.0(D25~D30)의 구현: ① 설계 문서 규격 가동([BUILD_DESIGN.md](BUILD_DESIGN.md), design.md 읽기/쓰기) ② 제약 검사기(포인트 예산·색상 장부·점유·자원, D27) ③ 목표 상태 objective(임계값·캡, D28) ④ `parse_pob` 앵커 수집(`artifacts/anchors/`, D30) ⑤ build-generation 스킬을 설계 루프 기준으로 개정 | **(제안)** 사용자의 v6 청사진(불씨 일제 사격 인퍼널리스트)을 설계 루프로 재현 — 제약 전 항목 기계 검증 + 미검증 가설 목록 산출 + PoB 실측 기록 **(Exit 기준 사용자 확정 대기)** |
-| **P5. 학습 루프** | feedback→큐레이션→승격(promote) 완성, artifacts store·retention, 인사이트 검색 반영(RAG). **입력 형식 = 설계 문서(design.md)의 미검증 가설 목록**(D29: 가설 목록→인게임 실험→결과 반영 사이클) | 인게임 피드백 1건이 verified 인사이트로 승격돼 **다음 생성에 반영되는 왕복 1회** 실증 |
+| **P5. 학습 루프** | feedback→큐레이션→승격(promote) 완성, artifacts store·retention, 인사이트 검색 반영(RAG). **입력 형식 = 설계 문서(design.md)의 미검증 가설 목록**(D29: 가설 목록→인게임 실험→결과 반영 사이클) + **능동 탐사 트랙**(메타 수집 find_meta_builds·관계 그래프 시너지 스캔·가설 큐 자동 생성 — 능동 생성→게이트 선별 구조, 사용자 문제 제기 2026-07-31: 수동 기록만으로는 사용자 사고 범위에 갇힘) | 인게임 피드백 1건이 verified 인사이트로 승격돼 **다음 생성에 반영되는 왕복 1회** 실증 |
 | **P6. 위키·챗봇 확장** | 시맨틱 검색(하이브리드, D13)·i18n 심화·가격 추산 스킬(D19)·챗봇 범위(§15-4) | P6 진입 시 정의 |
 
 ## 2. 파킹된 결정의 배치
