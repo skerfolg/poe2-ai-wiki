@@ -108,6 +108,35 @@ def test_주얼_4접미는_거부(checker: ItemLegalityChecker) -> None:
     assert any("suffix 4개" in e for e in report.errors), report.errors
 
 
+def test_접미어_효과_선반영_상한_확장(checker: ItemLegalityChecker) -> None:
+    """접미어 효과 60% 접두가 있으면 접미 수치는 최종 표시값(티어x1.6)까지 허용.
+
+    근거 실측(2026-07-31): PoB는 효과 줄을 계산하지 않는다 — 효과 줄 유무 DPS 동일
+    51,792.2, 접미 수치 1.6배 수동 반영 시 59,000.7. 선반영이 정직한 모델링."""
+    report = checker.check(
+        _jewel(
+            _PRE_SUFFIX_EFFECT,  # 60% increased Effect of Suffixes (접두 — 정상 검사)
+            "40% increased Chill Duration on Enemies",  # 주얼 전용 접미, 25(상한) x 1.6
+            "32% increased Critical Spell Damage Bonus",  # 주얼 티어 20 x 1.6
+        )
+    )
+    assert report.is_legal, report
+    expanded = [v for v in report.verdicts if "접미어 효과 60% 반영 상한" in v.reason]
+    assert len(expanded) >= 1, report.verdicts
+
+
+def test_접미어_효과_상한_초과는_거부(checker: ItemLegalityChecker) -> None:
+    report = checker.check(
+        _jewel(_PRE_SUFFIX_EFFECT, "41% increased Chill Duration on Enemies")  # > 25x1.6
+    )
+    assert not report.is_legal, report
+
+
+def test_접미어_효과_줄_없으면_기존_범위(checker: ItemLegalityChecker) -> None:
+    report = checker.check(_jewel("40% increased Chill Duration on Enemies"))  # 기존 상한 25
+    assert not report.is_legal, report
+
+
 def test_장비는_여전히_3_3_한도(checker: ItemLegalityChecker) -> None:
     limits, total, label = checker._affix_limits("rare", None)
     assert (limits["prefix"], limits["suffix"], total) == (3, 3, 6)

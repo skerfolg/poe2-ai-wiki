@@ -28,6 +28,11 @@ _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
 _RANGE = re.compile(r"\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)")
 # 선택지 열거 "(A/B/C)" — 고유 주얼 롤 변형 표기 (jewel_fixes 규약). 범위 "(a-b)"와 구분됨
 _ENUM = re.compile(r"\(([^()]*/[^()]*)\)")
+# 접미어 효과 접두 (주얼) — 인게임 표시 접미 수치는 이 효과가 이미 곱해진 최종값이다.
+# PoB는 이 줄을 계산에 반영하지 않으므로(실측 2026-07-31: 효과 줄 유무 DPS 동일
+# 51,792.2 vs 수동 1.6배 반영 59,000.7) 접미 수치를 최종 표시값으로 합성하는 것이
+# 정직한 모델링이고, 적법성은 접미 티어 범위 상한을 x(1+효과/100)로 확장해 판정한다.
+_SUFFIX_EFFECT = re.compile(r"^(\d+(?:\.\d+)?)% increased Effect of Suffixes$", re.IGNORECASE)
 
 
 def _norm(text: str) -> str:
@@ -110,8 +115,12 @@ class ItemLegalityChecker:
             errors.append(f"베이스 미확인: {base_name!r}")
         verdicts: list[LineVerdict] = []
         matched: dict[str, dict[str, Any]] = {}  # modifier id → record (하이브리드 중복 제거)
+        # 접미어 효과 접두가 있으면(그 줄 자체는 접두로 정상 검사) 접미 상한을 확장한다
+        suffix_effect = next(
+            (float(m.group(1)) for ln in mod_lines if (m := _SUFFIX_EFFECT.match(ln))), 0.0
+        )
         for line in mod_lines:
-            verdict = self._check_line(line, base, ilvl)
+            verdict = self._check_line(line, base, ilvl, suffix_effect=suffix_effect)
             verdicts.append(verdict)
             if verdict.modifier_id:
                 matched[verdict.modifier_id] = next(
@@ -197,7 +206,9 @@ class ItemLegalityChecker:
             )
         return LegalityReport(verdicts=tuple(verdicts))
 
-    def _check_line(self, line: str, base: dict[str, Any] | None, ilvl: int) -> LineVerdict:
+    def _check_line(
+        self, line: str, base: dict[str, Any] | None, ilvl: int, *, suffix_effect: float = 0.0
+    ) -> LineVerdict:
         candidates = self._mods.get(_norm(line), [])
         if not candidates:
             return LineVerdict(line, "UNKNOWN", reason="KB에 일치하는 모드 텍스트 없음")
@@ -206,6 +217,21 @@ class ItemLegalityChecker:
         for rec in candidates:
             d = rec["data"]
             ok, why = _values_in_range(line, d.get("texts", []))
+            note = ""
+            if (
+                not ok
+                and suffix_effect > 0
+                and d.get("affix_type") == "suffix"
+                and "jewel" in d.get("origins", [])
+            ):
+                # 접미어 효과 선반영: 표시 수치 = 롤 x (1+효과/100) — 상한 확장 재검사.
+                # 효과 접두는 주얼 풀의 Local 모드(LocalSuffixEffect)이므로 같은 아이템
+                # (주얼) 풀의 접미에만 적용한다 — 동일 텍스트의 장비 티어는 확장 금지.
+                ok, why = _values_in_range(
+                    line, d.get("texts", []), hi_scale=1.0 + suffix_effect / 100.0
+                )
+                if ok:
+                    note = f"접미어 효과 {suffix_effect:g}% 반영 상한"
             if not ok:
                 reasons.append(f"{rec['id']}: {why}")
                 continue
@@ -216,16 +242,17 @@ class ItemLegalityChecker:
                 weights = d.get("spawn_weights", {})
                 tags = base.get("data", {}).get("spawn_tags", [])
                 if any(weights.get(t, 0) > 0 for t in tags):
-                    return LineVerdict(line, "LEGAL", rec["id"])
+                    return LineVerdict(line, "LEGAL", rec["id"], note)
                 routes = [a for a in d.get("acquisition", []) if a not in ("crafting-currency",)]
                 if routes:
+                    reason = f"경로 한정: {', '.join(routes)}"
                     conditional = conditional or LineVerdict(
-                        line, "CONDITIONAL", rec["id"], f"경로 한정: {', '.join(routes)}"
+                        line, "CONDITIONAL", rec["id"], f"{reason} / {note}" if note else reason
                     )
                     continue
                 reasons.append(f"{rec['id']}: 이 베이스에 스폰 불가 (weight 0·경로 없음)")
                 continue
-            return LineVerdict(line, "LEGAL", rec["id"])
+            return LineVerdict(line, "LEGAL", rec["id"], note)
         if conditional is not None:
             return conditional
         return LineVerdict(line, "ILLEGAL", reason=" / ".join(reasons))
@@ -256,8 +283,12 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str]]:
     return rarity, base_name, ilvl, mod_lines
 
 
-def _values_in_range(line: str, texts: list[str]) -> tuple[bool, str]:
-    """줄의 수치들이 어느 한 티어 텍스트의 범위 안에 있는지."""
+def _values_in_range(line: str, texts: list[str], *, hi_scale: float = 1.0) -> tuple[bool, str]:
+    """줄의 수치들이 어느 한 티어 텍스트의 범위 안에 있는지.
+
+    hi_scale > 1 은 접미어 효과 선반영(주얼): 표시 수치가 롤 x 배율이므로 범위
+    상한만 배율만큼 확장해 대조한다 (하한은 유지 — 미적용 표기도 통과 허용).
+    """
     line_nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", line)]
     for text in texts:
         if _norm(text) != _norm(line):
@@ -269,13 +300,14 @@ def _values_in_range(line: str, texts: list[str]) -> tuple[bool, str]:
         for span, v in zip(spans, line_nums, strict=True):
             m = _RANGE.fullmatch(span.group())
             if m:
-                lo, hi = float(m.group(1)), float(m.group(2))
-                if not lo <= v <= hi:
+                lo, hi = float(m.group(1)), float(m.group(2)) * hi_scale
+                if not lo <= v <= hi + 1e-9:
                     fit = False
                     break
-            elif float(span.group()) != v:
+            elif abs(float(span.group()) * hi_scale - v) > 1e-9 and float(span.group()) != v:
                 fit = False
                 break
         if fit:
             return True, ""
-    return False, f"수치 {line_nums} 가 티어 범위 밖"
+    scaled = " (접미어 효과 확장 포함)" if hi_scale > 1 else ""
+    return False, f"수치 {line_nums} 가 티어 범위 밖{scaled}"
