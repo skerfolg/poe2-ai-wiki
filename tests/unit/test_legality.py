@@ -194,10 +194,16 @@ def test_유니크_주얼_롤_변형은_열거_대조로_판정(checker: ItemLeg
     assert cls.is_legal, cls
 
 
-def test_유니크_그랜드_스펙트럼_동명_3종_모두_대조된다(checker: ItemLegalityChecker) -> None:
+def test_유니크_그랜드_스펙트럼은_Ruby만_실존(checker: ItemLegalityChecker) -> None:
+    """사용자 인게임 판정(2026-07-31): 현 시즌 Ruby만 실존 — Emerald/Sapphire 빈값."""
+    ok = checker.check(
+        "Rarity: UNIQUE\nGrand Spectrum\nRuby\nItem Level: 80\n"
+        "2% increased Maximum Life per socketed Grand Spectrum"
+    )
+    assert ok.is_legal, ok
     for line in (
-        "2% increased Maximum Life per socketed Grand Spectrum",
+        "2% increased Spirit per socketed Grand Spectrum",
         "+6% to all Elemental Resistances per socketed Grand Spectrum",
     ):
         report = checker.check(f"Rarity: UNIQUE\nGrand Spectrum\nRuby\nItem Level: 80\n{line}")
-        assert report.is_legal, report
+        assert not report.is_legal, report

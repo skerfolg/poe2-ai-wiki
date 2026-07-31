@@ -159,22 +159,19 @@ JEWEL_FIXES: dict[tuple[str, str], dict[str, Any]] = {
         "limited_to": "1",
     },
     ("Grand Spectrum", "other"): {
-        # 종전: 동명 3종(Ruby/Emerald/Sapphire) 중 Ruby만 잔존 — 이름 dedup 탓.
-        # 단일 레코드에 열거한다 — 줄 순서 = variants 순서(Ruby/Emerald/Sapphire).
-        # 라벨 접두는 붙이지 않는다(실물 아이템 줄과의 legality 대조가 깨진다).
-        # 3레코드 분리는 id 변경이라 사용자 협의 필요.
+        # 사용자 인게임 판정(2026-07-31): 현재 시즌 **Ruby만 실존**.
+        # Emerald(정신력)/Sapphire(원소 저항) 줄은 빈값 처리 — poe2db·PoB에
+        # 수록돼 있어도 인게임 미확인이므로 제외한다(미확인 = 빈값, 억지 수록 금지).
+        # variants도 [Ruby]만. 레코드 verification은 IN_GAME(사용자 판정이 근거) —
+        # merge 재실행 시 이 주석과 uniques.ndjson의 in-game 소스가 근거 사슬이다.
         "implicits": [],
         "explicits": [
             "2% increased Maximum Life per socketed Grand Spectrum",
-            "2% increased Spirit per socketed Grand Spectrum",
-            "+6% to all Elemental Resistances per socketed Grand Spectrum",
         ],
         "explicits_ko": [
             "장대한 파장 하나당 최대 생명력 2% 증가",
-            "장대한 파장 하나당 정신력 2% 증가",
-            "장대한 파장 하나당 모든 원소 저항 +6%",
         ],
-        "variants": ["Ruby", "Emerald", "Sapphire"],
+        "variants": ["Ruby"],
         "limited_to": "3",
     },
     ("Heroic Tragedy", "other"): {
@@ -236,7 +233,13 @@ JEWEL_FIXES: dict[tuple[str, str], dict[str, Any]] = {
         # 종전: Ulaman(마지막 변형) 한 줄만 잔존.
         # ⚠️ poe2db 0.5.4b는 범위 (79-30977) + "Desecration makes this item
         # unstable" 줄을 보인다 — PoB(5d173cb)는 (100-8000)·해당 줄 없음.
-        # D8(PoB=계산 소스) 우선으로 PoB 값을 쓰고 모순은 리포트로 사용자 판정.
+        # 조사 결론(2026-07-31): PoB 5d173cb엔 PoE2 타임리스 시드→효과 매핑이
+        # **없다** — PassiveSpec.lua의 Notable/Normal 변환은 전부 주석 처리
+        # ("todo: update once we get seed data"), data.timelessJewelSeedMin/Max
+        # 미정의, TimelessJewelData/LegionPassives.lua는 PoE1(vaal 등) 잔재.
+        # 시드는 파싱만 되고(ModParser.lua:6185) 키스톤 대체(conqueror 이름 기준,
+        # 시드 미사용)만 동작한다. 범위 모순은 공식 자료로 판정 불가 → 레코드에
+        # CONTRADICTED 마킹, 값은 D8(PoB) 유지, 판정 보류.
         "implicits": [],
         "explicits": [
             "Glorifying the defilement of (100-8000) souls in tribute to"
