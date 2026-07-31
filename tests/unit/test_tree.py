@@ -64,11 +64,24 @@ def _write_tree_fixtures(raw: Path) -> None:
     (raw / "tree/pob_tree.json").write_text(
         json.dumps(
             {
+                # 좌표 산출 재료 — group은 Lua 1-based 인덱스, 각도는 라디안 (실물과 동형)
+                "groups": [
+                    {"nodes": [1], "orbits": [0], "x": 100.0, "y": 200.0},
+                    {"nodes": [2], "orbits": [1], "x": -50.0, "y": 0.0},
+                ],
+                "constants": {
+                    "orbitRadii": [0, 82],
+                    "skillsPerOrbit": [1, 12],
+                    "orbitAnglesByOrbit": [
+                        [0],
+                        [0, 0.5235987755983, 1.0471975511966, 1.5707963267949],
+                    ],
+                },
                 "nodes": {
-                    "1": {"name": "Chaos Inoculation"},
-                    "2": {"name": "Chaos Damage"},
-                    "5": {"name": "Oracle"},
-                }
+                    "1": {"name": "Chaos Inoculation", "group": 1, "orbit": 0, "orbitIndex": 0},
+                    "2": {"name": "Chaos Damage", "group": 2, "orbit": 1, "orbitIndex": 3},
+                    "5": {"name": "Oracle"},  # group 없음 → 좌표 없음 (수록은 유지)
+                },
             }
         ),
         encoding="utf-8",
@@ -110,6 +123,10 @@ def test_process_tree_verdicts(tmp_path: Path) -> None:
     ks = json.loads((out / "tree_keystone.json").read_text(encoding="utf-8"))
     assert ks[0]["name_ko"] == "카오스 면역", "한국어 이름 대조"
     assert ks[0]["stats_ko"] == ["최대 생명력이 1이 됨"]
+    # 좌표: orbit 0 = 그룹 중심 그대로 (PassiveTree.lua:528-531 산식)
+    assert ks[0]["position"] == {"x": 100.0, "y": 200.0}
+    asc = json.loads((out / "tree_ascendancy-start.json").read_text(encoding="utf-8"))
+    assert asc[0]["position"] is None, "PoB group 정보 없는 노드는 좌표 없이 수록"
 
 
 def test_merge_tree_chunk_and_edges(tmp_path: Path) -> None:
@@ -136,6 +153,8 @@ def test_merge_tree_chunk_and_edges(tmp_path: Path) -> None:
     assert rec["id"] == "passive.chaos-damage-2", "id에 노드 id 포함 (동명 구분)"
     assert rec["data"]["connections"] == ["1"], "엣지 보존 = P4 Steiner 기반"
     assert rec["verification"] == "GAME_DATA"
+    # orbit 1·orbitIndex 3(=90°): x = -50 + sin(π/2)·82 = 32, y = 0 - cos(π/2)·82 ≈ 0
+    assert rec["data"]["position"] == {"x": 32.0, "y": 0.0}, "주얼 반경 판정용 좌표 수록"
 
 
 def test_edges_are_undirected_when_expanded(tmp_path: Path) -> None:

@@ -25,9 +25,12 @@ _VARIANT_TAG = re.compile(r"\{variant:([\d,]+)\}")
 _TAGS_TAG = re.compile(r"\{tags:([^}]*)\}")
 # 베이스타입 형태: 대문자로 시작하는 순수 이름 (숫자·%가 있으면 모드다)
 _BASE_NAME = re.compile(r"^[A-Z][A-Za-z' -]*$")
+# Alt Variant 계열은 "Two/Three" 접미와 "Selected Alt"까지 잡아야 한다 — 0.5.4b에서
+# Mageblood·Morior Invictus·Sunsplinter·The Unborn Lich의 메타 줄이 모드로 새었다.
 _META_LINE = re.compile(
-    r"^(Variant|League|Requires|Implicits|Source|Radius|Limited to|LevelReq|Has Alt Variant"
-    r"|Selected Variant|Prefix|Suffix|Rune|Sockets|Talisman Tier)\s*:",
+    r"^(Variant|League|Requires|Implicits|Source|Radius|Limited to|LevelReq"
+    r"|Has Alt Variant( Two| Three)?|Selected( Alt)? Variant( Two| Three)?"
+    r"|Allow Duplicate Variants|Prefix|Suffix|Rune|Sockets|Talisman Tier)\s*:",
     re.I,
 )
 

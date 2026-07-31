@@ -113,3 +113,25 @@ class TestDriverProtocol:
     def test_ERR_라인은_사유를_전달(self) -> None:
         with pytest.raises(PobRunError, match="XML 파일 열기 실패"):
             _parse("POK_ERR:XML 파일 열기 실패: /없는/경로\n")
+
+
+class TestJewelXml:
+    def test_소켓_직렬화(self) -> None:
+        from pok.pob.buildxml import JewelSpec
+
+        spec = _spec(
+            tree_nodes=(4739, 22419, 61419),
+            jewels=(JewelSpec(socket_node_id=61419, text="Rarity: RARE\nJ\nSapphire"),),
+        )
+        root = ET.fromstring(to_xml(spec))
+        socket = root.find("Tree/Spec/Sockets/Socket")
+        assert socket is not None
+        assert socket.get("nodeId") == "61419"
+        assert socket.get("itemId") == "1"  # 일반 아이템 0개 뒤 첫 id
+        assert root.find("Items/Item").get("id") == "1"
+
+    def test_소켓이_트리에_없으면_거부(self) -> None:
+        from pok.pob.buildxml import JewelSpec
+
+        with pytest.raises(ValueError, match="tree_nodes에 없음"):
+            to_xml(_spec(jewels=(JewelSpec(socket_node_id=999, text="Rarity: RARE\nJ\nSapphire"),)))

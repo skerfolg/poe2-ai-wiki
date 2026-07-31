@@ -74,6 +74,19 @@ class ItemSpec:
 
 
 @dataclass(frozen=True)
+class JewelSpec:
+    """트리 소켓에 장착하는 주얼 — text는 ItemSpec과 같은 raw 형식
+    (베이스: Ruby|Emerald|Sapphire|Diamond|Time-Lost …).
+
+    socket_node_id는 트리의 jewel-socket 노드 id이며 **tree_nodes에 함께
+    할당돼 있어야** PoB가 반영한다(실측 2026-07-30: Sockets/Socket 요소,
+    아이템이 트리보다 먼저 로드되는 PoB의 지연 트리 로드에 의존)."""
+
+    socket_node_id: int
+    text: str
+
+
+@dataclass(frozen=True)
 class BuildSpec:
     """PoB에 계산을 맡길 빌드 정의 — KB id 공간과 호환되는 최소 스펙."""
 
@@ -83,6 +96,7 @@ class BuildSpec:
     tree_nodes: tuple[int, ...] = ()  # KB node_id 그대로 (연결성은 호출자 책임)
     skills: tuple[SkillGroupSpec, ...] = ()
     items: tuple[ItemSpec, ...] = ()
+    jewels: tuple[JewelSpec, ...] = ()
     main_socket_group: int = 1
     config: tuple[tuple[str, str | int | bool], ...] = field(default=())  # Input name→value
 
@@ -101,6 +115,7 @@ def spec_from_dict(data: dict[str, Any]) -> BuildSpec:
         for grp in data.get("skills", [])
     )
     items = tuple(ItemSpec(**it) for it in data.get("items", []))
+    jewels = tuple(JewelSpec(**j) for j in data.get("jewels", []))
     config = tuple((str(k), v) for k, v in dict(data.get("config", {})).items())
     return BuildSpec(
         class_name=data["class_name"],
@@ -109,6 +124,7 @@ def spec_from_dict(data: dict[str, Any]) -> BuildSpec:
         tree_nodes=tuple(int(n) for n in data.get("tree_nodes", [])),
         skills=skills,
         items=items,
+        jewels=jewels,
         main_socket_group=int(data.get("main_socket_group", 1)),
         config=config,
     )
@@ -157,9 +173,17 @@ def to_xml(spec: BuildSpec) -> str:
         if item.slot in seen_slots:
             raise ValueError(f"슬롯 중복: {item.slot!r}")
         seen_slots.add(item.slot)
+    # 주얼: 아이템 뒤 이어지는 id, 슬롯 대신 Spec의 Sockets가 참조
+    for jewel in spec.jewels:
+        if jewel.socket_node_id not in spec.tree_nodes:
+            raise ValueError(
+                f"주얼 소켓 노드 {jewel.socket_node_id} 가 tree_nodes에 없음 "
+                "(소켓을 트리에 할당해야 주얼이 반영된다)"
+            )
+    all_items = list(spec.items) + [ItemSpec(slot="", text=j.text) for j in spec.jewels]
     item_els = "\n".join(
         f'    <Item id="{i}">{escape(item.text)}</Item>'
-        for i, item in enumerate(spec.items, start=1)
+        for i, item in enumerate(all_items, start=1)
     )
     slot_els = "\n".join(
         f'      <Slot name={quoteattr(item.slot)} itemId="{i}"/>'
@@ -168,8 +192,12 @@ def to_xml(spec: BuildSpec) -> str:
     items_xml = (
         f'  <Items activeItemSet="1">\n{item_els}\n'
         f'    <ItemSet id="1" title="pok">\n{slot_els}\n    </ItemSet>\n  </Items>'
-        if spec.items
+        if all_items
         else "  <Items/>"
+    )
+    sockets_xml = "".join(
+        f'<Socket nodeId="{j.socket_node_id}" itemId="{len(spec.items) + i}"/>'
+        for i, j in enumerate(spec.jewels, start=1)
     )
 
     nodes = ",".join(str(n) for n in spec.tree_nodes)
@@ -192,7 +220,7 @@ def to_xml(spec: BuildSpec) -> str:
     </SkillSet>
   </Skills>
   <Tree activeSpec="1">
-    <Spec {spec_attrs}/>
+    <Spec {spec_attrs}>{f"<Sockets>{sockets_xml}</Sockets>" if spec.jewels else ""}</Spec>
   </Tree>
 {items_xml}
   <Config>

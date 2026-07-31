@@ -51,6 +51,53 @@ _GROUPS_KR = (
 # 요구사항 조각: "Level 24" | "레벨 24" | "10 Str" | "10 지능"
 _REQ_PART = re.compile(r"^(Level|레벨)\s*\d+$|^\d+\s*\S+$")
 
+# 러시 정규화: "(1 — 3)"→"(1-3)" · "(6-15) %"→"(6-15)%"
+_RANGE = re.compile(r"\(\s*([+-]?\d+(?:\.\d+)?)\s*[—–]\s*([+-]?\d+(?:\.\d+)?)\s*\)")  # noqa: RUF001
+_PCT_GAP = re.compile(r"([\d)])\s+%")
+
+
+def _norm_mod(text: str) -> str:
+    text = " ".join(text.split())
+    return _PCT_GAP.sub(r"\1%", _RANGE.sub(r"(\1-\2)", text)).strip()
+
+
+def _mod_lines(el: Tag) -> list[str]:
+    """모드 요소 1개 → 표시 줄들. `<br>`이 줄 경계, `span.secondary`는 내부 스탯."""
+    parts: list[list[str]] = [[]]
+    for node in el.descendants:
+        if isinstance(node, Tag):
+            if node.name == "br":
+                parts.append([])
+            continue
+        parent = node.find_parent(class_="secondary")
+        if parent is not None:
+            continue
+        parts[-1].append(str(node))
+    return [line for chunk in parts if (line := _norm_mod("".join(chunk)))]
+
+
+def _parse_detail_cards(html: str) -> list[dict[str, list[str]]]:
+    """상세 페이지 → 아이템 카드별 {implicits, explicits} (완전 동일 카드는 dedupe).
+
+    목록 페이지의 `get_text("\\n")`은 인라인 태그(`span.mod-value`·키워드 링크·
+    `span.ndash`) 경계마다 줄을 끊어 모드를 조각낸다 — 상세 페이지의
+    `div.implicitMod`/`div.explicitMod`를 **요소 단위**로 읽으면 조각나지 않는다.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    cards: list[dict[str, list[str]]] = []
+    for popup in soup.select("div.newItemPopup"):
+        card = {
+            "implicits": [
+                line for el in popup.select("div.implicitMod") for line in _mod_lines(el)
+            ],
+            "explicits": [
+                line for el in popup.select("div.explicitMod") for line in _mod_lines(el)
+            ],
+        }
+        if (card["implicits"] or card["explicits"]) and card not in cards:
+            cards.append(card)
+    return cards
+
 
 @dataclass
 class PageUnique:
@@ -242,6 +289,39 @@ def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
             }
         )
 
+    # 비-PoB(page_only) 항목: 상세 페이지가 수집돼 있으면 element-wise 재추출로
+    # 목록 페이지 조각화를 대체한다. 카드가 여러 장이면(진행 상태·변종 공존)
+    # 자동 선택하지 않고 큐레이션 테이블(unique_fixes)에 맡긴다.
+    detail_dir = src / "detail"
+    detail_fixed: list[str] = []
+    detail_multi_card: list[str] = []
+    detail_missing: list[str] = []
+    for item in items:
+        if item["in_pob"]:
+            continue
+        slug = item["name_en"].replace(" ", "_")
+        us_path = detail_dir / f"us_{slug}.html"
+        if not us_path.exists():
+            detail_missing.append(item["name_en"])
+            continue
+        cards = _parse_detail_cards(us_path.read_text(encoding="utf-8"))
+        if len(cards) != 1:
+            detail_multi_card.append(item["name_en"])
+            continue
+        item["implicits"] = cards[0]["implicits"]
+        item["explicits"] = cards[0]["explicits"]
+        kr_path = detail_dir / f"kr_{slug}.html"
+        if kr_path.exists():
+            kr_cards = _parse_detail_cards(kr_path.read_text(encoding="utf-8"))
+            if len(kr_cards) == 1 and len(kr_cards[0]["explicits"]) == len(cards[0]["explicits"]):
+                item["explicits_ko"] = kr_cards[0]["explicits"]
+        detail_fixed.append(item["name_en"])
+
+    # 큐레이션 보정 — 조각화(코드 생성분·다중 카드)와 롤 선택지 변형 평탄화 교정
+    from pok.kb.ingest.unique_fixes import apply_unique_fixes
+
+    unique_fixed = apply_unique_fixes(items)
+
     pob_only = sorted(set(pob) - {u.name for u in us})
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "uniques.json").write_text(
@@ -255,6 +335,10 @@ def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
             1 for u in us if u.class_group == "cultivated" and base_of.get(u.name)
         ),
         "unresolved_base_type": unresolved_base,
+        "detail_fixed": len(detail_fixed),
+        "detail_multi_card": detail_multi_card,
+        "detail_missing": detail_missing,
+        "unique_fixed": unique_fixed,
         "pob_items": len(pob),
         "matched_pob": sum(1 for i in items if i["in_pob"]),
         "page_only": sum(1 for i in items if not i["in_pob"]),
@@ -278,7 +362,7 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
         "implicits": item["implicits"],
         "explicits": item["explicits"],
     }
-    for key in ("base_type_ko", "category", "requires"):
+    for key in ("base_type_ko", "category", "requires", "explicits_ko", "radius", "limited_to"):
         if item.get(key):
             data[key] = item[key]
     if item.get("variants"):
