@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "status": "confirmed",
+  "note": "성유(anoint) 규칙 — v6 설계 일반화 (태스크 #35, 사용자 승인 2026-07-31). board-rules.json과 같은 판 규칙 계층.",
+  "anoint": {
+    "verification": "GAME_DATA",
+    "approved": "2026-07-31 user",
+    "rule": "아이템(목걸이)당 성유 부여는 동시에 1개만 유지된다 — 이미 부여된 성유 위에 추가 부여로 두 노드를 동시 확보할 수 없다",
+    "design_consequence": "성유는 되돌릴 수 없는 1회성 자원 배분(D27 자원 소진 제약) — 이미 할당된 목걸이로는 다른 핵심 노드를 주입으로 해결할 수 없고, 직접 경로 연결·주얼·장비로 확보해야 한다",
+    "source_note": "artifacts/builds/20260731-ember-fusillade-설계v6/design.md §2·§7 — '목걸이 기존 성유 고정, 추가 주입 불가능' (확정 목록)"
+  }
+}

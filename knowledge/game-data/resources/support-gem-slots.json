@@ -1,0 +1,31 @@
+{
+  "id": "resource.support-gem-slots",
+  "type": "Resource",
+  "name": {
+    "ko": "보조 젬 슬롯",
+    "en": "Support Gem Slots"
+  },
+  "tags": [
+    "resource"
+  ],
+  "data": {
+    "regenerates": false,
+    "max_per_skill": 5
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/Ember_Fusillade",
+      "patch": "0.5.4b",
+      "note": "액티브 젬의 보조 소켓 상한 5 (스킬 상세 페이지 공통)"
+    },
+    {
+      "src": "in-game",
+      "ref": "artifacts/builds/20260731-ember-fusillade-설계v6/design.md §8",
+      "patch": "0.5.4b",
+      "note": "v6 설계 확정 목록 — '불씨 일제 사격 보조는 최대 5개' (사용자 2026-07-31)"
+    }
+  ],
+  "notes": "액티브 젬 하나에 연결 가능한 보조 젬 상한 = 5. 링크 설계의 자원 소진 제약(D27 제약 원장) — v6 일반화(태스크 #35, 사용자 승인 2026-07-31)"
+}

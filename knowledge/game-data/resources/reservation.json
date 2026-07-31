@@ -1,0 +1,40 @@
+{
+  "id": "resource.reservation",
+  "type": "Resource",
+  "name": {
+    "ko": "점유",
+    "en": "Reservation"
+  },
+  "tags": [
+    "resource"
+  ],
+  "data": {
+    "regenerates": false,
+    "efficiency_formula": "actual_reservation_pct = base_reservation_pct / (1 + total_reservation_efficiency)",
+    "efficiency_stacking": "additive",
+    "_verification": {
+      "efficiency_formula": "SUPPORTED_INFERENCE",
+      "efficiency_stacking": "SUPPORTED_INFERENCE"
+    }
+  },
+  "relations": [
+    { "rel": "reserves", "target": "resource.spirit", "note": "지속 스킬의 기본 점유 대상" },
+    { "rel": "reserves", "target": "resource.life", "note": "생명력 점유 전환 수단(예: 앗지리의 성찬식) 사용 시" }
+  ],
+  "verification": "SUPPORTED_INFERENCE",
+  "sources": [
+    {
+      "src": "in-game",
+      "ref": "artifacts/builds/20260731-ember-fusillade-설계v6/design.md §5",
+      "patch": "0.5.4b",
+      "note": "v6 설계 작업식 — 효율 0~57% 구간 표가 인게임 점유 정보창 표시값과 일치 (사용자 확인 2026-07-31)"
+    },
+    {
+      "src": "poewiki",
+      "ref": "https://www.poe2wiki.net/wiki/Reservation_efficiency",
+      "patch": "0.5.4b",
+      "note": "v6 참고 자료 링크 — 원문 미수집(재작성 근거 아님), KI-3 수록 후보"
+    }
+  ],
+  "notes": "점유 효율 공식의 정본. 효율원(장비·패시브·젬 품질)은 합산(additive) 후 분모에 적용 — v6 설계 문서 일반화(태스크 #35, 사용자 승인 2026-07-31)"
+}
