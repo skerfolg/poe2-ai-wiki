@@ -1,6 +1,6 @@
 # PoE2 AI Wiki — 프로젝트 구조 (Project Structure)
 
-> **문서 상태**: v0.2 초안 (2026-07-31) — 설계 루프 반영: `artifacts/builds/<id>/design.md` 추가 · `artifacts/anchors/` 신설 · `engine/constraints` 예정 (BLUEPRINT §10.0 / D26·D27·D30, 사용자 협의 2026-07-31). v0.1 (2026-07-28) 기반. BLUEPRINT §15-1 "프로젝트 구조" 결정의 상세.
+> **문서 상태**: v0.2 (2026-07-31) — 설계 루프 반영: `artifacts/builds/<id>/design.md` 추가 · `artifacts/anchors/` 신설 · `engine/constraints` 예정 (BLUEPRINT §10.0 / D26·D27·D30, 사용자 협의 2026-07-31). v0.1 (2026-07-28) 기반. BLUEPRINT §15-1 "프로젝트 구조" 결정의 상세.
 > **관계**: [BLUEPRINT.md](BLUEPRINT.md)이 방향·결정(D1~D24)의 **단일 진실 소스**. 이 문서는 그 위의 **물리 구조 상세**다. 충돌 시 BLUEPRINT의 결정이 우선하되, 구조 표현은 이 문서를 따른다.
 > **확정 시**: 미결(§9)이 모두 정리되면 BLUEPRINT를 v0.6으로 갱신하고 §15-1을 "확정"으로 이동한다.
 
