@@ -106,3 +106,26 @@ def test_데몬_다회_계산() -> None:
     assert with_items.stats["Life"] == 1292
     assert tree.is_tree_legal
     assert tree.stats["TotalDPS"] == pytest.approx(97.3214, abs=0.01)
+
+
+def test_주얼이_계산에_반영된다() -> None:
+    from pok.pob.buildxml import JewelSpec
+
+    # 시작점→소켓 61419 연결 경로 (비연결 소켓은 PoB가 잘라 주얼도 무시된다)
+    path = (44871, 56216, 9485, 60685, 1826, 39037, 57710, 8616, 46819, 61419)
+    base_spec = BuildSpec(class_name="Witch", ascendancy="Witch2", tree_nodes=path)
+    jewel_spec = BuildSpec(
+        class_name="Witch",
+        ascendancy="Witch2",
+        tree_nodes=path,
+        jewels=(
+            JewelSpec(
+                socket_node_id=61419,
+                text="Rarity: RARE\nPok Jewel\nSapphire\nItem Level: 81\n7% increased maximum Life",
+            ),
+        ),
+    )
+    base = run_build(base_spec, use_cache=False)
+    withj = run_build(jewel_spec, use_cache=False)
+    assert 61419 in withj.allocated_nodes
+    assert withj.stats["Life"] > base.stats["Life"]  # 7% 증가 반영

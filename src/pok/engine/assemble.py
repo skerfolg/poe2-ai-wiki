@@ -61,16 +61,19 @@ def assemble(
     """
     chk = checker or ItemLegalityChecker(knowledge_dir())
     item_reports: dict[str, LegalityReport] = {}
-    for item in spec.items:
-        report = chk.check(item.text)
-        item_reports[item.slot] = report
+    targets = [(item.slot, item.text) for item in spec.items] + [
+        (f"Jewel@{j.socket_node_id}", j.text) for j in spec.jewels
+    ]
+    for slot, text in targets:
+        report = chk.check(text)
+        item_reports[slot] = report
         if strict and not report.is_legal:
             problems = list(report.errors) + [
                 f"{v.line} → {v.status}: {v.reason}"
                 for v in report.verdicts
                 if v.status in ("ILLEGAL", "UNKNOWN")
             ]
-            raise IllegalBuildError(f"[{item.slot}] " + " / ".join(problems))
+            raise IllegalBuildError(f"[{slot}] " + " / ".join(problems))
 
     result = run_build(spec, use_cache=use_cache)
     if strict and not result.is_tree_legal:
