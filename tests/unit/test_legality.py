@@ -52,7 +52,10 @@ def test_티어_범위_밖_수치는_거부(checker: ItemLegalityChecker) -> Non
 
 
 def _jewel(*mods: str) -> str:
-    return "Rarity: RARE\nPok Jewel\nSapphire\nItem Level: 81\n" + "\n".join(mods)
+    # Diamond = 전 속성 태그(str/dex/int) 주얼 — 민첩 계열 접미(_SUF_ATK_CRIT_DMG)까지
+    # 실제로 롤 가능한 베이스. (#34 이전엔 Sapphire였으나, 그 조합은 poe2db:normal
+    # CONDITIONAL 탈출 버그가 가려주던 불법 조합이었다)
+    return "Rarity: RARE\nPok Jewel\nDiamond\nItem Level: 81\n" + "\n".join(mods)
 
 
 # KB jewel-01.ndjson 실존 모드 (전부 최대 롤 — 티어 범위 검사도 함께 통과해야 한다)
@@ -135,6 +138,45 @@ def test_접미어_효과_상한_초과는_거부(checker: ItemLegalityChecker) 
 def test_접미어_효과_줄_없으면_기존_범위(checker: ItemLegalityChecker) -> None:
     report = checker.check(_jewel("40% increased Chill Duration on Enemies"))  # 기존 상한 25
     assert not report.is_legal, report
+
+
+def test_링_전용_모드는_주얼에서_거부(checker: ItemLegalityChecker) -> None:
+    """#34 회귀: 클래스 타깃(ring/gloves/quiver) 밖 베이스는 경로 표지(poe2db:normal)로
+    CONDITIONAL 탈출 금지 — poe2db:normal은 크래프팅 동치 표지다."""
+    report = checker.check(_jewel("Adds 1 to 3 Cold damage to Attacks"))
+    assert report.verdicts[0].status == "ILLEGAL", report.verdicts
+    assert not report.is_legal
+
+
+def test_주얼_liquid_경로는_CONDITIONAL_유지(checker: ItemLegalityChecker) -> None:
+    """#34 반례 보존: liquid 주얼 모드는 spawn_weights {"jewel": 0}로 클래스 호환이
+    명시돼 있다(C-2 "weight 0 ≠ 죽은 모드") — 베이스 적합성 검사 후에도 CONDITIONAL."""
+    report = checker.check(_jewel(_PRE_SUFFIX_EFFECT))
+    v = report.verdicts[0]
+    assert v.status == "CONDITIONAL" and "poe2db:liquid" in v.reason, v
+
+
+def test_경로_베이스_적합성_pages_scope(checker: ItemLegalityChecker) -> None:
+    """#34: 훼손 모드처럼 spawn_weights가 없는 레코드는 applicable_pages·scope로 판정."""
+    from pok.engine.legality import _route_base_fit
+
+    belt = checker._bases["heavy belt"]
+    jewel = checker._bases["sapphire"]
+    desecrated = {
+        "affix_type": "prefix",
+        "scope": "equipment",
+        "acquisition": ["desecration"],
+        "applicable_pages": ["Belts"],
+    }
+    assert _route_base_fit(desecrated, belt) == (True, "")
+    fit, why = _route_base_fit(desecrated, jewel)
+    assert not fit and "applicable_pages" in why, (fit, why)
+    scoped = {"scope": "jewel", "acquisition": ["desecration"]}
+    assert _route_base_fit(scoped, jewel) == (True, "")
+    fit, why = _route_base_fit(scoped, belt)
+    assert not fit and "scope" in why, (fit, why)
+    # 신호가 전혀 없으면 반증 불가 — 적용 가능 취급(CONDITIONAL 유지)
+    assert _route_base_fit({"acquisition": ["poe2db:liquid"]}, jewel) == (True, "")
 
 
 def test_장비는_여전히_3_3_한도(checker: ItemLegalityChecker) -> None:

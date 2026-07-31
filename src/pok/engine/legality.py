@@ -8,6 +8,10 @@
 스폰 판정: 베이스 spawn_tags 중 weight>0가 있으면 통과. weight가 전부 0이어도
 acquisition에 essence·desecrated 등 비-크래프팅 경로가 있으면 CONDITIONAL
 (경로 명시) — C-2 판정(2026-07-30)에서 확립한 "weight 0 ≠ 죽은 모드" 원칙.
+단 CONDITIONAL은 "경로 존재"만으로 주지 않는다(#34) — 그 경로가 이 베이스에
+적용 가능한지(_route_base_fit)를 반증 가능한 신호(spawn_weights 명시 클래스 키·
+applicable_pages·scope)로 함께 판정한다. poe2db:normal은 일반 모드 풀(화폐
+크래프팅) 표지이므로 비크래프팅 경로로 치지 않는다.
 
 접사 한도는 판 규칙(knowledge/crafting-rules/board-rules.json)에서 읽는다 —
 장비 rare 3/3·magic 1/1, 주얼 rare 2/2 + 0.5 시즌 season_override(총 5모드,
@@ -28,6 +32,10 @@ _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
 _RANGE = re.compile(r"\((\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)\)")
 # 선택지 열거 "(A/B/C)" — 고유 주얼 롤 변형 표기 (unique_fixes 규약). 범위 "(a-b)"와 구분됨
 _ENUM = re.compile(r"\(([^()]*/[^()]*)\)")
+# 크래프팅과 동치인 획득 표지 — 비크래프팅 "경로"가 아니다 (#34).
+# poe2db:normal = 일반 모드 풀(화폐 크래프팅으로 붙는 풀)의 poe2db 표지.
+_CRAFT_EQUIVALENT = ("crafting-currency", "poe2db:normal")
+
 # 접미어 효과 접두 (주얼) — 인게임 표시 접미 수치는 이 효과가 이미 곱해진 최종값이다.
 # PoB는 이 줄을 계산에 반영하지 않으므로(실측 2026-07-31: 효과 줄 유무 DPS 동일
 # 51,792.2 vs 수동 1.6배 반영 59,000.7) 접미 수치를 최종 표시값으로 합성하는 것이
@@ -422,8 +430,15 @@ class ItemLegalityChecker:
                 tags = base.get("data", {}).get("spawn_tags", [])
                 if any(weights.get(t, 0) > 0 for t in tags):
                     return LineVerdict(line, "LEGAL", rec["id"], note)
-                routes = [a for a in d.get("acquisition", []) if a not in ("crafting-currency",)]
+                routes = [a for a in d.get("acquisition", []) if a not in _CRAFT_EQUIVALENT]
                 if routes:
+                    fit, why_unfit = _route_base_fit(d, base)
+                    if not fit:
+                        reasons.append(
+                            f"{rec['id']}: 경로({', '.join(routes)}) 있으나 베이스 부적합"
+                            f" — {why_unfit}"
+                        )
+                        continue
                     reason = f"경로 한정: {', '.join(routes)}"
                     conditional = conditional or LineVerdict(
                         line, "CONDITIONAL", rec["id"], f"{reason} / {note}" if note else reason
@@ -435,6 +450,41 @@ class ItemLegalityChecker:
         if conditional is not None:
             return conditional
         return LineVerdict(line, "ILLEGAL", reason=" / ".join(reasons))
+
+
+def _route_base_fit(d: dict[str, Any], base: dict[str, Any]) -> tuple[bool, str]:
+    """비크래프팅 경로(essence·liquid·desecration 등)가 이 베이스에 적용 가능한가 (#34).
+
+    "경로 존재"만으로 CONDITIONAL을 주지 않는다 — 반증 가능한 신호를 순서대로 대조:
+    ① spawn_weights의 명시 클래스 키(값 무관 — C-2 "weight 0 ≠ 죽은 모드":
+       0은 화폐 크래프팅 불가·클래스 호환의 표기다. 예: liquid 주얼 모드 {"jewel": 0})
+    ② applicable_pages (poe2db 페이지명 — 베이스 category·영문명과 대조)
+    ③ scope (equipment | jewel | waystone)
+    신호가 전혀 없으면 반증 불가 → 적용 가능으로 두고 CONDITIONAL을 유지한다.
+    """
+    base_data = base.get("data", {})
+    tags = {t for t in base_data.get("spawn_tags", {}) if t != "default"}
+    explicit = {k for k in d.get("spawn_weights", {}) if k != "default"}
+    if explicit:
+        if tags & explicit:
+            return True, ""
+        return False, f"클래스 타깃({', '.join(sorted(explicit))}) 밖 베이스"
+    category = str(base_data.get("category", ""))
+    name = str(base.get("name", {}).get("en", "")).lower()
+    pages = d.get("applicable_pages")
+    if pages:
+        for page in pages:
+            p = str(page).lower().replace("_", " ").rstrip("s")
+            if p and (p in name or name in p or (category and (category in p or p in category))):
+                return True, ""
+        pages_s = ", ".join(map(str, pages))
+        return False, f"applicable_pages({pages_s}) 밖 베이스({category or name})"
+    scope = str(d.get("scope", ""))
+    if scope:
+        kind = category if category in ("jewel", "waystone") else "equipment"
+        if scope != kind:
+            return False, f"scope {scope} ≠ 베이스 종류 {kind}"
+    return True, ""
 
 
 def _parse_item(text: str) -> tuple[str, str, int, list[str]]:
