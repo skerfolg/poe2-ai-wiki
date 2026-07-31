@@ -27,6 +27,7 @@ from pok.index.search import get_entry as _get_entry
 from pok.index.search import related as _related
 from pok.index.search import search as _search
 from pok.mcp.tools import build as _build
+from pok.mcp.tools import tree as _tree
 
 mcp: FastMCP = FastMCP(
     "pok",
@@ -99,6 +100,10 @@ compute_pob = mcp.tool(_build.compute_pob)
 evaluate_delta = mcp.tool(_build.evaluate_delta)
 check_item_legality = mcp.tool(_build.check_item_legality)
 assemble_pob = mcp.tool(_build.assemble_pob)
+
+# 트리 최적화 도구 (P4) — tools/tree.py
+connect_anchors = mcp.tool(_tree.connect_anchors)
+optimize_tree = mcp.tool(_tree.optimize_tree)
 
 
 def main() -> None:
