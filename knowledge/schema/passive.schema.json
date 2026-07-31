@@ -13,6 +13,23 @@
         "mastery",
         "jewel-socket"
       ]
+    },
+    "position": {
+      "description": "PoB 트리 좌표 공간의 최종 2D 좌표 (TreeData tree.json group/orbit/orbitIndex 산출, PassiveTree.lua 산식) — 주얼 반경 판정과 동일 공간",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
