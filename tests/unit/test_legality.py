@@ -194,6 +194,102 @@ def test_유니크_주얼_롤_변형은_열거_대조로_판정(checker: ItemLeg
     assert cls.is_legal, cls
 
 
+def test_프리즘_실존_스킬_젬만_통과(checker: ItemLegalityChecker) -> None:
+    """Prism of Belief: +1~3 레벨 x 실존 스킬 젬(KB Skill ∩ PoB prism 풀)."""
+    ok = checker.check(
+        "Rarity: UNIQUE\nPrism of Belief\nDiamond\nItem Level: 80\n"
+        "+3 to Level of all Spark Skills\nCorrupted"
+    )
+    assert ok.is_legal, ok
+    assert any("KB Skill" in v.reason for v in ok.verdicts)
+
+
+def test_프리즘_롤_범위와_풀_제외_거부(checker: ItemLegalityChecker) -> None:
+    over = checker.check(
+        "Rarity: UNIQUE\nPrism of Belief\nDiamond\nItem Level: 80\n"
+        "+4 to Level of all Spark Skills\nCorrupted"
+    )
+    assert not over.is_legal, over
+    # 무기 부여(fromItem) 스킬 — PoB Generated.lua 제외 규칙 반영 (예: Bow Shot)
+    from_item = checker.check(
+        "Rarity: UNIQUE\nPrism of Belief\nDiamond\nItem Level: 80\n"
+        "+2 to Level of all Bow Shot Skills\nCorrupted"
+    )
+    assert not from_item.is_legal, from_item
+    assert any("prism 풀 밖" in v.reason for v in from_item.verdicts)
+    fake = checker.check(
+        "Rarity: UNIQUE\nPrism of Belief\nDiamond\nItem Level: 80\n"
+        "+2 to Level of all Pok Nonexistent Skills\nCorrupted"
+    )
+    assert not fake.is_legal, fake
+
+
+def test_과대망상_실존_recipe_노터블_2_3개(checker: ItemLegalityChecker) -> None:
+    """Megalomaniac: 실존 노터블(recipe 보유) 2~3줄 — 조달 가정을 CONDITIONAL로 기록."""
+    ok = checker.check(
+        "Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
+        "Allocates Controlling Magic\nAllocates Shredding Force\nCorrupted"
+    )
+    assert ok.is_legal, ok
+    conds = [v for v in ok.verdicts if v.status == "CONDITIONAL"]
+    assert len(conds) == 2 and all("조달 가정" in v.reason for v in conds), ok.verdicts
+
+
+def test_과대망상_풀_밖_거부(checker: ItemLegalityChecker) -> None:
+    fake = checker.check(
+        "Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
+        "Allocates Pok Fake Notable\nAllocates Controlling Magic\nCorrupted"
+    )
+    assert not fake.is_legal, fake
+    one = checker.check(
+        "Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
+        "Allocates Controlling Magic\nCorrupted"
+    )
+    assert not one.is_legal and any("2~3개" in e for e in one.errors), one
+
+
+def _heart(*mods: str) -> str:
+    return "Rarity: UNIQUE\nHeart of the Well\nDiamond\nItem Level: 80\n" + "\n".join(mods)
+
+
+def test_우물의_심장_훼손_풀_선택_2_2_통과(checker: ItemLegalityChecker) -> None:
+    """Heart of the Well: ModVeiled UniqueHeart* 풀에서 접두 2·접미 2 선택."""
+    report = checker.check(
+        _heart(
+            "Gain 13% of Damage as Extra Chaos Damage",  # prefix (7-13)
+            "Gain 15% of Damage as Extra Lightning Damage",  # prefix (9-15)
+            "8% increased Critical Hit Chance",  # suffix (4-8)
+            "12% increased Critical Damage Bonus",  # suffix (6-12)
+        )
+    )
+    assert report.is_legal, report
+
+
+def test_우물의_심장_범위_밖과_풀_밖_거부(checker: ItemLegalityChecker) -> None:
+    over = checker.check(_heart("Gain 16% of Damage as Extra Chaos Damage"))  # > 13
+    assert not over.is_legal, over
+    fake = checker.check(_heart("+999% to Pok Resistance"))
+    assert not fake.is_legal and fake.verdicts[0].status == "UNKNOWN", fake
+
+
+def test_우물의_심장_접두_3개는_거부(checker: ItemLegalityChecker) -> None:
+    report = checker.check(
+        _heart(
+            "Gain 13% of Damage as Extra Chaos Damage",
+            "Gain 15% of Damage as Extra Lightning Damage",
+            "Gain 15% of Damage as Extra Fire Damage",
+        )
+    )
+    assert not report.is_legal and any("한도 2 초과" in e for e in report.errors), report
+
+
+def test_우물의_심장_weight0_거부(checker: ItemLegalityChecker) -> None:
+    # UniqueHeartPrefixPercentOfLeechIsInstant — weightVal {0,0} (스폰 불가)
+    report = checker.check(_heart("10% of Leech is Instant"))
+    assert not report.is_legal, report
+    assert any("weight 0" in v.reason for v in report.verdicts), report.verdicts
+
+
 def test_유니크_그랜드_스펙트럼은_Ruby만_실존(checker: ItemLegalityChecker) -> None:
     """사용자 인게임 판정(2026-07-31): 현 시즌 Ruby만 실존 — Emerald/Sapphire 빈값."""
     ok = checker.check(

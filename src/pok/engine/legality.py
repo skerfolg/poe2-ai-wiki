@@ -91,9 +91,14 @@ class ItemLegalityChecker:
             else {}
         )
         kb = store_load(knowledge.parent if knowledge.name == "knowledge" else knowledge)
+        self._root = knowledge.parent if knowledge.name == "knowledge" else knowledge
         self._bases: dict[str, dict[str, Any]] = {}
         self._uniques: dict[str, dict[str, Any]] = {}  # 유니크 이름 → 레코드
         self._mods: dict[str, list[dict[str, Any]]] = {}  # 정규화 텍스트 → 후보 레코드들
+        # 고유 주얼 전략 모듈용 색인 (2026-07-31, 사용자 확립 "주얼별 전략 모듈")
+        self._heart: dict[str, list[dict[str, Any]]] = {}  # Heart of the Well 훼손 풀
+        self._notables: dict[str, dict[str, Any]] = {}  # 본 트리+어센 노터블 (Megalomaniac)
+        self._skills: set[str] = set()  # KB Skill 표시명 (Prism of Belief)
         for r in kb.records.values():
             if r.type == "Item" and r.raw.get("data", {}).get("rarity") == "unique":
                 self._uniques[r.name_en.lower()] = r.raw  # 유니크 우선 (category도 가질 수 있다)
@@ -104,6 +109,15 @@ class ItemLegalityChecker:
             ):  # jewel origin도 크래프팅 풀 — 주얼 베이스 검증에 필요 (2026-07-31)
                 for text in r.raw["data"].get("texts", []):
                     self._mods.setdefault(_norm(text), []).append(r.raw)
+            elif r.type == "Modifier" and "heart-of-the-well" in r.raw.get("data", {}).get(
+                "origins", []
+            ):
+                for text in r.raw["data"].get("texts", []):
+                    self._heart.setdefault(_norm(text), []).append(r.raw)
+            elif r.type == "Passive" and r.raw.get("data", {}).get("kind") == "notable":
+                self._notables[r.name_en.lower()] = r.raw
+            elif r.type == "Skill":
+                self._skills.add(r.name_en.lower())
 
     def check(self, item_text: str) -> LegalityReport:
         rarity, base_name, ilvl, mod_lines = _parse_item(item_text)
@@ -177,12 +191,26 @@ class ItemLegalityChecker:
 
     def _check_unique(self, item_text: str) -> LegalityReport:
         """유니크 = 고정 모드 아이템. 이름이 KB 유니크에 실존하고 각 모드 줄의
-        수치가 KB explicits의 롤 범위 안이면 LEGAL (모드풀 검사 부적용)."""
+        수치가 KB explicits의 롤 범위 안이면 LEGAL (모드풀 검사 부적용).
+
+        롤이 고정 텍스트가 아닌 고유 주얼 3종(Prism of Belief·Megalomaniac·
+        Heart of the Well)은 전용 모듈로 위임한다 — KB 레코드의 플레이스홀더
+        ("Specific Skill"·"Allocates Passive Skill"·"[Custom Desecrated …]")는
+        실물 아이템 줄과 직접 대조가 불가능하기 때문(사용자 확립 2026-07-31)."""
         lines = [ln.strip() for ln in item_text.strip().splitlines() if ln.strip()]
         name = lines[1] if len(lines) > 1 else ""
         rec = self._uniques.get(name.lower())
         if rec is None:
             return LegalityReport(verdicts=(), errors=(f"KB에 없는 유니크: {name!r}",))
+        meta = ("item level:", "quality:", "sockets:", "implicits:", "--")
+        mod_lines = [ln for ln in lines[3:] if not ln.lower().startswith(meta)]
+        special = {
+            "prism of belief": self._check_prism,
+            "megalomaniac": self._check_megalomaniac,
+            "heart of the well": self._check_heart,
+        }.get(name.lower())
+        if special is not None:
+            return special(rec, mod_lines)
         # "(A/B/C)" 선택지 열거(고유 주얼 롤 변형)는 펼쳐서 대조한다
         ranged = [
             e
@@ -191,10 +219,7 @@ class ItemLegalityChecker:
         ]
         known = [_norm(t) for t in ranged]
         verdicts: list[LineVerdict] = []
-        for ln in lines[3:]:
-            low = ln.lower()
-            if low.startswith(("item level:", "quality:", "sockets:", "implicits:", "--")):
-                continue
+        for ln in mod_lines:
             if _norm(ln) not in known:
                 verdicts.append(LineVerdict(ln, "UNKNOWN", reason="유니크 고정 모드에 없음"))
                 continue
@@ -205,6 +230,160 @@ class ItemLegalityChecker:
                 else LineVerdict(ln, "ILLEGAL", rec["id"], f"롤 범위 밖: {why}")
             )
         return LegalityReport(verdicts=tuple(verdicts))
+
+    def _check_prism(self, rec: dict[str, Any], mod_lines: list[str]) -> LegalityReport:
+        """Prism of Belief: "+N to Level of all <스킬> Skills" 1줄 (+Corrupted).
+
+        N은 1~3, <스킬>은 실존 스킬 젬(KB Skill 레코드) ∩ PoB prism 변형 풀
+        (Generated.lua 제외 규칙 재현 — support·hidden·fromItem(무기 부여)·
+        fromTree·excludedGems 제외, pob/gempool.py)."""
+        from pok.pob.gempool import prism_gem_names
+        from pok.pob.versions import resolve_snapshot
+
+        pool = prism_gem_names(str(resolve_snapshot(self._root).src_dir))
+        verdicts: list[LineVerdict] = []
+        errors: list[str] = []
+        rolls = 0
+        for ln in mod_lines:
+            if ln.lower() == "corrupted":
+                verdicts.append(LineVerdict(ln, "LEGAL", rec["id"]))
+                continue
+            m = re.fullmatch(r"\+(\d+) to Level of all (.+) Skills", ln)
+            if m is None:
+                verdicts.append(LineVerdict(ln, "UNKNOWN", reason="Prism of Belief 모드 형식 아님"))
+                continue
+            rolls += 1
+            level, skill = int(m.group(1)), m.group(2)
+            if not 1 <= level <= 3:
+                verdicts.append(
+                    LineVerdict(ln, "ILLEGAL", rec["id"], f"롤 범위 밖: +{level} (허용 +1~+3)")
+                )
+            elif skill not in pool:
+                verdicts.append(
+                    LineVerdict(
+                        ln,
+                        "ILLEGAL",
+                        rec["id"],
+                        f"{skill!r}: PoB prism 풀 밖 (서포트·숨김·무기/트리 부여 제외 규칙)",
+                    )
+                )
+            elif skill.lower() not in self._skills:
+                verdicts.append(
+                    LineVerdict(
+                        ln,
+                        "UNKNOWN",
+                        rec["id"],
+                        f"{skill!r}: KB Skill 레코드 없음 (PoB 풀엔 존재 — KB 커버리지 확인 필요)",
+                    )
+                )
+            else:
+                verdicts.append(
+                    LineVerdict(ln, "LEGAL", rec["id"], "실존 스킬 젬 (KB Skill ∩ PoB prism 풀)")
+                )
+        if rolls != 1:
+            errors.append(f"스킬 레벨 줄 {rolls}개 — 정확히 1줄이 롤된다")
+        return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+
+    def _check_megalomaniac(self, rec: dict[str, Any], mod_lines: list[str]) -> LegalityReport:
+        """Megalomaniac: "Allocates <노터블>" 2~3줄 (+Corrupted).
+
+        노터블은 본 트리 실존 노터블이어야 하고, PoB Generated.lua 필터
+        (isNotable ∧ recipe)를 따라 recipe(리퀴드 이모션) 보유분만 풀에 든다.
+        롤은 랜덤 — LEGAL 대신 CONDITIONAL로 조달 가정(트레이드 전제)을 기록에
+        남긴다 (validation.json lines에 그대로 실린다)."""
+        verdicts: list[LineVerdict] = []
+        errors: list[str] = []
+        allocs = 0
+        for ln in mod_lines:
+            if ln.lower() == "corrupted":
+                verdicts.append(LineVerdict(ln, "LEGAL", rec["id"]))
+                continue
+            m = re.fullmatch(r"Allocates (.+)", ln)
+            if m is None:
+                verdicts.append(LineVerdict(ln, "UNKNOWN", reason="Megalomaniac 모드 형식 아님"))
+                continue
+            allocs += 1
+            notable = self._notables.get(m.group(1).lower())
+            if notable is None:
+                verdicts.append(
+                    LineVerdict(ln, "UNKNOWN", rec["id"], f"{m.group(1)!r}: 실존 노터블 아님")
+                )
+            elif notable["data"].get("ascendancy"):
+                verdicts.append(
+                    LineVerdict(
+                        ln, "ILLEGAL", notable["id"], "어센던시 노터블 — Megalomaniac 풀 밖"
+                    )
+                )
+            elif notable["data"].get("acquisition") != "liquid-emotion":
+                verdicts.append(
+                    LineVerdict(
+                        ln,
+                        "ILLEGAL",
+                        notable["id"],
+                        "recipe(리퀴드 이모션) 없는 노터블 — PoB 풀 필터(isNotable ∧ recipe) 밖",
+                    )
+                )
+            else:
+                verdicts.append(
+                    LineVerdict(
+                        ln,
+                        "CONDITIONAL",
+                        notable["id"],
+                        "랜덤 롤 조달 가정(트레이드 전제) — 실존 노터블(recipe 보유)",
+                    )
+                )
+        if allocs not in (2, 3):
+            errors.append(f"Allocates 줄 {allocs}개 — 2~3개여야 함")
+        return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+
+    def _check_heart(self, rec: dict[str, Any], mod_lines: list[str]) -> LegalityReport:
+        """Heart of the Well: 훼손 선택 풀에서 접두 2·접미 2를 **선택**한다.
+
+        풀 = KB origins "heart-of-the-well" (ModVeiled.lua UniqueHeart* 수록분,
+        kb/ingest/heart_mods.py). 수치는 티어 범위 대조, 접두/접미 각 2개 한도,
+        같은 group 중복 금지, weight 0(스폰 불가) 거부."""
+        verdicts: list[LineVerdict] = []
+        errors: list[str] = []
+        counts = {"prefix": 0, "suffix": 0}
+        groups: dict[str, str] = {}
+        for ln in mod_lines:
+            candidates = self._heart.get(_norm(ln), [])
+            if not candidates:
+                verdicts.append(
+                    LineVerdict(ln, "UNKNOWN", reason="Heart of the Well 훼손 풀에 없음")
+                )
+                continue
+            reasons: list[str] = []
+            verdict: LineVerdict | None = None
+            for cand in candidates:
+                d = cand["data"]
+                ok, why = _values_in_range(ln, d.get("texts", []))
+                if not ok:
+                    reasons.append(f"{cand['id']}: {why}")
+                    continue
+                weights = d.get("spawn_weights", {})
+                if not any(v > 0 for v in weights.values()):
+                    reasons.append(f"{cand['id']}: 스폰 불가 (weight 0)")
+                    continue
+                affix = str(d.get("affix_type"))
+                if affix in counts:
+                    counts[affix] += 1
+                g = d.get("group")
+                if g:
+                    if g in groups:
+                        errors.append(f"group 중복: {g} ({groups[g]} vs {cand['id']})")
+                    groups[g] = cand["id"]
+                verdict = LineVerdict(ln, "LEGAL", cand["id"], "훼손 선택 풀 (아이템 자체 제공)")
+                break
+            verdicts.append(
+                verdict
+                if verdict is not None
+                else LineVerdict(ln, "ILLEGAL", reason=" / ".join(reasons))
+            )
+        for affix, n in counts.items():
+            if n > 2:
+                errors.append(f"{affix} {n}개 — Heart of the Well 한도 2 초과")
+        return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
 
     def _check_line(
         self, line: str, base: dict[str, Any] | None, ilvl: int, *, suffix_effect: float = 0.0
