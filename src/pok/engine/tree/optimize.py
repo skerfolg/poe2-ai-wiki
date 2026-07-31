@@ -51,11 +51,17 @@ class Step:
 
 @dataclass(frozen=True)
 class Pruned:
-    """가지치기로 제거된 노드 — 단독 기여가 ~0임을 실측한 근거 포함."""
+    """가지치기로 제거된 가지 하나 — 끝단(죽은 노터블)+막다른 소노드 전체.
 
-    node_id: int
-    name: str
-    removal_deltas: dict[str, float]  # 제거 시 스탯 변화 (죽은 노드면 전부 ~0)
+    끝단의 단독 기여 ~0이 확인되면 가지 전체를 환급한다: 소노드에 가치가
+    있어도 막다른 길에 포인트를 쓰는 건 유저 관점에서 비합리적이므로
+    (사용자 지적 2026-07-31), 환급 후 재투자 결과와 실측 비교해 나은 쪽을 취한다.
+    """
+
+    endpoint_id: int
+    endpoint_name: str
+    nodes: tuple[int, ...]  # 제거된 가지 전체 (끝단 포함)
+    endpoint_removal_deltas: dict[str, float]  # 끝단 단독 제거 델타 (~0 = 죽음의 증거)
 
 
 @dataclass(frozen=True)
@@ -87,13 +93,15 @@ def optimize_tree(
     measure = tuple(stats or objective.weights.keys())
     steps: list[Step] = []
     pruned: list[Pruned] = []
-    banned: set[int] = set()  # 가지치기로 죽은 노드 판정 — 재채택 금지 (무한 루프 방지)
+    banned: set[int] = set()  # 죽음이 실증된 끝단 — 재채택 금지 (종료 보장)
     current = spec
     budget = point_budget
     rejected = 0
     with PobDaemon() as daemon:
+        best_solution: tuple[BuildSpec, PobResult] | None = None  # 단조성 안전장치
         while True:
             # ── 그리디 채택 ──
+            rejected = 0
             while budget > 0:
                 tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
                 cands = [
@@ -119,74 +127,113 @@ def optimize_tree(
                 )
                 budget -= best.points
                 steps.append(Step(node_delta=best, score=best_score))
-            # ── 가지치기: 채택 끝단의 단독 기여 격리 → ~0이면 제거·환급 ──
-            current, newly_pruned, refund = _prune_dead_ends(
-                spec, current, steps, graph, objective, daemon, measure
+            result_now = daemon.compute_build(current)
+            best_solution = _better(objective, best_solution, (current, result_now))
+            # ── 가지치기: 죽은 끝단이면 막다른 가지 전체 제거·환급 ──
+            current, newly_pruned, refund, candidates = _prune_dead_branches(
+                spec, current, steps, graph, daemon, measure
             )
+            for cand in candidates:  # 끝단만 뺀 중간 해들 — 무료 개선 후보
+                best_solution = _better(objective, best_solution, cand)
             pruned.extend(newly_pruned)
-            banned.update(p.node_id for p in newly_pruned)
-            if refund == 0 or rejected:
-                break  # 환급 없으면 안정, 후보 소진이면 재탐색 무의미
-            budget += refund
+            banned.update(p.endpoint_id for p in newly_pruned)
+            if refund == 0:
+                break  # 죽은 가지 없음 — 안정
+            budget += refund  # 환급 포인트를 온전한 묶음에 재투자 (다음 루프)
+        # 실측으로 가장 나은 해 반환 (동가치면 포인트 적게 쓴 쪽 — 스텁·죽은 끝단 배제)
         final = daemon.compute_build(current)
+        best_solution = _better(objective, best_solution, (current, final))
+        assert best_solution is not None
+        current, final = best_solution
     return OptimizeResult(current, final, tuple(steps), tuple(pruned), rejected_rounds=rejected)
 
 
 _PRUNE_EPS = 1e-6  # PoB는 결정적 — 죽은 노드의 제거 델타는 정확히 0
 
 
-def _prune_dead_ends(
+def _value(objective: Objective, result: PobResult) -> float:
+    """해 비교용 절대 가치 (가중 합 — 동일 목적끼리의 비교에만 사용)."""
+    return sum(w * result.stats.get(s, 0.0) for s, w in objective.weights.items())
+
+
+_Solution = tuple[BuildSpec, PobResult]
+
+
+def _better(obj: Objective, a: _Solution | None, b: _Solution) -> _Solution:
+    """가치 우선, 동가치면 트리 노드가 적은(포인트를 덜 쓴) 쪽."""
+    if a is None:
+        return b
+    va, vb = _value(obj, a[1]), _value(obj, b[1])
+    if abs(va - vb) > _PRUNE_EPS:
+        return a if va > vb else b
+    return b if len(b[0].tree_nodes) < len(a[0].tree_nodes) else a
+
+
+def _prune_dead_branches(
     original: BuildSpec,
     current: BuildSpec,
     steps: list[Step],
     graph: TreeGraph,
-    objective: Objective,
     daemon: PobDaemon,
     measure: tuple[str, ...],
-) -> tuple[BuildSpec, list[Pruned], int]:
-    """채택된 끝단 노드부터 안쪽으로, 제거해도 목적 손실이 없는 노드를 걷어낸다.
+) -> tuple[BuildSpec, list[Pruned], int, list[_Solution]]:
+    """끝단(채택 노터블)의 단독 기여가 ~0이면 **막다른 가지 전체**를 제거한다.
 
-    발견 배경(2026-07-31 실증): 채택 단위가 "노터블+연결 경로" 묶음이라
-    경로 소노드의 가치에 죽은 노터블(예: 미니언 조건 — 미니언 없는 빌드)이
-    무임승차할 수 있다. 제거는 항상 실측으로 정당화한다 — 가치 있는 경로
-    소노드는 손실이 측정되므로 남는다. 원래 스펙의 노드는 건드리지 않는다.
+    발견 배경(2026-07-31 실증): 채택 단위가 "노터블+경로" 묶음이라 경로
+    소노드 가치에 죽은 노터블이 무임승차한다. 1차 수정(끝단만 제거)은
+    가치 있는 소노드 스텁을 남겼는데, 막다른 길에 포인트를 쓰는 건 유저
+    관점에서 비합리적(사용자 지적) — 가지 전체를 환급하고 상위 루프가
+    재투자한다. 원래 스펙의 노드·분기점(다른 가지가 걸린 노드)은 보존.
     """
     protected = set(original.tree_nodes) | {s.node_delta.node_id for s in steps}
     start = graph.start_of(current.class_name)
     removed: list[Pruned] = []
+    candidates: list[_Solution] = []  # "끝단만 뺀" 중간 해 — 무료 개선이므로 후보 등록
+    eo_current = current  # 누적 "끝단만 제거" 해 (스텁 유지 + 죽은 끝단 전부 제외)
     base = daemon.compute_build(current)
     for step in steps:
-        chain_head = step.node_delta.node_id
-        cursor: int | None = chain_head
+        endpoint = step.node_delta.node_id
+        if endpoint not in current.tree_nodes:
+            continue  # 이전 라운드에서 이미 제거됨
+        alloc = set(current.tree_nodes)
+        if len([n for n in graph.adj[endpoint] if n in alloc or n == start]) > 1:
+            continue  # 분기점이 된 끝단은 다른 가지의 통로 — 건드리지 않는다
+        # ① 끝단 단독 제거로 죽음 판정
+        probe = dataclasses.replace(
+            current, tree_nodes=tuple(n for n in current.tree_nodes if n != endpoint)
+        )
+        probe_result = daemon.compute_build(probe)
+        endpoint_deltas = {
+            k: probe_result.stats.get(k, 0.0) - base.stats.get(k, 0.0) for k in measure
+        }
+        if any(abs(v) > _PRUNE_EPS for v in endpoint_deltas.values()):
+            continue  # 끝단이 살아 있다 — 가지 유지
+        eo_current = dataclasses.replace(
+            eo_current, tree_nodes=tuple(n for n in eo_current.tree_nodes if n != endpoint)
+        )
+        candidates.append((eo_current, daemon.compute_build(eo_current)))
+        # ② 막다른 가지 수집: 끝단에서 안쪽으로 차수 1 연쇄 (보호 노드 전까지)
+        chain: list[int] = []
+        cursor: int | None = endpoint
+        alloc = set(current.tree_nodes)
         while cursor is not None:
-            alloc = set(current.tree_nodes)
             neighbors = [n for n in graph.adj[cursor] if n in alloc or n == start]
-            if len(neighbors) > 1:  # 분기점 — 다른 가지가 걸려 있어 제거 불가
+            if len(neighbors) > 1 or (cursor != endpoint and cursor in protected):
                 break
-            if cursor != chain_head and cursor in protected:
-                break  # 다른 채택 노터블/원본 노드는 건드리지 않는다
-            variant = dataclasses.replace(
-                current, tree_nodes=tuple(n for n in current.tree_nodes if n != cursor)
-            )
-            result = daemon.compute_build(variant)
-            if result.pruned_nodes:
-                break  # 연결이 깨지면 제거 불가 (이론상 도달 안 함 — 방어)
-            deltas = {k: result.stats.get(k, 0.0) - base.stats.get(k, 0.0) for k in measure}
-            loss = sum(
-                w * (deltas.get(s, 0.0) / max(abs(base.stats.get(s, 0.0)), 1.0))
-                for s, w in objective.weights.items()
-            )
-            if loss < -_PRUNE_EPS:
-                break  # 제거하면 손해 — 이 노드부터는 가치가 있다
-            node = graph.nodes.get(cursor)
-            removed.append(
-                Pruned(
-                    node_id=cursor,
-                    name=(node.name_ko or node.name_en) if node else str(cursor),
-                    removal_deltas=deltas,
-                )
-            )
-            current = variant
-            base = result
+            chain.append(cursor)
+            alloc.discard(cursor)
             cursor = neighbors[0] if neighbors and neighbors[0] != start else None
-    return current, removed, len(removed)
+        current = dataclasses.replace(
+            current, tree_nodes=tuple(n for n in current.tree_nodes if n not in set(chain))
+        )
+        base = daemon.compute_build(current)
+        node = graph.nodes.get(endpoint)
+        removed.append(
+            Pruned(
+                endpoint_id=endpoint,
+                endpoint_name=(node.name_ko or node.name_en) if node else str(endpoint),
+                nodes=tuple(chain),
+                endpoint_removal_deltas=endpoint_deltas,
+            )
+        )
+    return current, removed, sum(len(p.nodes) for p in removed), candidates
