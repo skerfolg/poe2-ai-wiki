@@ -72,24 +72,26 @@ def apply_gem_costs(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
     kb = store_load(knowledge.parent)
     us_dir = raw_dir / "poe2db" / "us"
     per_path: dict[Path, dict[str, dict[str, Any]]] = {}  # 파일 → {id: 갱신 data}
-    stats = {"updated": 0, "no_cost_fields": 0, "missing_html": [], "no_slug": []}
+    updated = no_cost_fields = 0
+    missing_html: list[str] = []
+    no_slug: list[str] = []
     for r in kb.records.values():
         if r.type not in ("Skill", "Support"):
             continue
         slug = _slug_of(r.raw)
         if slug is None:
-            stats["no_slug"].append(r.id)
+            no_slug.append(r.id)
             continue
         html_path = us_dir / f"{slug}.html"
         if not html_path.exists():
-            stats["missing_html"].append(f"{r.id} ({slug})")
+            missing_html.append(f"{r.id} ({slug})")
             continue
         updates = _updates_from_page(html_path.read_text(encoding="utf-8"))
         if not updates:
-            stats["no_cost_fields"] += 1
+            no_cost_fields += 1
             continue
         per_path.setdefault(r.path, {})[r.id] = updates
-        stats["updated"] += 1
+        updated += 1
 
     for path, by_id in per_path.items():
         if path.suffix == ".ndjson":
@@ -115,4 +117,9 @@ def apply_gem_costs(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
             path.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     store_load(knowledge.parent)  # 병합 후 재검증 — 실패 시 예외
-    return stats
+    return {
+        "updated": updated,
+        "no_cost_fields": no_cost_fields,
+        "missing_html": missing_html,
+        "no_slug": no_slug,
+    }
