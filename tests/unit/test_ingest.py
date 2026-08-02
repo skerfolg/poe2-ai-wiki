@@ -100,3 +100,73 @@ def test_fetch_limit_leaves_pending(tmp_path: Path) -> None:
     assert s1.fetched == 1 and s1.remaining == 3
     s2 = run_fetch(plan, tmp_path, rate_seconds=0, client=_mock_client(pages))
     assert s2.fetched == 3 and s2.skipped == 1
+
+
+def test_merge_재실행이_벌크_샤드를_파괴하지_않는다(tmp_path: Path) -> None:
+    """회귀(2026-08-02): 기존 벌크 레코드를 개별 JSON처럼 덮어써서 NDJSON 샤드가
+    한 줄로 잘렸다(884→54, 830건 손실). 재실행은 멱등이어야 하고, 후처리로
+    보강된 필드(cost·color 등)도 data 병합으로 보존돼야 한다."""
+    import json as _json
+    import shutil as _shutil
+
+    from pok.common.paths import project_root as _root
+    from pok.kb.ingest.merge import merge_patch
+
+    root = tmp_path / "repo"
+    knowledge = root / "knowledge"
+    root.mkdir()
+    (root / "pyproject.toml").write_text("", encoding="utf-8")
+    _shutil.copytree(_root() / "knowledge" / "schema", knowledge / "schema")
+    gems = knowledge / "game-data" / "gems"
+    gems.mkdir(parents=True)
+    # 기존 벌크 2건 — 하나는 후처리 보강 필드(color) 보유
+    existing = [
+        {
+            "id": "support.alpha",
+            "type": "Support",
+            "name": {"ko": "알파", "en": "Alpha"},
+            "tags": [],
+            "data": {"description": "old", "color": "red"},
+            "verification": "GAME_DATA",
+            "sources": [{"src": "poe2db", "ref": "x", "patch": "t"}],
+        },
+        {
+            "id": "support.beta",
+            "type": "Support",
+            "name": {"ko": "베타", "en": "Beta"},
+            "tags": [],
+            "data": {"description": "old"},
+            "verification": "GAME_DATA",
+            "sources": [{"src": "poe2db", "ref": "x", "patch": "t"}],
+        },
+    ]
+    (gems / "supports.ndjson").write_text(
+        "".join(_json.dumps(r, ensure_ascii=False) + "\n" for r in existing), encoding="utf-8"
+    )
+    inter = tmp_path / "intermediate.json"
+    inter.write_text(
+        _json.dumps(
+            [
+                {
+                    "slug": "Alpha",
+                    "name_en": "Alpha",
+                    "name_ko": "알파",
+                    "tags": [],
+                    "categories": ["support-gems"],
+                    "description": "new",
+                    "tier": None,
+                    "verdict": "implemented",
+                    "in_pob": False,
+                    "pob_meta_id": None,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    summary = merge_patch(tmp_path, inter, knowledge, "t")
+    lines = [ln for ln in (gems / "supports.ndjson").read_text(encoding="utf-8").splitlines() if ln]
+    assert len(lines) == 2, f"샤드가 잘렸다: {summary}"
+    recs = {_json.loads(ln)["id"]: _json.loads(ln) for ln in lines}
+    assert recs["support.alpha"]["data"]["description"] == "new"  # ingest 결과 반영
+    assert recs["support.alpha"]["data"]["color"] == "red"  # 후처리 보강분 보존
+    assert recs["support.beta"]["data"]["description"] == "old"  # 미포함 레코드 보존

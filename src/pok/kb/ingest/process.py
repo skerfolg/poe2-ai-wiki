@@ -25,13 +25,18 @@ IMPLEMENTED = "implemented"  # A ∧ P → KB 수록
 GHOST = "ghost"  # ¬A ∧ ¬P, 규칙 미해당 → 사람 판단 대기 (다음 패치 신규 유령이 여기 옴)
 NO_POB = "implemented-no-pob"  # A ∧ ¬P → 수록 + PoB 계산 불가 플래그 (사람 판정: 보존)
 POB_ONLY = "pob-only-or-parse-gap"  # ¬A ∧ P, 규칙 미해당 → 보류
+# ¬A ∧ P ∧ 레벨효과표 → 수록 + 획득 경로 미표기 플래그 (사용자 판정 2026-08-02).
+# 신호 A를 "From 카드 유무"로만 보면 실재 젬이 걸러진다 — 칼구르의 잔류물 등은
+# poe2db에 From 카드가 없지만 게임에 존재함이 사용자 확인으로 밝혀졌다.
+# 레벨별 효과표(Level Effect)는 게임 데이터가 실존한다는 증거라 신호 A의 보조로 쓴다.
+NO_ACQ = "implemented-no-acquisition"
 LINEAGE = "include-lineage"  # 혈통 서포트 — 실존 아이템 (사람 판정)
 BASIC = "include-basic-attack"  # 무기 기본 공격 — 기본 제공 (사람 판정)
 SUPERSEDED = "excluded-superseded"  # 다른 젬으로 통합됨 (원장 근거)
 NOT_A_GEM = "not-a-gem-page"  # 젬 페이지 아님 (보스/장소 등 — lineage 목록 혼입분)
 
 # KB 수록 대상 판정
-INCLUDE_VERDICTS = frozenset({IMPLEMENTED, NO_POB, LINEAGE, BASIC})
+INCLUDE_VERDICTS = frozenset({IMPLEMENTED, NO_POB, NO_ACQ, LINEAGE, BASIC})
 
 # ⑥ 태그 대조 정규화 — 두 소스가 같은 개념을 다르게 표기한다
 _TAG_ALIAS = {"aoe": "area"}
@@ -96,6 +101,7 @@ def _classify(
     is_lineage: bool = False,
     is_basic: bool = False,
     superseded: bool = False,
+    has_level_effect: bool = False,
 ) -> str:
     """KI-8 매트릭스 + 사람 판정 규칙(혈통·기본공격·통합). 규칙이 매트릭스에 우선."""
     if not is_gem:
@@ -111,7 +117,9 @@ def _classify(
     if has_acquisition:
         return NO_POB
     if in_pob:
-        return POB_ONLY
+        # 레벨효과표 = 게임 데이터 실존 증거 → 수록(획득 경로 미표기 플래그와 함께).
+        # 표도 없으면 파싱 갭 가능성이 남으므로 기존대로 보류한다.
+        return NO_ACQ if has_level_effect else POB_ONLY
     return GHOST
 
 
@@ -185,6 +193,7 @@ def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -
                 is_lineage=slug in lineage_slugs,
                 is_basic=slug in basic_slugs,
                 superseded=slug in superseded_map,
+                has_level_effect=page.has_level_effect,
             ),
         )
         items.append(item)
