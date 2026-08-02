@@ -68,6 +68,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_gc.add_argument("--patch", required=True)
 
+    p_gcol = sub.add_parser(
+        "gem-colors", help="보조 젬 색상(요구 속성) 수록 (오프라인, PoB 젬 데이터)"
+    )
+    p_gcol.add_argument("--patch", required=True)
+
     p_nar = sub.add_parser(
         "narrative", help="⑤ 서술: fetch(poe2wiki 원문)|check(wiki 산출물 게이트)"
     )
@@ -222,6 +227,11 @@ def main(argv: list[str] | None = None) -> int:
         from pok.kb.ingest.gem_costs import apply_gem_costs
 
         print(json.dumps(apply_gem_costs(raw_dir, knowledge_dir()), ensure_ascii=False, indent=1))
+    elif args.cmd == "gem-colors":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest.gem_colors import apply_gem_colors
+
+        print(json.dumps(apply_gem_colors(raw_dir, knowledge_dir()), ensure_ascii=False, indent=1))
     elif args.cmd == "narrative":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest import narrative

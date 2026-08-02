@@ -10,7 +10,11 @@
   ],
   "data": {
     "description": "Supports Projectile skills, making them fire extra Projectiles. Also lowers Attack and Cast speed of supported skills, as well as lessening their damage.",
-    "tier": 1
+    "tier": 1,
+    "color": "green",
+    "color_requirements": [
+      "reqDex"
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [
