@@ -179,6 +179,21 @@ def test_경로_베이스_적합성_pages_scope(checker: ItemLegalityChecker) ->
     assert _route_base_fit({"acquisition": ["poe2db:liquid"]}, jewel) == (True, "")
 
 
+def test_UNKNOWN은_표기_확인_후보를_제시(checker: ItemLegalityChecker) -> None:
+    """B-1 실증(2026-08-02): 정본은 '+N to Spirit'인데 '+N to maximum Spirit'으로
+    조회해 UNKNOWN → KB 갭으로 오진됐다. 근접 후보 제시로 오진을 구조적으로 차단."""
+    armour = "Rarity: RARE\nPok Armour\nAltar Robe\nItem Level: 82\n"
+    wrong = checker.check(armour + "+52 to maximum Spirit").verdicts[0]
+    assert wrong.status == "UNKNOWN"
+    assert "표기 확인 후보" in wrong.reason and "to spirit" in wrong.reason
+    # 정본 표기는 정상 통과 — KB에 실재한다는 증거
+    right = checker.check(armour + "+52 to Spirit").verdicts[0]
+    assert right.status == "LEGAL" and right.modifier_id is not None
+    # 진짜 미수록은 후보 없음으로 구분된다
+    absent = checker.check(armour + "+999% to Pok Resistance").verdicts[0]
+    assert absent.status == "UNKNOWN" and "근접 후보 없음" in absent.reason
+
+
 def test_훼손_모드는_합성_검증_풀에_포함(checker: ItemLegalityChecker) -> None:
     """훼손(desecrated) origins도 검증 풀 포함(사용자 지시 2026-07-31) —
     spawn_weights가 없어 applicable_pages/scope로 베이스 적합성을 판정한다.

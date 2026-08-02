@@ -401,12 +401,41 @@ class ItemLegalityChecker:
                 errors.append(f"{affix} {n}개 — Heart of the Well 한도 2 초과")
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
 
+    def _near_texts(self, line: str, limit: int = 3) -> list[str]:
+        """정규화 키가 안 맞을 때 표기 확인용 근접 후보 (토큰 유사도 상위 N).
+
+        UNKNOWN의 흔한 원인은 KB 부재가 아니라 **표기 차이**다(실증 2026-08-02:
+        "+N to maximum Spirit" vs 정본 "+N to Spirit"). 후보를 보여주면 호출자가
+        오타·표기를 스스로 교정할 수 있다.
+        """
+        want = {t for t in re.findall(r"[a-z]+", _norm(line)) if len(t) > 2}
+        if not want:
+            return []
+        scored: list[tuple[float, str]] = []
+        for key in self._mods:
+            got = {t for t in re.findall(r"[a-z]+", key) if len(t) > 2}
+            if not got:
+                continue
+            overlap = len(want & got)
+            if overlap:
+                scored.append((overlap / len(want | got), key))
+        scored.sort(key=lambda s: (-s[0], s[1]))
+        return [key for score, key in scored[:limit] if score >= 0.34]
+
     def _check_line(
         self, line: str, base: dict[str, Any] | None, ilvl: int, *, suffix_effect: float = 0.0
     ) -> LineVerdict:
         candidates = self._mods.get(_norm(line), [])
         if not candidates:
-            return LineVerdict(line, "UNKNOWN", reason="KB에 일치하는 모드 텍스트 없음")
+            near = self._near_texts(line)
+            hint = (
+                f" — 표기 확인 후보: {'; '.join(near)}"
+                if near
+                else " (근접 후보 없음 — 실제 미수록일 수 있다)"
+            )
+            # UNKNOWN은 "KB 부재"가 아니라 "매칭 실패"다 — 표기 차이가 흔한 원인이므로
+            # 근접 후보를 함께 돌려줘 오진(KB 갭으로 단정)을 구조적으로 막는다 (2026-08-02).
+            return LineVerdict(line, "UNKNOWN", reason=f"KB에 일치하는 모드 텍스트 없음{hint}")
         reasons: list[str] = []
         conditional: LineVerdict | None = None  # LEGAL 후보가 뒤에 있을 수 있다 — 즉시 반환 금지
         for rec in candidates:
