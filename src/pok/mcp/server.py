@@ -100,6 +100,7 @@ compute_pob = mcp.tool(_build.compute_pob)
 evaluate_delta = mcp.tool(_build.evaluate_delta)
 check_item_legality = mcp.tool(_build.check_item_legality)
 assemble_pob = mcp.tool(_build.assemble_pob)
+parse_pob = mcp.tool(_build.parse_pob)
 
 # 트리 최적화 도구 (P4) — tools/tree.py
 connect_anchors = mcp.tool(_tree.connect_anchors)
