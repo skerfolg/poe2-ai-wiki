@@ -8,7 +8,14 @@ build_spec dict 형식 (spec_from_dict 계약):
    "skills": [{"gems": [{"gem_id": "Metadata/Items/Gems/SkillGemSpark",
                           "name": "Spark", "level": 20}]}],
    "items": [{"slot": "Ring 1", "text": "Rarity: RARE\\n..."}],
+   "jewels": [{"socket_node_id": 55555, "text": "Rarity: UNIQUE\\n...",
+                "allocates": [51868]}],
    "config": {"enemyIsBoss": true}}
+
+주얼의 `allocates`는 **대체 모델링**(B-3): KB `pob_computable: false` 유니크
+(과대망상 등)는 explicits가 플레이스홀더라 PoB가 텍스트로 못 읽으므로, 부여
+노터블의 node_id를 적으면 트리에 병합해 **효과만** 재현한다. 소켓 소모·조달
+가정은 재현되지 않으며, 그 사실이 manifest `substitute_modeling`에 기록된다.
 """
 
 from __future__ import annotations

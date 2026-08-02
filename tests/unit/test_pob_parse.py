@@ -68,3 +68,32 @@ def test_앵커_기록은_계보_필수(tmp_path: Path) -> None:
     # id 충돌 회피: 같은 슬러그 재발급 시 -2 접미
     now = datetime(2026, 8, 2, tzinfo=UTC)
     assert new_anchor_id("x", root=root, now=now) == "20260802-x-2"
+
+
+def test_대체_모델링_노드가_트리에_병합된다() -> None:
+    """B-3: pob_computable:false 유니크(과대망상 등)는 부여 노터블을 트리 노드로
+    직접 할당해 효과만 재현한다 — 원 노드 순서 보존, 중복 제거."""
+    import re
+
+    from pok.pob.buildxml import JewelSpec
+
+    spec = BuildSpec(
+        class_name="Witch",
+        ascendancy="Witch1",
+        level=90,
+        tree_nodes=(13174, 55555),
+        jewels=(
+            JewelSpec(
+                socket_node_id=55555,
+                text="Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80",
+                allocates=(51868, 13174),  # 13174는 이미 있음 — 중복 제거 확인
+            ),
+        ),
+    )
+    nodes = re.search(r'nodes="([^"]+)"', to_xml(spec))
+    assert nodes is not None
+    assert nodes.group(1) == "13174,55555,51868"
+    # allocates가 없으면 기존 동작 그대로
+    plain = BuildSpec(class_name="Witch", ascendancy="Witch1", tree_nodes=(1, 2))
+    plain_nodes = re.search(r'nodes="([^"]+)"', to_xml(plain))
+    assert plain_nodes is not None and plain_nodes.group(1) == "1,2"
