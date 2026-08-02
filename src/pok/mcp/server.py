@@ -27,6 +27,7 @@ from pok.index.search import get_entry as _get_entry
 from pok.index.search import related as _related
 from pok.index.search import search as _search
 from pok.mcp.tools import build as _build
+from pok.mcp.tools import constraints as _constraints
 from pok.mcp.tools import tree as _tree
 
 mcp: FastMCP = FastMCP(
@@ -101,6 +102,11 @@ evaluate_delta = mcp.tool(_build.evaluate_delta)
 check_item_legality = mcp.tool(_build.check_item_legality)
 assemble_pob = mcp.tool(_build.assemble_pob)
 parse_pob = mcp.tool(_build.parse_pob)
+
+# 설계 루프 (P4.5, D26~D28)
+check_constraints = mcp.tool(_constraints.check_constraints)
+evaluate_objective = mcp.tool(_constraints.evaluate_objective)
+parse_design_doc = mcp.tool(_constraints.parse_design_doc)
 
 # 트리 최적화 도구 (P4) — tools/tree.py
 connect_anchors = mcp.tool(_tree.connect_anchors)

@@ -245,7 +245,8 @@ flowchart TD
 ## 11. 엔진 능력 (MCP 도구 카탈로그, 러프)
 
 - **조회/검색**: `search_kb` · `get_entry(skill/item/passive/…)` · `find_meta_builds` · `get_prices` · `parse_pob` · `search_insights`
-- **빌드·계산**: `assemble_pob` · `compute_pob`(headless) · `evaluate_delta`(변경의 PoB 실측 델타) · `optimize_tree`(에이전트 정책 하 트리 탐색) · `connect_anchors`(Steiner 연결) · `check_item_legality` · *(예정)* `check_constraints`(설계 문서 제약 원장의 결정적 검사, D27)
+- **빌드·계산**: `assemble_pob` · `compute_pob`(headless) · `evaluate_delta`(변경의 PoB 실측 델타) · `optimize_tree`(에이전트 정책 하 트리 탐색) · `connect_anchors`(Steiner 연결) · `check_item_legality` · `parse_pob`(코드 해석 + 앵커 보관, D30)
+- **설계 루프** *(P4.5 구현 2026-08-02)*: `check_constraints`(제약 원장 4종의 결정적 검사, D27) · `evaluate_objective`(임계·캡 사전식 판정, D28) · `parse_design_doc`(design.md 기계 가독 파싱, D26)
 - **가격(요청 시)**: `estimate_cost`
 - **학습**: `record_feedback`(→ 큐레이션 게이트)
 
