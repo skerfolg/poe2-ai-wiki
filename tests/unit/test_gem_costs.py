@@ -92,3 +92,36 @@ def test_apply_전수_수록_멱등(tmp_path: Path) -> None:
         assert rec["data"]["cast_time_s"] == 0.4
         assert rec["data"]["converts_reservation_to"] == "life"
         assert rec["data"]["category"] == "spell"  # 기존 필드 보존
+
+
+def test_서술형_조건부_점유_추출() -> None:
+    """B-4 실증: 조건부 점유는 라벨(`Reservation:`)이 아니라 문장으로,
+    그것도 메인 젬 팝업이 아닌 **버프 팝업** 블록에 적힌다."""
+    from pok.kb.ingest.parse import parse_conditional_reservation
+
+    buff = "Socketed Curse Skills apply in an Aura around you Reserves 60 Spirit per socketed Curse"
+    assert parse_conditional_reservation(buff) == [
+        {"resource": "Spirit", "amount": 60.0, "per": "socketed Curse"}
+    ]
+    # 조건 없는 서술형도 잡는다 / 중복은 제거된다
+    assert parse_conditional_reservation("Reserves 30 Spirit. Reserves 30 Spirit") == [
+        {"resource": "Spirit", "amount": 30.0}
+    ]
+    assert parse_conditional_reservation("Cast Time: 0.5 sec") == []
+
+
+def test_전_Stats_블록을_스캔한다() -> None:
+    """페이지에 `.Stats`가 여러 개(메인·버프·보조)라 첫 블록만 보면 놓친다."""
+    from pok.kb.ingest.parse import parse_detail
+
+    html = (
+        "<html><head><title>T - PoE2DB</title></head><body>"
+        '<div class="Stats">Persistent Tier: 8 Level: (1 — 20)</div>'
+        '<div class="Stats">Aura around you Reserves 60 Spirit per socketed Curse</div>'
+        "</body></html>"
+    )
+    page = parse_detail(html)
+    assert page.tier == 8  # 메인 블록은 그대로
+    assert page.conditional_reservation == [
+        {"resource": "Spirit", "amount": 60.0, "per": "socketed Curse"}
+    ]

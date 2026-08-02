@@ -31,6 +31,10 @@ class DetailPage:
     additional_reservation: list[dict[str, Any]] = field(default_factory=list)  # 보조 젬
     cost_multiplier_pct: float | None = None  # 보조 젬 Cost Multiplier: 115%
     cast_time_s: float | None = None
+    # 서술형 점유 — 라벨(`Reservation:`)이 아니라 문장으로 적히는 조건부 점유.
+    # 예: "Reserves 60 Spirit per socketed Curse" (신성 모독). 페이지의 **버프 팝업**
+    # 블록에 있어 메인 Stats만 보면 놓친다 (실증 2026-08-02, 백로그 B-4).
+    conditional_reservation: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _title_name(soup: BeautifulSoup) -> str:
@@ -90,6 +94,33 @@ def _segment(text: str, label: str) -> str:
     return m.group(1) if m else ""
 
 
+# 서술형 점유: "Reserves 60 Spirit per socketed Curse" / "Reserves 30 Spirit"
+_RESERVES_SENTENCE = re.compile(
+    r"Reserves\s+(\d+(?:\.\d+)?)\s*(%)?\s*(Mana|Life|Spirit|Energy Shield)"
+    r"(?:\s+per\s+([A-Za-z ]{3,40}?))?(?=\s*(?:[.,]|Additional|Requires|$))",
+    re.IGNORECASE,
+)
+
+
+def parse_conditional_reservation(text: str) -> list[dict[str, Any]]:
+    """서술형 점유 문장 → [{resource, amount, per?, pct?}] (중복 제거).
+
+    poe2db는 조건부 점유를 라벨이 아니라 문장으로 적는다 — 그리고 그 문장은
+    메인 젬 팝업이 아니라 **버프 팝업** 블록에 있다. 페이지의 모든 `.Stats`를
+    합쳐서 넘겨야 잡힌다.
+    """
+    out: list[dict[str, Any]] = []
+    for m in _RESERVES_SENTENCE.finditer(text):
+        entry: dict[str, Any] = {"resource": m.group(3), "amount": float(m.group(1))}
+        if m.group(2):
+            entry["pct"] = True
+        if m.group(4):
+            entry["per"] = " ".join(m.group(4).split())
+        if entry not in out:
+            out.append(entry)
+    return out
+
+
 def parse_stats_costs(stats_text: str) -> dict[str, Any]:
     """Stats 텍스트 → 코스트·점유·시전시간 (없는 항목은 빈 값).
 
@@ -132,6 +163,9 @@ def parse_detail(html: str) -> DetailPage:
         page.tags = _extract_tags(text)
         for key, value in parse_stats_costs(text).items():
             setattr(page, key, value)
+    # 조건부(서술형) 점유는 버프 팝업 블록에 있다 — 전 `.Stats`를 합쳐서 스캔
+    all_stats = " ".join(b.get_text(" ", strip=True) for b in soup.select(".Stats"))
+    page.conditional_reservation = parse_conditional_reservation(all_stats)
 
     for card in soup.select("div.card"):
         header = card.select_one(".card-header")

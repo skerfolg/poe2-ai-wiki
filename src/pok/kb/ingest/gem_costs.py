@@ -29,6 +29,7 @@ _COST_KEYS = (
     "cost",
     "reservation",
     "additional_reservation",
+    "conditional_reservation",
     "cost_multiplier_pct",
     "cast_time_s",
     "converts_reservation_to",
@@ -53,6 +54,8 @@ def _updates_from_page(html: str) -> dict[str, Any]:
         updates["reservation"] = page.reservation
     if page.additional_reservation:
         updates["additional_reservation"] = page.additional_reservation
+    if page.conditional_reservation:
+        updates["conditional_reservation"] = page.conditional_reservation
     if page.cost_multiplier_pct is not None:
         updates["cost_multiplier_pct"] = page.cost_multiplier_pct
     if page.cast_time_s is not None:
