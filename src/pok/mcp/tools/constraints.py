@@ -16,11 +16,13 @@ from pok.engine.constraints import (
     Bundle,
     KbDefaults,
     ReservationEntry,
+    SideEffect,
     SkillLinks,
     check_color_majority,
     check_exhaustion,
     check_point_budget,
     check_reservation,
+    check_sustain,
     kb_defaults,
 )
 from pok.engine.objective import Target, evaluate_targets
@@ -50,8 +52,9 @@ def check_constraints(
     color_ledger: dict[str, Any] | None = None,
     reservation: dict[str, Any] | None = None,
     exhaustion: dict[str, Any] | None = None,
+    sustain: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """설계 제약 원장 4종의 결정적 검사(D27) — 준 것만 검사해 리포트 반환.
+    """설계 제약 원장 5종의 결정적 검사(D27) — 준 것만 검사해 리포트 반환.
 
     입력 (모두 선택, design.md 장부의 전사):
       point_budget = {"bundles": [{"name","points","required"?}], "budget"?}
@@ -61,6 +64,10 @@ def check_constraints(
                       "low_life_threshold_pct"?}  (임계 생략 = KB resource.life)
       exhaustion   = {"skills": […color_ledger와 동일…], "anoints":
                       [{"item","existing"?,"planned"?}], "max_supports_per_skill"?}
+      sustain      = {"effects": [{"name","base_amount","mitigation_pct"?}], "pool",
+                      "target_pool_ratio_pct"?} — 지속 가능성 경계(성립 질문의 산수):
+                      부작용·비용 실효량 vs 가용 자원, 필요 경감 역산. 미측정이어도
+                      원본·경감·가용이 수치로 있으면 경계는 여기서 계산한다.
     판단 없음(AD-3): 위반 사유·여유분만 — 무엇을 고를지는 호출자 몫.
     """
     out: dict[str, Any] = {}
@@ -118,8 +125,25 @@ def check_constraints(
                 max_supports_per_skill=max_supports,
             )
         )
+    if sustain is not None:
+        effects = tuple(
+            SideEffect(
+                name=str(e["name"]),
+                base_amount=float(e["base_amount"]),
+                mitigation_pct=float(e.get("mitigation_pct", 0.0)),
+            )
+            for e in sustain.get("effects", [])
+        )
+        target = sustain.get("target_pool_ratio_pct")
+        out["sustain"] = dataclasses.asdict(
+            check_sustain(
+                effects,
+                float(sustain["pool"]),
+                target_pool_ratio_pct=float(target) if target is not None else None,
+            )
+        )
     if not out:
-        return {"ok": False, "reason": "검사할 원장이 없음 — 4종 중 하나 이상을 넘길 것"}
+        return {"ok": False, "reason": "검사할 원장이 없음 — 5종 중 하나 이상을 넘길 것"}
     return out
 
 

@@ -9,6 +9,8 @@
 - reservation — 점유 산수·로우라이프 경계 (근거: mechanic.reservation·resource.life)
 - exhaust  — 자원 소진: 성유 1회성·보조 슬롯 한도
              (근거: crafting-rules/anoint-rules.json·mechanic.support-gem-slots)
+- sustain  — 지속 가능성 경계: 부작용 실효량 vs 가용 자원, 필요 경감 역산
+             (성립 질문의 산수 부분 — 측정 전 상·하한 계산)
 
 입력은 BuildSpec이 아니라 설계 단계의 최소 스펙(각 모듈의 dataclass)이다 —
 설계 문서(design.md)의 장부는 BuildSpec(PoB 스냅샷)보다 앞서 존재하기 때문.
@@ -28,6 +30,7 @@ from pok.engine.constraints.reservation import (
     ReservationReport,
     check_reservation,
 )
+from pok.engine.constraints.sustain import SideEffect, SustainReport, check_sustain
 
 __all__ = [
     "AnointPlan",
@@ -38,11 +41,14 @@ __all__ = [
     "PointBudgetReport",
     "ReservationEntry",
     "ReservationReport",
+    "SideEffect",
     "SkillLinks",
+    "SustainReport",
     "check_color_majority",
     "check_exhaustion",
     "check_point_budget",
     "check_reservation",
+    "check_sustain",
     "kb_defaults",
 ]
 

@@ -13,11 +13,13 @@ from pok.engine.constraints import (
     Bundle,
     KbDefaults,
     ReservationEntry,
+    SideEffect,
     SkillLinks,
     check_color_majority,
     check_exhaustion,
     check_point_budget,
     check_reservation,
+    check_sustain,
     kb_defaults,
 )
 
@@ -189,3 +191,41 @@ def test_소진_v6_기본_장부는_통과(defaults: KbDefaults) -> None:
     )
     assert report.ok
     assert dict((s, h) for s, h in report.slot_headroom)["불씨 일제 사격"] == 0  # 5/5
+
+
+# ── ⑤ 지속 가능성 경계 (성립 질문의 산수 — 원본·경감·가용이 있으면 측정 전 계산) ──
+
+
+def test_경계_경감_차이가_성립을_가른다() -> None:
+    # 자해 원본 1,580(생명력 1,500+ES 80), 가용 = 로우라이프 잔여 33% = 495
+    effect_75 = SideEffect("자해 폭발", 1580.0, mitigation_pct=75.0)
+    effect_90 = SideEffect("자해 폭발", 1580.0, mitigation_pct=90.0)
+    low = check_sustain((effect_75,), 495.0)
+    high = check_sustain((effect_90,), 495.0)
+    assert low.entries[0][1] == 395.0 and low.entries[0][2] == 79.8  # 가용의 79.8%
+    assert high.entries[0][1] == 158.0 and high.entries[0][2] == 31.92
+    assert low.ok and high.ok  # 즉사 경계는 아님 — 비율 판단은 호출자 몫 (AD-3)
+
+
+def test_경계_즉사는_위반() -> None:
+    report = check_sustain((SideEffect("자해 폭발", 1580.0, mitigation_pct=60.0),), 495.0)
+    assert not report.ok  # 실효 632 ≥ 가용 495
+    assert any("초과" in v for v in report.violations)
+
+
+def test_경계_필요_경감_역산() -> None:
+    report = check_sustain(
+        (SideEffect("자해 폭발", 1580.0, mitigation_pct=75.0),),
+        495.0,
+        target_pool_ratio_pct=50.0,
+    )
+    name, target, need = report.required_mitigation[0]
+    assert (name, target) == ("자해 폭발", 50.0)
+    assert need == 84.34  # 1 - 495x0.5/1580 — 이 경감의 수급은 요구-수급 장부로
+
+
+def test_경계_가용_0이하는_거부() -> None:
+    import pytest as _pytest
+
+    with _pytest.raises(ValueError):
+        check_sustain((SideEffect("x", 100.0),), 0.0)
