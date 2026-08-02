@@ -30,8 +30,8 @@ def defaults() -> KbDefaults:
 
 
 def test_kb_상수는_정본에서_읽는다(defaults: KbDefaults) -> None:
-    assert defaults.ascendancy_budget == 8  # resource.ascendancy-points
-    assert defaults.max_supports_per_skill == 5  # resource.support-gem-slots
+    assert defaults.ascendancy_budget == 8  # mechanic.ascendancy-points
+    assert defaults.max_supports_per_skill == 5  # mechanic.support-gem-slots
     assert defaults.low_life_threshold_pct == 35.0  # resource.life
 
 

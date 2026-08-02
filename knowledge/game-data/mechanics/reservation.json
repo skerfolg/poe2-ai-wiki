@@ -1,15 +1,14 @@
 {
-  "id": "resource.reservation",
-  "type": "Resource",
+  "id": "mechanic.reservation",
+  "type": "Mechanic",
   "name": {
     "ko": "점유",
     "en": "Reservation"
   },
   "tags": [
-    "resource"
+    "mechanic"
   ],
   "data": {
-    "regenerates": false,
     "efficiency_formula": "actual_reservation_pct = base_reservation_pct / (1 + total_reservation_efficiency)",
     "efficiency_stacking": "additive",
     "_verification": {
@@ -18,8 +17,16 @@
     }
   },
   "relations": [
-    { "rel": "reserves", "target": "resource.spirit", "note": "지속 스킬의 기본 점유 대상" },
-    { "rel": "reserves", "target": "resource.life", "note": "생명력 점유 전환 수단(예: 앗지리의 성찬식) 사용 시" }
+    {
+      "rel": "reserves",
+      "target": "resource.spirit",
+      "note": "지속 스킬의 기본 점유 대상"
+    },
+    {
+      "rel": "reserves",
+      "target": "resource.life",
+      "note": "생명력 점유 전환 수단(예: 앗지리의 성찬식) 사용 시"
+    }
   ],
   "verification": "SUPPORTED_INFERENCE",
   "sources": [

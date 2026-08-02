@@ -4,7 +4,7 @@
 - 성유: crafting-rules/anoint-rules.json — 아이템당 성유 부여는 동시에 1개만
   (v6: "목걸이 기존 성유 고정, 추가 주입 불가능" — 기존 부여 위에 다른 노드를
   주입으로 해결할 수 없다)
-- 보조 슬롯: resource.support-gem-slots — 액티브 젬당 보조 최대 5개
+- 보조 슬롯: mechanic.support-gem-slots — 액티브 젬당 보조 최대 5개
 """
 
 from __future__ import annotations
@@ -51,7 +51,7 @@ def check_exhaustion(
         if used > max_supports_per_skill:
             violations.append(
                 f"{grp.skill}: 보조 {used}개 > 한도 {max_supports_per_skill} "
-                f"(resource.support-gem-slots)"
+                f"(mechanic.support-gem-slots)"
             )
     for plan in anoints:
         if plan.existing and plan.planned and plan.planned != plan.existing:

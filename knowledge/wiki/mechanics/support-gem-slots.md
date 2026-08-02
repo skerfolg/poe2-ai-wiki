@@ -1,5 +1,5 @@
 ---
-id: resource.support-gem-slots
+id: mechanic.support-gem-slots
 label: GAME_DATA
 verified_by: 사용자 승인 2026-07-31 (태스크 #35 — v6 설계 일반화, 인게임 스킬 패널·poe2db 대조)
 lang: ko

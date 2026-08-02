@@ -1,4 +1,4 @@
-"""전직 포인트 예산 검사 — D27 ① (근거: resource.ascendancy-points, 예산 8).
+"""전직 포인트 예산 검사 — D27 ① (근거: mechanic.ascendancy-points, 예산 8).
 
 v6 실증(design.md §1): 예산 8에 네 묶음 합 10 → 마지막 2포인트에서 분기 강제.
 검사기는 "어느 분기를 골라야 하는가"를 판단하지 않는다(AD-3) — 예산 안에 드는

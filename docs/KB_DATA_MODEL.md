@@ -29,9 +29,15 @@ item.astramentis · modifier.fire-damage-pct · content.pinnacle-boss · build.s
 - 관계 참조·검색 히트·MCP 응답·에이전트 대화 모두 이 id 사용.
 - 타입 접두사는 §2 엔티티와 1:1.
 
-## 2. 엔티티 (BLUEPRINT §7, 11종)
+## 2. 엔티티 (BLUEPRINT §7, 12종)
 
-`Skill · Support · Passive · Ascendancy · Item · Modifier · Event · Resource · Defence · Content · Build`
+`Skill · Support · Passive · Ascendancy · Item · Modifier · Event · Resource · Mechanic · Defence · Content · Build`
+
+- **Mechanic** *(2026-08-02 신설, 사용자 승인)* — 특정 엔티티에 귀속되지 않는 **게임 작동
+  규칙·공식·한도**: 점유 효율 공식(`mechanic.reservation`), 전직 포인트 예산
+  (`mechanic.ascendancy-points`), 보조 젬 슬롯 한도(`mechanic.support-gem-slots`) 등.
+  Resource(생명력·마나·정신력 같은 실제 자원)와 구분 — v6 일반화(태스크 #35)에서
+  Resource로 임시 수록했던 것을 분리했다.
 
 각 엔티티의 타입별 `data` 필드 구조는 `knowledge/schema/<type>.schema.json`에 정의한다(공통 envelope는 `record.schema.json`).
 
@@ -139,6 +145,7 @@ knowledge/
 │   ├── ascendancies/<slug>.json
 │   ├── uniques/<slug>.json          #   (Item 중 유니크)
 │   ├── passives/<slug>.json         #   키스톤·노터블 (큐레이션 대상)
+│   ├── mechanics/<slug>.json        #   작동 규칙·공식·한도 (Mechanic, 큐레이션)
 │   ├── contents/<slug>.json
 │   ├── modifiers/<shard>.ndjson     # ── 벌크 = NDJSON 샤드 ──
 │   ├── base-items/<shard>.ndjson

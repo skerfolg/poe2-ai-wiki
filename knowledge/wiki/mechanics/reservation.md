@@ -1,5 +1,5 @@
 ---
-id: resource.reservation
+id: mechanic.reservation
 label: SUPPORTED_INFERENCE
 verified_by: 사용자 승인 2026-07-31 (태스크 #35 — v6 설계 일반화, 인게임 점유 정보창 표시값 대조)
 lang: ko

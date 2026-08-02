@@ -1,6 +1,6 @@
-"""점유 산수 검사 — D27 ③ (근거: resource.reservation·resource.life, 태스크 #35 수록분).
+"""점유 산수 검사 — D27 ③ (근거: mechanic.reservation·resource.life, 태스크 #35 수록분).
 
-공식(resource.reservation, SUPPORTED_INFERENCE — 인게임 점유 정보창 대조):
+공식(mechanic.reservation, SUPPORTED_INFERENCE — 인게임 점유 정보창 대조):
 
     실제 점유율 = 기본 점유율 ÷ (1 + 총 점유 효율)      # 효율원은 합산(additive)
 
