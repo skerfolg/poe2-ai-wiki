@@ -17,7 +17,14 @@
     ],
     "cost_resource": "mana",
     "description": "Slam the ground to Stun enemies and knock them away, then continue forward and perform a devastating second Slam.",
-    "tier": 1
+    "tier": 1,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 14.0,
+        "max": 96.0
+      }
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

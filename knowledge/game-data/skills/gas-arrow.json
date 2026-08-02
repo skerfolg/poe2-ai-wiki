@@ -20,7 +20,14 @@
     ],
     "cost_resource": "mana",
     "description": "Fire a noxious arrow at the ground, creating a cloud of flammable poisonous gas at the end of its flight. The cloud will detonate if hit by a Detonator skill or if an Ignited enemy touches it, creating a fiery explosion.",
-    "tier": 7
+    "tier": 7,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 9.0,
+        "max": 62.0
+      }
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

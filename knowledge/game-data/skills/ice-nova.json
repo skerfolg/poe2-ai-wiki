@@ -19,7 +19,15 @@
     ],
     "cost_resource": "mana",
     "description": "Conjure a wave of ice in all directions, Knocking Back enemies based on how close they are to you. Casting Ice Nova targeting near a Frostbolt Projectile will cause it to originate from the Frostbolt instead of you. Consumes a Cold Infusion if possible to leave a patch of Chilled Ground.",
-    "tier": 1
+    "tier": 1,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 7.0,
+        "max": 74.0
+      }
+    ],
+    "cast_time_s": 1.0
   },
   "verification": "GAME_DATA",
   "sources": [

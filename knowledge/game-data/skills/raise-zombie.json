@@ -13,7 +13,14 @@
     "category": "minion",
     "cost_resource": "spirit",
     "description": "Consume a Corpse or Power Charge to create a short-lived Zombie. Zombies created from Power Charges are Empowered and also create two additional non-empowered Zombies.",
-    "tier": 5
+    "tier": 5,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 10.0,
+        "max": 102.0
+      }
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [
