@@ -145,6 +145,23 @@ _SUPPLY_PATTERNS: list[tuple[re.Pattern[str], str, str | None]] = [
         "enemy.status",
         "v",
     ),
+    # "10% chance to inflict Bleeding on Hit" — 정본에서 가장 흔한 유발 표현인데
+    # 위의 동사형 패턴이 못 잡아 "출혈 공급 1건"이라는 거짓 갭이 났다(2026-08-04).
+    # `cannot inflict`(피격 방어 문구)는 유발이 아니므로 배제한다.
+    (
+        re.compile(
+            rf"\b(?<!cannot )inflict(?:s|ing)?\s+(?P<v>{'|'.join(_STATUS_ADJS)})\b",
+            re.I,
+        ),
+        "enemy.status",
+        "v",
+    ),
+    # "Enemies you Electrocute have 20% increased Damage taken" — 유발 주체가 나다
+    (
+        re.compile(rf"\bEnemies you\s+(?P<v>{'|'.join(_STATUS_VERBS)})\b", re.I),
+        "enemy.status",
+        "v",
+    ),
     # 충전 부여: "Gain a Power Charge" · "gain Frenzy Charges"
     *[
         (

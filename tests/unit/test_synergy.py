@@ -71,6 +71,21 @@ def test_출혈_공급_동사도_잡는다() -> None:
     assert _predicates("Attacks have 25% chance to Bleed") == {"enemy.status=bleeding": "supply"}
 
 
+def test_inflict형_유발이_정본에서_가장_흔하다() -> None:
+    """동사형만 잡던 탓에 출혈 공급이 1건으로 보였다 — 실제로는 44건(2026-08-04)."""
+    assert _predicates("10% chance to inflict Bleeding on Hit") == {
+        "enemy.status=bleeding": "supply"
+    }
+    assert _predicates("Enemies you Electrocute have 20% increased Damage taken") == {
+        "enemy.status=electrocuted": "supply"
+    }
+
+
+def test_유발_부정문은_공급이_아니다() -> None:
+    """'cannot inflict Bleeding on you'는 피격 방어 문구다 — 유발로 세면 거짓 공급."""
+    assert _predicates("Deflected Hits cannot inflict Bleeding on you") == {}
+
+
 # ── 잡지 말아야 할 것 ────────────────────────────────────────────────
 
 
