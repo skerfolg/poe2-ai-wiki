@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from pok.kb.store import load as store_load
+from pok.kb.store import patch_records
 
 _ATTR_COLOR = (("reqStr", "red"), ("reqDex", "green"), ("reqInt", "blue"))
 
@@ -42,7 +43,7 @@ def apply_gem_colors(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
     pob_gems = json.loads((raw_dir / "pob" / "gems.json").read_text(encoding="utf-8"))
     by_name = {str(g.get("name", "")).lower(): g for g in pob_gems.values() if g.get("name")}
     kb = store_load(knowledge.parent)
-    per_path: dict[Path, dict[str, dict[str, Any]]] = {}
+    patches: dict[str, dict[str, Any]] = {}
     tally: dict[str, int] = {}
     unmatched: list[str] = []
     for r in kb.records.values():
@@ -54,26 +55,8 @@ def apply_gem_colors(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
             continue
         color, reqs = color_of(gem)
         tally[color] = tally.get(color, 0) + 1
-        per_path.setdefault(r.path, {})[r.id] = {
-            "color": color,
-            "color_requirements": reqs,
-        }
+        patches[r.id] = {"color": color, "color_requirements": reqs}
 
-    for path, by_id in per_path.items():
-        if path.suffix == ".ndjson":
-            lines = []
-            for line in path.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                rec = json.loads(line)
-                if rec["id"] in by_id:
-                    rec["data"] = {**rec["data"], **by_id[rec["id"]]}
-                lines.append(json.dumps(rec, ensure_ascii=False))
-            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        else:
-            rec = json.loads(path.read_text(encoding="utf-8"))
-            rec["data"] = {**rec["data"], **by_id[rec["id"]]}
-            path.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-    store_load(knowledge.parent)  # 병합 후 재검증 — 실패 시 예외
+    # 정본 쓰기는 store 단일 경로로 (B-6)
+    patch_records(patches, root=knowledge.parent)
     return {"updated": sum(tally.values()), "by_color": tally, "unmatched": unmatched}

@@ -1,14 +1,25 @@
-"""knowledge/ 정본 로드·검증 (KB_DATA_MODEL §9).
+"""knowledge/ 정본 **접근**(로드·검증·쓰기) — KB_DATA_MODEL §9.
 
-검증 실패 = 예외 (조용한 통과 금지). 검증 4층:
+읽기 — 검증 실패 = 예외 (조용한 통과 금지). 검증 4층:
 ① envelope(record.schema.json) ② 타입별 data 스키마 ③ 조건 subject의 vocab 대조
 ④ 참조 무결성(relations.target·satisfiable_by가 실존 id)
+
+쓰기 — **정본에 쓰는 경로는 여기 하나뿐이다** (B-6, 사용자 합의 2026-08-03).
+쓰기 계약이 없던 시절엔 ingest 모듈들이 각자 `knowledge/`에 쓰면서 KD-1 배치 규칙
+(개별 JSON이냐 NDJSON 샤드냐)을 매번 재추론했고, 한 곳만 빠뜨려도 샤드가 통째로
+파괴됐다(실측 2026-08-02 830건·2026-08-03 884건). 배치 판단을 여기 가두고,
+모든 쓰기에 안전장치 3종을 강제한다:
+  ① 쓰기 후 자동 재검증 — 깨진 상태가 커밋으로 넘어가지 않는다
+  ② 레코드 감소 시 예외 — 명시적 삭제 근거(`allow_delete`) 없이는 줄지 않는다
+  ③ 원자적 쓰기 — 중단돼도 기존 파일이 반토막 나지 않는다
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+import os
+import tempfile
+from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -39,6 +50,24 @@ class KBValidationError(Exception):
         self.errors = errors
         detail = "\n".join(f"- {e}" for e in errors)
         super().__init__(f"KB 검증 실패 ({len(errors)}건):\n{detail}")
+
+
+class KBWriteError(Exception):
+    """정본 쓰기 거부 — 데이터가 줄거나 계약을 어긴 경우 (파일은 그대로)."""
+
+
+@dataclass(frozen=True)
+class WriteReport:
+    """쓰기 결과 요약 — 호출자가 로그·검증에 쓴다."""
+
+    path: Path
+    added: tuple[str, ...] = ()
+    updated: tuple[str, ...] = ()
+    removed: tuple[str, ...] = ()
+
+    @property
+    def summary(self) -> str:
+        return f"{self.path.name}: +{len(self.added)} ~{len(self.updated)} -{len(self.removed)}"
 
 
 @dataclass(frozen=True)
@@ -206,3 +235,145 @@ def load(root: Path | None = None) -> Store:
     if errors:
         raise KBValidationError(errors)
     return Store(records=records, subjects=subjects)
+
+
+# ── 쓰기 (B-6: 정본 쓰기 단일 경로) ────────────────────────────────
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    """임시 파일에 쓰고 교체 — 중단돼도 기존 파일이 반토막 나지 않는다(안전장치 ③)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        Path(tmp).unlink(missing_ok=True)
+        raise
+
+
+def _dump_shard(records: Iterable[dict[str, Any]]) -> str:
+    """NDJSON 직렬화 — id 정렬로 diff를 안정시킨다 (KD-1 벌크 배치)."""
+    ordered = sorted(records, key=lambda r: str(r["id"]))
+    return "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in ordered)
+
+
+def _dump_record(record: dict[str, Any]) -> str:
+    """개별 JSON 직렬화 — 사람이 리뷰하므로 들여쓰기 유지 (KD-1 큐레이션 배치)."""
+    return json.dumps(record, ensure_ascii=False, indent=2) + "\n"
+
+
+def _read_shard(path: Path) -> dict[str, dict[str, Any]]:
+    if not path.exists():
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            rec = json.loads(line)
+            out[str(rec["id"])] = rec
+    return out
+
+
+def write_shard(
+    path: Path,
+    records: Iterable[dict[str, Any]],
+    *,
+    allow_delete: Iterable[str] = (),
+    root: Path | None = None,
+    validate: bool = True,
+) -> WriteReport:
+    """NDJSON 샤드를 통째로 다시 쓴다 (KD-1 벌크 배치).
+
+    `records`는 **그 샤드의 최종 전량**이다. 기존에 있었으나 빠진 레코드는
+    `allow_delete`에 id가 명시된 것만 삭제하고, 나머지는 **거부**한다(안전장치 ②)
+    — 부분 갱신이 정본을 조용히 깎는 사고를 구조적으로 막는다. 삭제 근거는
+    호출자가 원장(`knowledge/ingest/exclusions.json` 등)에서 가져온다.
+    """
+    before = _read_shard(path)
+    incoming = {str(r["id"]): r for r in records}
+    allowed = set(allow_delete)
+    missing = set(before) - set(incoming)
+    unexpected = sorted(missing - allowed)
+    if unexpected:
+        raise KBWriteError(
+            f"{path.name}: 근거 없는 레코드 감소 {len(unexpected)}건 — 쓰기 거부. "
+            f"삭제하려면 allow_delete에 id를 명시하라 (예: {unexpected[:3]})"
+        )
+    _atomic_write(path, _dump_shard(incoming.values()))
+    if validate:
+        load(root)  # 안전장치 ①: 깨진 상태로 남지 않는다 (실패 시 예외)
+    return WriteReport(
+        path=path,
+        added=tuple(sorted(set(incoming) - set(before))),
+        updated=tuple(sorted(k for k in set(incoming) & set(before) if incoming[k] != before[k])),
+        removed=tuple(sorted(missing & allowed)),
+    )
+
+
+def write_record(
+    path: Path, record: dict[str, Any], *, root: Path | None = None, validate: bool = True
+) -> WriteReport:
+    """큐레이션 개별 JSON 1건을 쓴다 (KD-1 큐레이션 배치).
+
+    ⚠️ `path`는 **그 레코드만 담은 파일**이어야 한다 — 샤드 경로를 넘기면
+    파일 전체가 한 레코드로 덮여 파괴된다. 그 사고를 여기서 차단한다.
+    """
+    if path.suffix == ".ndjson":
+        raise KBWriteError(
+            f"{path.name}: 샤드에 개별 레코드를 쓸 수 없다 — write_shard를 쓰라 "
+            "(파일 전체가 한 줄로 덮이는 파괴 경로)"
+        )
+    _atomic_write(path, _dump_record(record))
+    if validate:
+        load(root)
+    return WriteReport(path=path, updated=(str(record["id"]),))
+
+
+def patch_records(
+    updates: Mapping[str, Mapping[str, Any]],
+    *,
+    root: Path | None = None,
+    validate: bool = True,
+) -> list[WriteReport]:
+    """기존 레코드의 `data`에 필드를 덧씌운다 — 후처리 보강 전용.
+
+    id → data 패치를 받아 **레코드가 실제로 있는 파일**(샤드든 개별이든)을 찾아
+    갱신한다. 호출자는 배치 형태를 알 필요가 없다 — 그 판단이 흩어져 있던 것이
+    B-6이 없애려는 결함이다. 없는 id는 조용히 넘기지 않고 예외.
+
+    패치 값이 `None`이면 **그 키를 지운다** — 소스에서 사라진 값이 눌러붙지 않게
+    하는 재적용 멱등성의 수단이다(예: 젬 코스트 재파싱).
+    """
+    store = load(root)
+    unknown = sorted(set(updates) - set(store.records))
+    if unknown:
+        raise KBWriteError(f"KB에 없는 id {len(unknown)}건 — 패치 거부 (예: {unknown[:3]})")
+
+    by_path: dict[Path, list[str]] = {}
+    for rid in updates:
+        by_path.setdefault(store.records[rid].path, []).append(rid)
+
+    def _apply(data: Mapping[str, Any], patch: Mapping[str, Any]) -> dict[str, Any]:
+        merged = {**data, **{k: v for k, v in patch.items() if v is not None}}
+        for key, value in patch.items():  # None = 키 삭제 (재적용 멱등)
+            if value is None:
+                merged.pop(key, None)
+        return merged
+
+    reports: list[WriteReport] = []
+    for path, ids in by_path.items():
+        if path.suffix == ".ndjson":
+            shard = _read_shard(path)
+            for rid in ids:
+                prev_data = shard[rid].get("data", {})
+                shard[rid] = {**shard[rid], "data": _apply(prev_data, updates[rid])}
+            _atomic_write(path, _dump_shard(shard.values()))
+        else:
+            rec = json.loads(path.read_text(encoding="utf-8"))
+            rec["data"] = _apply(rec.get("data", {}), updates[rec["id"]])
+            _atomic_write(path, _dump_record(rec))
+        reports.append(WriteReport(path=path, updated=tuple(sorted(ids))))
+    if validate and reports:
+        load(root)
+    return reports

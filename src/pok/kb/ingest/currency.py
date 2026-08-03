@@ -120,6 +120,7 @@ def to_record(
 def process_and_merge(raw_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     """파싱 → ⑥⑦ 검증 → knowledge/game-data/currency/ 기록 → 전량 재검증."""
     from pok.kb.store import load as store_load
+    from pok.kb.store import write_shard
 
     src = raw_dir / "currency"
     us = parse_page((src / "stackable.us.html").read_text(encoding="utf-8"))
@@ -143,14 +144,8 @@ def process_and_merge(raw_dir: Path, knowledge: Path, patch: str) -> dict[str, A
     )
 
     out = knowledge / "game-data" / "currency"
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "currency-01.ndjson").write_text(
-        "".join(
-            json.dumps(r, ensure_ascii=False) + "\n"
-            for r in sorted(records, key=lambda r: str(r["id"]))
-        ),
-        encoding="utf-8",
-    )
+    # 쓰기는 store 단일 경로로 (B-6): 원자적 + 근거 없는 레코드 감소 거부
+    write_shard(out / "currency-01.ndjson", records, root=knowledge.parent, validate=False)
     after = store_load(knowledge.parent)  # 스키마·중복(기존 item.*와 충돌 포함) 전량 재검증
 
     by_cat: dict[str, int] = {}
