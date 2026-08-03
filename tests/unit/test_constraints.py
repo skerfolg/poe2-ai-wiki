@@ -134,8 +134,8 @@ def test_점유_v6_효율57_잔여_32_96(defaults: KbDefaults) -> None:
     assert report.ok
     assert dict(report.entries)["CoEA+앗지리의 성찬식"] == 42.04
     assert dict(report.entries)["베이다트의 의지"] == 25.0  # 고정 점유 — 효율 미적용
-    assert report.total_reserved_pct == 67.04
-    assert report.remaining_pct == 32.96
+    assert report.total_reserved == 67.04
+    assert report.remaining == 32.96
     assert report.low_life  # 게임 내 점유 정보창 성립 확인과 일치 (IN_GAME)
     assert report.max_efficiency_for_low_life_pct == 65.0  # v6 §5.7 경계와 일치
 
@@ -145,14 +145,14 @@ def test_점유_v6_효율16_잔여_18_10(defaults: KbDefaults) -> None:
         _V6_RESERVES, 16.0, low_life_threshold_pct=defaults.low_life_threshold_pct
     )
     assert dict(report.entries)["CoEA+앗지리의 성찬식"] == 56.9  # v6 §5.3 표
-    assert report.total_reserved_pct == 81.9 and report.remaining_pct == 18.1
+    assert report.total_reserved == 81.9 and report.remaining == 18.1
 
 
 def test_점유_베이다트_없이는_로우라이프_아님(defaults: KbDefaults) -> None:
     report = check_reservation(
         (_V6_RESERVES[0],), 10.0, low_life_threshold_pct=defaults.low_life_threshold_pct
     )
-    assert report.remaining_pct == 40.0 and not report.low_life  # v6 §5.4
+    assert report.remaining == 40.0 and not report.low_life  # v6 §5.4
 
 
 def test_점유_100_초과는_위반(defaults: KbDefaults) -> None:
@@ -161,7 +161,44 @@ def test_점유_100_초과는_위반(defaults: KbDefaults) -> None:
         0.0,
         low_life_threshold_pct=defaults.low_life_threshold_pct,
     )
-    assert not report.ok and any("100%" in v for v in report.violations)
+    assert not report.ok and any("총량 100" in v for v in report.violations)
+
+
+# ── ③-b 정신력 축 (축별 점유 장부 — 같은 공식, pool만 다르다) ──────────
+
+
+def test_점유_정신력_축_정액_계산() -> None:
+    """실증(2026-08-04): 검사기가 생명력 %축 전용이라 정신력 정액 축을 못 다뤘다.
+    수치는 KB 수록분 — CoC 100·존재감/격분/충전제어 각 30·신성 모독 저주당 60."""
+    spirit = (
+        ReservationEntry("일반 CoC", 100.0),
+        ReservationEntry("압도적인 존재감", 30.0),
+        ReservationEntry("전투 격분", 30.0),
+        ReservationEntry("충전 제어", 30.0),
+    )
+    report = check_reservation(spirit, 0.0, pool=250.0)
+    assert report.ok and report.total_reserved == 190.0 and report.remaining == 60.0
+    assert report.low_life is None  # 생명력 전용 판정은 계산하지 않는다
+    assert report.remaining_pct == 24.0  # 축이 달라도 같은 척도로 읽을 수 있다
+
+
+def test_점유_정신력_축도_효율을_받는다() -> None:
+    """신성 모독 5저주 300은 점유 효율의 영향을 받는다 (사용자 확인 2026-08-02)."""
+    blasphemy = (ReservationEntry("신성 모독 5저주", 300.0),)
+    report = check_reservation(blasphemy, 20.0, pool=500.0)
+    assert report.total_reserved == 250.0  # 300 / 1.2
+    assert report.remaining == 250.0
+
+
+def test_점유_총량_초과는_축_무관_위반() -> None:
+    over = (ReservationEntry("CoC", 100.0), ReservationEntry("CoEA", 100.0))
+    report = check_reservation(over, 0.0, pool=150.0)
+    assert not report.ok and any("총량 150" in v for v in report.violations)
+
+
+def test_점유_총량_0이하는_거부() -> None:
+    with pytest.raises(ValueError, match="pool"):
+        check_reservation((ReservationEntry("x", 10.0),), 0.0, pool=0.0)
 
 
 # ── ④ 자원 소진 (성유 1회성 + 보조 한도 5) ─────────────────────────────
