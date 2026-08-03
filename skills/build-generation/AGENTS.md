@@ -86,8 +86,10 @@
   경계 계산(sustain) 없이 측정 큐로만 미루기 금지 — "미측정"과 "경계 계산 가능"은
   다르다 (BUILD_DESIGN §2-3 성립 질문 규율).
 - ⛔ **한 축 점유 장부로 전체 대신하기** — 점유 검사는 자원 축마다(생명력·정신력 등) 각각
-  장부를 만든다. 지속 스킬·보조의 점유는 KB 수치(reservation·additional_reservation)로
-  전수 합산 (BUILD_DESIGN §2-3 축별 점유 장부).
+  장부를 만든다. 지속 스킬·보조의 점유는 KB 수치(reservation·additional_reservation·
+  conditional_reservation)로 전수 합산 (BUILD_DESIGN §2-3 축별 점유 장부).
+  `check_constraints`의 reservation은 **축 무관**이다 — 생명력 축은 `pool` 생략(=100,
+  단위 %), 정신력 축은 `pool`=총 정신력·단위 절대량으로 **각각 호출**하라.
 - ⛔ **실측 이상 신호의 무반증 처리** — 초과·음수·기대 불일치를 "모델링 인공물"로
   결론 내리기 전에 반증(해당 요소 제거 재실측 등)을 기록한다 (BUILD_DESIGN §2-3).
 - ⛔ **성급한 "인게임 확인 필요" 분류** — 원시 데이터 재조회·다른 표기 재조회·파서 스캔

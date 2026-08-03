@@ -60,8 +60,12 @@ def check_constraints(
       point_budget = {"bundles": [{"name","points","required"?}], "budget"?}
                      (budget 생략 = KB mechanic.ascendancy-points)
       color_ledger = {"skills": [{"skill", "supports": [[이름, 색], …]}], "color": "red"}
-      reservation  = {"entries": [{"name","base_pct","fixed"?}], "efficiency_pct",
-                      "low_life_threshold_pct"?}  (임계 생략 = KB resource.life)
+      reservation  = {"entries": [{"name","base_amount","fixed"?}], "efficiency_pct",
+                      "pool"?, "axis"?, "low_life_threshold_pct"?}
+                     **축 무관** — 생명력 축은 pool 생략(=100, 단위 %), 정신력 축은
+                     pool=총 정신력·단위 절대량(CoC 100·신성 모독 저주당 60 등).
+                     로우라이프 판정은 생명력 축에서만(임계 생략 = KB resource.life).
+                     축별로 각각 호출하라 — 한 축 검증이 다른 축을 대신하지 않는다
       exhaustion   = {"skills": […color_ledger와 동일…], "anoints":
                       [{"item","existing"?,"planned"?}], "max_supports_per_skill"?}
       sustain      = {"effects": [{"name","base_amount","mitigation_pct"?}], "pool",
@@ -91,21 +95,33 @@ def check_constraints(
         entries = tuple(
             ReservationEntry(
                 name=str(e["name"]),
-                base_pct=float(e["base_pct"]),
+                # base_pct = 생명력 축의 옛 이름 — 두 표기 모두 받는다
+                base_amount=float(e.get("base_amount", e.get("base_pct", 0.0))),
                 fixed=bool(e.get("fixed", False)),
             )
             for e in reservation.get("entries", [])
         )
-        threshold = float(
-            reservation.get("low_life_threshold_pct") or _get_defaults().low_life_threshold_pct
-        )
-        out["reservation"] = dataclasses.asdict(
-            check_reservation(
-                entries,
-                float(reservation.get("efficiency_pct", 0.0)),
-                low_life_threshold_pct=threshold,
+        pool = float(reservation.get("pool") or 100.0)
+        # 생명력 축(pool=100)이면 KB 임계로 로우라이프까지 판정, 정신력 등 다른 축은 생략.
+        # axis를 명시하면 그 지시를 따른다 (예: axis="spirit" → 로우라이프 계산 안 함)
+        axis = str(reservation.get("axis", "life" if pool == 100.0 else "other"))
+        threshold: float | None = None
+        if axis == "life":
+            threshold = float(
+                reservation.get("low_life_threshold_pct") or _get_defaults().low_life_threshold_pct
             )
+        resv_report = check_reservation(
+            entries,
+            float(reservation.get("efficiency_pct", 0.0)),
+            pool=pool,
+            low_life_threshold_pct=threshold,
         )
+        # remaining_pct는 property라 asdict에 안 실린다 — 축이 달라도 같은 척도로
+        # 읽히는 값이라 소비자에게 필요하다
+        out["reservation"] = {
+            **dataclasses.asdict(resv_report),
+            "remaining_pct": resv_report.remaining_pct,
+        }
     if exhaustion is not None:
         anoints = tuple(
             AnointPlan(
