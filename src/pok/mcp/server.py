@@ -28,6 +28,7 @@ from pok.index.search import related as _related
 from pok.index.search import search as _search
 from pok.mcp.tools import build as _build
 from pok.mcp.tools import constraints as _constraints
+from pok.mcp.tools import explore as _explore
 from pok.mcp.tools import tree as _tree
 
 mcp: FastMCP = FastMCP(
@@ -111,6 +112,10 @@ parse_design_doc = mcp.tool(_constraints.parse_design_doc)
 # 트리 최적화 도구 (P4) — tools/tree.py
 connect_anchors = mcp.tool(_tree.connect_anchors)
 optimize_tree = mcp.tool(_tree.optimize_tree)
+
+# 능동 탐사 (P5) — tools/explore.py. 후보 생성만, 판정은 사람 게이트
+scan_synergies = mcp.tool(_explore.scan_synergies)
+find_hypotheses = mcp.tool(_explore.find_hypotheses)
 
 
 def main() -> None:
