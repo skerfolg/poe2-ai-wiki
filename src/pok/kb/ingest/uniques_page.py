@@ -403,16 +403,25 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
 
 def merge(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     """중간 산출물 → knowledge/game-data/uniques/uniques.ndjson."""
+    from pok.kb.ingest.merge import MACHINE_VERIFICATION, keep_human_verdict
     from pok.kb.store import load as store_load
 
     items = json.loads((out_dir / "uniques.json").read_text(encoding="utf-8"))
+    # 샤드를 통째로 다시 쓰므로, 이미 정본에 있는 사람 판정(IN_GAME·CONTRADICTED)을
+    # 먼저 읽어 둔다 — 없으면 재실행마다 기계 라벨로 되돌아간다.
+    before = store_load(knowledge.parent).records
     records: list[dict[str, Any]] = []
+    kept_verdicts = 0
     seen: set[str] = set()
     for item in items:
         rec = _to_record(item, patch)
         if rec["id"] in seen:
             continue
         seen.add(rec["id"])
+        prev = before.get(rec["id"])
+        if prev is not None and prev.raw.get("verification") not in MACHINE_VERIFICATION:
+            rec = keep_human_verdict(prev.raw, rec)
+            kept_verdicts += 1
         records.append(rec)
 
     dst = knowledge / "game-data" / "uniques"
@@ -425,7 +434,11 @@ def merge(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
         encoding="utf-8",
     )
     after = store_load(knowledge.parent)
-    return {"written": len(records), "kb_total": len(after.records)}
+    return {
+        "written": len(records),
+        "human_verdicts_kept": kept_verdicts,  # 사람 판정 라벨 유지분 (재실행이 덮지 않았다)
+        "kb_total": len(after.records),
+    }
 
 
 __all__ = ["PageUnique", "asdict", "fetch_pages", "merge", "parse_page", "process"]

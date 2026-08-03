@@ -415,11 +415,38 @@ def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
     (knowledge / "ingest").mkdir()
     (knowledge / "game-data").mkdir()
 
+    # 다른 단계(heart_mods)가 쓴 샤드 — merge의 잔재 청소가 이걸 지우면 KB가 깎인다
+    from pok.kb.ingest.heart_mods import SHARD as HEART_SHARD
+
+    heart_rec = {
+        "id": "modifier.heart-test",
+        "type": "Modifier",
+        "name": {"ko": "심장", "en": "Heart"},
+        "tags": [],
+        "data": {
+            "affix_type": "prefix",
+            "origins": ["heart-of-the-well"],
+            "pob_key": "UniqueHeartPrefixTest",
+            "texts": ["10% increased Heart"],
+            "ilvl": 1,
+            "acquisition": ["unique:heart-of-the-well"],
+        },
+        "verification": "POB_CODE",
+        "sources": [{"src": "pob", "ref": "Data/ModVeiled.lua UniqueHeart*"}],
+    }
+    (knowledge / "game-data" / "modifiers").mkdir(parents=True)
+    (knowledge / "game-data" / "modifiers" / HEART_SHARD).write_text(
+        json.dumps(heart_rec, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
     summary = merge_mods(out, knowledge, "t")
+    assert (
+        (knowledge / "game-data" / "modifiers" / HEART_SHARD).read_text(encoding="utf-8").strip()
+    ), "다른 단계 소유 샤드는 잔재가 아니다 — 재실행이 지우면 안 된다"
     assert summary["mods_included"] == 2, "확인분 승격 + 기존 수록분"
     assert summary["mods_excluded_to_ledger"] == 1, "미확인분은 원장으로"
     assert summary["mods_by_pool"]["desecrated"] == 2
-    assert summary["kb_total"] == 4
+    assert summary["kb_total"] == 5, "수록 2 + Desecrated 2 + 보존된 heart 1"
 
     ledger = json.loads((knowledge / "ingest" / "exclusions.json").read_text(encoding="utf-8"))
     assert ledger["unobtainable_mods"][0]["pob_keys"] == ["DeadZeal1"]

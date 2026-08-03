@@ -51,6 +51,15 @@ class Record:
     raw: dict[str, Any] = field(repr=False)
 
     @property
+    def in_shard(self) -> bool:
+        """NDJSON 벌크 샤드 소속인가 (KD-1). 개별 큐레이션 JSON 시드면 False.
+
+        `path`는 샤드일 때 **파일 전체**를 가리키므로 이 레코드 하나만 그 경로에
+        덮어쓰면 샤드가 통째로 날아간다 — 갱신 경로를 가르는 판별자다.
+        """
+        return self.path.suffix == ".ndjson"
+
+    @property
     def name_ko(self) -> str:
         return str(self.raw["name"]["ko"])
 

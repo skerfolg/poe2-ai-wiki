@@ -480,9 +480,13 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
         "PoB 스폰 가중치 전부 0 ∧ 에센스 매핑 없음 ∧ poe2db 카탈로그(클래스별 전 풀) 미등재",
     )
 
+    from pok.kb.ingest.heart_mods import SHARD as HEART_SHARD
+
     mod_dir = knowledge / "game-data" / "modifiers"
     base_dir = knowledge / "game-data" / "base-items"
     for stale in list(mod_dir.glob("*.ndjson")) + list(base_dir.glob("*.ndjson")):
+        if stale.name == HEART_SHARD:
+            continue  # 다른 단계(heart_mods)가 소유하는 샤드 — 여기서 지우면 재실행이 KB를 깎는다
         stale.unlink()  # 샤드 경계가 바뀌어도 잔재가 남지 않게 (멱등)
 
     by_pool: dict[str, list[dict[str, Any]]] = {}

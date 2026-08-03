@@ -323,3 +323,60 @@ def test_detail_cards_element_wise() -> None:
         "10 uses remaining",
     ]
     assert cards[0]["explicits"] == ["Map contains (14-18) additional Abysses"]
+
+
+def test_merge_rerun_keeps_human_verdict(tmp_path: Path) -> None:
+    """샤드 재생성이 사람 인게임 판정(IN_GAME·CONTRADICTED)을 기계 라벨로 되돌리지 않는다."""
+    import json
+    import shutil
+
+    from pok.common.paths import project_root
+    from pok.kb.ingest.uniques_page import merge
+
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "uniques.json").write_text(
+        json.dumps(
+            [
+                {
+                    "name_en": "Grand Spectrum",
+                    "name_ko": "장대한 파장",
+                    "base_type": "Ruby",
+                    "base_type_ko": "루비",
+                    "class_group": "other",
+                    "category": "jewel",
+                    "requires": "Level 20",
+                    "implicits": [],
+                    "explicits": ["2% increased Maximum Life per socketed Grand Spectrum"],
+                    "explicits_ko": [],
+                    "in_pob": True,
+                    "pob_ref": "Data/Uniques/jewel.lua",
+                }
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    root = tmp_path / "repo"
+    knowledge = root / "knowledge"
+    root.mkdir()
+    (root / "pyproject.toml").write_text("", encoding="utf-8")
+    shutil.copytree(project_root() / "knowledge" / "schema", knowledge / "schema")
+    (knowledge / "game-data").mkdir()
+
+    first = merge(out, knowledge, "t")
+    assert first["human_verdicts_kept"] == 0
+
+    # 사용자 인게임 판정을 반영한 상태 (라벨·근거·메모)
+    shard = knowledge / "game-data/uniques/uniques.ndjson"
+    rec = json.loads(shard.read_text(encoding="utf-8").splitlines()[0])
+    rec["verification"] = "IN_GAME"
+    rec["notes"] = "인게임 확인분(Ruby)만 남긴다"
+    rec["sources"].append({"src": "in-game", "ref": "사용자 인게임 확인", "patch": "t"})
+    shard.write_text(json.dumps(rec, ensure_ascii=False) + "\n", encoding="utf-8")
+    judged = shard.read_text(encoding="utf-8")
+
+    second = merge(out, knowledge, "t")
+    assert second["human_verdicts_kept"] == 1
+    assert shard.read_text(encoding="utf-8") == judged, "재실행이 판정을 덮지 않는다"
