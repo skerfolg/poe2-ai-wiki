@@ -49,6 +49,8 @@ _MACHINE_DATA_KEYS = frozenset(
         "ascendancy",
         "ascendancy_name",
         "attribute_choice",
+        "no_radius",  # PoB 플래그 — 소켓이 반경 판정에서 빠지면 눌러붙지 않게 기계 소유로
+        "sinister",
         "pob_computable",
     }
 )
@@ -76,6 +78,12 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
         # 셋 중 택1 — 평평한 stats로 두면 "셋 다 부여"로 읽힌다 (tree.extract_attribute_choice).
         # 요구치 충족·스탯 스태킹 판단에 쓰이므로 기계가 읽을 수 있는 형태로 둔다.
         data["attribute_choice"] = item["attribute_choice"]
+    if item.get("no_radius"):
+        # PoB가 이 소켓의 반경 사전계산(nodesInRadius)을 건너뛴다(PassiveTree.lua:330)
+        # — 반경 주얼(Time-Lost/Against the Darkness 류)을 여기 꽂아도 반경 효과가 없다.
+        data["no_radius"] = True
+    if item.get("sinister"):
+        data["sinister"] = True  # Sinister 소켓 계열 (전용 주얼 대상)
     if not item["in_pob"]:
         data["pob_computable"] = False
     sources: list[dict[str, Any]] = [

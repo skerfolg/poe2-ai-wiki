@@ -393,6 +393,10 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
         stats_en, stats_ko, attribute_choice = extract_attribute_choice(stats_en, stats_ko)
         if attribute_choice is not None:
             attribute_choices += 1
+        # PoB만 아는 소켓 플래그 — noRadius 소켓은 PoB가 반경 사전계산(nodesInRadius)을
+        # 건너뛴다(PassiveTree.lua:330). 반경 주얼(Time-Lost 류) 전략 판단의 근거라 보존.
+        pob_node = pob_nodes.get(nid)
+        pob_flags = pob_node if isinstance(pob_node, dict) else {}
         chunks[kind].append(
             {
                 "node_id": nid,
@@ -412,6 +416,8 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
                 "structural": structural,  # ⑦ 면제 대상 (효과 없는 게 정상)
                 "attribute_choice": attribute_choice,  # 셋 중 택1 (None이면 해당 없음)
                 "position": positions.get(nid),  # PoB 좌표 공간 {x,y} (PoB 부재면 None)
+                "no_radius": bool(pob_flags.get("noRadius")),  # 반경 판정 없는 소켓
+                "sinister": bool(pob_flags.get("sinister")),  # Sinister 소켓 계열
             }
         )
 

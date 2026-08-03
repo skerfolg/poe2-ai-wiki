@@ -1,15 +1,18 @@
-"""주얼 반경 판정 통합 — KB 좌표(data.position) vs PoB 스냅샷 nodesInRadius 실측 대조.
+"""주얼 반경 판정 통합 — KB가 PoB의 반경 모델과 일치하는지 실측 대조.
 
-Time-Lost(오래된)·Against the Darkness 류 '반경 내 패시브' 주얼 전략의 기반 검증:
-KB 트리 샤드에 수록한 노드 좌표가 PoB의 반경 판정과 **같은 좌표 공간**임을
-전체 주얼 소켓 x Small(1000)·Very Large(1500) 반경으로 확인한다.
+두 축을 함께 본다 (Time-Lost·Against the Darkness 류 '반경 내 패시브' 전략의 기반):
 
-오라클 = scripts/pob_radius_dump.lua 가 노출하는 PoB의 실제 사전계산
-(PassiveTree.lua:326-355, 거리² ≤ (outer*1.2)² — 1.2는 Misc.lua의
-PassiveTreeJewelDistanceMultiplier). KB 좌표로 같은 부등식을 계산해 집합이
-일치해야 한다. PoB는 KB가 의도적으로 미수록한 노드(DNT·클래스 시작·OnlyImage
-등)도 반경에 담으므로, 비교는 KB 수록 노드로 한정한다(∩) — 그 방향의 누락은
-KB 수록 판정(test_tree)의 몫이지 좌표 공간의 몫이 아니다.
+① **좌표 공간** — KB 트리 샤드의 `data.position`으로 계산한 반경 집합이 PoB의
+   사전계산과 일치하는가. 오라클 = scripts/pob_radius_dump.lua가 노출하는 PoB의 실제
+   사전계산(PassiveTree.lua:326-355, 거리² ≤ (outer*1.2)² — 1.2는 Misc.lua의
+   PassiveTreeJewelDistanceMultiplier). PoB는 KB가 의도적으로 미수록한 노드(DNT·
+   클래스 시작·OnlyImage 등)도 반경에 담으므로 비교는 KB 수록 노드로 한정한다(∩) —
+   그 방향의 누락은 KB 수록 판정(test_tree)의 몫이지 좌표 공간의 몫이 아니다.
+   PoB 부팅이 필요해 LuaJIT까지 있어야 돌아간다.
+
+② **반경 없는 소켓 플래그** — noRadius 소켓은 PoB가 사전계산 자체를 건너뛴다
+   (PassiveTree.lua:330). 전략 모듈이 "이 소켓엔 반경 판정이 없다"를 KB만 보고
+   알 수 있어야 한다. tree.json 대조라 스냅샷만 있으면 된다.
 """
 
 from __future__ import annotations
@@ -21,7 +24,7 @@ from functools import lru_cache
 
 import pytest
 
-from pok.common.paths import project_root
+from pok.common.paths import knowledge_dir, project_root
 from pok.kb.store import load as store_load
 from pok.pob.buildxml import BuildSpec, to_xml
 from pok.pob.runner import _LUA_PATH
@@ -33,6 +36,14 @@ _DISTANCE_MULT = 1.2
 _RADII_UNDER_TEST = (1000, 1500)  # Small · Very Large
 
 
+def _snapshot_ready() -> bool:
+    try:
+        resolve_snapshot()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    return True
+
+
 def _env_ready() -> bool:
     try:
         find_luajit()
@@ -42,7 +53,9 @@ def _env_ready() -> bool:
     return True
 
 
-pytestmark = pytest.mark.skipif(not _env_ready(), reason="LuaJIT 또는 external/pob 스냅샷 없음")
+# 플래그 대조는 스냅샷만, 좌표 대조는 PoB 부팅까지 — 요구 환경이 달라 따로 건다
+needs_snapshot = pytest.mark.skipif(not _snapshot_ready(), reason="external/pob 스냅샷 없음")
+needs_pob_run = pytest.mark.skipif(not _env_ready(), reason="LuaJIT 또는 external/pob 스냅샷 없음")
 
 
 @lru_cache(maxsize=1)
@@ -77,6 +90,7 @@ def _pob_dump() -> tuple[list[dict[str, int]], dict[int, dict[int, set[int]]]]:
     return radii, by_socket
 
 
+@needs_pob_run
 def test_kb_positions_reproduce_pob_jewel_radius() -> None:
     kb = store_load(project_root())
     positions: dict[int, tuple[float, float]] = {}
@@ -99,15 +113,9 @@ def test_kb_positions_reproduce_pob_jewel_radius() -> None:
 
     # noRadius 소켓(Sinister 계열)은 PoB가 반경 사전계산 자체를 건너뛴다
     # (PassiveTree.lua:330 — charm/containJewelSocket/noRadius 제외).
-    tree_json = json.loads(
-        (resolve_snapshot().src_dir / "TreeData" / "0_5" / "tree.json").read_text(encoding="utf-8")
+    assert set(sockets) - by_socket.keys() <= {int(n) for n in _pob_flagged("noRadius")}, (
+        "noRadius 아닌 소켓이 PoB 판정에서 빠졌다"
     )
-    no_radius = {
-        int(nid)
-        for nid, n in tree_json["nodes"].items()
-        if isinstance(n, dict) and n.get("noRadius")
-    }
-    assert set(sockets) - by_socket.keys() <= no_radius, "noRadius 아닌 소켓이 PoB 판정에서 빠졌다"
     radius_sockets = [s for s in sockets if s in by_socket]
     assert radius_sockets, "반경 판정 대상 소켓 없음"
 
@@ -133,3 +141,27 @@ def test_kb_positions_reproduce_pob_jewel_radius() -> None:
                 nonempty += 1
     assert compared == len(radius_sockets) * len(_RADII_UNDER_TEST)
     assert nonempty, "모든 반경 집합이 비어 있다 — 좌표 공간이 어긋났을 가능성"
+
+
+def _pob_flagged(flag: str) -> set[str]:
+    tree = resolve_snapshot().src_dir / "TreeData" / "0_5" / "tree.json"
+    nodes = json.loads(tree.read_text(encoding="utf-8"))["nodes"]
+    return {nid for nid, n in nodes.items() if isinstance(n, dict) and n.get(flag)}
+
+
+def _kb_flagged(flag: str) -> set[str]:
+    shard = knowledge_dir() / "game-data" / "tree" / "jewel-sockets.ndjson"
+    records = [json.loads(line) for line in shard.read_text(encoding="utf-8").splitlines()]
+    return {r["data"]["node_id"] for r in records if r["data"].get(flag)}
+
+
+@needs_snapshot
+def test_no_radius_집합이_pob와_일치() -> None:
+    expected = _pob_flagged("noRadius")
+    assert expected, "PoB 스냅샷에 noRadius 소켓이 없다면 데이터 로드 자체가 잘못된 것"
+    assert _kb_flagged("no_radius") == expected
+
+
+@needs_snapshot
+def test_sinister_집합이_pob와_일치() -> None:
+    assert _kb_flagged("sinister") == _pob_flagged("sinister")

@@ -53,6 +53,12 @@ def _write_tree_fixtures(raw: Path) -> None:
             "ascendancyName": "Druid1",
             "connections": [],
         },  # 구조 노드 — stats 없어도 수록
+        "6": {
+            "name": "Sinister Jewel Socket",
+            "isJewelSocket": True,
+            "stats": [],
+            "connections": [{"id": "1"}],
+        },  # 반경 판정 없는 소켓 (PoB noRadius)
     }
     kr_nodes = {
         "1": {"name": "카오스 면역", "stats": ["최대 생명력이 1이 됨"]},
@@ -81,6 +87,7 @@ def _write_tree_fixtures(raw: Path) -> None:
                     "1": {"name": "Chaos Inoculation", "group": 1, "orbit": 0, "orbitIndex": 0},
                     "2": {"name": "Chaos Damage", "group": 2, "orbit": 1, "orbitIndex": 3},
                     "5": {"name": "Oracle"},  # group 없음 → 좌표 없음 (수록은 유지)
+                    "6": {"name": "Sinister Jewel Socket", "noRadius": True, "sinister": True},
                 },
             }
         ),
@@ -127,6 +134,40 @@ def test_process_tree_verdicts(tmp_path: Path) -> None:
     assert ks[0]["position"] == {"x": 100.0, "y": 200.0}
     asc = json.loads((out / "tree_ascendancy-start.json").read_text(encoding="utf-8"))
     assert asc[0]["position"] is None, "PoB group 정보 없는 노드는 좌표 없이 수록"
+
+    jw = json.loads((out / "tree_jewel.json").read_text(encoding="utf-8"))
+    assert jw[0]["no_radius"] is True, "PoB noRadius 플래그 보존 (반경 판정 없는 소켓)"
+    assert jw[0]["sinister"] is True
+    assert ks[0]["no_radius"] is False, "일반 노드는 플래그 없음"
+
+
+def test_merge_tree_jewel_flags(tmp_path: Path) -> None:
+    """noRadius/sinister가 KB 레코드 data까지 전파되는지 (truthy일 때만 기록)."""
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    _write_tree_fixtures(raw)
+    process_tree(raw, out)
+
+    root = tmp_path / "repo"
+    knowledge = root / "knowledge"
+    root.mkdir(parents=True)
+    (root / "pyproject.toml").write_text("", encoding="utf-8")
+    import shutil
+
+    from pok.common.paths import project_root
+
+    shutil.copytree(project_root() / "knowledge" / "schema", knowledge / "schema")
+    (knowledge / "game-data").mkdir(parents=True)
+
+    merge_tree(out, knowledge, "t", "jewel")
+    shard = (knowledge / "game-data/tree/jewel-sockets.ndjson").read_text(encoding="utf-8")
+    rec = json.loads(shard.splitlines()[0])
+    assert rec["data"]["no_radius"] is True
+    assert rec["data"]["sinister"] is True
+
+    merge_tree(out, knowledge, "t", "small")
+    shard = (knowledge / "game-data/tree/small.ndjson").read_text(encoding="utf-8")
+    rec = json.loads(shard.splitlines()[0])
+    assert "no_radius" not in rec["data"], "플래그 없는 노드엔 필드 자체를 만들지 않는다"
 
 
 def test_merge_tree_chunk_and_edges(tmp_path: Path) -> None:
@@ -225,11 +266,11 @@ def test_verification_criteria_in_tree_report(tmp_path: Path) -> None:
 
     floor = v["7_substance_floor"][0]
     assert floor["empty"]["count"] == 0
-    assert floor["structural_exempt"] == 1, "어센던시 시작점은 효과 없는 게 정상"
+    assert floor["structural_exempt"] == 2, "어센던시 시작점·주얼 소켓은 효과 없는 게 정상"
 
     acq = v["8_acquisition_coverage"][0]
-    assert (acq["entity_type"], acq["total"], acq["coverage"]) == ("passive", 3, 1.0)
-    assert acq["routes_top"] == {"tree-edge": 2, "ascendancy-choice": 1}
+    assert (acq["entity_type"], acq["total"], acq["coverage"]) == ("passive", 4, 1.0)
+    assert acq["routes_top"] == {"tree-edge": 3, "ascendancy-choice": 1}
 
 
 def test_acquisition_coverage_flags_node_severed_from_tree(tmp_path: Path) -> None:
