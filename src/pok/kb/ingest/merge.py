@@ -13,7 +13,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from pok.kb.ingest.process import INCLUDE_VERDICTS, NO_ACQ, NO_POB
+from pok.kb.ingest.process import INCLUDE_VERDICTS, NO_ACQ, NO_POB, RULED_OUT_VERDICTS
 from pok.kb.store import load as store_load
 
 POB_COMMIT = "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
@@ -75,10 +75,15 @@ def _infer_category(tags: list[str]) -> str | None:
     return None
 
 
+def _record_id(item: dict[str, Any]) -> str:
+    """intermediate 항목 → KB id. 제외 판정분도 id를 알아야 기존 레코드와 대조할 수 있다."""
+    return f"{_ID_PREFIX[_kb_type(item['categories'])]}.{slug_to_id_part(item['slug'])}"
+
+
 def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
     """intermediate 항목 → envelope 레코드 (신규 벌크용)."""
     rtype = _kb_type(item["categories"])
-    rid = f"{_ID_PREFIX[rtype]}.{slug_to_id_part(item['slug'])}"
+    rid = _record_id(item)
     tags = sorted({t.lower().replace(" ", "-") for t in item["tags"] if t.strip()})
     data: dict[str, Any] = {}
     if item.get("description"):
@@ -197,12 +202,23 @@ def merge_patch(
                 rec if prev is None else merge_shard_record(prev.raw, rec, _MACHINE_DATA_KEYS)
             )
 
-    # 이번 ingest에 없는 기존 벌크 레코드도 샤드에 남긴다 — 샤드를 포함분만으로
-    # 다시 쓰면 부분 merge에서 나머지가 삭제된다 (회귀 방지, 2026-08-02).
+    # 이번 수록분에 없는 기존 벌크 레코드의 처리 — 삭제는 **판정 근거가 있을 때만**.
+    #  · 원장 근거가 적힌 제외 판정(통합·현 패치 미획득)분: 삭제한다.
+    #  · 그 밖의 미포함분(부분 merge·파싱 갭 등): 보존하고 삭제 후보로 리포트한다.
+    # 근거 없이 지우면 부분 merge가 KB를 깎고(2026-08-02 830건 손실), 무조건 보존하면
+    # 사용자 제외 판정이 무효가 된다 — 나열 후 사람이 판단한다(사용자 확립 원칙).
+    ruled_out = {_record_id(i) for i in items if i["verdict"] in RULED_OUT_VERDICTS}
     written = {r["id"] for records in bulk.values() for r in records}
+    removed: list[str] = []
+    candidates: list[str] = []
     for prev in existing.records.values():
-        if prev.in_shard and prev.type in bulk and prev.id not in written:
-            bulk[prev.type].append(prev.raw)
+        if not prev.in_shard or prev.type not in bulk or prev.id in written:
+            continue
+        if prev.id in ruled_out:
+            removed.append(prev.id)
+            continue
+        candidates.append(prev.id)
+        bulk[prev.type].append(prev.raw)
 
     out_dir = knowledge / "game-data" / "gems"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -224,5 +240,7 @@ def merge_patch(
         "updated_seeds": updated_seeds,
         "bulk_skills": len(bulk["Skill"]),
         "bulk_supports": len(bulk["Support"]),
+        "removed_by_ruling": sorted(removed),  # 원장 근거로 삭제한 레코드
+        "deletion_candidates": sorted(candidates),  # 미포함이나 근거 없음 — 보존, 사람 판정 대기
         "total_records": len(after.records),
     }

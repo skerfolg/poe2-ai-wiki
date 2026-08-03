@@ -148,3 +148,36 @@ def test_shard_enrichment_survives_but_stale_machine_values_do_not(tmp_path: Pat
     assert len(after) == 2
     assert after[0]["data"]["acquisition"] == "liquid-emotion", "보강 필드 보존"
     assert after[0]["data"]["tier"] == 2, "기계 소유 키는 소스 값으로 갱신"
+
+
+def test_deletion_needs_a_ruling(tmp_path: Path) -> None:
+    """샤드 삭제는 원장 근거가 있을 때만 — 근거 없는 미포함분은 보존하고 후보로 리포트한다.
+
+    무조건 삭제하면 부분 merge가 KB를 깎고(2026-08-02 830건 손실), 무조건 보존하면
+    사용자 제외 판정(통합·현 패치 미획득)이 무효가 된다.
+    """
+    _, knowledge = _minimal_kb(tmp_path)
+    merge_patch(tmp_path, _intermediate(tmp_path), knowledge, "t")
+    shard = knowledge / "game-data/gems/supports.ndjson"
+    assert len(shard.read_text(encoding="utf-8").splitlines()) == 2
+
+    # Fork = 원장 근거로 제외(통합), Freeze = 이번 판정에서 빠졌을 뿐 근거 없음
+    ruled = [
+        _item("Fork", "Fork", "분기", "support-gems", verdict="excluded-superseded"),
+        _item("Freeze", "Freeze", "빙결", "support-gems", verdict="pob-only-or-parse-gap"),
+    ]
+    partial = tmp_path / "partial.json"
+    partial.write_text(json.dumps([ITEMS[0], *ruled], ensure_ascii=False), encoding="utf-8")
+
+    summary = merge_patch(tmp_path, partial, knowledge, "t")
+    assert summary["removed_by_ruling"] == ["support.fork"], "판정된 제외분만 삭제"
+    assert summary["deletion_candidates"] == [
+        "skill.ice-nova",
+        "skill.spark",
+        "support.freeze",
+    ], "근거 없는 미포함분은 전부 후보로만 (부분 merge에서 빠진 것 포함)"
+    left = [json.loads(line) for line in shard.read_text(encoding="utf-8").splitlines()]
+    assert [r["id"] for r in left] == ["support.freeze"], "후보는 지우지 않고 남긴다"
+    # 이번 수록분에 없던 skill 샤드도 근거가 없으므로 그대로 남는다
+    skills = (knowledge / "game-data/gems/skills.ndjson").read_text(encoding="utf-8")
+    assert len(skills.splitlines()) == 2, "부분 merge가 다른 샤드를 깎지 않는다"
