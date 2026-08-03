@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pok.kb.ingest.merge import slug_to_id_part
+from pok.kb.ingest.merge import merge_shard_record, slug_to_id_part
 from pok.kb.store import load as store_load
 
 _KIND_TO_DATA = {
@@ -37,6 +37,21 @@ _SHARD = {
     "jewel": "jewel-sockets.ndjson",
     "small": "small.ndjson",
 }
+# _to_record가 채우는 data 키 (기계 소유). 밖의 키(성유 부여 등 후속 보강)는 재실행 시 보존.
+_MACHINE_DATA_KEYS = frozenset(
+    {
+        "kind",
+        "node_id",
+        "stats",
+        "stats_en",
+        "connections",
+        "position",
+        "ascendancy",
+        "ascendancy_name",
+        "attribute_choice",
+        "pob_computable",
+    }
+)
 
 
 def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
@@ -92,10 +107,15 @@ def merge_tree(chunk_dir: Path, knowledge: Path, patch: str, kind: str) -> dict[
 
     records: list[dict[str, Any]] = []
     updated_seeds = 0
+    # 시드 = 개별 큐레이션 JSON만. 샤드 소속 레코드는 id로 찾아 벌크 재생성 경로로 보낸다
+    # (샤드 레코드를 시드로 오인하면 prev.path = 샤드 파일 전체를 덮어쓰게 된다).
     seed_by_name = {
         r.name_en.lower(): r
         for r in existing.records.values()
-        if r.type == "Passive" and not r.id.split("-")[-1].isdigit()
+        if r.type == "Passive" and not r.in_shard
+    }
+    prev_in_shard = {
+        r.id: r.raw for r in existing.records.values() if r.type == "Passive" and r.in_shard
     }
     for item in items:
         rec = _to_record(item, patch)
@@ -111,7 +131,9 @@ def merge_tree(chunk_dir: Path, knowledge: Path, patch: str, kind: str) -> dict[
             )
             updated_seeds += 1
             continue
-        records.append(rec)
+        prev = prev_in_shard.get(rec["id"])
+        # 성유(액체 감정) 부여 정보처럼 merge 이후 붙은 필드를 재실행이 지우지 않게 보존
+        records.append(rec if prev is None else merge_shard_record(prev, rec, _MACHINE_DATA_KEYS))
 
     out = knowledge / "game-data" / "tree"
     out.mkdir(parents=True, exist_ok=True)

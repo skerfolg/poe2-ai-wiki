@@ -33,10 +33,17 @@ NO_ACQ = "implemented-no-acquisition"
 LINEAGE = "include-lineage"  # 혈통 서포트 — 실존 아이템 (사람 판정)
 BASIC = "include-basic-attack"  # 무기 기본 공격 — 기본 제공 (사람 판정)
 SUPERSEDED = "excluded-superseded"  # 다른 젬으로 통합됨 (원장 근거)
+# 현재 패치에 획득 경로 없음 (원장 근거, 사용자 인게임 판정 2026-08-03).
+# NO_ACQ 규칙은 레벨효과표만 보므로 실제로 못 얻는 젬도 수록한다 — 사람 판정이 그 위에 선다.
+# PoE1 잔재와 다르다: 상세 페이지·설명은 존재하되 현 패치에 경로가 없다. 매 패치 재검증 대상.
+UNOBTAINABLE = "excluded-unobtainable"
 NOT_A_GEM = "not-a-gem-page"  # 젬 페이지 아님 (보스/장소 등 — lineage 목록 혼입분)
 
 # KB 수록 대상 판정
 INCLUDE_VERDICTS = frozenset({IMPLEMENTED, NO_POB, NO_ACQ, LINEAGE, BASIC})
+# 원장에 근거가 적힌 제외 판정 — merge가 이미 수록된 레코드를 **지워도 되는** 유일한 근거.
+# (근거 없는 미포함분은 지우지 않고 삭제 후보로 리포트한다.)
+RULED_OUT_VERDICTS = frozenset({SUPERSEDED, UNOBTAINABLE})
 
 # ⑥ 태그 대조 정규화 — 두 소스가 같은 개념을 다르게 표기한다
 _TAG_ALIAS = {"aoe": "area"}
@@ -101,13 +108,16 @@ def _classify(
     is_lineage: bool = False,
     is_basic: bool = False,
     superseded: bool = False,
+    unobtainable: bool = False,
     has_level_effect: bool = False,
 ) -> str:
-    """KI-8 매트릭스 + 사람 판정 규칙(혈통·기본공격·통합). 규칙이 매트릭스에 우선."""
+    """KI-8 매트릭스 + 사람 판정 규칙(혈통·기본공격·통합·미획득). 규칙이 매트릭스에 우선."""
     if not is_gem:
         return NOT_A_GEM
     if superseded:
         return SUPERSEDED
+    if unobtainable:
+        return UNOBTAINABLE
     if is_basic:
         return BASIC
     if has_acquisition and in_pob:
@@ -123,20 +133,22 @@ def _classify(
     return GHOST
 
 
-def _load_rulings(knowledge: Path) -> tuple[dict[str, str], set[str], set[str]]:
-    """정본 원장 로드 → (superseded slug→대상, poe1 잔재 PoB 이름, 기본공격 slug)."""
+def _load_rulings(knowledge: Path) -> tuple[dict[str, str], set[str], set[str], set[str]]:
+    """정본 원장 로드 → (superseded slug→대상, poe1 잔재 PoB 이름, 기본공격·미획득 slug)."""
     superseded: dict[str, str] = {}
     remnants: set[str] = set()
     basics: set[str] = set()
+    unobtainable: set[str] = set()
     exc_path = knowledge / "ingest" / "exclusions.json"
     if exc_path.exists():
         exc = json.loads(exc_path.read_text(encoding="utf-8"))
         superseded = {e["slug"]: e["merged_into"] for e in exc.get("superseded", [])}
         remnants = {e["pob_name"].lower() for e in exc.get("poe1_remnant_pob", [])}
+        unobtainable = {s for e in exc.get("unobtainable_gems", []) for s in e.get("slugs", [])}
     basic_path = knowledge / "ingest" / "basic-attacks.json"
     if basic_path.exists():
         basics = set(json.loads(basic_path.read_text(encoding="utf-8"))["slugs"])
-    return superseded, remnants, basics
+    return superseded, remnants, basics, unobtainable
 
 
 def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -> dict[str, Any]:
@@ -147,7 +159,9 @@ def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -
     pob_by_name = pob_gems_by_name(
         json.loads((raw_dir / "pob" / "gems.json").read_text(encoding="utf-8"))
     )
-    superseded_map, remnant_names, basic_slugs = _load_rulings(knowledge or knowledge_dir())
+    superseded_map, remnant_names, basic_slugs, unobtainable_slugs = _load_rulings(
+        knowledge or knowledge_dir()
+    )
     lineage_slugs = set(plan["categories"].get("lineage-supports", {}).get("items", []))
 
     # 같은 페이지가 여러 카테고리 목록에 실릴 수 있음(예: spirit ⊂ support) → slug 단위 dedup
@@ -193,6 +207,7 @@ def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -
                 is_lineage=slug in lineage_slugs,
                 is_basic=slug in basic_slugs,
                 superseded=slug in superseded_map,
+                unobtainable=slug in unobtainable_slugs,
                 has_level_effect=page.has_level_effect,
             ),
         )
@@ -247,6 +262,7 @@ def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -
         "ghosts": sorted(i.slug for i in by_verdict.get(GHOST, [])),
         "hold_pob_only": sorted(i.slug for i in by_verdict.get(POB_ONLY, [])),
         "excluded_superseded": sorted(i.slug for i in by_verdict.get(SUPERSEDED, [])),
+        "excluded_unobtainable": sorted(i.slug for i in by_verdict.get(UNOBTAINABLE, [])),
         "not_a_gem": sorted(i.slug for i in by_verdict.get(NOT_A_GEM, [])),
         "pob_unmatched_new": pob_unmatched,
         "parse_failures": parse_failures,

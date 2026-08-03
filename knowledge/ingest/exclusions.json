@@ -37,6 +37,20 @@
    "merged_into": "Elemental_Weakness",
    "patch": "0.5.4b",
    "approved": "2026-07-29 user"
+  },
+  {
+   "slug": "Life_Bounty",
+   "merged_into": "Bounty_I",
+   "patch": "0.5.4b",
+   "approved": "2026-08-03 user",
+   "note": "하사품 I/II(Bounty I·II)로 통합 — 통합본은 'more Flask and Charm charges'로 생명력/마나 구분이 사라졌다"
+  },
+  {
+   "slug": "Mana_Bounty",
+   "merged_into": "Bounty_I",
+   "patch": "0.5.4b",
+   "approved": "2026-08-03 user",
+   "note": "하사품 I/II(Bounty I·II)로 통합 — 통합본은 'more Flask and Charm charges'로 생명력/마나 구분이 사라졌다"
   }
  ],
  "poe1_remnant_pob": [
@@ -957,6 +971,22 @@
    "evidence": "poe2wiki rev96644 — 'The Acrobatics Keystone Passive Skill has been removed' + Category:Removed passive skills. 트리 수집(0.5.4b)에서도 미존재",
    "approved": "2026-07-30 user",
    "note": "부활 감지: 트리 ingest에서 동명 키스톤 재등장 시 리포트"
+  }
+ ],
+ "unobtainable_gems": [
+  {
+   "patch": "0.5.4b",
+   "approved": "2026-08-03 user",
+   "evidence": "사용자 판정(2026-08-03): 현재 패치에서 획득 불가한 보조 젬. poe2db 획득 카드 없음(¬A) ∧ PoB 존재(P) 보류분 중 인게임 지식으로 확정",
+   "note": "PoE1 잔재(poe1_remnant_pob)와 다르다 — poe2db 상세 페이지·설명은 존재하나 획득 경로가 현재 없다. 매 패치 재검증: 획득 경로가 생기면 부활 후보로 리포트",
+   "slugs": [
+    "Dauntless",
+    "Ferocity",
+    "Lockdown",
+    "Malady",
+    "Murderous_Intent",
+    "Rusted_Spikes"
+   ]
   }
  ]
 }

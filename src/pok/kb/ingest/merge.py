@@ -13,10 +13,24 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from pok.kb.ingest.process import INCLUDE_VERDICTS, NO_ACQ, NO_POB
+from pok.kb.ingest.process import INCLUDE_VERDICTS, NO_ACQ, NO_POB, RULED_OUT_VERDICTS
 from pok.kb.store import load as store_load
 
 POB_COMMIT = "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+
+# 기계(ingest)가 소유하는 최상위 필드 — 재실행 시 새 값으로 덮어쓴다.
+# 그 밖의 필드는 후속 단계·사람이 붙인 보강으로 보고 샤드 재생성 때 보존한다.
+MACHINE_TOP_KEYS = frozenset(
+    {"id", "type", "name", "tags", "data", "verification", "sources", "notes"}
+)
+# _to_record가 채우는 data 키 (기계 소유). 이 목록 밖의 data 키 = 보강분 → 보존
+# (gem_costs의 cost·reservation·cost_multiplier_pct, gem_colors의 색 정보 등).
+_MACHINE_DATA_KEYS = frozenset(
+    {"description", "tier", "category", "pob_computable", "acquisition_unknown"}
+)
+# ingest가 붙일 수 있는 검증 라벨 전부. 그 밖의 라벨(IN_GAME·CONTRADICTED…)은
+# 사람 판정의 결과이므로 재실행이 기계 라벨로 되돌리면 안 된다 (사용자 = 게임 지식 게이트).
+MACHINE_VERIFICATION = frozenset({"GAME_DATA", "SUPPORTED_INFERENCE"})
 
 # 카테고리 → KB 타입 (스피릿 젬 = 지속 스킬, 혈통 = 서포트)
 _TYPE_OF_CATEGORY = [
@@ -61,10 +75,15 @@ def _infer_category(tags: list[str]) -> str | None:
     return None
 
 
+def _record_id(item: dict[str, Any]) -> str:
+    """intermediate 항목 → KB id. 제외 판정분도 id를 알아야 기존 레코드와 대조할 수 있다."""
+    return f"{_ID_PREFIX[_kb_type(item['categories'])]}.{slug_to_id_part(item['slug'])}"
+
+
 def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
     """intermediate 항목 → envelope 레코드 (신규 벌크용)."""
     rtype = _kb_type(item["categories"])
-    rid = f"{_ID_PREFIX[rtype]}.{slug_to_id_part(item['slug'])}"
+    rid = _record_id(item)
     tags = sorted({t.lower().replace(" ", "-") for t in item["tags"] if t.strip()})
     data: dict[str, Any] = {}
     if item.get("description"):
@@ -120,6 +139,40 @@ def _update_seed(seed_raw: dict[str, Any], new: dict[str, Any]) -> dict[str, Any
     return merged
 
 
+def keep_human_verdict(prev_raw: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+    """사람 판정 라벨이 붙은 레코드면 라벨·근거(notes·in-game 소스)를 그대로 남긴다.
+
+    기계는 GAME_DATA/SUPPORTED_INFERENCE만 낸다 — 그 밖의 라벨은 사람이 인게임으로
+    확인·반박한 결과라, 재실행이 덮으면 판정 이력이 조용히 사라진다.
+    """
+    if prev_raw.get("verification") in MACHINE_VERIFICATION:
+        return new
+    merged = dict(new)
+    merged["verification"] = prev_raw["verification"]
+    if prev_raw.get("notes"):
+        merged["notes"] = prev_raw["notes"]
+    human_sources = [s for s in prev_raw.get("sources", []) if s.get("src") == "in-game"]
+    if human_sources:
+        merged["sources"] = [*new["sources"], *human_sources]
+    return merged
+
+
+def merge_shard_record(
+    prev_raw: dict[str, Any], new: dict[str, Any], machine_data_keys: frozenset[str]
+) -> dict[str, Any]:
+    """샤드(벌크) 레코드 갱신 — 기계 소유 필드는 새 값, 후속 보강 필드는 보존.
+
+    샤드는 통째로 다시 쓰므로, 병합 이후 다른 단계가 붙인 필드(예: 트리 노드의
+    성유 부여 정보)는 여기서 되살리지 않으면 재실행마다 사라진다.
+    반대로 기계 소유 키는 남기지 않는다 — 소스에서 빠진 값이 눌러붙으면 안 된다.
+    """
+    kept = {k: v for k, v in prev_raw.items() if k not in MACHINE_TOP_KEYS}
+    kept_data = {k: v for k, v in prev_raw.get("data", {}).items() if k not in machine_data_keys}
+    merged = {**keep_human_verdict(prev_raw, new), **kept}
+    merged["data"] = {**new["data"], **kept_data}
+    return merged
+
+
 def merge_patch(
     raw_dir: Path, intermediate_path: Path, knowledge: Path, patch: str
 ) -> dict[str, Any]:
@@ -133,26 +186,39 @@ def merge_patch(
     for item in included:
         rec = _to_record(item, patch)
         prev = existing.records.get(rec["id"])
-        if prev is not None and prev.path.suffix == ".ndjson":
-            # 기존 벌크 레코드 — **개별 파일처럼 쓰면 샤드 전체가 한 줄로 잘린다**
-            # (실측 2026-08-02: 884줄 → 54줄, 830건 손실). 병합해서 벌크로 되돌린다.
-            # data 병합이 후처리 보강분(cost·color 등)도 함께 보존한다.
-            bulk[rec["type"]].append(_update_seed(prev.raw, rec))
-        elif prev is not None:
+        if prev is not None and not prev.in_shard:
+            # 개별 큐레이션 JSON 시드 → 그 파일만 갱신 (수작업 관계·조건·facets·notes 보존)
             merged = _update_seed(prev.raw, rec)
             prev.path.write_text(
                 json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
             updated_seeds += 1
         else:
-            bulk[rec["type"]].append(rec)
+            # 신규 또는 이미 샤드에 있는 레코드 → 벌크 재생성 경로.
+            # 샤드 소속을 시드로 착각해 prev.path(=샤드 파일 전체)에 쓰면 샤드가 파괴된다
+            # (실측 2026-08-02: 884→54줄 · 2026-08-03: skills 363→0·supports 521→0).
+            # 후처리 보강분(cost·color 등)은 merge_shard_record가 함께 보존한다.
+            bulk[rec["type"]].append(
+                rec if prev is None else merge_shard_record(prev.raw, rec, _MACHINE_DATA_KEYS)
+            )
 
-    # 이번 ingest에 없는 기존 벌크 레코드도 샤드에 남긴다 — 샤드를 포함분만으로
-    # 다시 쓰면 부분 merge에서 나머지가 삭제된다 (회귀 방지, 2026-08-02).
+    # 이번 수록분에 없는 기존 벌크 레코드의 처리 — 삭제는 **판정 근거가 있을 때만**.
+    #  · 원장 근거가 적힌 제외 판정(통합·현 패치 미획득)분: 삭제한다.
+    #  · 그 밖의 미포함분(부분 merge·파싱 갭 등): 보존하고 삭제 후보로 리포트한다.
+    # 근거 없이 지우면 부분 merge가 KB를 깎고(2026-08-02 830건 손실), 무조건 보존하면
+    # 사용자 제외 판정이 무효가 된다 — 나열 후 사람이 판단한다(사용자 확립 원칙).
+    ruled_out = {_record_id(i) for i in items if i["verdict"] in RULED_OUT_VERDICTS}
     written = {r["id"] for records in bulk.values() for r in records}
+    removed: list[str] = []
+    candidates: list[str] = []
     for prev in existing.records.values():
-        if prev.path.suffix == ".ndjson" and prev.type in bulk and prev.id not in written:
-            bulk[prev.type].append(prev.raw)
+        if not prev.in_shard or prev.type not in bulk or prev.id in written:
+            continue
+        if prev.id in ruled_out:
+            removed.append(prev.id)
+            continue
+        candidates.append(prev.id)
+        bulk[prev.type].append(prev.raw)
 
     out_dir = knowledge / "game-data" / "gems"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -174,5 +240,7 @@ def merge_patch(
         "updated_seeds": updated_seeds,
         "bulk_skills": len(bulk["Skill"]),
         "bulk_supports": len(bulk["Support"]),
+        "removed_by_ruling": sorted(removed),  # 원장 근거로 삭제한 레코드
+        "deletion_candidates": sorted(candidates),  # 미포함이나 근거 없음 — 보존, 사람 판정 대기
         "total_records": len(after.records),
     }

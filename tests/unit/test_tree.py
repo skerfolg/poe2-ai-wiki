@@ -157,6 +157,36 @@ def test_merge_tree_chunk_and_edges(tmp_path: Path) -> None:
     assert rec["data"]["position"] == {"x": 32.0, "y": 0.0}, "주얼 반경 판정용 좌표 수록"
 
 
+def test_merge_tree_rerun_keeps_shard_and_oil_fields(tmp_path: Path) -> None:
+    """merge 재실행 = 멱등 + 성유(액체 감정) 보강 보존 (샤드 재생성이 KB를 깎지 않는다)."""
+    raw, out = tmp_path / "raw", tmp_path / "out"
+    _write_tree_fixtures(raw)
+    process_tree(raw, out)
+
+    import shutil
+
+    from pok.common.paths import project_root
+
+    root = tmp_path / "repo"
+    knowledge = root / "knowledge"
+    root.mkdir(parents=True)
+    (root / "pyproject.toml").write_text("", encoding="utf-8")
+    shutil.copytree(project_root() / "knowledge" / "schema", knowledge / "schema")
+    (knowledge / "game-data").mkdir(parents=True)
+
+    merge_tree(out, knowledge, "t", "small")
+    shard = knowledge / "game-data/tree/small.ndjson"
+    rec = json.loads(shard.read_text(encoding="utf-8").splitlines()[0])
+    rec["data"]["acquisition"] = "liquid-emotion"  # oils apply가 붙이는 필드
+    rec["data"]["liquid_emotions"] = ["Ire", "Ire", "Ire"]
+    shard.write_text(json.dumps(rec, ensure_ascii=False) + "\n", encoding="utf-8")
+    enriched = shard.read_text(encoding="utf-8")
+
+    summary = merge_tree(out, knowledge, "t", "small")
+    assert summary["written"] == 1, "샤드 레코드가 시드로 재분류되지 않는다"
+    assert shard.read_text(encoding="utf-8") == enriched, "재실행이 성유 필드를 지우지 않는다"
+
+
 def test_edges_are_undirected_when_expanded(tmp_path: Path) -> None:
     """단방향 저장을 양방향으로 펼치면 connections가 빈 노드도 이웃을 갖는다."""
     raw, out = tmp_path / "raw", tmp_path / "out"
