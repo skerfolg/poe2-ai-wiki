@@ -6,6 +6,22 @@ import pytest
 
 from pok.common.paths import knowledge_dir
 from pok.engine.legality import ItemLegalityChecker, _norm, _parse_item
+from pok.pob.versions import resolve_snapshot
+
+
+def _pob_snapshot_ready() -> bool:
+    try:
+        resolve_snapshot()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    return True
+
+
+# 프리즘 풀만 PoB 소스(external/pob 스냅샷)에서 읽는다 — CI엔 스냅샷이 없다.
+# 나머지 검증은 KB만 쓰므로 모듈 전체가 아니라 해당 테스트에만 건다 (통합 테스트와 같은 관례).
+needs_pob_snapshot = pytest.mark.skipif(
+    not _pob_snapshot_ready(), reason="external/pob 스냅샷 없음 (프리즘 풀 = PoB 소스)"
+)
 
 
 @pytest.fixture(scope="module")
@@ -265,6 +281,7 @@ def test_유니크_주얼_롤_변형은_열거_대조로_판정(checker: ItemLeg
     assert cls.is_legal, cls
 
 
+@needs_pob_snapshot
 def test_프리즘_실존_스킬_젬만_통과(checker: ItemLegalityChecker) -> None:
     """Prism of Belief: +1~3 레벨 x 실존 스킬 젬(KB Skill ∩ PoB prism 풀)."""
     ok = checker.check(
@@ -275,6 +292,7 @@ def test_프리즘_실존_스킬_젬만_통과(checker: ItemLegalityChecker) -> 
     assert any("KB Skill" in v.reason for v in ok.verdicts)
 
 
+@needs_pob_snapshot
 def test_프리즘_롤_범위와_풀_제외_거부(checker: ItemLegalityChecker) -> None:
     over = checker.check(
         "Rarity: UNIQUE\nPrism of Belief\nDiamond\nItem Level: 80\n"
