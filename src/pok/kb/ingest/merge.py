@@ -15,6 +15,7 @@ from typing import Any
 
 from pok.kb.ingest.process import INCLUDE_VERDICTS, NO_ACQ, NO_POB, RULED_OUT_VERDICTS
 from pok.kb.store import load as store_load
+from pok.kb.store import write_record, write_shard
 
 POB_COMMIT = "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
 
@@ -187,10 +188,10 @@ def merge_patch(
         rec = _to_record(item, patch)
         prev = existing.records.get(rec["id"])
         if prev is not None and not prev.in_shard:
-            # 개별 큐레이션 JSON 시드 → 그 파일만 갱신 (수작업 관계·조건·facets·notes 보존)
-            merged = _update_seed(prev.raw, rec)
-            prev.path.write_text(
-                json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+            # 개별 큐레이션 JSON 시드 → 그 파일만 갱신 (수작업 관계·조건·facets·notes 보존).
+            # 쓰기는 store 단일 경로로 (B-6) — 샤드 경로가 오면 거기서 거부된다.
+            write_record(
+                prev.path, _update_seed(prev.raw, rec), root=knowledge.parent, validate=False
             )
             updated_seeds += 1
         else:
@@ -221,16 +222,16 @@ def merge_patch(
         bulk[prev.type].append(prev.raw)
 
     out_dir = knowledge / "game-data" / "gems"
-    out_dir.mkdir(parents=True, exist_ok=True)
     shard_of = {"Skill": "skills.ndjson", "Support": "supports.ndjson"}
     for rtype, records in bulk.items():
-        shard = out_dir / shard_of[rtype]
-        shard.write_text(
-            "".join(
-                json.dumps(r, ensure_ascii=False) + "\n"
-                for r in sorted(records, key=lambda r: str(r["id"]))
-            ),
-            encoding="utf-8",
+        # 쓰기는 store 단일 경로로 (B-6): 원자적 쓰기 + 근거 없는 레코드 감소 거부.
+        # 삭제는 원장 근거가 있는 ruled_out만 허용한다.
+        write_shard(
+            out_dir / shard_of[rtype],
+            records,
+            allow_delete=removed,
+            root=knowledge.parent,
+            validate=False,
         )
 
     # 병합 후 전체 재검증 (스키마·참조 무결성) — 실패 시 예외로 중단

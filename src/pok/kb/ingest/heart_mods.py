@@ -101,16 +101,12 @@ def merge(raw_pob_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     """풀 전체를 knowledge/game-data/modifiers/heart-01.ndjson 으로 기록·검증."""
     from pok.kb.ingest.merge import POB_COMMIT
     from pok.kb.store import load as store_load
+    from pok.kb.store import write_shard
 
     records = [to_record(i, patch, POB_COMMIT) for i in heart_pool(raw_pob_dir)]
     dst = knowledge / "game-data" / "modifiers" / SHARD
-    dst.write_text(
-        "".join(
-            json.dumps(r, ensure_ascii=False) + "\n"
-            for r in sorted(records, key=lambda r: str(r["id"]))
-        ),
-        encoding="utf-8",
-    )
+    # 쓰기는 store 단일 경로로 (B-6): 원자적 + 근거 없는 레코드 감소 거부
+    write_shard(dst, records, root=knowledge.parent, validate=False)
     after = store_load(knowledge.parent)  # 스키마·참조 검증 (실패 시 예외)
     prefixes = sum(1 for r in records if r["data"]["affix_type"] == "prefix")
     return {

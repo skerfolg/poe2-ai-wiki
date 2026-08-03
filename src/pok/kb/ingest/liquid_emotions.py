@@ -22,6 +22,7 @@ import httpx
 from bs4 import BeautifulSoup, Tag
 
 from pok.kb.ingest.sources import USER_AGENT
+from pok.kb.store import write_shard
 
 PAGE_URL = "https://poe2db.tw/{lang}/Liquid_Emotions"
 LANGS = ("us", "kr")
@@ -136,7 +137,7 @@ def apply_to_kb(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
     matched_names: set[str] = set()
     idx = 0
     for shard in shards:
-        lines_out: list[str] = []
+        lines_out: list[dict[str, Any]] = []
         for _ in range(
             sum(1 for line in shard.read_text(encoding="utf-8").splitlines() if line.strip())
         ):
@@ -152,8 +153,9 @@ def apply_to_kb(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
                     rec["data"]["liquid_emotions_ko"] = ko_emotions
                 updated += 1
                 matched_names.add(name_en)
-            lines_out.append(json.dumps(rec, ensure_ascii=False))
-        shard.write_text("\n".join(lines_out) + "\n", encoding="utf-8")
+            lines_out.append(rec)
+        # 쓰기는 store 단일 경로로 (B-6)
+        write_shard(shard, lines_out, root=knowledge.parent, validate=False)
 
     return {
         "page_entries": len(us),

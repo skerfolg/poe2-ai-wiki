@@ -405,6 +405,7 @@ def merge(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     """중간 산출물 → knowledge/game-data/uniques/uniques.ndjson."""
     from pok.kb.ingest.merge import MACHINE_VERIFICATION, keep_human_verdict
     from pok.kb.store import load as store_load
+    from pok.kb.store import write_shard
 
     items = json.loads((out_dir / "uniques.json").read_text(encoding="utf-8"))
     # 샤드를 통째로 다시 쓰므로, 이미 정본에 있는 사람 판정(IN_GAME·CONTRADICTED)을
@@ -425,14 +426,8 @@ def merge(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
         records.append(rec)
 
     dst = knowledge / "game-data" / "uniques"
-    dst.mkdir(parents=True, exist_ok=True)
-    (dst / "uniques.ndjson").write_text(
-        "".join(
-            json.dumps(r, ensure_ascii=False) + "\n"
-            for r in sorted(records, key=lambda r: str(r["id"]))
-        ),
-        encoding="utf-8",
-    )
+    # 쓰기는 store 단일 경로로 (B-6): 원자적 + 근거 없는 레코드 감소 거부
+    write_shard(dst / "uniques.ndjson", records, root=knowledge.parent, validate=False)
     after = store_load(knowledge.parent)
     return {
         "written": len(records),

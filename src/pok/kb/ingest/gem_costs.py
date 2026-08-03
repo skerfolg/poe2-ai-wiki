@@ -16,13 +16,13 @@ v6 사후 분석에서 확인된 공백: KB 젬 레코드에 코스트·점유 �
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 from typing import Any
 
 from pok.kb.ingest.parse import parse_detail
 from pok.kb.store import load as store_load
+from pok.kb.store import patch_records
 
 _CONVERT_LIFE = re.compile(r"Reserve Life instead of Spirit", re.IGNORECASE)
 _COST_KEYS = (
@@ -74,7 +74,7 @@ def apply_gem_costs(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
     """
     kb = store_load(knowledge.parent)
     us_dir = raw_dir / "poe2db" / "us"
-    per_path: dict[Path, dict[str, dict[str, Any]]] = {}  # 파일 → {id: 갱신 data}
+    patches: dict[str, dict[str, Any]] = {}  # id → data 패치
     updated = no_cost_fields = 0
     missing_html: list[str] = []
     no_slug: list[str] = []
@@ -93,33 +93,13 @@ def apply_gem_costs(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
         if not updates:
             no_cost_fields += 1
             continue
-        per_path.setdefault(r.path, {})[r.id] = updates
+        # 재적용 멱등: 이전 코스트 필드를 지우고 새 값만 남긴다 (소스에서 빠진 값의 눌러붙음 방지)
+        stale = {k: None for k in _COST_KEYS if k in r.raw.get("data", {}) and k not in updates}
+        patches[r.id] = {**updates, **stale}
         updated += 1
 
-    for path, by_id in per_path.items():
-        if path.suffix == ".ndjson":
-            lines = []
-            for line in path.read_text(encoding="utf-8").splitlines():
-                if not line.strip():
-                    continue
-                rec = json.loads(line)
-                if rec["id"] in by_id:
-                    rec["data"] = {
-                        **{k: v for k, v in rec["data"].items() if k not in _COST_KEYS},
-                        **by_id[rec["id"]],
-                    }
-                lines.append(json.dumps(rec, ensure_ascii=False))
-            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        else:  # 큐레이션 개별 JSON
-            rec = json.loads(path.read_text(encoding="utf-8"))
-            updates = by_id[rec["id"]]
-            rec["data"] = {
-                **{k: v for k, v in rec["data"].items() if k not in _COST_KEYS},
-                **updates,
-            }
-            path.write_text(json.dumps(rec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-    store_load(knowledge.parent)  # 병합 후 재검증 — 실패 시 예외
+    # 정본 쓰기는 store 단일 경로로 (B-6) — 배치 판단·재검증·원자성이 거기 있다
+    patch_records(patches, root=knowledge.parent)
     return {
         "updated": updated,
         "no_cost_fields": no_cost_fields,

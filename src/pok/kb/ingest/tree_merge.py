@@ -20,6 +20,7 @@ from typing import Any
 
 from pok.kb.ingest.merge import merge_shard_record, slug_to_id_part
 from pok.kb.store import load as store_load
+from pok.kb.store import write_record, write_shard
 
 _KIND_TO_DATA = {
     "keystone": "keystone",
@@ -126,9 +127,8 @@ def merge_tree(chunk_dir: Path, knowledge: Path, patch: str, kind: str) -> dict[
             merged["verification"] = rec["verification"]
             merged["sources"] = rec["sources"]
             merged["data"] = {**seed.raw.get("data", {}), **rec["data"]}
-            seed.path.write_text(
-                json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-            )
+            # 쓰기는 store 단일 경로로 (B-6) — 샤드 경로면 거기서 거부된다
+            write_record(seed.path, merged, root=knowledge.parent, validate=False)
             updated_seeds += 1
             continue
         prev = prev_in_shard.get(rec["id"])
@@ -136,14 +136,9 @@ def merge_tree(chunk_dir: Path, knowledge: Path, patch: str, kind: str) -> dict[
         records.append(rec if prev is None else merge_shard_record(prev, rec, _MACHINE_DATA_KEYS))
 
     out = knowledge / "game-data" / "tree"
-    out.mkdir(parents=True, exist_ok=True)
-    (out / _SHARD[kind]).write_text(
-        "".join(
-            json.dumps(r, ensure_ascii=False) + "\n"
-            for r in sorted(records, key=lambda r: str(r["id"]))
-        ),
-        encoding="utf-8",
-    )
+    # 쓰기는 store 단일 경로로 (B-6): 원자적 + 근거 없는 레코드 감소 거부.
+    # 트리 청크는 종류별 샤드를 통째로 다시 쓰므로 감소 방지가 특히 중요하다.
+    write_shard(out / _SHARD[kind], records, root=knowledge.parent, validate=False)
     after = store_load(knowledge.parent)  # 스키마·참조 무결성 재검증
     return {
         "chunk": len(items),
