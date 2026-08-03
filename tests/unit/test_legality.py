@@ -6,6 +6,22 @@ import pytest
 
 from pok.common.paths import knowledge_dir
 from pok.engine.legality import ItemLegalityChecker, _norm, _parse_item
+from pok.pob.versions import resolve_snapshot
+
+
+def _pob_snapshot_ready() -> bool:
+    try:
+        resolve_snapshot()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    return True
+
+
+# 프리즘 풀만 PoB 소스(external/pob 스냅샷)에서 읽는다 — CI엔 스냅샷이 없다.
+# 나머지 검증은 KB만 쓰므로 모듈 전체가 아니라 해당 테스트에만 건다 (통합 테스트와 같은 관례).
+needs_pob_snapshot = pytest.mark.skipif(
+    not _pob_snapshot_ready(), reason="external/pob 스냅샷 없음 (프리즘 풀 = PoB 소스)"
+)
 
 
 @pytest.fixture(scope="module")
@@ -52,7 +68,10 @@ def test_티어_범위_밖_수치는_거부(checker: ItemLegalityChecker) -> Non
 
 
 def _jewel(*mods: str) -> str:
-    return "Rarity: RARE\nPok Jewel\nSapphire\nItem Level: 81\n" + "\n".join(mods)
+    # Diamond = 전 속성 태그(str/dex/int) 주얼 — 민첩 계열 접미(_SUF_ATK_CRIT_DMG)까지
+    # 실제로 롤 가능한 베이스. (#34 이전엔 Sapphire였으나, 그 조합은 poe2db:normal
+    # CONDITIONAL 탈출 버그가 가려주던 불법 조합이었다)
+    return "Rarity: RARE\nPok Jewel\nDiamond\nItem Level: 81\n" + "\n".join(mods)
 
 
 # KB jewel-01.ndjson 실존 모드 (전부 최대 롤 — 티어 범위 검사도 함께 통과해야 한다)
@@ -137,6 +156,74 @@ def test_접미어_효과_줄_없으면_기존_범위(checker: ItemLegalityCheck
     assert not report.is_legal, report
 
 
+def test_링_전용_모드는_주얼에서_거부(checker: ItemLegalityChecker) -> None:
+    """#34 회귀: 클래스 타깃(ring/gloves/quiver) 밖 베이스는 경로 표지(poe2db:normal)로
+    CONDITIONAL 탈출 금지 — poe2db:normal은 크래프팅 동치 표지다."""
+    report = checker.check(_jewel("Adds 1 to 3 Cold damage to Attacks"))
+    assert report.verdicts[0].status == "ILLEGAL", report.verdicts
+    assert not report.is_legal
+
+
+def test_주얼_liquid_경로는_CONDITIONAL_유지(checker: ItemLegalityChecker) -> None:
+    """#34 반례 보존: liquid 주얼 모드는 spawn_weights {"jewel": 0}로 클래스 호환이
+    명시돼 있다(C-2 "weight 0 ≠ 죽은 모드") — 베이스 적합성 검사 후에도 CONDITIONAL."""
+    report = checker.check(_jewel(_PRE_SUFFIX_EFFECT))
+    v = report.verdicts[0]
+    assert v.status == "CONDITIONAL" and "poe2db:liquid" in v.reason, v
+
+
+def test_경로_베이스_적합성_pages_scope(checker: ItemLegalityChecker) -> None:
+    """#34: 훼손 모드처럼 spawn_weights가 없는 레코드는 applicable_pages·scope로 판정."""
+    from pok.engine.legality import _route_base_fit
+
+    belt = checker._bases["heavy belt"]
+    jewel = checker._bases["sapphire"]
+    desecrated = {
+        "affix_type": "prefix",
+        "scope": "equipment",
+        "acquisition": ["desecration"],
+        "applicable_pages": ["Belts"],
+    }
+    assert _route_base_fit(desecrated, belt) == (True, "")
+    fit, why = _route_base_fit(desecrated, jewel)
+    assert not fit and "applicable_pages" in why, (fit, why)
+    scoped = {"scope": "jewel", "acquisition": ["desecration"]}
+    assert _route_base_fit(scoped, jewel) == (True, "")
+    fit, why = _route_base_fit(scoped, belt)
+    assert not fit and "scope" in why, (fit, why)
+    # 신호가 전혀 없으면 반증 불가 — 적용 가능 취급(CONDITIONAL 유지)
+    assert _route_base_fit({"acquisition": ["poe2db:liquid"]}, jewel) == (True, "")
+
+
+def test_UNKNOWN은_표기_확인_후보를_제시(checker: ItemLegalityChecker) -> None:
+    """B-1 실증(2026-08-02): 정본은 '+N to Spirit'인데 '+N to maximum Spirit'으로
+    조회해 UNKNOWN → KB 갭으로 오진됐다. 근접 후보 제시로 오진을 구조적으로 차단."""
+    armour = "Rarity: RARE\nPok Armour\nAltar Robe\nItem Level: 82\n"
+    wrong = checker.check(armour + "+52 to maximum Spirit").verdicts[0]
+    assert wrong.status == "UNKNOWN"
+    assert "표기 확인 후보" in wrong.reason and "to spirit" in wrong.reason
+    # 정본 표기는 정상 통과 — KB에 실재한다는 증거
+    right = checker.check(armour + "+52 to Spirit").verdicts[0]
+    assert right.status == "LEGAL" and right.modifier_id is not None
+    # 진짜 미수록은 후보 없음으로 구분된다
+    absent = checker.check(armour + "+999% to Pok Resistance").verdicts[0]
+    assert absent.status == "UNKNOWN" and "근접 후보 없음" in absent.reason
+
+
+def test_훼손_모드는_합성_검증_풀에_포함(checker: ItemLegalityChecker) -> None:
+    """훼손(desecrated) origins도 검증 풀 포함(사용자 지시 2026-07-31) —
+    spawn_weights가 없어 applicable_pages/scope로 베이스 적합성을 판정한다.
+    원문 "(10-18) % chance…"의 % 앞 공백은 _norm 공백 정규화로 흡수."""
+    line = "14% chance for Charms you use to not consume Charges"  # Belts, ilvl 65
+    ok = checker.check(f"Rarity: RARE\nPok Belt\nHeavy Belt\nItem Level: 81\n{line}")
+    v = ok.verdicts[0]
+    assert v.status == "CONDITIONAL" and "desecration" in v.reason, v
+    wrong_base = checker.check(f"Rarity: RARE\nPok Jewel\nDiamond\nItem Level: 81\n{line}")
+    assert wrong_base.verdicts[0].status == "ILLEGAL", wrong_base.verdicts
+    low_ilvl = checker.check(f"Rarity: RARE\nPok Belt\nHeavy Belt\nItem Level: 60\n{line}")
+    assert low_ilvl.verdicts[0].status == "ILLEGAL", low_ilvl.verdicts
+
+
 def test_장비는_여전히_3_3_한도(checker: ItemLegalityChecker) -> None:
     limits, total, label = checker._affix_limits("rare", None)
     assert (limits["prefix"], limits["suffix"], total) == (3, 3, 6)
@@ -194,6 +281,7 @@ def test_유니크_주얼_롤_변형은_열거_대조로_판정(checker: ItemLeg
     assert cls.is_legal, cls
 
 
+@needs_pob_snapshot
 def test_프리즘_실존_스킬_젬만_통과(checker: ItemLegalityChecker) -> None:
     """Prism of Belief: +1~3 레벨 x 실존 스킬 젬(KB Skill ∩ PoB prism 풀)."""
     ok = checker.check(
@@ -204,6 +292,7 @@ def test_프리즘_실존_스킬_젬만_통과(checker: ItemLegalityChecker) -> 
     assert any("KB Skill" in v.reason for v in ok.verdicts)
 
 
+@needs_pob_snapshot
 def test_프리즘_롤_범위와_풀_제외_거부(checker: ItemLegalityChecker) -> None:
     over = checker.check(
         "Rarity: UNIQUE\nPrism of Belief\nDiamond\nItem Level: 80\n"

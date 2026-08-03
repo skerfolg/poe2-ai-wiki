@@ -18,7 +18,15 @@
     ],
     "cost_resource": "mana",
     "description": "Launch a large ball of Fire which explodes on impact. The explosion Consumes a Fire Infusion if possible to launch a ring of smaller firebolts.",
-    "tier": 3
+    "tier": 3,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 10.0,
+        "max": 104.0
+      }
+    ],
+    "cast_time_s": 1.2
   },
   "verification": "GAME_DATA",
   "sources": [

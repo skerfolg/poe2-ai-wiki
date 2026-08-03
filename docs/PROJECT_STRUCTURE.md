@@ -56,7 +56,7 @@ poe2-ai-wiki/
 │   ├── pob/                      # ★ PoB 오라클 = 유일 비-Python 경계 (AD-1/AD-2, §9)
 │   ├── engine/                   # ★ 결정적 도구 상자 (지능 없음, AD-3)
 │   │   ├── tree/                  #   트리 최적화 알고리즘 (Steiner + PoB실측, D23)
-│   │   └── constraints/           #   (예정) 설계 제약 검사기 — 포인트 예산·색상 장부·점유·자원 (D27, P4.5)
+│   │   └── constraints/           #   설계 제약 검사기 — 포인트 예산·색상 장부·점유·자원 (D27, P4.5 구현 2026-07-31)
 │   ├── live/                     # 라이브 데이터 fetch (→ var/live)
 │   ├── cost/                     # 가격 추산 — 요청 시만 (D19)
 │   ├── learning/                 # 피드백/인사이트 로직 — 큐레이션 게이트 (§10.4)
@@ -193,7 +193,7 @@ artifacts/builds/<id>          ──[승격: reference 가치 판단]───�
 - ✅ **패키지명 = `pok` (Path of Knowledge)** — PoB 작명 규칙 계승, 2026-07-29 확정
 - ✅ **import-linter 도입** — 계층 위반은 CI 실패 (P0)
 - ✅ 원시 스냅샷 = 별도 데이터 repo ([KB_INGEST](KB_INGEST.md) KI-1)
-- ✅ **`artifacts/builds/<id>/design.md`(설계 문서, D26) + `artifacts/anchors/` 신설(외부 앵커 빌드, D30)** — §9 파킹이 아닌 확정, 근거: 사용자 협의 2026-07-31 (BLUEPRINT §10.0). `engine/constraints/`는 예정(D27, P4.5에서 구현)
+- ✅ **`artifacts/builds/<id>/design.md`(설계 문서, D26) + `artifacts/anchors/` 신설(외부 앵커 빌드, D30)** — §9 파킹이 아닌 확정, 근거: 사용자 협의 2026-07-31 (BLUEPRINT §10.0). `engine/constraints/`는 구현됨(D27, 2026-07-31 — 검사기 4종+KB 상수 인용)
 
 ## 9. 미결 사항 (파킹 — 해당 로드맵 단계에서 결정, [ROADMAP](ROADMAP.md) 참조)
 

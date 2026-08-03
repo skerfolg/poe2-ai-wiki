@@ -18,7 +18,15 @@
     ],
     "cost_resource": "mana",
     "description": "Launch a spray of sparking Projectiles that travel erratically along the ground until they hit an enemy or expire. Consumes a Cold Infusion if possible to fire many sparks in a circle.",
-    "tier": 1
+    "tier": 1,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 5.0,
+        "max": 56.0
+      }
+    ],
+    "cast_time_s": 0.7
   },
   "verification": "GAME_DATA",
   "sources": [

@@ -25,6 +25,16 @@ class DetailPage:
     acquisition: list[str] = field(default_factory=list)  # From 카드 항목들 (신호 A)
     acquisition_count: int | None = None  # "From /N" 헤더의 N
     has_level_effect: bool = False
+    # 코스트·점유 전수 (사용자 지시 2026-08-02 — 정신력 지출 장부의 원천)
+    costs: list[dict[str, Any]] = field(default_factory=list)  # Cost: {resource,min,max[,pct]}
+    reservation: list[dict[str, Any]] = field(default_factory=list)  # Reservation:
+    additional_reservation: list[dict[str, Any]] = field(default_factory=list)  # 보조 젬
+    cost_multiplier_pct: float | None = None  # 보조 젬 Cost Multiplier: 115%
+    cast_time_s: float | None = None
+    # 서술형 점유 — 라벨(`Reservation:`)이 아니라 문장으로 적히는 조건부 점유.
+    # 예: "Reserves 60 Spirit per socketed Curse" (신성 모독). 페이지의 **버프 팝업**
+    # 블록에 있어 메인 Stats만 보면 놓친다 (실증 2026-08-02, 백로그 B-4).
+    conditional_reservation: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _title_name(soup: BeautifulSoup) -> str:
@@ -53,6 +63,85 @@ def _extract_tags(stats_text: str) -> list[str]:
     return tags
 
 
+# ── 코스트·점유 파싱 (Stats 텍스트) ──────────────────────────────────
+# 값 형태: "30" | "(3 — 37)" (+선택 "%"), 자원: Mana·Life·Spirit·Energy Shield·Rage
+_COST_VALUE = re.compile(
+    r"\(?\s*(\d+(?:\.\d+)?)(?:\s*—\s*(\d+(?:\.\d+)?)\s*\))?\s*(%)?\s*"
+    r"(Mana|Life|Spirit|Energy Shield|Rage)"
+)
+# 세그먼트 종결자: 다음 라벨/속성 시작 (Stats 텍스트는 라벨 나열이라 접두 구간만 취한다)
+_SEG_END = (
+    r"(?=Additional Reservation:|Reservation:|Cost Multiplier:|Cost:|Cast Time:|"
+    r"Attack Time:|Critical|Projectile|Cooldown|Radius|Requires:|Support Requirements|"
+    r"Tier:|Level:|$)"
+)
+
+
+def _cost_values(segment: str) -> list[dict[str, Any]]:
+    out = []
+    for m in _COST_VALUE.finditer(segment):
+        lo = float(m.group(1))
+        hi = float(m.group(2)) if m.group(2) else lo
+        value: dict[str, Any] = {"resource": m.group(4), "min": lo, "max": hi}
+        if m.group(3):
+            value["pct"] = True
+        out.append(value)
+    return out
+
+
+def _segment(text: str, label: str) -> str:
+    m = re.search(re.escape(label) + r"\s*(.*?)" + _SEG_END, text, re.S)
+    return m.group(1) if m else ""
+
+
+# 서술형 점유: "Reserves 60 Spirit per socketed Curse" / "Reserves 30 Spirit"
+_RESERVES_SENTENCE = re.compile(
+    r"Reserves\s+(\d+(?:\.\d+)?)\s*(%)?\s*(Mana|Life|Spirit|Energy Shield)"
+    r"(?:\s+per\s+([A-Za-z ]{3,40}?))?(?=\s*(?:[.,]|Additional|Requires|$))",
+    re.IGNORECASE,
+)
+
+
+def parse_conditional_reservation(text: str) -> list[dict[str, Any]]:
+    """서술형 점유 문장 → [{resource, amount, per?, pct?}] (중복 제거).
+
+    poe2db는 조건부 점유를 라벨이 아니라 문장으로 적는다 — 그리고 그 문장은
+    메인 젬 팝업이 아니라 **버프 팝업** 블록에 있다. 페이지의 모든 `.Stats`를
+    합쳐서 넘겨야 잡힌다.
+    """
+    out: list[dict[str, Any]] = []
+    for m in _RESERVES_SENTENCE.finditer(text):
+        entry: dict[str, Any] = {"resource": m.group(3), "amount": float(m.group(1))}
+        if m.group(2):
+            entry["pct"] = True
+        if m.group(4):
+            entry["per"] = " ".join(m.group(4).split())
+        if entry not in out:
+            out.append(entry)
+    return out
+
+
+def parse_stats_costs(stats_text: str) -> dict[str, Any]:
+    """Stats 텍스트 → 코스트·점유·시전시간 (없는 항목은 빈 값).
+
+    "Additional Reservation:"(보조 젬의 추가 점유)이 "Reservation:"을 포함하므로
+    일반 점유는 'Additional ' 접두가 없는 위치만 매칭한다.
+    """
+    plain_reservation = ""
+    m = re.search(r"(?<!Additional )Reservation:\s*(.*?)" + _SEG_END, stats_text, re.S)
+    if m:
+        plain_reservation = m.group(1)
+    mult = re.search(r"Cost Multiplier:\s*(\d+(?:\.\d+)?)\s*%", stats_text)
+    cast = re.search(r"Cast Time:\s*(\d+(?:\.\d+)?)\s*sec", stats_text)
+    return {
+        "costs": _cost_values(_segment(stats_text, "Cost:")),
+        "reservation": _cost_values(plain_reservation),
+        "additional_reservation": _cost_values(_segment(stats_text, "Additional Reservation:")),
+        "cost_multiplier_pct": float(mult.group(1)) if mult else None,
+        "cast_time_s": float(cast.group(1)) if cast else None,
+    }
+
+
 def parse_detail(html: str) -> DetailPage:
     soup = BeautifulSoup(html, "html.parser")
     page = DetailPage(name=_title_name(soup))
@@ -72,6 +161,11 @@ def parse_detail(html: str) -> DetailPage:
         if m:
             page.tier = int(m.group(1))
         page.tags = _extract_tags(text)
+        for key, value in parse_stats_costs(text).items():
+            setattr(page, key, value)
+    # 조건부(서술형) 점유는 버프 팝업 블록에 있다 — 전 `.Stats`를 합쳐서 스캔
+    all_stats = " ".join(b.get_text(" ", strip=True) for b in soup.select(".Stats"))
+    page.conditional_reservation = parse_conditional_reservation(all_stats)
 
     for card in soup.select("div.card"):
         header = card.select_one(".card-header")

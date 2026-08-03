@@ -24,6 +24,7 @@ _TYPE_SCHEMA = {
     "Support": "support.schema.json",
     "Passive": "passive.schema.json",
     "Resource": "resource.schema.json",
+    "Mechanic": "mechanic.schema.json",  # v6 일반화 — 작동 규칙·공식·한도 (사용자 승인 2026-08-02)
     "Defence": "defence.schema.json",
     "Item": "item.schema.json",  # P1b ③ 유니크 + ④ 베이스
     "Modifier": "modifier.schema.json",  # P1b ④ 모드 풀 (RC4 근거)

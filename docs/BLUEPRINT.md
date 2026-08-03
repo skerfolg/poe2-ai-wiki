@@ -114,7 +114,7 @@ flowchart LR
 - **우리만의 canonical KB**: poe2db+poewiki+PoB를 취합·**자체 재작성**한 단일 진실 소스. 빌드생성기·챗봇 **공통 기반**.
 - **불변성**: 패치/시즌 변경 시에만 수정(통제된 재수집→git commit/tag). 평상시 read-only. **학습이 KB를 수정하지 않는다.**
 - **구조**: 단순 Markdown이 아니라 **구조적 레코드 + 관계 그래프 + source ledger**.
-  - 엔티티: `Skill · Support · Passive · Ascendancy · Item · Modifier · Event · Resource · Defence · Content · Build`
+  - 엔티티: `Skill · Support · Passive · Ascendancy · Item · Modifier · Event · Resource · Mechanic · Defence · Content · Build` *(Mechanic = 게임 작동 규칙·공식·한도 — 점유 효율 공식·전직 포인트 예산·보조 슬롯 한도 등, v6 일반화에서 신설. 사용자 승인 2026-08-02)*
   - 관계: `triggers · enables · scales_with · consumes · recovers · converts · reserves · conflicts_with · mitigates · requires · replaces · overlaps · invalidated_by`
   - 각 레코드: 검증 라벨 · 출처 · season/patch/PoB 버전 등 근거 메타.
   - **조건(condition)은 1급 필드** — 노드/모드의 발동 조건을 명시하고, 생성 시 *만족 가능성*을 검증(가정 금지).
@@ -245,7 +245,8 @@ flowchart TD
 ## 11. 엔진 능력 (MCP 도구 카탈로그, 러프)
 
 - **조회/검색**: `search_kb` · `get_entry(skill/item/passive/…)` · `find_meta_builds` · `get_prices` · `parse_pob` · `search_insights`
-- **빌드·계산**: `assemble_pob` · `compute_pob`(headless) · `evaluate_delta`(변경의 PoB 실측 델타) · `optimize_tree`(에이전트 정책 하 트리 탐색) · `connect_anchors`(Steiner 연결) · `check_item_legality` · *(예정)* `check_constraints`(설계 문서 제약 원장의 결정적 검사, D27)
+- **빌드·계산**: `assemble_pob` · `compute_pob`(headless) · `evaluate_delta`(변경의 PoB 실측 델타) · `optimize_tree`(에이전트 정책 하 트리 탐색) · `connect_anchors`(Steiner 연결) · `check_item_legality` · `parse_pob`(코드 해석 + 앵커 보관, D30)
+- **설계 루프** *(P4.5 구현 2026-08-02)*: `check_constraints`(제약 원장 4종의 결정적 검사, D27) · `evaluate_objective`(임계·캡 사전식 판정, D28) · `parse_design_doc`(design.md 기계 가독 파싱, D26)
 - **가격(요청 시)**: `estimate_cost`
 - **학습**: `record_feedback`(→ 큐레이션 게이트)
 

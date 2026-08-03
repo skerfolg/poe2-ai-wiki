@@ -18,7 +18,15 @@
     ],
     "cost_resource": "mana",
     "description": "Fire a Projectile that applies a powerful Chaos damage over time debuff to enemies it hits.",
-    "tier": 3
+    "tier": 3,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 5.0,
+        "max": 57.0
+      }
+    ],
+    "cast_time_s": 0.8
   },
   "verification": "GAME_DATA",
   "sources": [

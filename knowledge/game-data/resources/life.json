@@ -9,7 +9,11 @@
     "resource"
   ],
   "data": {
-    "regenerates": false
+    "regenerates": false,
+    "low_life_threshold_pct": 35,
+    "_verification": {
+      "low_life_threshold_pct": "SUPPORTED_INFERENCE"
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -18,6 +22,12 @@
       "ref": "seed:hand-authored",
       "patch": "0.5.0",
       "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    },
+    {
+      "src": "in-game",
+      "ref": "artifacts/builds/20260731-ember-fusillade-설계v6/design.md §5",
+      "patch": "0.5.4b",
+      "note": "로우라이프 임계 35% 이하 — 점유 67.04% 구성에서 점유 정보창으로 성립 확인 (사용자 2026-07-31, 태스크 #35)"
     }
   ]
 }

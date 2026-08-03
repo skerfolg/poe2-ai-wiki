@@ -106,13 +106,29 @@ def assemble(
         "validation.json": json.dumps(validation, ensure_ascii=False, indent=1, sort_keys=True)
         + "\n",
     }
-    manifest = {
+    manifest: dict[str, Any] = {
         "pob_commit": pinned_commit(),
         "class": spec.class_name,
         "ascendancy": spec.ascendancy,
         "level": spec.level,
         "legal": bool(result.is_tree_legal and all(r.is_legal for r in item_reports.values())),
     }
+    # 대체 모델링 계보(B-3): 효과를 트리 노드로 재현한 주얼은 사실을 기록에 남긴다 —
+    # 소켓 소모·조달 가정은 재현되지 않으므로 실측 해석 시 이 사실이 필요하다.
+    substitutes = [
+        {"socket_node_id": j.socket_node_id, "allocated_nodes": list(j.allocates)}
+        for j in spec.jewels
+        if j.allocates
+    ]
+    if substitutes:
+        manifest["substitute_modeling"] = {
+            "reason": (
+                "KB pob_computable:false 유니크 — explicits가 플레이스홀더라 텍스트 조립 불가"
+            ),
+            "method": "부여 노터블을 트리 노드로 직접 할당해 효과만 재현",
+            "not_reproduced": ["주얼 소켓 소모", "랜덤 롤 조달 가정"],
+            "jewels": substitutes,
+        }
     path = record_build(build_id, files, manifest)
     manifest_hash = json.loads((path / "manifest.json").read_text(encoding="utf-8"))["content_hash"]
     dups = tuple(b for b in find_by_hash(manifest_hash) if b != build_id)

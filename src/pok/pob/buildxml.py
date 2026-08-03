@@ -84,6 +84,12 @@ class JewelSpec:
 
     socket_node_id: int
     text: str
+    # 대체 모델링(백로그 B-3, 2026-08-02): KB `pob_computable: false` 유니크 주얼은
+    # explicits가 플레이스홀더("Allocates Passive Skill")라 PoB가 실제 효과를 읽지
+    # 못한다. 부여 노터블의 node_id를 여기 적으면 조립이 tree_nodes에 병합해
+    # **효과만** 재현한다. 주얼 소켓 소모·랜덤 롤 조달 가정은 재현되지 않으므로
+    # 계보(manifest)에 대체 모델링 사실이 기록된다 — 사실을 덮지 않는다.
+    allocates: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -200,7 +206,11 @@ def to_xml(spec: BuildSpec) -> str:
         for i, j in enumerate(spec.jewels, start=1)
     )
 
-    nodes = ",".join(str(n) for n in spec.tree_nodes)
+    # 대체 모델링 노드(JewelSpec.allocates)를 트리에 병합 — 순서 보존·중복 제거
+    allocated = list(spec.tree_nodes) + [
+        n for j in spec.jewels for n in j.allocates if n not in spec.tree_nodes
+    ]
+    nodes = ",".join(str(n) for n in dict.fromkeys(allocated))
     build_attrs = (
         f'level="{spec.level}" characterLevelAutoMode="false" '
         f'targetVersion="{TARGET_VERSION}" className={quoteattr(spec.class_name)} '

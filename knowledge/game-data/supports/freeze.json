@@ -10,7 +10,12 @@
   ],
   "data": {
     "description": "Supports any skill that Hits enemies, making it more effective at Freezing enemies.",
-    "tier": 2
+    "tier": 2,
+    "color": "blue",
+    "color_requirements": [
+      "reqInt"
+    ],
+    "cost_multiplier_pct": 120.0
   },
   "verification": "GAME_DATA",
   "sources": [

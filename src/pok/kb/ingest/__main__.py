@@ -63,6 +63,16 @@ def main(argv: list[str] | None = None) -> int:
     p_cur = sub.add_parser("currency", help="화폐 아이템(④ 보강): merge (Stackable_Currency 원시)")
     p_cur.add_argument("--patch", required=True)
 
+    p_gc = sub.add_parser(
+        "gem-costs", help="젬 코스트·점유 전수 수록 (오프라인, ingest-raw Stats 재파싱)"
+    )
+    p_gc.add_argument("--patch", required=True)
+
+    p_gcol = sub.add_parser(
+        "gem-colors", help="보조 젬 색상(요구 속성) 수록 (오프라인, PoB 젬 데이터)"
+    )
+    p_gcol.add_argument("--patch", required=True)
+
     p_nar = sub.add_parser(
         "narrative", help="⑤ 서술: fetch(poe2wiki 원문)|check(wiki 산출물 게이트)"
     )
@@ -212,6 +222,16 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         print(f"리포트: {raw_dir / 'currency' / 'report.json'}")
+    elif args.cmd == "gem-costs":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest.gem_costs import apply_gem_costs
+
+        print(json.dumps(apply_gem_costs(raw_dir, knowledge_dir()), ensure_ascii=False, indent=1))
+    elif args.cmd == "gem-colors":
+        from pok.common.paths import knowledge_dir
+        from pok.kb.ingest.gem_colors import apply_gem_colors
+
+        print(json.dumps(apply_gem_colors(raw_dir, knowledge_dir()), ensure_ascii=False, indent=1))
     elif args.cmd == "narrative":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest import narrative

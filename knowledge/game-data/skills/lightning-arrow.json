@@ -19,7 +19,14 @@
     ],
     "cost_resource": "mana",
     "description": "Fire a charged arrow at the target. On hitting an enemy or wall, the arrow will fire Chaining Lightning beams at nearby enemies.",
-    "tier": 1
+    "tier": 1,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 6.0,
+        "max": 40.0
+      }
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

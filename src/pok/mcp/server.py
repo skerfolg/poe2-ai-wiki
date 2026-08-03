@@ -27,6 +27,7 @@ from pok.index.search import get_entry as _get_entry
 from pok.index.search import related as _related
 from pok.index.search import search as _search
 from pok.mcp.tools import build as _build
+from pok.mcp.tools import constraints as _constraints
 from pok.mcp.tools import tree as _tree
 
 mcp: FastMCP = FastMCP(
@@ -65,7 +66,7 @@ def search_kb(
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """KB 검색 (1단계 — 압축 히트). query는 한국어/영어 키워드(FTS5),
-    type은 Skill|Support|Passive|Item|Modifier|Resource|Defence,
+    type은 Skill|Support|Passive|Item|Modifier|Resource|Mechanic|Defence,
     tags는 게임 공식 태그(소문자). 상세는 get_entry로."""
     hits = _search(query=query, tags=tags, type_=type, limit=limit)
     return [asdict(h) for h in hits]
@@ -100,6 +101,12 @@ compute_pob = mcp.tool(_build.compute_pob)
 evaluate_delta = mcp.tool(_build.evaluate_delta)
 check_item_legality = mcp.tool(_build.check_item_legality)
 assemble_pob = mcp.tool(_build.assemble_pob)
+parse_pob = mcp.tool(_build.parse_pob)
+
+# 설계 루프 (P4.5, D26~D28)
+check_constraints = mcp.tool(_constraints.check_constraints)
+evaluate_objective = mcp.tool(_constraints.evaluate_objective)
+parse_design_doc = mcp.tool(_constraints.parse_design_doc)
 
 # 트리 최적화 도구 (P4) — tools/tree.py
 connect_anchors = mcp.tool(_tree.connect_anchors)

@@ -19,7 +19,14 @@
     ],
     "cost_resource": "mana",
     "description": "Build Glory by Heavy Stunning enemies. When you have maximum Glory you may entreat the Ancestors to crush your enemies, manifesting a massive hammer that falls from the sky onto your target, Slamming into the ground after a short duration and dealing immense damage based on your weapon.",
-    "tier": 13
+    "tier": 13,
+    "cost": [
+      {
+        "resource": "Mana",
+        "min": 10.0,
+        "max": 73.0
+      }
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

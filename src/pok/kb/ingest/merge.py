@@ -13,7 +13,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from pok.kb.ingest.process import INCLUDE_VERDICTS, NO_POB
+from pok.kb.ingest.process import INCLUDE_VERDICTS, NO_ACQ, NO_POB
 from pok.kb.store import load as store_load
 
 POB_COMMIT = "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
@@ -77,6 +77,10 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
             data["category"] = cat
     if item["verdict"] == NO_POB:
         data["pob_computable"] = False  # PoB 미지원 — compute 단계에서 거부 근거
+    if item["verdict"] == NO_ACQ:
+        # 실존 증거는 레벨효과표뿐 — poe2db가 획득 경로(From 카드)를 표기하지 않았다.
+        # 조건 1급 원칙(RC1)상 "경로를 모른다"는 사실을 지우지 않고 데이터로 남긴다.
+        data["acquisition_unknown"] = True
     sources: list[dict[str, Any]] = [
         {
             "src": "poe2db",
@@ -129,7 +133,12 @@ def merge_patch(
     for item in included:
         rec = _to_record(item, patch)
         prev = existing.records.get(rec["id"])
-        if prev is not None:
+        if prev is not None and prev.path.suffix == ".ndjson":
+            # 기존 벌크 레코드 — **개별 파일처럼 쓰면 샤드 전체가 한 줄로 잘린다**
+            # (실측 2026-08-02: 884줄 → 54줄, 830건 손실). 병합해서 벌크로 되돌린다.
+            # data 병합이 후처리 보강분(cost·color 등)도 함께 보존한다.
+            bulk[rec["type"]].append(_update_seed(prev.raw, rec))
+        elif prev is not None:
             merged = _update_seed(prev.raw, rec)
             prev.path.write_text(
                 json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
@@ -137,6 +146,13 @@ def merge_patch(
             updated_seeds += 1
         else:
             bulk[rec["type"]].append(rec)
+
+    # 이번 ingest에 없는 기존 벌크 레코드도 샤드에 남긴다 — 샤드를 포함분만으로
+    # 다시 쓰면 부분 merge에서 나머지가 삭제된다 (회귀 방지, 2026-08-02).
+    written = {r["id"] for records in bulk.values() for r in records}
+    for prev in existing.records.values():
+        if prev.path.suffix == ".ndjson" and prev.type in bulk and prev.id not in written:
+            bulk[prev.type].append(prev.raw)
 
     out_dir = knowledge / "game-data" / "gems"
     out_dir.mkdir(parents=True, exist_ok=True)

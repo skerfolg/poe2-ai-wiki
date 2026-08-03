@@ -1,0 +1,30 @@
+{
+  "id": "mechanic.ascendancy-points",
+  "type": "Mechanic",
+  "name": {
+    "ko": "전직 포인트",
+    "en": "Ascendancy Points"
+  },
+  "tags": [
+    "mechanic"
+  ],
+  "data": {
+    "max": 8
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Infernalist",
+      "patch": "0.5.4b",
+      "note": "어센던시 트리 총 배분 가능 포인트 8"
+    },
+    {
+      "src": "in-game",
+      "ref": "artifacts/builds/20260731-ember-fusillade-설계v6/design.md §1·§7",
+      "patch": "0.5.4b",
+      "note": "v6 설계에서 예산 8로 배타 분기 강제됨을 확인 (사용자 2026-07-31)"
+    }
+  ],
+  "notes": "전직(어센던시) 포인트 예산. 후보 노드 묶음의 포인트 합이 8을 초과하면 배타 분기가 강제된다 — v6 일반화(태스크 #35, 사용자 승인 2026-07-31)"
+}

@@ -74,3 +74,19 @@ def test_candidates_거리와_종류(graph: TreeGraph) -> None:
     # 실측: Raw Power(51184)는 거리 5
     by_id = {nid: d for nid, _, d in out}
     assert by_id.get(51184) == 5
+
+
+def test_어센던시_경로_비용_v6_기계_검증(graph: TreeGraph) -> None:
+    """v6 전직 예산 가정의 기계 검증 (2026-08-02) — 단방향 저장된 어센던시
+    엣지가 그래프에서 양방향으로 펼쳐져야 이 경로가 나온다 (tree merge 재실행
+    시 어센던시 연결 보존을 지키는 회귀 게이트)."""
+    start = 32699  # Infernalist 시작 허브 (Witch1)
+    pact = graph.shortest_path({start}, 13174)  # 화염술의 맹약
+    assert pact is not None and len(pact) == 2  # v6: 계약 2포인트
+    have = {start, *pact}
+    beidat = graph.shortest_path(have, 46644)  # 베이다트의 의지
+    assert beidat is not None and len(beidat) == 4  # v6: 뒤바뀐 육체 경유 4포인트
+    core = have | set(beidat)
+    for target in (34419, 18158):  # 웃는 번제 / 불꽃을 가져오는 자
+        branch = graph.shortest_path(core, target)
+        assert branch is not None and len(branch) == 2  # 각 +2 → 합 10 > 예산 8 (분기 강제)
