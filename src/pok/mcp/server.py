@@ -15,13 +15,17 @@
 
 from __future__ import annotations
 
+import functools
+import inspect
 import re
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
 
+from pok.common import telemetry
 from pok.common.paths import knowledge_dir
 from pok.index.search import get_entry as _get_entry
 from pok.index.search import get_insight as _get_insight
@@ -48,6 +52,43 @@ mcp: FastMCP = FastMCP(
 _FRONT_ID = re.compile(r"^id:\s*(\S+)$", re.M)
 
 
+def tool[F: Callable[..., Any]](fn: F) -> F:
+    """도구를 등록하면서 호출 이력을 남긴다.
+
+    무개입 테스트에서는 구조 세션이 생성 과정을 못 본다 — 도구가 스스로 남겨야
+    결함 보고가 사람의 기억에 의존하지 않는다. 빈 결과(조회 0건)도 남기는 게
+    핵심이다: 그건 실패가 아니라 KB 갭이거나 표기 오류라는 **신호**다(B-1 실측).
+
+    `functools.wraps`로 시그니처를 보존해야 FastMCP가 스키마를 만든다.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        try:
+            result = fn(*args, **kwargs)
+        except Exception as exc:
+            bound = _named(fn, args, kwargs)
+            telemetry.record(
+                fn.__name__, bound, outcome="error", detail=f"{type(exc).__name__}: {exc}"
+            )
+            raise
+        outcome = telemetry.classify(result)
+        if outcome != "ok":
+            telemetry.record(fn.__name__, _named(fn, args, kwargs), outcome=outcome)
+        return result
+
+    return mcp.tool(wrapper)  # type: ignore[return-value]
+
+
+def _named(fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
+    """위치 인자까지 이름을 붙여 기록한다 — 재현하려면 이름이 있어야 한다."""
+    try:
+        bound = inspect.signature(fn).bind_partial(*args, **kwargs)
+        return dict(bound.arguments)
+    except (TypeError, ValueError):
+        return {"args": list(args), **kwargs}
+
+
 def _narrative_index(knowledge: Path) -> dict[str, Path]:
     """wiki 서술 문서의 id → 경로 (호출 시 산출 — 파일 수가 작다)."""
     out: dict[str, Path] = {}
@@ -61,7 +102,7 @@ def _narrative_index(knowledge: Path) -> dict[str, Path]:
     return out
 
 
-@mcp.tool
+@tool
 def search_kb(
     query: str | None = None,
     type: str | None = None,
@@ -75,7 +116,7 @@ def search_kb(
     return [asdict(h) for h in hits]
 
 
-@mcp.tool
+@tool
 def get_entry(
     id: str,
     fields: list[str] | None = None,
@@ -91,7 +132,7 @@ def get_entry(
     return record
 
 
-@mcp.tool
+@tool
 def search_insights(
     query: str | None = None,
     label: str | None = None,
@@ -115,7 +156,7 @@ def search_insights(
     return [asdict(h) for h in _search_insights(query=query, label=label, scope=scope, limit=limit)]
 
 
-@mcp.tool
+@tool
 def get_insight(id: str) -> dict[str, Any]:
     """인사이트 전문 + 계보 (2단계). id는 `insight.<slug>` 또는 slug.
 
@@ -125,7 +166,7 @@ def get_insight(id: str) -> dict[str, Any]:
     return _get_insight(id)
 
 
-@mcp.tool
+@tool
 def related(id: str, rel: str | None = None) -> list[dict[str, str]]:
     """관계 순회 — 정방향(정본 기록)과 역방향(인덱스 생성)을 모두 반환.
     rel로 특정 관계만(triggers|enables|scales_with|consumes|recovers|converts|
@@ -134,24 +175,24 @@ def related(id: str, rel: str | None = None) -> list[dict[str, str]]:
 
 
 # 빌드·계산 도구 (P3) — 시그니처·독스트링은 tools/build.py 가 정본
-compute_pob = mcp.tool(_build.compute_pob)
-evaluate_delta = mcp.tool(_build.evaluate_delta)
-check_item_legality = mcp.tool(_build.check_item_legality)
-assemble_pob = mcp.tool(_build.assemble_pob)
-parse_pob = mcp.tool(_build.parse_pob)
+compute_pob = tool(_build.compute_pob)
+evaluate_delta = tool(_build.evaluate_delta)
+check_item_legality = tool(_build.check_item_legality)
+assemble_pob = tool(_build.assemble_pob)
+parse_pob = tool(_build.parse_pob)
 
 # 설계 루프 (P4.5, D26~D28)
-check_constraints = mcp.tool(_constraints.check_constraints)
-evaluate_objective = mcp.tool(_constraints.evaluate_objective)
-parse_design_doc = mcp.tool(_constraints.parse_design_doc)
+check_constraints = tool(_constraints.check_constraints)
+evaluate_objective = tool(_constraints.evaluate_objective)
+parse_design_doc = tool(_constraints.parse_design_doc)
 
 # 트리 최적화 도구 (P4) — tools/tree.py
-connect_anchors = mcp.tool(_tree.connect_anchors)
-optimize_tree = mcp.tool(_tree.optimize_tree)
+connect_anchors = tool(_tree.connect_anchors)
+optimize_tree = tool(_tree.optimize_tree)
 
 # 능동 탐사 (P5) — tools/explore.py. 후보 생성만, 판정은 사람 게이트
-scan_synergies = mcp.tool(_explore.scan_synergies)
-find_hypotheses = mcp.tool(_explore.find_hypotheses)
+scan_synergies = tool(_explore.scan_synergies)
+find_hypotheses = tool(_explore.find_hypotheses)
 
 
 def main() -> None:
