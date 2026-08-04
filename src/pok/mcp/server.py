@@ -95,6 +95,7 @@ def get_entry(
 def search_insights(
     query: str | None = None,
     label: str | None = None,
+    scope: str | None = None,
     limit: int = 10,
 ) -> list[dict[str, Any]]:
     """승격된 인사이트 검색 (1단계 — 발췌 히트).
@@ -105,8 +106,13 @@ def search_insights(
 
     query 생략 시 전량 목록(무엇이 있는지 훑기). label로 신뢰도 필터
     (IN_GAME|POB_CODE|GAME_DATA|SUPPORTED_INFERENCE 등). 전문은 get_insight로.
+
+    scope는 3계층 사다리의 칸이다: `durable`(시즌을 넘어 유지) | `season`(이번
+    시즌 관찰). 항구적 규칙만 보고 싶으면 scope="durable". 사다리 맨 위는
+    canonical 레코드이므로, durable 인사이트의 **사실 부분은 이미 레코드에도
+    있을 수 있다**(front matter의 promoted_to로 어느 레코드인지 확인).
     """
-    return [asdict(h) for h in _search_insights(query=query, label=label, limit=limit)]
+    return [asdict(h) for h in _search_insights(query=query, label=label, scope=scope, limit=limit)]
 
 
 @mcp.tool

@@ -12,6 +12,16 @@
   ① 쓰기 후 자동 재검증 — 깨진 상태가 커밋으로 넘어가지 않는다
   ② 레코드 감소 시 예외 — 명시적 삭제 근거(`allow_delete`) 없이는 줄지 않는다
   ③ 원자적 쓰기 — 중단돼도 기존 파일이 반토막 나지 않는다
+
+**B-7 (2026-08-04)**: ②를 파일 층에만 두니 같은 사고가 **층을 바꿔 재발**했다 —
+샤드 830건 유실 → `_verification` 라벨 2건 → `promoted_to` 계보 1건. 원인은 하나다:
+"부분 갱신"을 "전체 교체"로 수행한다. 그래서 필드 층에도 같은 원리를 적용한다:
+  ④ 깊은 병합 — dict끼리는 재귀 병합해 형제 키가 날아가지 않는다
+  ⑤ 필드 감소 시 예외 — 중첩 키 경로를 세어, 명시(None·`allow_drop`) 없는 소실을 거부
+  ⑥ 검사 선행 — 전 파일을 검사한 뒤에 쓴다(앞 파일만 써진 채 터지지 않게)
+
+재검증(①)은 스키마만 본다 — **값이 사라진 건 스키마 위반이 아니라서 통과한다**.
+그게 두 손실이 조용히 지나간 이유이고, ⑤가 그 구멍을 메운다.
 """
 
 from __future__ import annotations
@@ -240,8 +250,11 @@ def load(root: Path | None = None) -> Store:
 # ── 쓰기 (B-6: 정본 쓰기 단일 경로) ────────────────────────────────
 
 
-def _atomic_write(path: Path, text: str) -> None:
-    """임시 파일에 쓰고 교체 — 중단돼도 기존 파일이 반토막 나지 않는다(안전장치 ③)."""
+def atomic_write(path: Path, text: str) -> None:
+    """임시 파일에 쓰고 교체 — 중단돼도 기존 파일이 반토막 나지 않는다(안전장치 ③).
+
+    정본에 쓰는 모든 경로가 공유한다 — 레코드든 인사이트든 반토막은 똑같이 나쁘다.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
     try:
@@ -300,7 +313,7 @@ def write_shard(
             f"{path.name}: 근거 없는 레코드 감소 {len(unexpected)}건 — 쓰기 거부. "
             f"삭제하려면 allow_delete에 id를 명시하라 (예: {unexpected[:3]})"
         )
-    _atomic_write(path, _dump_shard(incoming.values()))
+    atomic_write(path, _dump_shard(incoming.values()))
     if validate:
         load(root)  # 안전장치 ①: 깨진 상태로 남지 않는다 (실패 시 예외)
     return WriteReport(
@@ -324,15 +337,64 @@ def write_record(
             f"{path.name}: 샤드에 개별 레코드를 쓸 수 없다 — write_shard를 쓰라 "
             "(파일 전체가 한 줄로 덮이는 파괴 경로)"
         )
-    _atomic_write(path, _dump_record(record))
+    atomic_write(path, _dump_record(record))
     if validate:
         load(root)
     return WriteReport(path=path, updated=(str(record["id"]),))
 
 
+def _deep_merge(base: Mapping[str, Any], patch: Mapping[str, Any]) -> dict[str, Any]:
+    """부분 갱신의 의미대로 합친다 — dict끼리 만나면 **재귀 병합**.
+
+    얕은 병합(`{**base, **patch}`)은 중첩 dict를 통째로 갈아끼운다. 그래서 라벨
+    하나를 더하려다 형제 키가 전부 사라진다(실측 2026-08-04: `_verification` 2건).
+    "패치"는 부분 갱신이라는 뜻이므로 재귀 병합이 옳은 기본값이다.
+
+    `None`은 여전히 삭제다(재적용 멱등). dict를 통째로 바꾸려면 `None`으로 지운 뒤
+    다시 넣으면 된다 — 두 단계를 강제하는 게 사고보다 낫다.
+    """
+    out = dict(base)
+    for key, value in patch.items():
+        if value is None:
+            out.pop(key, None)
+        elif isinstance(value, dict) and isinstance(out.get(key), dict):
+            out[key] = _deep_merge(out[key], value)
+        else:
+            out[key] = value
+    return out
+
+
+def _key_paths(obj: Mapping[str, Any], prefix: str = "") -> set[str]:
+    """중첩 dict의 키 경로 전량 (`data._verification.efficiency_formula` 꼴).
+
+    감소를 세려면 층을 가리지 않고 세야 한다 — B-6이 레코드 개수를 센 것과 같은
+    원리를 필드에 적용한 것이다.
+    """
+    paths: set[str] = set()
+    for key, value in obj.items():
+        path = f"{prefix}{key}"
+        paths.add(path)
+        if isinstance(value, dict):
+            paths |= _key_paths(value, f"{path}.")
+    return paths
+
+
+def _dropped_paths(patch: Mapping[str, Any], prefix: str = "") -> set[str]:
+    """패치가 **명시적으로** 지운 경로 (값이 None) — 이건 근거 있는 삭제다."""
+    dropped: set[str] = set()
+    for key, value in patch.items():
+        path = f"{prefix}{key}"
+        if value is None:
+            dropped.add(path)
+        elif isinstance(value, dict):
+            dropped |= _dropped_paths(value, f"{path}.")
+    return dropped
+
+
 def patch_records(
     updates: Mapping[str, Mapping[str, Any]],
     *,
+    allow_drop: Iterable[str] = (),
     root: Path | None = None,
     validate: bool = True,
 ) -> list[WriteReport]:
@@ -342,9 +404,17 @@ def patch_records(
     갱신한다. 호출자는 배치 형태를 알 필요가 없다 — 그 판단이 흩어져 있던 것이
     B-6이 없애려는 결함이다. 없는 id는 조용히 넘기지 않고 예외.
 
+    병합은 **깊다**(dict끼리 재귀) — 부분 갱신이 형제 키를 날리지 않는다. 그리고
+    그래도 값이 사라지면 **거부한다**(B-7): 근거 없는 감소를 막는 B-6의 원리를
+    필드 층에 적용한 것이다. 파일 층만 지키면 같은 사고가 층을 바꿔 재발한다
+    (실측: 샤드 830건 → `_verification` 라벨 2건).
+
     패치 값이 `None`이면 **그 키를 지운다** — 소스에서 사라진 값이 눌러붙지 않게
-    하는 재적용 멱등성의 수단이다(예: 젬 코스트 재파싱).
+    하는 재적용 멱등성의 수단이다(예: 젬 코스트 재파싱). 그 밖의 의도적 삭제는
+    `allow_drop`에 키 경로(`data._verification.foo` 꼴, `data.` 접두 없이 `foo.bar`)를
+    명시해야 통과한다 — 근거를 남기게 하는 게 목적이다.
     """
+    drop = set(allow_drop)
     store = load(root)
     unknown = sorted(set(updates) - set(store.records))
     if unknown:
@@ -355,25 +425,74 @@ def patch_records(
         by_path.setdefault(store.records[rid].path, []).append(rid)
 
     def _apply(data: Mapping[str, Any], patch: Mapping[str, Any]) -> dict[str, Any]:
-        merged = {**data, **{k: v for k, v in patch.items() if v is not None}}
-        for key, value in patch.items():  # None = 키 삭제 (재적용 멱등)
-            if value is None:
-                merged.pop(key, None)
+        merged = _deep_merge(data, patch)
+        lost = sorted(_key_paths(data) - _key_paths(merged) - _dropped_paths(patch) - drop)
+        if lost:
+            raise KBWriteError(
+                f"패치가 기존 값 {len(lost)}건을 지운다 — 근거 없는 소실 거부: {lost[:5]}"
+                " (의도한 삭제면 값을 None으로 주거나 allow_drop에 경로를 명시하라)"
+            )
         return merged
 
-    reports: list[WriteReport] = []
+    # **검사를 먼저 전부, 쓰기는 그 다음.** 섞으면 여러 파일에 걸친 패치에서 앞
+    # 파일만 써진 채 뒤에서 터져 반쯤 적용된 상태가 남는다 — 검사와 쓰기가 섞여
+    # 있는 것 자체가 B-7이 막으려는 결함과 같은 뿌리다.
+    staged: list[tuple[Path, str]] = []
     for path, ids in by_path.items():
         if path.suffix == ".ndjson":
             shard = _read_shard(path)
             for rid in ids:
-                prev_data = shard[rid].get("data", {})
-                shard[rid] = {**shard[rid], "data": _apply(prev_data, updates[rid])}
-            _atomic_write(path, _dump_shard(shard.values()))
+                shard[rid] = {
+                    **shard[rid],
+                    "data": _apply(shard[rid].get("data", {}), updates[rid]),
+                }
+            staged.append((path, _dump_shard(shard.values())))
         else:
             rec = json.loads(path.read_text(encoding="utf-8"))
             rec["data"] = _apply(rec.get("data", {}), updates[rec["id"]])
-            _atomic_write(path, _dump_record(rec))
-        reports.append(WriteReport(path=path, updated=tuple(sorted(ids))))
+            staged.append((path, _dump_record(rec)))
+
+    reports: list[WriteReport] = []
+    for path, text in staged:
+        atomic_write(path, text)
+        reports.append(WriteReport(path=path, updated=tuple(sorted(by_path[path]))))
     if validate and reports:
         load(root)
     return reports
+
+
+def patch_record_field(
+    entity_id: str,
+    field: str,
+    value: Any,
+    *,
+    root: Path | None = None,
+    validate: bool = True,
+) -> WriteReport:
+    """레코드의 **최상위 필드**를 갈아끼운다 (`relations`·`tags`·`notes` 등).
+
+    `patch_records`는 `data` 안쪽 전용이라 관계 엣지처럼 최상위에 사는 필드를
+    못 쓴다. 그렇다고 호출자가 파일을 직접 열면 B-6이 없앤 결함(배치 규칙이
+    흩어짐·샤드 통째 유실)이 되돌아온다 — 그래서 같은 안전장치(파일 자동 탐색·
+    원자적 쓰기·재검증) 위에 얹은 별도 입구를 둔다.
+
+    `id`·`type`은 레코드의 정체성이라 바꿀 수 없다.
+    """
+    if field in ("id", "type"):
+        raise KBWriteError(f"{field}는 레코드의 정체성 — 이 경로로 바꿀 수 없다")
+    store = load(root)
+    if entity_id not in store.records:
+        raise KBWriteError(f"KB에 없는 id: {entity_id}")
+    path = store.records[entity_id].path
+
+    if path.suffix == ".ndjson":
+        shard = _read_shard(path)
+        shard[entity_id] = {**shard[entity_id], field: value}
+        atomic_write(path, _dump_shard(shard.values()))
+    else:
+        rec = json.loads(path.read_text(encoding="utf-8"))
+        rec[field] = value
+        atomic_write(path, _dump_record(rec))
+    if validate:
+        load(root)
+    return WriteReport(path=path, updated=(entity_id,))

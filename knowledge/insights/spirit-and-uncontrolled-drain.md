@@ -9,6 +9,9 @@ source_revid: abc0bec8
 source_timestamp: 2026-08-03
 feedback_id: 20260803-시신걸음-comd-루프-빌드-폐기-노트
 patch: 0.5.4b
+scope: durable
+scope_verified_by: 사용자 판정 2026-08-04 (시즌을 넘어 유지되는 메커니즘 지식)
+promoted_to: item.corpsewade, item.threaded-light
 ---
 
 # 정신력 활용과 조절 불가 소모원

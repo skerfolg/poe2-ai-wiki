@@ -1,0 +1,32 @@
+{
+  "id": "mechanic.trigger",
+  "type": "Mechanic",
+  "name": {
+    "ko": "트리거",
+    "en": "Trigger"
+  },
+  "tags": [
+    "mechanic",
+    "trigger"
+  ],
+  "data": {
+    "multiple_triggers_disable_skill": true,
+    "triggered_skills_unsupportable": true,
+    "channelled_untriggerable": true,
+    "note": "트리거 연쇄를 설계에 쓰려면 각 화살표를 개별 검증해야 한다 — 메타 젬이 소스인 연쇄는 대부분 막혀 있다(skill.cast-on-* 의 관계 참조).",
+    "_verification": {
+      "multiple_triggers_disable_skill": "IN_GAME",
+      "triggered_skills_unsupportable": "IN_GAME",
+      "channelled_untriggerable": "IN_GAME"
+    }
+  },
+  "verification": "IN_GAME",
+  "sources": [
+    {
+      "src": "in-game",
+      "ref": "insight.meta-gem-trigger-chain-limits",
+      "patch": "0.5.4b",
+      "note": "durable 인사이트 → canonical 승격 (사다리 2칸)"
+    }
+  ]
+}

@@ -95,3 +95,69 @@ def test_slug와_id_둘_다로_찾힌다() -> None:
 def test_없는_인사이트는_예외() -> None:
     with pytest.raises(KeyError):
         get_insight("insight.does-not-exist")
+
+
+def test_scope로_계층을_거른다() -> None:
+    """3계층 사다리 — durable은 시즌을 넘어 유지되는 지식이다."""
+    durable = search_insights(scope="durable", limit=100)
+    assert durable and all(h.scope == "durable" for h in durable)
+    assert "low-life-supply-is-reservation" in {h.slug for h in durable}
+
+
+def test_레코드로_올라간_인사이트는_계보를_남긴다() -> None:
+    """사실은 레코드로 갔지만 인사이트는 지우지 않는다 — 규율이 거기 남는다."""
+    full = get_insight("low-life-supply-is-reservation")
+    assert full["scope"] == "durable"
+    assert "mechanic.reservation" in full["meta"]["promoted_to"]
+
+
+# ── B-8: front matter 쓰기도 단일 경로 ────────────────────────────────
+
+
+def test_부분_갱신이_다른_계보를_보존한다(tmp_path: Path) -> None:
+    """실측 손실(2026-08-04): promoted_to를 쓰다 앞선 계보가 사라졌다."""
+    from pok.kb.insights import parse_insight, patch_front_matter
+
+    p = tmp_path / "x.md"
+    p.write_text(
+        "---\nid: insight.x\nlabel: IN_GAME\nfeedback_id: fb-1\n---\n\n# 제목\n\n본문\n",
+        encoding="utf-8",
+    )
+    patch_front_matter(p, {"scope": "durable"})
+    ins = parse_insight(p.read_text(encoding="utf-8"), p)
+    assert ins.meta["feedback_id"] == "fb-1"  # 안 준 키는 보존
+    assert ins.label == "IN_GAME" and ins.scope == "durable"
+    assert ins.body.strip().endswith("본문")  # 본문 불변
+
+
+def test_갱신을_반복해도_계보가_쌓이기만_한다(tmp_path: Path) -> None:
+    """이 경로에서는 소실이 **구조적으로 불가능**하다 — 주지 않은 키는 보존되고
+    `None`만 지운다. 예전엔 호출자가 head를 직접 재구성하다 값을 날렸다."""
+    from pok.kb.insights import parse_insight, patch_front_matter
+
+    p = tmp_path / "x.md"
+    p.write_text("---\nid: insight.x\nlabel: IN_GAME\n---\n\n# 제목\n", encoding="utf-8")
+    for key, value in (("scope", "durable"), ("promoted_to", "a.b"), ("patch", "0.5.4b")):
+        patch_front_matter(p, {key: value})
+    meta = parse_insight(p.read_text(encoding="utf-8"), p).meta
+    assert meta["id"] == "insight.x" and meta["label"] == "IN_GAME"
+    assert meta["scope"] == "durable" and meta["promoted_to"] == "a.b"
+    assert meta["patch"] == "0.5.4b"
+
+
+def test_명시한_삭제는_통과한다(tmp_path: Path) -> None:
+    from pok.kb.insights import parse_insight, patch_front_matter
+
+    p = tmp_path / "x.md"
+    p.write_text("---\nid: insight.x\nlabel: IN_GAME\ntmp: v\n---\n\n# 제목\n", encoding="utf-8")
+    patch_front_matter(p, {"tmp": None})
+    assert "tmp" not in parse_insight(p.read_text(encoding="utf-8"), p).meta
+
+
+def test_front_matter_없으면_거부한다(tmp_path: Path) -> None:
+    from pok.kb.insights import patch_front_matter
+
+    p = tmp_path / "x.md"
+    p.write_text("# 계보 없는 문서\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="front matter 없음"):
+        patch_front_matter(p, {"scope": "durable"})

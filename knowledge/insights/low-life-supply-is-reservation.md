@@ -9,6 +9,9 @@ source_revid: b6d2b057
 source_timestamp: 2026-08-04
 feedback_id: 20260803-능동-탐사-가설-큐
 patch: 0.5.4b
+scope: durable
+scope_verified_by: 사용자 판정 2026-08-04 (로우라이프는 계속 쓰일 메커니즘 — 인사이트로만 두지 않는다)
+promoted_to: mechanic.reservation, resource.life
 ---
 
 # 로우라이프 공급은 점유이지 소모가 아니다

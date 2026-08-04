@@ -24,7 +24,8 @@ PoE2 지식 **엔진** + Claude/Codex용 **MCP 도구·스킬**. 웹서비스 �
 - 방향·결정 배경(D1~D24) → **docs/BLUEPRINT.md**
 - KB 레코드·스키마·조건·관계 작업 → **docs/KB_DATA_MODEL.md** (KD-1~4 확정)
 - KB 수집·정형화·원시 스냅샷·완전성 기준 → **docs/KB_INGEST.md** (KI-1~7 확정)
-- 지금 어느 단계인지·다음 할 일 → **docs/ROADMAP.md** (P0~P6, Exit 기준. 단계 건너뛰기 금지)
+- 지금 어느 단계인지·다음 할 일 → **docs/ROADMAP.md**
+- 실전 빌드 테스트를 수행한다 → **docs/BUILD_TEST_PROTOCOL.md** (무개입 규칙·기록 항목) (P0~P6, Exit 기준. 단계 건너뛰기 금지)
 - 특정 모듈 작업 → 그 디렉터리의 **AGENTS.md** (자동 로드됨)
 - MCP 도구 추가 → docs/PROJECT_STRUCTURE.md §4(의존 방향)·§7, `src/pok/mcp/AGENTS.md`
 

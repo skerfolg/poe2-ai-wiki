@@ -197,9 +197,9 @@ artifacts/builds/<id>          ──[승격: reference 가치 판단]───�
 
 ## 9. 미결 사항 (파킹 — 해당 로드맵 단계에서 결정, [ROADMAP](ROADMAP.md) 참조)
 
-1. **인사이트 3계층** (canonical/durable/season) → P5 학습 루프에서
+1. ~~**인사이트 3계층**~~ → ✅ **확정** (2026-08-04, BLUEPRINT §15-3): `season → durable → canonical 레코드` 사다리. 계층은 인사이트 front matter의 `scope` 필드(폴더 분리 아님). 승격은 전부 사람 판정 — `set_scope`(1칸)·`promote_to_record`(2칸). 레코드로 올라가도 인사이트는 남는다(사실=레코드 / 규율=인사이트).
 2. ~~**`build-id` 체계**~~ ✅ **타임스탬프+슬러그** (예: `20260730-spark-stormweaver`, 사용자 확정 2026-07-30). 사람이 읽고 대화에서 지칭하기 쉬운 쪽을 우선 — 내용 추적·중복 탐지는 manifest의 해시로 보완.
-3. **보존 정책** (`sessions`·`feedback` 아카이브 시점) → P5에서
+3. ~~**보존 정책**~~ → ✅ **확정** (2026-08-04): **자동 삭제 없음**. `artifacts/retention.py`가 보관물을 나열하고 **보호 사유**를 붙일 뿐이며, 지울지는 사람이 정한다("지우기 전에 후보를 전량 나열" 원칙). 보호 판정 = 인사이트의 `feedback_id` 참조 ∨ `state=promoted`. `delete()`는 사유를 강제하고 참조된 항목은 **거부**한다(계보 절단 방지). 근거: 용량은 문제가 아니다(실측 190KB) — 위험은 계보 절단과 폐기 설계의 재도출이다.
 4. **`artifacts/` 중 builds·sessions·feedback의 멀티 PC 동기화** (데이터 repo 확장 여부) → P3에서
 
 > 파킹 항목이 결정될 때마다 이 문서를 갱신한다.

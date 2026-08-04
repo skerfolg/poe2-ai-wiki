@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from pok.artifacts.promote import promote_insight
+from pok.artifacts.promote import promote_insight, set_scope
+from pok.kb.insights import load_insights
 from pok.learning.curation import Claim, decide, load_candidates, propose
 from pok.learning.feedback import list_feedback, record_feedback
 
@@ -125,3 +126,89 @@ def test_승격은_정본에_라벨과_계보를_박는다(tmp_path: Path) -> No
         )
     )
     assert meta["state"] == "promoted"
+
+
+# ── 3계층 사다리 (BLUEPRINT §15 미결 3번, 사용자 결정 2026-08-04) ─────
+#
+# season → durable → canonical 레코드. 한 폴더에 평평하게 쌓으면 "이번 시즌 관찰"과
+# "게임의 항구적 규칙"이 같은 무게로 읽힌다 — 후자가 지워도 되는 아이디어처럼 보인다.
+
+
+def _promoted(root: Path, slug: str = "rule") -> str:
+    fid = _record(root)
+    promote_insight(
+        fid,
+        slug,
+        "규칙",
+        "- 사실 A",
+        label="IN_GAME",
+        verified_by="사용자",
+        patch="0.5.4b",
+        root=root,
+    )
+    return fid
+
+
+def test_새_인사이트는_시즌_한정으로_시작한다(tmp_path: Path) -> None:
+    """기본값이 durable이면 검증 안 된 관찰이 항구적 지식 행세를 한다."""
+    root = _repo(tmp_path)
+    _promoted(root)
+    (ins,) = load_insights(root)
+    assert ins.scope == "season"
+
+
+def test_scope는_어휘_밖을_거부한다(tmp_path: Path) -> None:
+    root = _repo(tmp_path)
+    fid = _record(root)
+    with pytest.raises(ValueError, match="scope"):
+        promote_insight(
+            fid,
+            "s",
+            "t",
+            "b",
+            label="IN_GAME",
+            verified_by="사용자",
+            patch="t",
+            scope="permanent",
+            root=root,
+        )
+
+
+def test_사다리_1칸은_판정_기록을_남긴다(tmp_path: Path) -> None:
+    """무엇을 durable로 올릴지는 기계가 못 정한다 — 근거 없는 승격은 거부."""
+    root = _repo(tmp_path)
+    _promoted(root)
+    with pytest.raises(ValueError, match="verified_by"):
+        set_scope("rule", "durable", verified_by=" ", root=root)
+
+    set_scope("rule", "durable", verified_by="여러 빌드에서 재확인 2026-08-04", root=root)
+    (ins,) = load_insights(root)
+    assert ins.scope == "durable"
+    assert "재확인" in ins.meta["scope_verified_by"]
+    assert ins.body.startswith("# 규칙")  # 본문은 그대로
+
+
+def test_scope_변경은_멱등하다(tmp_path: Path) -> None:
+    """두 번 올려도 front matter에 scope가 중복으로 쌓이면 안 된다."""
+    root = _repo(tmp_path)
+    _promoted(root)
+    set_scope("rule", "durable", verified_by="1차", root=root)
+    set_scope("rule", "durable", verified_by="2차", root=root)
+    text = (root / "knowledge" / "insights" / "rule.md").read_text(encoding="utf-8")
+    assert text.count("scope: durable") == 1
+    assert "1차" not in text and "2차" in text
+
+
+def test_promoted_to는_누적이다(tmp_path: Path) -> None:
+    """한 인사이트의 사실이 여러 레코드로 나뉘어 갈 수 있다 — 덮어쓰면 앞선
+    계보가 사라진다(실측 2026-08-04: 로우라이프가 resource.life 계보를 잃었다)."""
+    root = _repo(tmp_path)
+    _promoted(root)
+    path = root / "knowledge" / "insights" / "rule.md"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text.replace("---\n\n#", "promoted_to: a.first\n---\n\n#", 1), encoding="utf-8")
+
+    from pok.artifacts.promote import _append_promoted_to
+
+    _append_promoted_to(path, {"b.second"})
+    assert "promoted_to: a.first, b.second" in path.read_text(encoding="utf-8")
