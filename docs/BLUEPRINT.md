@@ -238,7 +238,7 @@ flowchart TD
 - **큐레이션**: 원시 피드백 → `candidate` → (사람 최종 승인 + Claude/Codex 보조: PoB 교차검증·KB 모순 체크·신뢰도 초안) → `verified`. **verified만** 검색·생성에 반영. 상태: candidate/verified/rejected/deprecated.
 - **흥미로운 상호작용**(개발자 비의도 시너지·메커니즘 순환 데미지 등) 발견 시 사용자에게 알림 → 사용자 직접 검증.
 - **메모리 스코프**: 시즌 한정 vs 공통 분리. 피드백 타입 `PERFORMANCE/PREFERENCE/CONSTRAINT/OBSERVATION`.
-- ⚠️ **인사이트 승계 = 미결(§15)**: 검증된 durable 인사이트가 시즌 종료 전에도 공통으로 승격되는 경로 필요.
+- ✅ **인사이트 승계 = 확정(§15-3, 2026-08-04)**: 3계층 사다리(`season → durable → canonical 레코드`). `scope` 필드로 계층 표시, 각 칸은 사람 판정으로만. 검색은 `search_insights(scope=…)`로 계층을 거른다.
 
 ---
 
@@ -293,7 +293,7 @@ flowchart TD
 
 1. ~~**프로젝트 구조**~~ → ✅ **확정** (2026-07-28): [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) — 3계층 데이터 분리·의존 방향·지침 거버넌스·구조 변경=상호협의 강제. 패키지명 **`pok`**(Path of Knowledge, 2026-07-29). KB 상세: [KB_DATA_MODEL.md](KB_DATA_MODEL.md)(KD-1~4) · [KB_INGEST.md](KB_INGEST.md)(KI-1~7, 원시=별도 데이터 repo `poe2-ai-wiki-data`).
 2. ~~**재구축 로드맵/단계 + MVP 범위**~~ → ✅ **확정** (2026-07-29): [ROADMAP.md](ROADMAP.md) — P0 부트스트랩 → P1a 시드 KB → P1b 수집 → P2 MCP 조회(M1) → **P3 빌드 생성(MVP)** → P4 트리 → P5 학습 → P6 확장. 각 단계 Exit 기준 명시.
-3. **인사이트 승계 프로세스** (시즌→durable/common 승격 경로. 후보: 3계층 = canonical KB / durable 검증 인사이트 / 시즌 인사이트). → *P5에서 결정 (ROADMAP §2)*
+3. ~~**인사이트 승계 프로세스**~~ → ✅ **확정** (2026-08-04, 사용자 결정): **3계층 사다리** `시즌 인사이트(scope=season) → durable 인사이트(scope=durable) → canonical 레코드(Mechanic/Resource/Defence)`. 계층은 **폴더 분리가 아니라 front matter `scope` 필드**로 표시(파일 이동 없이 검색 필터로 쓰인다). 각 칸은 **사람 판정으로만** 넘어간다 — `set_scope`(1칸)·`promote_to_record`(2칸), 둘 다 `verified_by` 강제, 자동 승격 없음. 레코드로 올라가도 **인사이트를 지우지 않는다**: 사실은 레코드로, 그 사실을 설계에서 어떻게 쓰는가(규율)는 인사이트로 남는다. 계보는 인사이트 front matter의 `promoted_to`로 역추적. 첫 사례 = 로우라이프 점유 규칙(`resource.life.low_life_supply` + `mechanic.reservation --enables--> resource.life`, 관계 엣지 첫 실사용). **계기**: 로우라이프처럼 계속 쓰일 메커니즘이 "필요에 따라 지울 수 있는 아이디어" 자리에 있다는 사용자 지적.
 4. **위키 / AI 챗봇 단계**의 대략 범위. → *P6 진입 시*
 5. **가격 추산 스킬**의 배치·트리거(요청 시) 구체화. → *P6 진입 시*
 6. **i18n**(한국어 우선) 처리 수준. → *P6 진입 시*
