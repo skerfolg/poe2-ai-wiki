@@ -118,6 +118,89 @@ def get_entry(
     return raw
 
 
+@dataclass(frozen=True)
+class InsightHit:
+    """인사이트 압축 히트 — 본문 대신 **매칭 지점 발췌**를 준다.
+
+    인사이트는 레코드와 달리 본문이 곧 내용이라, 이름만 돌려주면 소비자가 결국
+    전문을 읽어야 한다(그러면 검색한 의미가 없다). 발췌를 붙여 "이걸 펼칠지"를
+    한 번에 판단하게 한다 — 2단계 조회(D14)의 인사이트판이다.
+    """
+
+    id: str
+    slug: str
+    title: str
+    label: str
+    excerpt: str
+
+
+def search_insights(
+    query: str | None = None,
+    label: str | None = None,
+    limit: int = 10,
+    root: Path | None = None,
+    db_path: Path | None = None,
+) -> list[InsightHit]:
+    """인사이트 검색 1단계 — 발췌 히트.
+
+    query 없이 호출하면 전량 목록(라벨 필터 가능). 인사이트는 수가 적으므로
+    "무엇이 있는지" 훑는 용도도 정당하다.
+    """
+    con = _connect(root, db_path)
+    try:
+        params: list[str] = []
+        if query:
+            tokens = [t for t in query.split() if t]
+            safe = " OR ".join('"' + t.replace('"', '""') + '"' for t in tokens)
+            # 레코드 검색은 AND(정확도 우선)지만 인사이트는 OR다 — 모수가 수십 건이라
+            # 좁히기보다 관련될 만한 것을 놓치지 않는 쪽이 낫다.
+            sql = (
+                "SELECT i.id, i.slug, i.title, i.label, "
+                "snippet(insights_fts, 2, '', '', ' … ', 24) "
+                "FROM insights_fts f JOIN insights i ON i.id = f.id "
+                "WHERE insights_fts MATCH ?"
+            )
+            params.append(safe)
+        else:
+            sql = "SELECT i.id, i.slug, i.title, i.label, substr(i.body, 1, 160) FROM insights i"
+        if label:
+            # query가 있으면 WHERE 절이 이미 열려 있다
+            sql += (" AND" if query else " WHERE") + " i.label = ?"
+            params.append(label)
+        sql += " ORDER BY i.slug LIMIT ?"
+        params.append(str(limit))
+        rows = con.execute(sql, params).fetchall()
+        return [InsightHit(i, s, t, lb, " ".join(str(x).split())) for i, s, t, lb, x in rows]
+    finally:
+        con.close()
+
+
+def get_insight(
+    insight_id: str,
+    root: Path | None = None,
+    db_path: Path | None = None,
+) -> dict[str, Any]:
+    """인사이트 2단계 — 본문 전문 + 계보(front matter)."""
+    con = _connect(root, db_path)
+    try:
+        row = con.execute(
+            "SELECT id, slug, title, label, body, meta FROM insights WHERE id=? OR slug=?",
+            (insight_id, insight_id),
+        ).fetchone()
+    finally:
+        con.close()
+    if row is None:
+        raise KeyError(f"인사이트 없음: {insight_id}")
+    return {
+        "id": row[0],
+        "slug": row[1],
+        "title": row[2],
+        "label": row[3],
+        "body": row[4],
+        "meta": json.loads(row[5]),
+    }
+
+
 def related(
     entity_id: str,
     rel: str | None = None,

@@ -24,8 +24,10 @@ from fastmcp import FastMCP
 
 from pok.common.paths import knowledge_dir
 from pok.index.search import get_entry as _get_entry
+from pok.index.search import get_insight as _get_insight
 from pok.index.search import related as _related
 from pok.index.search import search as _search
+from pok.index.search import search_insights as _search_insights
 from pok.mcp.tools import build as _build
 from pok.mcp.tools import constraints as _constraints
 from pok.mcp.tools import explore as _explore
@@ -87,6 +89,34 @@ def get_entry(
         if doc is not None:
             record["narrative"] = doc.read_text(encoding="utf-8")
     return record
+
+
+@mcp.tool
+def search_insights(
+    query: str | None = None,
+    label: str | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """승격된 인사이트 검색 (1단계 — 발췌 히트).
+
+    인사이트 = 게임 데이터의 *사실*이 아니라 그 위에서 얻은 **판단·규율**이다.
+    특히 "무엇이 **안 되는가**"(차단 경로·설계된 벽)가 많아, 설계를 시작하기 전과
+    막다른 길을 만났을 때 먼저 조회하면 헛계산을 줄인다.
+
+    query 생략 시 전량 목록(무엇이 있는지 훑기). label로 신뢰도 필터
+    (IN_GAME|POB_CODE|GAME_DATA|SUPPORTED_INFERENCE 등). 전문은 get_insight로.
+    """
+    return [asdict(h) for h in _search_insights(query=query, label=label, limit=limit)]
+
+
+@mcp.tool
+def get_insight(id: str) -> dict[str, Any]:
+    """인사이트 전문 + 계보 (2단계). id는 `insight.<slug>` 또는 slug.
+
+    meta에 검증 주체·피드백 id·패치가 들어 있다 — 이 판단이 어디서 왔는지
+    역추적할 수 있어야 신뢰도를 스스로 판정할 수 있다.
+    """
+    return _get_insight(id)
 
 
 @mcp.tool

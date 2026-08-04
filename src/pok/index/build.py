@@ -13,10 +13,11 @@ import sqlite3
 from pathlib import Path
 
 from pok.common.paths import index_db_path, knowledge_dir
+from pok.kb.insights import load_insights
 from pok.kb.store import Store, load
 
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
-SCHEMA_VERSION = 2  # v2: fts에 body(효과 텍스트) 추가 — '생명력 증가' 같은 효과 질의 지원
+SCHEMA_VERSION = 3  # v3: insights 테이블·FTS 추가 — 인사이트 검색(P5 RAG)
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -31,6 +32,14 @@ CREATE TABLE relations (src TEXT NOT NULL, rel TEXT NOT NULL, target TEXT NOT NU
 CREATE INDEX idx_rel_src ON relations(src);
 CREATE INDEX idx_rel_target ON relations(target);  -- 역방향 조회 = 인덱스가 제공 (정본은 정방향만)
 CREATE VIRTUAL TABLE fts USING fts5(id UNINDEXED, name_ko, name_en, tags, notes, body);
+
+-- 인사이트는 레코드와 별도 테이블이다: 스키마도 성격도 다르다(사실 vs 판단·규율).
+-- 같은 DB·같은 self-healing에 태우되 섞지는 않는다.
+CREATE TABLE insights (
+    id TEXT PRIMARY KEY, slug TEXT NOT NULL, title TEXT NOT NULL,
+    label TEXT NOT NULL, body TEXT NOT NULL, meta TEXT NOT NULL
+);
+CREATE VIRTUAL TABLE insights_fts USING fts5(id UNINDEXED, title, body);
 """
 
 # data 안에서 검색 가치가 있는 텍스트 필드 (효과·설명 — 한/영)
@@ -124,6 +133,19 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
                     _fts_body(r.raw),
                 ),
             )
+        for ins in load_insights(root):
+            con.execute(
+                "INSERT INTO insights VALUES (?,?,?,?,?,?)",
+                (
+                    ins.id,
+                    ins.slug,
+                    ins.title,
+                    ins.label,
+                    ins.body,
+                    json.dumps(ins.meta, ensure_ascii=False),
+                ),
+            )
+            con.execute("INSERT INTO insights_fts VALUES (?,?,?)", (ins.id, ins.title, ins.body))
         con.commit()
     finally:
         con.close()
