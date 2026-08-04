@@ -229,6 +229,56 @@ def test_이미_탐사한_조합은_후보에서_빠진다(tmp_path: Path) -> No
     assert pairs == []
 
 
+def test_한_공급자가_큐를_독점하지_못한다(tmp_path: Path) -> None:
+    """첫 큐는 12칸을 전부 같은 공급자로 채웠다 — 다양성 없으면 탐사가 아니다."""
+    # 요구는 서로 달라야 한다 — 수치만 다르면 티어 변종으로 먼저 접힌다
+    demands = [
+        "Culling Strike against Chilled Enemies",
+        "Damage Penetrates Cold Resistance against Chilled Enemies",
+        "increased Critical Hit Chance against Chilled Enemies",
+        "increased Accuracy against Chilled Enemies",
+    ]
+    specs = [_CHILL_SUPPLY] + [(f"m.d{i}", f"냉기소비{i}", text) for i, text in enumerate(demands)]
+    pairs = [h for h in find_hypotheses(_store(*specs), root=tmp_path) if h.kind == "pair"]
+    assert len(pairs) == 2  # _MAX_PER_SUPPLIER
+
+
+def test_한_축이_큐를_독점하지_못한다(tmp_path: Path) -> None:
+    specs = [
+        ("m.s1", "냉기원1", "20% increased chance to Chill"),
+        ("m.s2", "냉기원2", "30% increased chance to Chill"),
+        ("m.s3", "냉기원3", "40% increased chance to Chill"),
+        ("m.d1", "냉기소비", "Culling Strike against Chilled Enemies"),
+        ("m.p1", "권능원", "Gain a Power Charge on Hit"),
+        ("m.p2", "권능소비", "Consume a Power Charge to empower"),
+    ]
+    pairs = [h for h in find_hypotheses(_store(*specs), root=tmp_path) if h.kind == "pair"]
+    chilled = [p for p in pairs if p.subject_key == "enemy.status=chilled"]
+    assert len(chilled) == 2  # _MAX_PER_SUBJECT — 공급자가 3이어도 축 상한이 먼저
+    assert any(p.subject_key == "self.charge.power" for p in pairs)  # 다른 축도 자리를 얻는다
+
+
+def test_티어_변종은_한_후보로_접는다(tmp_path: Path) -> None:
+    """수치만 다른 같은 요구를 별개로 세면 큐 자리가 낭비된다(2026-08-04)."""
+    specs = [
+        _CHILL_SUPPLY,
+        ("m.d1", "냉기소비1", "30% increased Attack Damage against Chilled Enemies"),
+        ("m.d2", "냉기소비2", "40% increased Attack Damage against Chilled Enemies"),
+    ]
+    pairs = [h for h in find_hypotheses(_store(*specs), root=tmp_path) if h.kind == "pair"]
+    assert len(pairs) == 1
+
+
+def test_미사용_데이터는_후보가_아니다(tmp_path: Path) -> None:
+    """DNT-UNUSED 같은 덤프 잔재를 내밀면 게이트가 실체 없는 항목을 판정하게 된다."""
+    specs = [
+        _CHILL_SUPPLY,
+        ("m.dnt", "DNT-UNUSED Damage against Chilled Enemies", "Damage against Chilled Enemies"),
+    ]
+    pairs = [h for h in find_hypotheses(_store(*specs), root=tmp_path) if h.kind == "pair"]
+    assert pairs == []
+
+
 def test_미탐사_조합은_후보로_올라온다(tmp_path: Path) -> None:
     pairs = [
         h

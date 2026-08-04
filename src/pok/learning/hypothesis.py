@@ -24,6 +24,7 @@ P5의 학습은 사용자가 겪은 것에서만 들어왔다. 그러면 KB가 �
 from __future__ import annotations
 
 import re
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,6 +38,28 @@ from pok.learning.feedback import record_feedback
 # 이름이 문장형이면(모드 텍스트가 그대로 이름인 레코드가 있다) 코퍼스 대조가
 # 무의미하다 — 탐사 여부를 판정하지 않고 미판정으로 둔다.
 _NAME_MAX = 30
+
+# 공급자 한 명이 큐를 독점하지 못하게 하는 상한. 첫 큐가 12칸을 전부 같은
+# 공급자(아즈메리 늑대)로 채웠다 — 5,000쌍에서 12개를 뽑는데 다양성이 없으면
+# 탐사가 아니다(2026-08-04).
+_MAX_PER_SUPPLIER = 2
+
+# 축 다양성도 같은 이유로 필요하다 — 첫 큐는 12건이 전부 출혈 축이었다.
+# 스캔은 축별로 뭉쳐 나오므로 상한이 없으면 앞 축이 큐를 다 먹는다.
+_MAX_PER_SUBJECT = 2
+
+# 게임에서 쓰지 않는 데이터가 정본에 남아 있다(poe2db 덤프의 잔재). 후보로 내밀면
+# 게이트가 실체 없는 항목을 판정하게 된다.
+_NOISE = re.compile(r"\bDNT[-_]|\bUNUSED\b|\bDoNotTranslate\b", re.I)
+
+
+def _demand_shape(text: str) -> str:
+    """요구 문구에서 수치를 지운 뼈대 — 티어 변종을 하나로 묶는 키.
+
+    "30% increased Attack Damage against Bleeding Enemies"와 "40% …"는 같은 요구다.
+    첫 큐는 이 다섯 변종을 서로 다른 후보로 세어 자리를 낭비했다(2026-08-04).
+    """
+    return re.sub(r"[\d.]+|\(\s*-\s*\)", "", text).strip().lower()
 
 
 @dataclass(frozen=True)
@@ -123,18 +146,33 @@ def find_hypotheses(
                 )
             )
 
+    pairs_out = 0
     seen: set[tuple[str, str]] = set()
+    shapes: set[tuple[str, str]] = set()  # (공급자, 요구 뼈대) — 티어 변종 접기
+    per_supplier: Counter[str] = Counter()
+    per_subject: Counter[str] = Counter()
     for pair in scan.pairs:
-        if len(out) >= max_pairs + sum(1 for h in out if h.kind == "gap"):
+        if pairs_out >= max_pairs:
             break
+        if _NOISE.search(pair.demander_name) or _NOISE.search(pair.supplier_name):
+            continue  # 게임에 없는 데이터는 판정 대상이 아니다
+        if per_supplier[pair.supplier_id] >= _MAX_PER_SUPPLIER:
+            continue  # 한 공급자가 큐를 독점하지 못하게
+        if per_subject[pair.subject_key] >= _MAX_PER_SUBJECT:
+            continue  # 한 축이 큐를 독점하지 못하게
         sup_seen = _mentioned(pair.supplier_name, corpus)
         dem_seen = _mentioned(pair.demander_name, corpus)
         if sup_seen is not False and dem_seen is not False:
             continue  # 이미 다뤘거나 판정 불가 — 미탐사라 부를 근거가 없다
         key = (pair.supplier_id, pair.demander_id)
-        if key in seen:
+        shape = (pair.supplier_id, _demand_shape(pair.demander_evidence))
+        if key in seen or shape in shapes:
             continue
         seen.add(key)
+        shapes.add(shape)
+        per_supplier[pair.supplier_id] += 1
+        per_subject[pair.subject_key] += 1
+        pairs_out += 1
         out.append(
             Hypothesis(
                 kind="pair",
