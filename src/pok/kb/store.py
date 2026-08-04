@@ -377,3 +377,40 @@ def patch_records(
     if validate and reports:
         load(root)
     return reports
+
+
+def patch_record_field(
+    entity_id: str,
+    field: str,
+    value: Any,
+    *,
+    root: Path | None = None,
+    validate: bool = True,
+) -> WriteReport:
+    """레코드의 **최상위 필드**를 갈아끼운다 (`relations`·`tags`·`notes` 등).
+
+    `patch_records`는 `data` 안쪽 전용이라 관계 엣지처럼 최상위에 사는 필드를
+    못 쓴다. 그렇다고 호출자가 파일을 직접 열면 B-6이 없앤 결함(배치 규칙이
+    흩어짐·샤드 통째 유실)이 되돌아온다 — 그래서 같은 안전장치(파일 자동 탐색·
+    원자적 쓰기·재검증) 위에 얹은 별도 입구를 둔다.
+
+    `id`·`type`은 레코드의 정체성이라 바꿀 수 없다.
+    """
+    if field in ("id", "type"):
+        raise KBWriteError(f"{field}는 레코드의 정체성 — 이 경로로 바꿀 수 없다")
+    store = load(root)
+    if entity_id not in store.records:
+        raise KBWriteError(f"KB에 없는 id: {entity_id}")
+    path = store.records[entity_id].path
+
+    if path.suffix == ".ndjson":
+        shard = _read_shard(path)
+        shard[entity_id] = {**shard[entity_id], field: value}
+        _atomic_write(path, _dump_shard(shard.values()))
+    else:
+        rec = json.loads(path.read_text(encoding="utf-8"))
+        rec[field] = value
+        _atomic_write(path, _dump_record(rec))
+    if validate:
+        load(root)
+    return WriteReport(path=path, updated=(entity_id,))

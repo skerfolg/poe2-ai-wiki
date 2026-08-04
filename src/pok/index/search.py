@@ -131,12 +131,14 @@ class InsightHit:
     slug: str
     title: str
     label: str
+    scope: str
     excerpt: str
 
 
 def search_insights(
     query: str | None = None,
     label: str | None = None,
+    scope: str | None = None,
     limit: int = 10,
     root: Path | None = None,
     db_path: Path | None = None,
@@ -155,22 +157,29 @@ def search_insights(
             # 레코드 검색은 AND(정확도 우선)지만 인사이트는 OR다 — 모수가 수십 건이라
             # 좁히기보다 관련될 만한 것을 놓치지 않는 쪽이 낫다.
             sql = (
-                "SELECT i.id, i.slug, i.title, i.label, "
+                "SELECT i.id, i.slug, i.title, i.label, i.scope, "
                 "snippet(insights_fts, 2, '', '', ' … ', 24) "
                 "FROM insights_fts f JOIN insights i ON i.id = f.id "
                 "WHERE insights_fts MATCH ?"
             )
             params.append(safe)
         else:
-            sql = "SELECT i.id, i.slug, i.title, i.label, substr(i.body, 1, 160) FROM insights i"
-        if label:
-            # query가 있으면 WHERE 절이 이미 열려 있다
-            sql += (" AND" if query else " WHERE") + " i.label = ?"
-            params.append(label)
+            sql = (
+                "SELECT i.id, i.slug, i.title, i.label, i.scope, "
+                "substr(i.body, 1, 160) FROM insights i"
+            )
+        for column, value in (("label", label), ("scope", scope)):
+            if value:
+                # 앞에 조건이 하나라도 있으면 WHERE 절이 이미 열려 있다
+                opened = bool(query) or "WHERE" in sql
+                sql += (" AND" if opened else " WHERE") + f" i.{column} = ?"
+                params.append(value)
         sql += " ORDER BY i.slug LIMIT ?"
         params.append(str(limit))
         rows = con.execute(sql, params).fetchall()
-        return [InsightHit(i, s, t, lb, " ".join(str(x).split())) for i, s, t, lb, x in rows]
+        return [
+            InsightHit(i, sl, t, lb, sc, " ".join(str(x).split())) for i, sl, t, lb, sc, x in rows
+        ]
     finally:
         con.close()
 
@@ -184,7 +193,7 @@ def get_insight(
     con = _connect(root, db_path)
     try:
         row = con.execute(
-            "SELECT id, slug, title, label, body, meta FROM insights WHERE id=? OR slug=?",
+            "SELECT id, slug, title, label, scope, body, meta FROM insights WHERE id=? OR slug=?",
             (insight_id, insight_id),
         ).fetchone()
     finally:
@@ -196,8 +205,9 @@ def get_insight(
         "slug": row[1],
         "title": row[2],
         "label": row[3],
-        "body": row[4],
-        "meta": json.loads(row[5]),
+        "scope": row[4],
+        "body": row[5],
+        "meta": json.loads(row[6]),
     }
 
 

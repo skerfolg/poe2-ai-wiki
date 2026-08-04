@@ -30,6 +30,7 @@ class Insight:
     slug: str
     title: str
     label: str
+    scope: str
     body: str
     meta: dict[str, str]
     path: Path
@@ -37,6 +38,12 @@ class Insight:
     @property
     def verified_by(self) -> str:
         return self.meta.get("verified_by", "")
+
+    @property
+    def promoted_to(self) -> list[str]:
+        """이 인사이트의 사실이 반영된 canonical 레코드 id들 (사다리 2칸)."""
+        raw = self.meta.get("promoted_to", "")
+        return [x.strip() for x in raw.split(",") if x.strip()]
 
     @property
     def feedback_id(self) -> str:
@@ -78,6 +85,9 @@ def parse_insight(text: str, path: Path) -> Insight:
         slug=slug,
         title=title or slug,
         label=meta.get("label", "UNVERIFIED"),
+        # scope가 없으면 시즌 한정으로 본다 — 검증 안 된 관찰이 항구적 지식
+        # 행세를 하지 않게 하는 쪽이 안전한 기본값이다(3계층 사다리)
+        scope=meta.get("scope", "season"),
         body=body,
         meta=meta,
         path=path,

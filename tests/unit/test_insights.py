@@ -95,3 +95,17 @@ def test_slug와_id_둘_다로_찾힌다() -> None:
 def test_없는_인사이트는_예외() -> None:
     with pytest.raises(KeyError):
         get_insight("insight.does-not-exist")
+
+
+def test_scope로_계층을_거른다() -> None:
+    """3계층 사다리 — durable은 시즌을 넘어 유지되는 지식이다."""
+    durable = search_insights(scope="durable", limit=100)
+    assert durable and all(h.scope == "durable" for h in durable)
+    assert "low-life-supply-is-reservation" in {h.slug for h in durable}
+
+
+def test_레코드로_올라간_인사이트는_계보를_남긴다() -> None:
+    """사실은 레코드로 갔지만 인사이트는 지우지 않는다 — 규율이 거기 남는다."""
+    full = get_insight("low-life-supply-is-reservation")
+    assert full["scope"] == "durable"
+    assert "mechanic.reservation" in full["meta"]["promoted_to"]

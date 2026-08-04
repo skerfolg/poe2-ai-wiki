@@ -13,6 +13,20 @@
     "low_life_threshold_pct": 35,
     "_verification": {
       "low_life_threshold_pct": "SUPPORTED_INFERENCE"
+    },
+    "low_life_supply": {
+      "by": [
+        "reservation"
+      ],
+      "not_by": [
+        "cost",
+        "degeneration"
+      ],
+      "why": "점유는 최대 생명력의 일부를 묶어 잔여를 영구히 낮추므로 조건이 유지된다. 소모(cost)·자해는 회복으로 복구되어 조건을 유지하지 못한다.",
+      "scope_note": "내 생명력만 — 적의 생명력 점유는 내 로우라이프와 무관",
+      "_verification": {
+        "low_life_supply": "IN_GAME"
+      }
     }
   },
   "verification": "GAME_DATA",

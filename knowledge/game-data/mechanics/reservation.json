@@ -13,8 +13,10 @@
     "efficiency_stacking": "additive",
     "_verification": {
       "efficiency_formula": "SUPPORTED_INFERENCE",
-      "efficiency_stacking": "SUPPORTED_INFERENCE"
-    }
+      "efficiency_stacking": "SUPPORTED_INFERENCE",
+      "life_axis_enables_low_life": "IN_GAME"
+    },
+    "life_axis_enables_low_life": true
   },
   "relations": [
     {
@@ -26,6 +28,11 @@
       "rel": "reserves",
       "target": "resource.life",
       "note": "생명력 점유 전환 수단(예: 앗지리의 성찬식) 사용 시"
+    },
+    {
+      "rel": "enables",
+      "target": "resource.life",
+      "note": "생명력 점유는 잔여를 낮춰 로우라이프(35% 이하)를 성립시킨다"
     }
   ],
   "verification": "SUPPORTED_INFERENCE",

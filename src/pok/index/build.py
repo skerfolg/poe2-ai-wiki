@@ -17,7 +17,7 @@ from pok.kb.insights import load_insights
 from pok.kb.store import Store, load
 
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
-SCHEMA_VERSION = 3  # v3: insights 테이블·FTS 추가 — 인사이트 검색(P5 RAG)
+SCHEMA_VERSION = 4  # v4: insights.scope — 3계층 사다리(season|durable)
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -37,7 +37,7 @@ CREATE VIRTUAL TABLE fts USING fts5(id UNINDEXED, name_ko, name_en, tags, notes,
 -- 같은 DB·같은 self-healing에 태우되 섞지는 않는다.
 CREATE TABLE insights (
     id TEXT PRIMARY KEY, slug TEXT NOT NULL, title TEXT NOT NULL,
-    label TEXT NOT NULL, body TEXT NOT NULL, meta TEXT NOT NULL
+    label TEXT NOT NULL, scope TEXT NOT NULL, body TEXT NOT NULL, meta TEXT NOT NULL
 );
 CREATE VIRTUAL TABLE insights_fts USING fts5(id UNINDEXED, title, body);
 """
@@ -135,12 +135,13 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
             )
         for ins in load_insights(root):
             con.execute(
-                "INSERT INTO insights VALUES (?,?,?,?,?,?)",
+                "INSERT INTO insights VALUES (?,?,?,?,?,?,?)",
                 (
                     ins.id,
                     ins.slug,
                     ins.title,
                     ins.label,
+                    ins.scope,
                     ins.body,
                     json.dumps(ins.meta, ensure_ascii=False),
                 ),
