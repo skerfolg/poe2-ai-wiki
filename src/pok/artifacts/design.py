@@ -21,6 +21,8 @@ _NUMBERED = re.compile(r"^\s*\d+\.\s+(.*)$")
 _BULLET = re.compile(r"^\s*[-*]\s+(.*)$")
 _TABLE_ROW = re.compile(r"^\s*\|(.+)\|\s*$")
 _TABLE_SEP = re.compile(r"^\s*\|[\s:|-]+\|\s*$")
+# 가설의 판정 조건 표지 — `주장 — 증명: 조건` / `주장 · 판정: 조건`
+_PROOF = re.compile(r"\s*[—·\-]\s*(?:\*\*)?(?:증명|판정|검증)(?:\*\*)?\s*:\s*(.+)$")
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,26 @@ class Formula:
 
 
 @dataclass(frozen=True)
+class Hypothesis:
+    """미검증 가설 하나 — 주장과 **무엇을 보면 판정되는가**.
+
+    가설만 적고 판정 조건을 안 적으면 큐에 쌓이기만 하고 검증이 실행되지 않는다.
+    실제로 v6·v7의 미검증 목록이 그 상태로 멈춰 있었다. 조건이 붙어야 가설이
+    **실행 가능한 테스트**가 된다 (THOR 문서 §5에서 배움, 2026-08-04).
+
+    본문 표기: `- 주장 — 증명: 무엇을 관측하면 참/거짓이 갈리는가`
+    """
+
+    claim: str
+    proof: str = ""  # 비어 있으면 "실행 불가 가설" — 파서가 경고한다
+
+    @property
+    def actionable(self) -> bool:
+        """다음 검증 단계가 정의됐는가 (= 열린 질문으로 큐에 올릴 수 있는가)."""
+        return bool(self.proof.strip())
+
+
+@dataclass(frozen=True)
 class DesignDoc:
     updated: str | None
     version: str | None
@@ -50,8 +72,9 @@ class DesignDoc:
     has_constraints: bool  # `제약` 포함 제목 존재 여부 (없으면 warning)
     confirmed: tuple[str, ...]  # `확정` 섹션의 불릿
     tentative: tuple[str, ...]  # `잠정` 섹션의 불릿
-    unverified: tuple[str, ...]  # `미검증` 섹션의 불릿 = 가설 목록 (P5 입력, D29)
+    unverified: tuple[Hypothesis, ...]  # `미검증` 섹션 = 가설 목록 (P5 입력, D29)
     queue: tuple[str, ...]  # `다음 결정 순서`/`검증 항목` 번호 목록
+    gates: tuple[str, ...]  # `결정 관문` 번호 목록 — 하나라도 실패하면 컨셉 재검토
     formulas: tuple[Formula, ...]
     tables: tuple[Table, ...]
     warnings: tuple[str, ...] = field(default=())
@@ -71,12 +94,14 @@ def parse_design(text: str) -> DesignDoc:
     tables: list[Table] = []
     confirmed: list[str] = []
     tentative: list[str] = []
-    unverified: list[str] = []
+    unverified: list[Hypothesis] = []
     queue: list[str] = []
+    gates: list[str] = []
     queue_heading = ""
+    in_gates = False
 
     current = ""  # 현재 헤딩
-    bucket: list[str] | None = None  # 3구분 수집 대상
+    bucket: str | None = None  # 3구분 수집 대상 ("확정"|"잠정"|"미검증")
     in_code = False
     code_buf: list[str] = []
     table_buf: list[tuple[str, ...]] = []
@@ -111,13 +136,15 @@ def parse_design(text: str) -> DesignDoc:
             headings.append(current)
             # 3구분 버킷 전환 (포함 매칭 — 수준 무관, BUILD_DESIGN §4-2)
             if "미검증" in current:
-                bucket = unverified
+                bucket = "미검증"
             elif "확정" in current:
-                bucket = confirmed
+                bucket = "확정"
             elif "잠정" in current:
-                bucket = tentative
+                bucket = "잠정"
             else:
                 bucket = None
+            # 결정 관문 — 하나라도 실패하면 컨셉을 계속 팔지 재검토한다
+            in_gates = "결정 관문" in current or "계속 조건" in current
             # 큐 섹션: `다음 결정 순서` 우선, 없으면 첫 `검증 항목`
             if "다음 결정 순서" in current or (
                 "검증 항목" in current and queue_heading != "다음 결정 순서"
@@ -132,6 +159,10 @@ def parse_design(text: str) -> DesignDoc:
         if hm and hm.group(1) not in header:
             header[hm.group(1)] = hm.group(2).strip()
             continue
+        if in_gates:
+            gm = _NUMBERED.match(line)
+            if gm:
+                gates.append(gm.group(1).strip())
         if queue_heading and (
             ("다음 결정 순서" in current and queue_heading == "다음 결정 순서")
             or current == queue_heading
@@ -142,7 +173,17 @@ def parse_design(text: str) -> DesignDoc:
         if bucket is not None:
             bm = _BULLET.match(line)
             if bm:
-                bucket.append(bm.group(1).strip())
+                text = bm.group(1).strip()
+                if bucket == "미검증":
+                    # 판정 조건을 주장에서 떼어낸다 — 조건이 없으면 proof=""
+                    pm = _PROOF.search(text)
+                    unverified.append(
+                        Hypothesis(_PROOF.sub("", text).strip(), pm.group(1).strip() if pm else "")
+                    )
+                elif bucket == "확정":
+                    confirmed.append(text)
+                else:
+                    tentative.append(text)
     flush_table()
 
     warnings = [f"헤더 '{k}:' 누락" for k in _HEADER_KEYS if k not in header]
@@ -154,6 +195,15 @@ def parse_design(text: str) -> DesignDoc:
             warnings.append(f"`{name}` 목록 없음 (3구분 미비, D29)")
     if not queue:
         warnings.append("`다음 결정 순서`/`검증 항목` 큐 없음")
+    # 판정 조건 없는 가설은 큐에 쌓이기만 하고 검증이 실행되지 않는다 (v6·v7이 그랬다)
+    blind = [h.claim for h in unverified if not h.actionable]
+    if blind:
+        warnings.append(
+            f"판정 조건 없는 가설 {len(blind)}건 — `— 증명: …`을 붙여야 검증이 실행 가능하다"
+            f" (예: {blind[0][:40]})"
+        )
+    if not gates:
+        warnings.append("`결정 관문` 없음 — 컨셉을 언제 접을지 기준이 없다 (BUILD_DESIGN §4-5)")
     return DesignDoc(
         updated=header.get("갱신일"),
         version=header.get("문서 버전"),
@@ -165,6 +215,7 @@ def parse_design(text: str) -> DesignDoc:
         tentative=tuple(tentative),
         unverified=tuple(unverified),
         queue=tuple(queue),
+        gates=tuple(gates),
         formulas=tuple(formulas),
         tables=tuple(tables),
         warnings=tuple(warnings),
