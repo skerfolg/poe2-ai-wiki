@@ -31,7 +31,7 @@ from pathlib import Path
 from pok.common.paths import artifacts_dir, knowledge_dir
 from pok.kb.graph.predicates import SUPPLIABLE_SUBJECTS
 from pok.kb.graph.synergy import scan_synergies
-from pok.kb.store import Store
+from pok.kb.store import Record, Store
 from pok.learning.curation import Claim, propose
 from pok.learning.feedback import record_feedback
 
@@ -51,6 +51,19 @@ _MAX_PER_SUBJECT = 2
 # 게임에서 쓰지 않는 데이터가 정본에 남아 있다(poe2db 덤프의 잔재). 후보로 내밀면
 # 게이트가 실체 없는 항목을 판정하게 된다.
 _NOISE = re.compile(r"\bDNT[-_]|\bUNUSED\b|\bDoNotTranslate\b", re.I)
+
+# 가설 큐 본문의 첫 줄 — 코퍼스에서 자기 자신을 알아보는 표지.
+_QUEUE_MARKER = "# 능동 탐사 가설 큐"
+
+
+def _acquirable(record: Record) -> bool:
+    """게임에서 얻을 수 있다고 확인된 것만 후보가 된다.
+
+    획득 경로가 확인 안 된 스킬이 정본에 7% 있다(401건 중 28건, 2026-08-04).
+    빌드에 넣을 수 없으면 시너지도 성립하지 않으므로 조합 후보로 내밀면 안 된다 —
+    사용자가 "원통한 망자를 못 찾겠다"고 한 것이 이 경우였다(KI-8 signal A 부재).
+    """
+    return not (record.raw.get("data") or {}).get("acquisition_unknown", False)
 
 
 def _demand_shape(text: str) -> str:
@@ -83,7 +96,12 @@ def exploration_corpus(root: Path | None = None) -> str:
     arts = artifacts_dir(root)
     for pattern in ("builds/*/design.md", "feedback/raw/*/content.md", "sessions/*.md"):
         for path in sorted(arts.glob(pattern)):
-            parts.append(path.read_text(encoding="utf-8", errors="ignore"))
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            # 능동 탐사 큐 자신은 탐사 흔적이 아니다. 이걸 포함하면 지난번에 낸
+            # 후보가 "이미 다룬 것"이 되어 매 실행마다 후보가 뒤바뀐다(2026-08-04).
+            if text.lstrip().startswith(_QUEUE_MARKER):
+                continue
+            parts.append(text)
     for path in sorted((knowledge_dir(root) / "insights").glob("*.md")):
         parts.append(path.read_text(encoding="utf-8", errors="ignore"))
     return "\n".join(parts)
@@ -156,6 +174,12 @@ def find_hypotheses(
             break
         if _NOISE.search(pair.demander_name) or _NOISE.search(pair.supplier_name):
             continue  # 게임에 없는 데이터는 판정 대상이 아니다
+        if not all(
+            _acquirable(store.records[rid])
+            for rid in (pair.supplier_id, pair.demander_id)
+            if rid in store.records
+        ):
+            continue  # 얻을 수 없으면 조합도 성립하지 않는다
         if per_supplier[pair.supplier_id] >= _MAX_PER_SUPPLIER:
             continue  # 한 공급자가 큐를 독점하지 못하게
         if per_subject[pair.subject_key] >= _MAX_PER_SUBJECT:

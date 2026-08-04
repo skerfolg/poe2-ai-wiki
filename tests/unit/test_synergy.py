@@ -279,6 +279,28 @@ def test_미사용_데이터는_후보가_아니다(tmp_path: Path) -> None:
     assert pairs == []
 
 
+def test_획득_불명_스킬은_후보가_아니다(tmp_path: Path) -> None:
+    """빌드에 넣을 수 없으면 시너지도 성립하지 않는다 — 정본 스킬 7%가 이 경우다.
+    사용자가 "원통한 망자를 못 찾겠다"고 한 것이 정확히 이 상황이었다(2026-08-04)."""
+    store = _store(_CHILL_SUPPLY, _CHILL_DEMAND)
+    store.records["m.supply"].raw["data"]["acquisition_unknown"] = True
+    pairs = [h for h in find_hypotheses(store, root=tmp_path) if h.kind == "pair"]
+    assert pairs == []
+
+
+def test_큐는_자기_자신을_탐사_흔적으로_보지_않는다(tmp_path: Path) -> None:
+    """큐가 코퍼스에 섞이면 지난번 후보가 '이미 다룬 것'이 되어 매번 뒤바뀐다."""
+    raw = tmp_path / "artifacts" / "feedback" / "raw" / "q1"
+    raw.mkdir(parents=True)
+    (raw / "content.md").write_text("# 능동 탐사 가설 큐\n\n냉기원 과 냉기소비 조합", "utf-8")
+    pairs = [
+        h
+        for h in find_hypotheses(_store(_CHILL_SUPPLY, _CHILL_DEMAND), root=tmp_path)
+        if h.kind == "pair"
+    ]
+    assert len(pairs) == 1  # 큐에 적혀 있어도 탐사한 것이 아니다
+
+
 def test_미탐사_조합은_후보로_올라온다(tmp_path: Path) -> None:
     pairs = [
         h
