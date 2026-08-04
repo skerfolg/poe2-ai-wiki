@@ -56,14 +56,21 @@ _NOISE = re.compile(r"\bDNT[-_]|\bUNUSED\b|\bDoNotTranslate\b", re.I)
 _QUEUE_MARKER = "# 능동 탐사 가설 큐"
 
 
-def _acquirable(record: Record) -> bool:
-    """게임에서 얻을 수 있다고 확인된 것만 후보가 된다.
+def _acquisition_note(record: Record) -> str:
+    """획득 경로 미수록이면 그 사실을 후보에 덧붙인다 (배제하지 않는다).
 
-    획득 경로가 확인 안 된 스킬이 정본에 7% 있다(401건 중 28건, 2026-08-04).
-    빌드에 넣을 수 없으면 시너지도 성립하지 않으므로 조합 후보로 내밀면 안 된다 —
-    사용자가 "원통한 망자를 못 찾겠다"고 한 것이 이 경우였다(KI-8 signal A 부재).
+    한때 `acquisition_unknown`인 레코드를 후보에서 빼려 했으나 **잘못이었다**:
+    이 플래그는 *poe2db에 획득 경로가 안 실렸다*는 수집 한계일 뿐, 게임에 없다는
+    뜻이 아니다. 실제로 원통한 망자 같은 룬 수호(Ward) 코스트 스킬들은 0.5.0
+    시즌 컨텐츠에서 얻을 수 있다(사용자 판정 2026-08-04).
+
+    수집 한계를 성립 판정으로 바꿔 읽으면 멀쩡한 설계 공간이 통째로 사라진다.
+    그래서 사실만 전하고 판단은 게이트에 맡긴다(AD-3).
     """
-    return not (record.raw.get("data") or {}).get("acquisition_unknown", False)
+    if (record.raw.get("data") or {}).get("acquisition_unknown", False):
+        name = record.name_ko or record.name_en
+        return f"\n※ {name}: 획득 경로 미수록 (수집 갭 — 게임 부재 아님)"
+    return ""
 
 
 def _demand_shape(text: str) -> str:
@@ -174,12 +181,11 @@ def find_hypotheses(
             break
         if _NOISE.search(pair.demander_name) or _NOISE.search(pair.supplier_name):
             continue  # 게임에 없는 데이터는 판정 대상이 아니다
-        if not all(
-            _acquirable(store.records[rid])
+        acq_notes = "".join(
+            _acquisition_note(store.records[rid])
             for rid in (pair.supplier_id, pair.demander_id)
             if rid in store.records
-        ):
-            continue  # 얻을 수 없으면 조합도 성립하지 않는다
+        )
         if per_supplier[pair.supplier_id] >= _MAX_PER_SUPPLIER:
             continue  # 한 공급자가 큐를 독점하지 못하게
         if per_subject[pair.subject_key] >= _MAX_PER_SUBJECT:
@@ -205,7 +211,9 @@ def find_hypotheses(
                     f"「{pair.supplier_name}」가 공급하는 {pair.subject_key}를 "
                     f"「{pair.demander_name}」가 요구한다 — 산출물에 함께 등장한 적 없는 조합."
                 ),
-                evidence=(f"공급: {pair.supplier_evidence}\n요구: {pair.demander_evidence}"),
+                evidence=(
+                    f"공급: {pair.supplier_evidence}\n요구: {pair.demander_evidence}{acq_notes}"
+                ),
             )
         )
     return tuple(out)

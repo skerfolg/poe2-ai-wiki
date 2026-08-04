@@ -279,13 +279,15 @@ def test_미사용_데이터는_후보가_아니다(tmp_path: Path) -> None:
     assert pairs == []
 
 
-def test_획득_불명_스킬은_후보가_아니다(tmp_path: Path) -> None:
-    """빌드에 넣을 수 없으면 시너지도 성립하지 않는다 — 정본 스킬 7%가 이 경우다.
-    사용자가 "원통한 망자를 못 찾겠다"고 한 것이 정확히 이 상황이었다(2026-08-04)."""
+def test_획득_경로_미수록은_배제가_아니라_표시다(tmp_path: Path) -> None:
+    """`acquisition_unknown`은 poe2db 수집 한계지 게임 부재가 아니다 — 룬 수호
+    코스트 스킬들은 0.5.0 시즌 컨텐츠에서 얻을 수 있다(사용자 판정 2026-08-04).
+    수집 한계를 성립 판정으로 바꿔 읽으면 멀쩡한 설계 공간이 통째로 사라진다."""
     store = _store(_CHILL_SUPPLY, _CHILL_DEMAND)
     store.records["m.supply"].raw["data"]["acquisition_unknown"] = True
     pairs = [h for h in find_hypotheses(store, root=tmp_path) if h.kind == "pair"]
-    assert pairs == []
+    assert len(pairs) == 1  # 배제하지 않는다
+    assert "획득 경로 미수록" in pairs[0].evidence  # 사실은 게이트에 전한다
 
 
 def test_큐는_자기_자신을_탐사_흔적으로_보지_않는다(tmp_path: Path) -> None:
