@@ -228,3 +228,18 @@ def test_기존_대장이_없으면_그대로_넣는다() -> None:
     assert merge_verification({}, {"_verification": {"f": "IN_GAME"}})["_verification"] == {
         "f": "IN_GAME"
     }
+
+
+def test_promoted_to는_누적이다(tmp_path: Path) -> None:
+    """한 인사이트의 사실이 여러 레코드로 나뉘어 갈 수 있다 — 덮어쓰면 앞선
+    계보가 사라진다(실측 2026-08-04: 로우라이프가 resource.life 계보를 잃었다)."""
+    root = _repo(tmp_path)
+    _promoted(root)
+    path = root / "knowledge" / "insights" / "rule.md"
+    text = path.read_text(encoding="utf-8")
+    path.write_text(text.replace("---\n\n#", "promoted_to: a.first\n---\n\n#", 1), encoding="utf-8")
+
+    from pok.artifacts.promote import _append_promoted_to
+
+    _append_promoted_to(path, {"b.second"})
+    assert "promoted_to: a.first, b.second" in path.read_text(encoding="utf-8")

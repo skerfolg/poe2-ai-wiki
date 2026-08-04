@@ -1,0 +1,41 @@
+{
+  "id": "defence.runic-ward",
+  "type": "Defence",
+  "name": {
+    "ko": "룬 수호",
+    "en": "Runic Ward"
+  },
+  "tags": [
+    "defence",
+    "runic-ward"
+  ],
+  "data": {
+    "absorbs_only_at_life_1": true,
+    "blocks_life_loss": false,
+    "base_regen_pct_per_sec": 5,
+    "regen_is_proportional": true,
+    "note": "일반 보호막과 성질이 다르다 — 생명력이 1일 때만 피해를 흡수하고, 피해가 아닌 생명력 손실(예: 생명력 전환 시전 비용)은 막지 못한다.",
+    "_verification": {
+      "absorbs_only_at_life_1": "IN_GAME",
+      "blocks_life_loss": "IN_GAME",
+      "base_regen_pct_per_sec": "SUPPORTED_INFERENCE",
+      "regen_is_proportional": "SUPPORTED_INFERENCE"
+    }
+  },
+  "relations": [
+    {
+      "rel": "mitigates",
+      "target": "resource.life",
+      "note": "생명력이 1일 때만 피해를 흡수한다 — 조건부 경감"
+    }
+  ],
+  "verification": "IN_GAME",
+  "sources": [
+    {
+      "src": "in-game",
+      "ref": "insight.runic-ward-mechanics",
+      "patch": "0.5.4b",
+      "note": "durable 인사이트 → canonical 승격 (사다리 2칸)"
+    }
+  ]
+}

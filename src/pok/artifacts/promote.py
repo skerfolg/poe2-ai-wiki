@@ -195,15 +195,31 @@ def promote_to_record(
 
     path = knowledge_dir(root) / "insights" / f"{slug}.md"
     if path.exists():
-        text = path.read_text(encoding="utf-8")
-        lines = text.splitlines()
-        if lines and lines[0].strip() == "---":
-            end = next(i for i, line in enumerate(lines[1:], start=1) if line.strip() == "---")
-            head = [line for line in lines[1:end] if not line.startswith("promoted_to:")]
-            targets = sorted(set(updates) | set(relations or {}))
-            head.append(f"promoted_to: {', '.join(targets)}")
-            path.write_text(
-                "---\n" + "\n".join(head) + "\n---\n" + "\n".join(lines[end + 1 :]) + "\n",
-                encoding="utf-8",
-            )
+        _append_promoted_to(path, set(updates) | set(relations or {}))
     return reports
+
+
+def _append_promoted_to(path: Path, targets: set[str]) -> None:
+    """인사이트 front matter의 `promoted_to`에 레코드 id를 **누적**한다.
+
+    한 인사이트의 사실이 여러 레코드로 나뉘어 갈 수 있으므로 덮어쓰면 앞서 올린
+    계보가 사라진다 — 실측(2026-08-04)에서 로우라이프가 `resource.life` 계보를
+    잃었다. `_verification`과 같은 성질이다: 이런 대장은 교체가 아니라 누적이다.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines or lines[0].strip() != "---":
+        return
+    end = next(i for i, line in enumerate(lines[1:], start=1) if line.strip() == "---")
+
+    prior: set[str] = set()
+    for line in lines[1:end]:
+        if line.startswith("promoted_to:"):
+            prior |= {x.strip() for x in line.split(":", 1)[1].split(",") if x.strip()}
+    head = [line for line in lines[1:end] if not line.startswith("promoted_to:")]
+    merged = sorted(prior | targets)
+    if merged:
+        head.append(f"promoted_to: {', '.join(merged)}")
+    path.write_text(
+        "---\n" + "\n".join(head) + "\n---\n" + "\n".join(lines[end + 1 :]) + "\n",
+        encoding="utf-8",
+    )
