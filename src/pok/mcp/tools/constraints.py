@@ -188,7 +188,11 @@ def evaluate_objective(targets: list[dict[str, Any]], measured: dict[str, float]
 def parse_design_doc(build_id: str, full: bool = False) -> dict[str, Any]:
     """artifacts/builds/<build_id>/design.md 를 BUILD_DESIGN §4 계약으로 파싱.
 
-    기본 반환: 헤더 4줄·경고·큐·미검증 목록(P5 가설 입력)·섹션/표/수식 개수.
+    기본 반환: 헤더 4줄·경고·큐·**결정 관문**·미검증 가설(판정 조건 포함)·개수.
+
+    미검증 가설은 `{claim, proof}` 쌍이다 — `proof`가 비면 그 가설은 큐에 쌓이기만
+    하고 검증이 실행되지 않는다(v6·v7이 그 상태로 멈췄다). 파서가 경고로 알린다.
+    `gates`는 컨셉을 계속 팔지 판단하는 관문 — 하나라도 실패하면 재검토 신호다.
     full=True 면 확정/잠정 목록과 수식·표 원문까지 (토큰 예산 주의).
     """
     from pok.artifacts.design import parse_design
@@ -207,7 +211,10 @@ def parse_design_doc(build_id: str, full: bool = False) -> dict[str, Any]:
         "warnings": list(d.warnings),
         "has_constraints": d.has_constraints,
         "queue": list(d.queue),
-        "unverified": list(d.unverified),
+        "gates": list(d.gates),
+        # 가설은 판정 조건과 함께 — 조건 없는 것은 actionable=False (검증 실행 불가)
+        "unverified": [dataclasses.asdict(h) for h in d.unverified],
+        "unverified_actionable": sum(1 for h in d.unverified if h.actionable),
         "counts": {
             "headings": len(d.headings),
             "confirmed": len(d.confirmed),
