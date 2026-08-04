@@ -40,22 +40,6 @@ def _front_matter(fields: dict[str, Any]) -> str:
 SCOPES = ("season", "durable")
 
 
-def merge_verification(prev_data: dict[str, Any], patch: dict[str, Any]) -> dict[str, Any]:
-    """`_verification`(필드별 검증 라벨 대장)만 병합한 패치를 돌려준다.
-
-    `patch_records`는 얕은 병합이라 중첩 dict를 통째로 갈아끼운다. 그대로 두면
-    새 필드의 라벨을 하나 넣을 때 **기존 필드의 라벨이 조용히 사라진다** —
-    실제로 `mechanic.reservation`의 라벨 2건을 잃었다(2026-08-04). 라벨 대장은
-    누적되는 물건이지 교체되는 물건이 아니다.
-    """
-    merged = dict(patch)
-    incoming = merged.get("_verification")
-    prev = prev_data.get("_verification")
-    if isinstance(incoming, dict) and isinstance(prev, dict):
-        merged["_verification"] = {**prev, **incoming}
-    return merged
-
-
 def promote_insight(
     feedback_id: str,
     slug: str,
@@ -177,12 +161,8 @@ def promote_to_record(
 
     from pok.kb import store as kb_store
 
-    loaded = kb_store.load(root)
-    patch = {
-        rid: merge_verification((loaded.records[rid].raw.get("data") or {}), data)
-        for rid, data in updates.items()
-    }
-    reports = kb_store.patch_records(patch, root=root) if patch else []
+    # 중첩 병합·소실 차단은 store가 한다(B-7) — 여기서 다시 하지 않는다.
+    reports = kb_store.patch_records(updates, root=root) if updates else []
 
     if relations:
         loaded = kb_store.load(root)

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from pok.artifacts.promote import merge_verification, promote_insight, set_scope
+from pok.artifacts.promote import promote_insight, set_scope
 from pok.kb.insights import load_insights
 from pok.learning.curation import Claim, decide, load_candidates, propose
 from pok.learning.feedback import list_feedback, record_feedback
@@ -197,37 +197,6 @@ def test_scope_변경은_멱등하다(tmp_path: Path) -> None:
     text = (root / "knowledge" / "insights" / "rule.md").read_text(encoding="utf-8")
     assert text.count("scope: durable") == 1
     assert "1차" not in text and "2차" in text
-
-
-def test_검증_라벨은_교체가_아니라_누적이다() -> None:
-    """회귀(2026-08-04): 새 필드 라벨 하나를 넣다가 기존 라벨 2건을 잃었다.
-    라벨 대장은 필드별로 쌓이는 물건이라 중첩 dict를 통째 갈아끼우면 안 된다."""
-    prev = {
-        "efficiency_formula": "x",
-        "_verification": {
-            "efficiency_formula": "SUPPORTED_INFERENCE",
-            "efficiency_stacking": "SUPPORTED_INFERENCE",
-        },
-    }
-    patched = merge_verification(prev, {"_verification": {"new_field": "IN_GAME"}})
-    assert patched["_verification"] == {
-        "efficiency_formula": "SUPPORTED_INFERENCE",
-        "efficiency_stacking": "SUPPORTED_INFERENCE",
-        "new_field": "IN_GAME",
-    }
-
-
-def test_같은_필드의_라벨은_새_판정이_이긴다() -> None:
-    prev = {"_verification": {"f": "SUPPORTED_INFERENCE"}}
-    assert merge_verification(prev, {"_verification": {"f": "IN_GAME"}})["_verification"] == {
-        "f": "IN_GAME"
-    }
-
-
-def test_기존_대장이_없으면_그대로_넣는다() -> None:
-    assert merge_verification({}, {"_verification": {"f": "IN_GAME"}})["_verification"] == {
-        "f": "IN_GAME"
-    }
 
 
 def test_promoted_to는_누적이다(tmp_path: Path) -> None:

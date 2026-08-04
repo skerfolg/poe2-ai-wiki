@@ -151,3 +151,88 @@ def test_로드가_없는_레코드도_안전(repo: Path) -> None:
     report = write_shard(new, [{**_rec("skill.a"), "type": "Skill"}], root=repo)
     assert report.added == ("skill.a",)
     assert "skill.a" in load(repo).records
+
+
+# ── B-7: 필드 층 소실 차단 ────────────────────────────────────────────
+#
+# B-6이 파일 층(레코드 감소)을 막았지만 같은 사고가 **층을 바꿔** 재발했다:
+# 샤드 830건 → `_verification` 라벨 2건 → `promoted_to` 계보 1건.
+# 원인은 하나다 — "부분 갱신"을 "전체 교체"로 수행한다. 여기서 끊는다.
+
+
+def test_중첩_부분_갱신이_형제_키를_보존한다(repo: Path) -> None:
+    """실측 손실(2026-08-04): 라벨 하나를 더하려다 형제 라벨 2건이 사라졌다."""
+    patch_records({"support.s1": {"_verification": {"a": "GAME_DATA", "b": "IN_GAME"}}}, root=repo)
+    patch_records({"support.s1": {"_verification": {"c": "POB_CODE"}}}, root=repo)
+    got = {json.loads(ln)["id"]: json.loads(ln) for ln in _shard(repo).read_text().splitlines()}
+    assert got["support.s1"]["data"]["_verification"] == {
+        "a": "GAME_DATA",
+        "b": "IN_GAME",
+        "c": "POB_CODE",
+    }
+
+
+def test_같은_키는_새_값이_이긴다(repo: Path) -> None:
+    """병합이 깊어도 갱신은 갱신이다 — 덮어쓰기 자체를 막는 게 아니다."""
+    patch_records({"support.s1": {"_verification": {"a": "UNVERIFIED"}}}, root=repo)
+    patch_records({"support.s1": {"_verification": {"a": "IN_GAME"}}}, root=repo)
+    got = {json.loads(ln)["id"]: json.loads(ln) for ln in _shard(repo).read_text().splitlines()}
+    assert got["support.s1"]["data"]["_verification"] == {"a": "IN_GAME"}
+
+
+def test_근거_없는_필드_소실은_거부한다(repo: Path) -> None:
+    """dict를 스칼라로 갈아끼우면 안쪽 값이 통째로 사라진다 — 조용히 넘어가지 않는다."""
+    patch_records({"support.s1": {"req": {"str": 10, "dex": 20}}}, root=repo)
+    with pytest.raises(KBWriteError, match="근거 없는 소실"):
+        patch_records({"support.s1": {"req": 30}}, root=repo)
+    got = {json.loads(ln)["id"]: json.loads(ln) for ln in _shard(repo).read_text().splitlines()}
+    assert got["support.s1"]["data"]["req"] == {"str": 10, "dex": 20}  # 원본 보존
+
+
+def test_명시한_삭제는_통과한다(repo: Path) -> None:
+    """None은 근거 있는 삭제다 — 재적용 멱등성이 이 경로를 쓴다."""
+    patch_records({"support.s1": {"req": {"str": 10, "dex": 20}}}, root=repo)
+    patch_records({"support.s1": {"req": {"dex": None}}}, root=repo)
+    got = {json.loads(ln)["id"]: json.loads(ln) for ln in _shard(repo).read_text().splitlines()}
+    assert got["support.s1"]["data"]["req"] == {"str": 10}
+
+
+def test_allow_drop으로_의도적_교체를_허용한다(repo: Path) -> None:
+    """구조를 바꿔야 할 때가 있다 — 다만 근거를 남기게 한다."""
+    patch_records({"support.s1": {"req": {"str": 10, "dex": 20}}}, root=repo)
+    patch_records({"support.s1": {"req": 30}}, allow_drop=["req.str", "req.dex"], root=repo)
+    got = {json.loads(ln)["id"]: json.loads(ln) for ln in _shard(repo).read_text().splitlines()}
+    assert got["support.s1"]["data"]["req"] == 30
+
+
+def test_소실_거부는_파일을_건드리지_않는다(repo: Path) -> None:
+    """거부는 쓰기 전에 난다 — 반쯤 적용된 상태가 남으면 안 된다."""
+    patch_records({"support.s1": {"req": {"str": 10}}}, root=repo)
+    before = _shard(repo).read_text(encoding="utf-8")
+    with pytest.raises(KBWriteError):
+        patch_records(
+            {"support.s1": {"req": 1}, "support.s2": {"color": "red"}},
+            root=repo,
+        )
+    assert _shard(repo).read_text(encoding="utf-8") == before  # s2 갱신도 안 됐다
+
+
+def test_여러_파일에_걸쳐도_한_건이라도_막히면_전부_취소(repo: Path) -> None:
+    """검사와 쓰기가 섞이면 앞 파일만 써진 채 뒤에서 터진다 — 반쯤 적용 방지."""
+    curated = repo / "knowledge" / "game-data" / "curated"
+    curated.mkdir(parents=True, exist_ok=True)
+    single = curated / "solo.json"
+    single.write_text(
+        json.dumps({**_rec("support.solo"), "data": {"keep": "me"}}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    patch_records({"support.s1": {"req": {"str": 10}}}, root=repo)
+    shard_before = _shard(repo).read_text(encoding="utf-8")
+
+    with pytest.raises(KBWriteError, match="근거 없는 소실"):
+        patch_records(
+            {"support.solo": {"other": 1}, "support.s1": {"req": 99}},  # 뒤엣것이 막힌다
+            root=repo,
+        )
+    assert json.loads(single.read_text(encoding="utf-8"))["data"] == {"keep": "me"}
+    assert _shard(repo).read_text(encoding="utf-8") == shard_before
