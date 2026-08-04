@@ -30,12 +30,7 @@ from pathlib import Path
 from typing import Any
 
 from pok.common.paths import artifacts_dir, knowledge_dir
-
-
-def _front_matter(fields: dict[str, Any]) -> str:
-    lines = [f"{k}: {v}" for k, v in fields.items() if v not in (None, "")]
-    return "---\n" + "\n".join(lines) + "\n---\n"
-
+from pok.kb.insights import dump_front_matter, parse_insight, patch_front_matter
 
 SCOPES = ("season", "durable")
 
@@ -72,7 +67,7 @@ def promote_insight(
         raise FileNotFoundError(f"피드백 원문 없음: {feedback_id} — 계보 없는 승격 금지")
     meta = json.loads(raw_manifest.read_text(encoding="utf-8"))
     stamp = (now or datetime.now(UTC)).strftime("%Y-%m-%d")
-    front = _front_matter(
+    front = dump_front_matter(
         {
             "id": target_id or f"insight.{slug}",
             "label": label,
@@ -119,20 +114,7 @@ def set_scope(
     path = knowledge_dir(root) / "insights" / f"{slug}.md"
     if not path.exists():
         raise FileNotFoundError(f"인사이트 없음: {slug}")
-    text = path.read_text(encoding="utf-8")
-
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
-        raise ValueError(f"front matter 없음: {slug} — 계보 없는 인사이트는 승격 대상이 아니다")
-    end = next(i for i, line in enumerate(lines[1:], start=1) if line.strip() == "---")
-
-    head = [line for line in lines[1:end] if not line.startswith(("scope:", "scope_verified_by:"))]
-    head += [f"scope: {scope}", f"scope_verified_by: {verified_by}"]
-    path.write_text(
-        "---\n" + "\n".join(head) + "\n---\n" + "\n".join(lines[end + 1 :]) + "\n",
-        encoding="utf-8",
-    )
-    return path
+    return patch_front_matter(path, {"scope": scope, "scope_verified_by": verified_by})
 
 
 def promote_to_record(
@@ -185,21 +167,11 @@ def _append_promoted_to(path: Path, targets: set[str]) -> None:
     한 인사이트의 사실이 여러 레코드로 나뉘어 갈 수 있으므로 덮어쓰면 앞서 올린
     계보가 사라진다 — 실측(2026-08-04)에서 로우라이프가 `resource.life` 계보를
     잃었다. `_verification`과 같은 성질이다: 이런 대장은 교체가 아니라 누적이다.
-    """
-    lines = path.read_text(encoding="utf-8").splitlines()
-    if not lines or lines[0].strip() != "---":
-        return
-    end = next(i for i, line in enumerate(lines[1:], start=1) if line.strip() == "---")
 
-    prior: set[str] = set()
-    for line in lines[1:end]:
-        if line.startswith("promoted_to:"):
-            prior |= {x.strip() for x in line.split(":", 1)[1].split(",") if x.strip()}
-    head = [line for line in lines[1:end] if not line.startswith("promoted_to:")]
-    merged = sorted(prior | targets)
-    if merged:
-        head.append(f"promoted_to: {', '.join(merged)}")
-    path.write_text(
-        "---\n" + "\n".join(head) + "\n---\n" + "\n".join(lines[end + 1 :]) + "\n",
-        encoding="utf-8",
-    )
+    쓰기 자체는 `patch_front_matter` 단일 경로가 한다(B-8) — 다른 키를 보존하고
+    소실을 거부하는 안전장치가 거기 있다.
+    """
+    if not targets:
+        return
+    prior = set(parse_insight(path.read_text(encoding="utf-8"), path).promoted_to)
+    patch_front_matter(path, {"promoted_to": ", ".join(sorted(prior | targets))})

@@ -250,8 +250,11 @@ def load(root: Path | None = None) -> Store:
 # ── 쓰기 (B-6: 정본 쓰기 단일 경로) ────────────────────────────────
 
 
-def _atomic_write(path: Path, text: str) -> None:
-    """임시 파일에 쓰고 교체 — 중단돼도 기존 파일이 반토막 나지 않는다(안전장치 ③)."""
+def atomic_write(path: Path, text: str) -> None:
+    """임시 파일에 쓰고 교체 — 중단돼도 기존 파일이 반토막 나지 않는다(안전장치 ③).
+
+    정본에 쓰는 모든 경로가 공유한다 — 레코드든 인사이트든 반토막은 똑같이 나쁘다.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
     try:
@@ -310,7 +313,7 @@ def write_shard(
             f"{path.name}: 근거 없는 레코드 감소 {len(unexpected)}건 — 쓰기 거부. "
             f"삭제하려면 allow_delete에 id를 명시하라 (예: {unexpected[:3]})"
         )
-    _atomic_write(path, _dump_shard(incoming.values()))
+    atomic_write(path, _dump_shard(incoming.values()))
     if validate:
         load(root)  # 안전장치 ①: 깨진 상태로 남지 않는다 (실패 시 예외)
     return WriteReport(
@@ -334,7 +337,7 @@ def write_record(
             f"{path.name}: 샤드에 개별 레코드를 쓸 수 없다 — write_shard를 쓰라 "
             "(파일 전체가 한 줄로 덮이는 파괴 경로)"
         )
-    _atomic_write(path, _dump_record(record))
+    atomic_write(path, _dump_record(record))
     if validate:
         load(root)
     return WriteReport(path=path, updated=(str(record["id"]),))
@@ -451,7 +454,7 @@ def patch_records(
 
     reports: list[WriteReport] = []
     for path, text in staged:
-        _atomic_write(path, text)
+        atomic_write(path, text)
         reports.append(WriteReport(path=path, updated=tuple(sorted(by_path[path]))))
     if validate and reports:
         load(root)
@@ -485,11 +488,11 @@ def patch_record_field(
     if path.suffix == ".ndjson":
         shard = _read_shard(path)
         shard[entity_id] = {**shard[entity_id], field: value}
-        _atomic_write(path, _dump_shard(shard.values()))
+        atomic_write(path, _dump_shard(shard.values()))
     else:
         rec = json.loads(path.read_text(encoding="utf-8"))
         rec[field] = value
-        _atomic_write(path, _dump_record(rec))
+        atomic_write(path, _dump_record(rec))
     if validate:
         load(root)
     return WriteReport(path=path, updated=(entity_id,))
