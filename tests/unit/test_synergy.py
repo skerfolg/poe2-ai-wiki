@@ -57,6 +57,29 @@ def test_로우라이프_요구와_점유_공급() -> None:
     assert _predicates("Reserves 25% of Life") == {"self.life.low": "supply"}
 
 
+def test_수치_없는_점유_전환도_공급이다() -> None:
+    """앗지리의 성찬식 계열 — %패턴만 있어서 v6의 핵심 경로를 놓쳤었다(2026-08-04)."""
+    assert _predicates(
+        "Supports Persistent Skills, making them Reserve Life instead of Spirit"
+    ) == {"self.life.low": "supply"}
+    assert _predicates("Socketed Gems Cost and Reserve Life instead of Mana") == {
+        "self.life.low": "supply"
+    }
+
+
+def test_생명력_소모는_점유가_아니다() -> None:
+    """로우라이프 공급은 점유(reserve)여야 한다 — 소모는 회복으로 돌아온다
+    (사용자 판정 2026-08-04). 아탈루이의 사혈·생명력 전환·자해가 여기 해당한다."""
+    assert _predicates("Supports any Skill, turning its Mana cost into a Life cost.") == {}
+    assert _predicates("Lose 5% of maximum Life per second") == {}
+    assert _predicates("Lose 3% of maximum Life and Energy Shield when you use a Chaos Skill") == {}
+
+
+def test_적의_생명력_점유는_내_로우라이프가_아니다() -> None:
+    assert _predicates("Targets Cursed by you have at least 15% of Life Reserved") == {}
+    assert _predicates("Enemies in your Presence have at least 10% of Life Reserved") == {}
+
+
 def test_충전_획득은_공급_소비는_요구() -> None:
     assert _predicates("20% chance to gain a Frenzy Charge on killing a Frozen enemy") == {
         "self.charge.frenzy": "supply"

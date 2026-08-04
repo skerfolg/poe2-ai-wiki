@@ -171,9 +171,27 @@ _SUPPLY_PATTERNS: list[tuple[re.Pattern[str], str, str | None]] = [
         )
         for name, subj in _CHARGES.items()
     ],
-    # 생명력 점유 → 로우라이프 성립 경로 (v6 베이다트의 의지가 이 경로였다)
+    # ── 생명력 점유 → 로우라이프 성립 경로 ────────────────────────────
+    # **점유(reserve)만 공급이다. 소모(cost·lose)는 아니다** (사용자 판정 2026-08-04).
+    # 점유는 최대 생명력의 일부를 묶어 잔여를 영구히 낮추지만, 소모는 쓰고 나면
+    # 회복으로 돌아오므로 로우라이프를 *유지*하지 못한다. 그래서 아탈루이의 사혈·
+    # 생명력 전환("Mana cost into a Life cost")과 자해("Lose N% of maximum Life")는
+    # 여기 걸리지 않아야 한다.
+    #
+    # 또한 **내 생명력**이어야 한다 — "Targets Cursed by you have at least 15% of
+    # Life Reserved"는 적을 점유시키는 것이라 내 로우라이프와 무관하다.
     (
         re.compile(r"\bReserves\s+\d+%\s+of\s+(?:Maximum\s+)?Life\b", re.I),
+        "self.life.low",
+        None,
+    ),
+    # "Reserve Life instead of Spirit" — 앗지리의 성찬식(v6의 핵심 경로)과
+    # "Socketed Gems Cost and Reserve Life instead of Mana" 계열. 수치가 붙지 않아
+    # 위의 %패턴이 통째로 놓쳤었다(2026-08-04).
+    (re.compile(r"\bReserve\s+Life\s+instead\s+of\b", re.I), "self.life.low", None),
+    # 받는 피해를 점유로 돌리는 경로
+    (
+        re.compile(r"\bLife that would be lost\b[\w\s]*\bis instead Reserved\b", re.I),
         "self.life.low",
         None,
     ),
