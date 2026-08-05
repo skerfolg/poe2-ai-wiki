@@ -11,14 +11,15 @@
   ],
   "data": {
     "multiple_triggers_disable_skill": true,
-    "triggered_skills_unsupportable": true,
     "channelled_untriggerable": true,
     "note": "트리거 연쇄를 설계에 쓰려면 각 화살표를 개별 검증해야 한다 — 메타 젬이 소스인 연쇄는 대부분 막혀 있다(skill.cast-on-* 의 관계 참조).",
     "_verification": {
       "multiple_triggers_disable_skill": "IN_GAME",
-      "triggered_skills_unsupportable": "IN_GAME",
-      "channelled_untriggerable": "IN_GAME"
-    }
+      "channelled_untriggerable": "IN_GAME",
+      "triggered_skills_supportable": "POB_CODE"
+    },
+    "triggered_skills_supportable": true,
+    "triggered_skills_note": "메타 젬(CoC·CoEA)이 트리거한 스킬은 보조 젬을 받는다 — 앵커 실증 20260731-user-bloodmage-coiling-bolts 그룹 3(CoC + Comet + 보조 4종)·그룹 8·10. 원 인사이트가 한정한 '모독 계열 등'은 예외로 보고됐으나 경계는 미확정 — 무조건 금지로 읽지 말 것."
   },
   "verification": "IN_GAME",
   "sources": [
