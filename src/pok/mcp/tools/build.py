@@ -248,3 +248,53 @@ def assemble_pob(
         "duplicates": list(built.duplicates),
         **_pick(built.result, stats),
     }
+
+
+def measure_leverage(
+    build_spec: dict[str, Any],
+    other_spec: dict[str, Any] | None = None,
+    stat: str = "CombinedDPS",
+) -> dict[str, Any]:
+    """조건 ON/OFF를 두 번 재서 **사전 작업 의존도**를 낸다. 앵커를 주면 2x2 교차 (D1·D2).
+
+    ⚠ **앵커 비교는 반드시 이걸 거칠 것.** 상대의 조건 on 수치를 우리 조건 off 수치와
+    나란히 놓으면 오독한다 — 실측 2026-08-05: 21,302,501 대 302,794를 "70배 차이"로
+    읽었는데 **같은 저울에서는 3.7배**였다.
+
+    `leverage`(조건 on ÷ off)는 그 자체가 강건성 지표다. 실측: 21M 앵커 19.0배,
+    갈퀴질 창 2.1/1.88배, 우리 1.36배. 높을수록 사전 작업 의존이 크고 실전에서
+    무너진다 — 사용자 판정: "이론상 가능해도 추구해서는 안 된다".
+
+    얼마가 적정인지는 판단이라 정하지 않는다(AD-3) — 목표 상태에 상한을 걸 때 쓴다.
+    조건성으로 보는 것은 `condition*`·`enemyCondition*`·`multiplier*` 키다.
+    """
+    from pok.engine.leverage import compare_on_same_scale, measure_operating_cost
+    from pok.engine.leverage import measure_leverage as _measure
+
+    def _reading(r: Any) -> dict[str, Any]:
+        return {
+            "label": r.label,
+            "stat": r.stat,
+            "off": r.off,
+            "on": r.on,
+            "leverage": r.leverage,
+            "conditions_toggled": list(r.conditions),
+        }
+
+    # 운용 비용도 함께 낸다 — DPS·EHP 밖의 축이라 따로 물으면 아무도 안 묻는다(D3).
+    # `evaluate_objective`의 measured에 그대로 넣어 사전식 목표로 쓸 수 있다.
+    cost = measure_operating_cost(build_spec).as_measured()
+    if other_spec is None:
+        return {"ok": True, **_reading(_measure(build_spec, stat=stat)), "operating_cost": cost}
+    comparison = compare_on_same_scale(build_spec, other_spec, stat=stat)
+    return {
+        "ok": True,
+        "ours": _reading(comparison.ours),
+        "other": _reading(comparison.other),
+        "ratio_same_scale": comparison.ratio_off,
+        "ratio_conditions_on": comparison.ratio_on,
+        "naive_ratio_do_not_use": comparison.naive_ratio,
+        "operating_cost": cost,
+        "other_operating_cost": measure_operating_cost(other_spec).as_measured(),
+        "notes": list(comparison.notes),
+    }

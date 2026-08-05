@@ -89,6 +89,10 @@ def optimize_tree(
             }
             for p in out.pruned
         ],
+        # **헛돈 예산을 앞에 낸다** — 회수는 되지만 "이 지출이 무효였다"가 신호로
+        # 읽히지 않아 세션이 예산을 다 쓴 트리를 정상 산출물로 받았다(이관 4 C5)
+        "wasted_points": out.wasted_points,
+        "waste_notes": list(out.waste_notes),
         "spent_points": sum(s.node_delta.points for s in out.steps)
         - sum(len(p.nodes) for p in out.pruned),
         "stopped_no_positive": bool(out.rejected_rounds),
