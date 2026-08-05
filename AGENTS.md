@@ -11,6 +11,10 @@ PoE2 지식 **엔진** + Claude/Codex용 **MCP 도구·스킬**. 웹서비스 �
 수 분·수천 토큰이 들지만 search_kb는 1콜이다 (실측 2026-07-30: 파일 탐색 7분 vs 도구 1초).
 파일 직접 접근은 ingest 개발·검증 작업에만.
 
+**트리거 빌드의 발동률은 `compute_trigger_rate`로.** PoB `CalcTriggers.lua`에 메타 젬
+에너지 모델이 없어 오라클이 못 잰다 — 손계산하지 말 것. 단 대상 Power는 **예상치**이고
+(poe2db는 등급별 범위만 준다) Power 기반이 아닌 젬은 계산하지 않고 사유를 낸다.
+
 **"잔여 자원에 무엇이 들어가나"는 `find_by_value`로.** `search_kb`는 텍스트만 매칭해
 `reservation`·`cost` 같은 **수치 필드에 닿지 못한다**. 점유 검사기가 "정신력 40 남았다"까지
 내고도 후보를 물을 경로가 없어 세션이 멈췄다 — 예: `find_by_value("reservation.max",

@@ -300,6 +300,7 @@ parse_pob = tool(_build.parse_pob)
 check_constraints = tool(_constraints.check_constraints)
 evaluate_objective = tool(_constraints.evaluate_objective)
 parse_design_doc = tool(_constraints.parse_design_doc)
+compute_trigger_rate = tool(_constraints.compute_trigger_rate)
 
 # 트리 최적화 도구 (P4) — tools/tree.py
 connect_anchors = tool(_tree.connect_anchors)

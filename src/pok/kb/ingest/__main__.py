@@ -68,6 +68,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_ail.add_argument("--patch", required=True)
 
+    p_me = sub.add_parser(
+        "meta-energy", help="메타 젬 에너지 규칙 수록 (오프라인, ingest-raw Stats 재파싱)"
+    )
+    p_me.add_argument("--patch", required=True)
+
     p_gc = sub.add_parser(
         "gem-costs", help="젬 코스트·점유 전수 수록 (오프라인, ingest-raw Stats 재파싱)"
     )
@@ -231,6 +236,10 @@ def main(argv: list[str] | None = None) -> int:
         from pok.kb.ingest.ailments import ingest_ailments
 
         print(json.dumps(ingest_ailments(args.patch), ensure_ascii=False, indent=1))
+    elif args.cmd == "meta-energy":
+        from pok.kb.ingest.meta_energy import apply_meta_energy
+
+        print(json.dumps(apply_meta_energy(raw_dir), ensure_ascii=False, indent=1))
     elif args.cmd == "gem-costs":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest.gem_costs import apply_gem_costs

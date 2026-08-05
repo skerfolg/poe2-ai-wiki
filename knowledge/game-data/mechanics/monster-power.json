@@ -1,0 +1,41 @@
+{
+  "id": "mechanic.monster-power",
+  "type": "Mechanic",
+  "name": {
+    "ko": "몬스터 파워",
+    "en": "Monster Power"
+  },
+  "tags": [
+    "mechanic"
+  ],
+  "data": {
+    "base_power": {
+      "average": 1.0,
+      "strong": 3.0,
+      "strong_min": 2.0,
+      "weak": 0.5
+    },
+    "rarity_multiplier": {
+      "normal": 1,
+      "magic": 2,
+      "rare": 5
+    },
+    "unique_power": 20,
+    "note": "메타 젬 에너지·Glory 생성의 입력. 최종 Power = 기본 Power × 희귀도 배율이고, **유니크는 배율이 아니라 고정 20**이다(예: 기본 2인 강한 몬스터가 Rare면 2×5=10). PoB는 이 값을 모델링하지 않아 `CalcTriggers.lua`로는 발동률을 잴 수 없다 — 그래서 계산은 engine/trigger.py가 맡는다.",
+    "estimate_note": "⚠ **등급 구분은 예상치다.** poe2db가 주는 것은 '평균 1 · 강함 2~3 · 약함 0.5'라는 **범위 서술**이고, 몬스터별 실측 Power 표는 어디에도 공개돼 있지 않다. 특정 몬스터의 Power를 쓰려면 등급을 가정해야 하며, 그 가정은 결과에 그대로 실린다. 기본값은 average=1.0(가장 흔한 경우)을 쓴다.",
+    "_verification": {
+      "base_power": "GAME_DATA",
+      "rarity_multiplier": "GAME_DATA",
+      "unique_power": "GAME_DATA",
+      "estimate_note": "SUPPORTED_INFERENCE"
+    }
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Monster_Power",
+      "patch": "0.5.4b"
+    }
+  ]
+}
