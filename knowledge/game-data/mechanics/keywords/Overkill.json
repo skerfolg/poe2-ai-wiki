@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.overkill",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Overkill",
+    "en": "Overkill"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Overkill damage is any damage from a Hit in excess of the enemy's remaining Life when it is killed."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Overkill",
+      "patch": "0.5.4b"
+    }
+  ]
+}

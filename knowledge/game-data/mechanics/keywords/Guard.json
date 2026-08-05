@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.guard",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Guard",
+    "en": "Guard"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Guard is a Buff that provides a buffer against damage from Hits, taking the damage before your Life or Energy Shield until the buff expires or is depleted.",
+      "You can only have a single Guard buff at a time. If you gain Guard when you already have it, whichever buff has the higher magnitude will be kept, and that buff's duration will be refreshed by an amount proportional to the magnitude of the discarded buff, but not to longer than its original duration. Your maximum amount of Guard is equal to 200% of your maximum Life."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Guard",
+      "patch": "0.5.4b"
+    }
+  ]
+}

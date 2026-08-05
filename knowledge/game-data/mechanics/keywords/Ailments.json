@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.ailments",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Ailments",
+    "en": "Ailments"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Ailments are a family of common Debuffs associated with specific damage types. The list of Ailments is: Bleeding, Ignite, Chill, Freeze, Shock, Electrocute, and Poison."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Ailments",
+      "patch": "0.5.4b"
+    }
+  ]
+}

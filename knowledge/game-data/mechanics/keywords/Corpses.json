@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.corpses",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Corpses",
+    "en": "Corpses"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Corpses are left behind by slain Enemies and can be used or consumed by a number of different Skills or effects, though Corpses of Unique monsters cannot be destroyed or consumed. Generally, slain Allies do not leave usable Corpses."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Corpses",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.molten-fissures",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Molten Fissures",
+    "en": "Molten Fissures"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Molten Fissures are long-lasting fissures created by some Slams that can themselves be Slammed to create Aftershocks.",
+      "Hitting a Molten Fissure with a Slam other than another Molten Fissure causes an Aftershock to propagate along its length, dealing the Fissure's damage again to enemies standing on it. This Aftershock will also spread to other intersecting Molten Fissures. Each Molten Fissure can Aftershock no more than once every 0.2 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Molten_Fissures",
+      "patch": "0.5.4b"
+    }
+  ]
+}

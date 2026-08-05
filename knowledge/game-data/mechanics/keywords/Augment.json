@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.augment",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Augment",
+    "en": "Augment"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Augments are items which can be placed into Augment sockets, usually on Equipment items. Once socketed, they can be replaced by other Augments, but cannot be removed by normal means.",
+      "The types of Equipment which an Augment can be placed into and the corresponding benefit provided are listed on the item."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Augment",
+      "patch": "0.5.4b"
+    }
+  ]
+}

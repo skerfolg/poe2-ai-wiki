@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.dexterity",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Dexterity",
+    "en": "Dexterity"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Dexterity is an Attribute required to use most equipment that grants Evasion Rating, as well as various range-aligned Weapons and Skills.",
+      "Dexterity provides an inherent bonus of +8 to Accuracy Rating per 1 Dexterity.",
+      "Dexterity does not grant damage to Skills or any other benefits except where specifically stated."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Dexterity",
+      "patch": "0.5.4b"
+    }
+  ]
+}

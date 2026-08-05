@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.triggered-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Triggered Skills",
+    "en": "Triggered Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Many effects can cause a Skill to Trigger. A Triggered Skill occurs immediately, without an attack or cast time, and usually targets the cause of the trigger. Triggering a Skill does not count as using it.",
+      "If multiple methods of Triggering a Skill attempt to apply to the same skill, that skill will be disabled. Channelled Skills cannot be Triggered."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Triggered_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.meta-gems",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Meta Gems",
+    "en": "Meta Gems"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Meta Gems are Skill Gems that other Skill Gems can be socketed into. They can use, Trigger, or otherwise apply the effects of those other Skill Gems. Skill Gems and Support Gems can be socketed into Meta Gems interchangeably, though most Meta Gems require at least one Skill Gem to be socketed to function.",
+      "Meta Gems can never be socketed into other Meta Gems."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Meta_Gems",
+      "patch": "0.5.4b"
+    }
+  ]
+}

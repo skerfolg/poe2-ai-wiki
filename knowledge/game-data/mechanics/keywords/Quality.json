@@ -1,0 +1,32 @@
+{
+  "id": "mechanic.quality",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Quality",
+    "en": "Quality"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Quality grants small bonuses to an item depending on the type of item, up to a default maximum of 20%.",
+      "Martial Weapons gain 1% more Physical damage per Quality.",
+      "Armours gain 1% more Armour, Evasion, Energy Shield and Runic Ward per Quality.",
+      "Rings and Amulets have a number of possible quality types that provide bonuses to specific modifiers on the item.",
+      "Flasks gain 1% more Life and Mana recovery per Quality.",
+      "Charms gain 1% increased duration per Quality.",
+      "Skill Gems or equipment that grant Skills grant a specific bonus to their Skill based on their Quality."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Quality",
+      "patch": "0.5.4b"
+    }
+  ]
+}

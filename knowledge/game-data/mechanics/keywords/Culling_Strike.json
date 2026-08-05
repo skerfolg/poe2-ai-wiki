@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.culling-strike",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Culling Strike",
+    "en": "Culling Strike"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Culling Strikes kill Normal enemies if their life is at 35% or below. Magic enemies are instead killed at 20%, Rare at 10% and Unique at 5%. These thresholds are checked before the damage of the Hit is applied."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Culling_Strike",
+      "patch": "0.5.4b"
+    }
+  ]
+}

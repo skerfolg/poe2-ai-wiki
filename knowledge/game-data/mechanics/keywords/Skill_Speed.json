@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.skill-speed",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Skill Speed",
+    "en": "Skill Speed"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Affects the speed at which all Skills are used. Increases and reductions to Skill Speed stack additively with increases and reductions to Attack Speed, Cast Speed, Warcry Speed, and similar stats."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Skill_Speed",
+      "patch": "0.5.4b"
+    }
+  ]
+}

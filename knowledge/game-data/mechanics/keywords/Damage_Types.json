@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.damage-types",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Damage Types",
+    "en": "Damage Types"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "The damage types are Physical, Fire, Cold, Lightning and Chaos."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Damage_Types",
+      "patch": "0.5.4b"
+    }
+  ]
+}

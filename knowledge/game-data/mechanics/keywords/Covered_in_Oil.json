@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.covered-in-oil",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Covered in Oil",
+    "en": "Covered in Oil"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Enemies covered in Oil have their movement speed Slowed, are inflicted with Exposure and have 200% more Magnitude of Flammability inflicted on them.",
+      "Ignited Ground or Detonator Skills will Ignite Oil-covered enemies. This removes the Oil, but the Exposure will remain for the duration of that Ignite."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Covered_in_Oil",
+      "patch": "0.5.4b"
+    }
+  ]
+}

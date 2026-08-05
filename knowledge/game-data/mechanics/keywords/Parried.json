@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.parried",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Parried",
+    "en": "Parried"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Enemies you Parry with a Buckler take more Attack Damage and cannot Evade Attacks for a duration."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Parried",
+      "patch": "0.5.4b"
+    }
+  ]
+}

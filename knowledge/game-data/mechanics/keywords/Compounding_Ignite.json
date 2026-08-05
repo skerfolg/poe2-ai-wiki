@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.compounding-ignite",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Compounding Ignite",
+    "en": "Compounding Ignite"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "When Igniting a target which has already been Ignited by the same use of this Skill, the existing Ignite is removed to boost the new Ignite, multiplying its Magnitude by the total number of Ignites compounded this way.",
+      "Ignites cannot Compound when reflected, or when applied by Oil Ground that has been Ignited. They will neither remove existing Ignite, nor get any boost to Ignite Magnitude."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Compounding_Ignite",
+      "patch": "0.5.4b"
+    }
+  ]
+}

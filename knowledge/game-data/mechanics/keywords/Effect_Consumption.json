@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.effect-consumption",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Effect Consumption",
+    "en": "Effect Consumption"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Multiple effects on enemies can be Consumed. Only one Consumption benefit can occur at once, and Consumption effects from Skills will take priority over those from other sources.",
+      "Consuming a Debuff on an enemy causes the enemy to be immune to that Debuff for 1 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Effect_Consumption",
+      "patch": "0.5.4b"
+    }
+  ]
+}

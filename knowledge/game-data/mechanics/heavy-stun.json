@@ -26,7 +26,12 @@
       "HeavyStunThresholdModifierPlayer": 100
     },
     "kind": "buildup",
-    "note": "강한 기절은 **Physical·Fire·Cold·Lightning·Chaos 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
+    "note": "강한 기절은 **Physical·Fire·Cold·Lightning·Chaos 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다",
+    "keyword_stats": [
+      "Heavy Stuns occur when a target's Stun bar is filled, interrupts the target's current action and prevent them from taking actions for a few seconds. Hits cause Heavy Stun buildup based on the damage dealt. Players and their Minions usually cannot be Heavily Stunned, but players can receive Heavy Stun buildup where specifically mentioned while taking specific actions (such as raising their Shield, Parrying with a Buckler, or riding a mount).",
+      "While an enemy is Heavy Stunned, they cannot act and count as Immobilised. It will also be harder to Heavy Stun them again for a short time afterwards.",
+      "Physical damage, and player (but not monster) Melee Damage, each cause 50% more Heavy Stun buildup. For players, these bonuses are multiplicative with each other."
+    ]
   },
   "verification": "POB_CODE",
   "sources": [

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.unarmed",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Unarmed",
+    "en": "Unarmed"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "You are considered Unarmed while you have no equipped Martial or Caster Weapon."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Unarmed",
+      "patch": "0.5.4b"
+    }
+  ]
+}

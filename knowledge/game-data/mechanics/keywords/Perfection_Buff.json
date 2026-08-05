@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.perfection-buff",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Perfection Buff",
+    "en": "Perfection Buff"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Perfection lasts for 10 seconds and can stack up to 4 times, granting 5% more Damage per stack. This Damage bonus is not limited to Skills Supported by Perfection Support.",
+      "Failing to successfully execute any Perfect Timing will remove all Perfection stacks on you."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Perfection_Buff",
+      "patch": "0.5.4b"
+    }
+  ]
+}

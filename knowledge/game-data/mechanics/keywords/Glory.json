@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.glory",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Glory",
+    "en": "Glory"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Glory is a resource that must be spent to use certain powerful Skills. These Skills each have a method of generating Glory, and actions taken against enemies will generate Glory equal to the monster's Power. Different Skills gain and lose Glory separately, and each Skill can only generate Glory once every 0.5 seconds per monster.",
+      "Different Skills have different Glory requirements. Skills lose 2 Glory per second if they haven't gained Glory in the past 15 seconds. You cannot gain Glory for a Skill while any instance of that Skill is active unless that Skill is a Banner, but different Skills can generate Glory from the same Glorious action."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Glory",
+      "patch": "0.5.4b"
+    }
+  ]
+}

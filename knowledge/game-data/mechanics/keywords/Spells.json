@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.spells",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Spells",
+    "en": "Spells"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Spells are skills that use raw magic to destroy your enemies. Attacks are not Spells.",
+      "Spells have their own base damage, cast speed and Critical Hit chance determined by the skill. They do not benefit from a weapon's inherent damage, attack speed or Critical Hit chance."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Spells",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.projectile",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Projectile",
+    "en": "Projectile"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "A Projectile is a moving Attack or Spell that usually impacts with targets when it hits them.",
+      "When a group of multiple Projectiles is fired from the same source at the same time, only one Projectile in the group can hit each target unless otherwise specified."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Projectile",
+      "patch": "0.5.4b"
+    }
+  ]
+}

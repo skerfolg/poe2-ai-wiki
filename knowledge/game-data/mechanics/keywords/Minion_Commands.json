@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.minion-commands",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Minion Commands",
+    "en": "Minion Commands"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Some Minions can be Commanded to perform certain actions. This requires you to use the corresponding Command skill, which will cause one of your Minions to carry out the Command."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Minion_Commands",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "mechanic.stun",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Stun",
+    "en": "Stun"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Hits against any target can potentially cause a Stun on that target, depending on the damage dealt. Stunning a target interrupts their current action and prevents them from taking actions for a short time. There are two types of Stun:",
+      "Light Stuns last a fraction of a second but can be inflicted frequently. Any Hit has a chance to cause a Light Stun. The chance is based on the damage dealt, up to 100% base chance for Hits that deal 100% of the target's maximum Life. Chances lower than 15% are treated as 0%.",
+      "Heavy Stuns occur when a target's Stun bar is filled and last multiple seconds. Hits cause Heavy Stun buildup based on the damage dealt. Players and their Minions usually cannot be Heavily Stunned, but players can receive Heavy Stun buildup where specifically mentioned while taking specific actions (such as raising their Shield, Parrying with a Buckler, or riding a mount).",
+      "Player Physical damage and Melee Damage each have 50% more Light Stun chance and Heavy Stun buildup. These bonuses are multiplicative with each other.",
+      "Monster Physical damage and Melee Damage have 100% more and 33% more Light Stun chance and Heavy Stun buildup respectively. These bonuses are multiplicative with each other."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Stun",
+      "patch": "0.5.4b"
+    }
+  ]
+}

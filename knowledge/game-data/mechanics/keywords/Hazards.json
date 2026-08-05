@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.hazards",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Hazards",
+    "en": "Hazards"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Hazards are objects created in the world (usually by some player skill) and which are destroyed when traversed by an enemy, dealing damage and/or applying some effect to the enemy which triggered the Hazard."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Hazards",
+      "patch": "0.5.4b"
+    }
+  ]
+}

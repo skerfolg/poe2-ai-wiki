@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.physical-damage",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Physical Damage",
+    "en": "Physical Damage"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Physical damage is one of the five Damage Types. It is the most common and the only one reduced by Armour, rather than by a Resistance.",
+      "Most physical damage comes from Weapon Attacks, but some Spells and other skills deal physical damage as well. Physical damage over time can be inflicted with Bleeding."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Physical_Damage",
+      "patch": "0.5.4b"
+    }
+  ]
+}

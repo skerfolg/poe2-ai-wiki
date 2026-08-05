@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.grenade-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Grenade Skills",
+    "en": "Grenade Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Grenade Skills are only usable when wielding a Crossbow. They have cooldowns, but generally deliver high damage or powerful utility.",
+      "Grenade Skills have a fuse duration and will generally not explode until the fuse has expired, so they are strongest when you aim carefully and predict enemy movements.",
+      "Grenades cannot Fork or Chain."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Grenade_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

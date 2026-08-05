@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.honour",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Honour",
+    "en": "Honour"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Honour is an additional resource you have to manage within the Trial of the Sekhemas. A percentage of the damage you take from enemies in the Trial will be taken from your Honour. If your Honour reaches zero then the Trial is failed.",
+      "Your starting and maximum Honour are the sum of your maximum Life, Energy Shield and Runic Ward. Your maximum Mana is also added if you have [passive_keystone_mind_over_matter|Mind Over Matter]."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Honour",
+      "patch": "0.5.4b"
+    }
+  ]
+}

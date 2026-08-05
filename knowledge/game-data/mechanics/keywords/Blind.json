@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.blind",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Blind",
+    "en": "Blind"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Being Blinded causes 20% less Accuracy Rating and Evasion Rating, and lasts for 4 seconds unless otherwise specified."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Blind",
+      "patch": "0.5.4b"
+    }
+  ]
+}

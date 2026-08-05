@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.critical-damage-bonus",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Critical Damage Bonus",
+    "en": "Critical Damage Bonus"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Multiplies the damage dealt by Critical Hits. Default value is +100% (i.e. twice as much damage)."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Critical_Damage_Bonus",
+      "patch": "0.5.4b"
+    }
+  ]
+}

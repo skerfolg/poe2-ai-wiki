@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.pierce",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Pierce",
+    "en": "Pierce"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Projectiles that Pierce can pass through a target while still damaging them."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Pierce",
+      "patch": "0.5.4b"
+    }
+  ]
+}

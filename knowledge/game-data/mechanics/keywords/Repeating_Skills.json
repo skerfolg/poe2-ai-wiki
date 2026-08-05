@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.repeating-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Repeating Skills",
+    "en": "Repeating Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Some effects can cause Repeatable Skills to Repeat, causing you to perform the part of the skill where it fires off projectiles or other effects multiple times in quick succession from a single use of the skill.",
+      "Triggered skills, Instant skills, and Channelling skills cannot Repeat.",
+      "Skills take 5% longer to perform for each time they Repeat."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Repeating_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

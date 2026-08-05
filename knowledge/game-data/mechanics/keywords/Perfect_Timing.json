@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.perfect-timing",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Perfect Timing",
+    "en": "Perfect Timing"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Certain Channelling skills have extra effects and benefits if released within a certain timing window while using the skill.",
+      "Certain support gems and items can modify the duration of that timing window."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Perfect_Timing",
+      "patch": "0.5.4b"
+    }
+  ]
+}

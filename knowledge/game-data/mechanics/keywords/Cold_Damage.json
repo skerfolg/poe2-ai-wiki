@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.cold-damage",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Cold Damage",
+    "en": "Cold Damage"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Cold damage is one of the five Damage Types. It is reduced by Cold Resistance. Cold hits apply Chill and build up Freeze, but cannot build up Heavy Stun."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Cold_Damage",
+      "patch": "0.5.4b"
+    }
+  ]
+}

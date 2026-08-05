@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.immobilised",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Immobilised",
+    "en": "Immobilised"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "A target is immobilised if it cannot move, for example due to being Frozen, Pinned, Heavy Stunned, or Electrocuted."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Immobilised",
+      "patch": "0.5.4b"
+    }
+  ]
+}

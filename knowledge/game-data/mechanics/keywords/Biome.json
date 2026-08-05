@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.biome",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Biome",
+    "en": "Biome"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Biomes are found throughout Endgame Maps.",
+      "Grass, Forest, Swamp, Desert, Mountain and Water Biomes are all commonly found.",
+      "Cities and special biomes are less likely to be encountered."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Biome",
+      "patch": "0.5.4b"
+    }
+  ]
+}

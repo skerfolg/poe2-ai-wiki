@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.shapeshifting",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Shapeshifting",
+    "en": "Shapeshifting"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Shapeshifting changes you into a non-human form. Shapeshifting skills still use your character's stats as normal unless otherwise specified.",
+      "Using a skill that is not compatible with your Shapeshifted form will automatically Shapeshift you back to human form."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Shapeshifting",
+      "patch": "0.5.4b"
+    }
+  ]
+}

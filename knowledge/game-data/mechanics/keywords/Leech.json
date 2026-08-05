@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.leech",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Leech",
+    "en": "Leech"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Leech recovers an amount of Life, Mana, Energy Shield, or Rage over one second, usually as a result of Hitting an enemy and based on the damage of the Hit.",
+      "Only one instance of Leech for each resource can provide recovery at a time."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Leech",
+      "patch": "0.5.4b"
+    }
+  ]
+}

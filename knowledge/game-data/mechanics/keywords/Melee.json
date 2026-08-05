@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.melee",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Melee",
+    "en": "Melee"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Melee Attacks are those that directly hit with a melee Strike or a Slam, dealing Melee damage. Melee attacks usually scale from Weapon or Unarmed damage.",
+      "Any Projectiles these attacks create do not count as Melee damage."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Melee",
+      "patch": "0.5.4b"
+    }
+  ]
+}

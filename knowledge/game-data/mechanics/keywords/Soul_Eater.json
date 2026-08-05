@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.soul-eater",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Soul Eater",
+    "en": "Soul Eater"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Eat the Souls of enemies that die in your Presence.",
+      "Each Soul grants 1% increased Skill Speed. You can have up to 50 eaten Souls, and lose a Soul every 0.5 seconds if you have not eaten one in the past 4 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Soul_Eater",
+      "patch": "0.5.4b"
+    }
+  ]
+}

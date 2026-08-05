@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.anomaly-map",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Anomaly Map",
+    "en": "Anomaly Map"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Anomaly Maps have added requirements to access on the World Map.",
+      "Bosses of these maps are Deadly and may drop an additional lineage support."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Anomaly_Map",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.warcries",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Warcries",
+    "en": "Warcries"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Warcries are skills which count enemy Power within their area and Empower your subsequent Melee Attacks, sometimes depending on the total Power of enemies counted."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Warcries",
+      "patch": "0.5.4b"
+    }
+  ]
+}

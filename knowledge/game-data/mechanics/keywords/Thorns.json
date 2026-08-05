@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.thorns",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Thorns",
+    "en": "Thorns"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Thorns damage is a kind of Hit Damage you can deal. Thorns damage is not Attack damage or Spell damage and is not affected by modifiers specific to those.",
+      "If you have Thorns damage, you inherently Retaliate against Melee Attack Hits, dealing your Thorns damage to the enemy that Hit you.",
+      "Some skills and other effects may also deal your thorns damage to enemies at other times."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Thorns",
+      "patch": "0.5.4b"
+    }
+  ]
+}

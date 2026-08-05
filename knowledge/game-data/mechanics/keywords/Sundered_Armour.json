@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.sundered-armour",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Sundered Armour",
+    "en": "Sundered Armour"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Sundered Armour is a Debuff that can be applied to enemies with Fully Broken Armour that increases the Physical damage they take from Hits by an additional 20%. This effect stacks with the target's normal Fully Broken Armour.",
+      "Unless otherwise specified, modifiers to Fully Broken Armour also apply to Sundered Armour. Enemies with Sundered Armour cannot get their Armour Broken further."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Sundered_Armour",
+      "patch": "0.5.4b"
+    }
+  ]
+}

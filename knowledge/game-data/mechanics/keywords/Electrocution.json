@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.electrocution",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Electrocution",
+    "en": "Electrocution"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Electrocution is an Ailment that interrupts the target's actions and prevents them performing any action, and lasts 5 seconds by default.",
+      "Only Lightning damage from Hits with specific skills or effects Contributes to Electrocution Buildup on enemies until they become Electrocuted. Other sources of Lightning damage will not build up towards Electrocution."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Electrocution",
+      "patch": "0.5.4b"
+    }
+  ]
+}

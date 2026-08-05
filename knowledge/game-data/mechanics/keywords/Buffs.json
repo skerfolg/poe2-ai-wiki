@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.buffs",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Buffs",
+    "en": "Buffs"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Buffs are effects that boost a player or monster's stats for a duration or while a condition is met.",
+      "Unless otherwise stated, Buffs of the same type do not stack — only the copy with the strongest effect applies."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Buffs",
+      "patch": "0.5.4b"
+    }
+  ]
+}

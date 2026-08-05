@@ -1,0 +1,30 @@
+{
+  "id": "mechanic.curses",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Curses",
+    "en": "Curses"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Curses significantly Debuff affected targets. By default a target can have one Curse on them at a time.",
+      "Higher Rarity enemies are less affected by Curses:",
+      "15% less Curse effect on Magic monsters",
+      "30% less Curse effect on Rare monsters",
+      "50% less Curse effect on Unique monsters"
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Curses",
+      "patch": "0.5.4b"
+    }
+  ]
+}

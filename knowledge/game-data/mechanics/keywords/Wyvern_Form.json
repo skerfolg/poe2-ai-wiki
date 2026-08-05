@@ -1,0 +1,30 @@
+{
+  "id": "mechanic.wyvern-form",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Wyvern Form",
+    "en": "Wyvern Form"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Shapeshift into a Wyvern to bombard your enemies with Fire and Lightning, then close in for the kill.",
+      "While in Wyvern form, you gain:",
+      "• 50% increased Stun Threshold",
+      "• 50% increased Elemental Ailment Threshold",
+      "• 50% faster start of Energy Shield Recharge"
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Wyvern_Form",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.armour",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Armour",
+    "en": "Armour"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Armour reduces Damage taken from Hits. By default, Armour only applies to Physical Damage.",
+      "Damage reduction from Armour is proportional to the amount of Damage, and is more effective at reducing smaller hits."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Armour",
+      "patch": "0.5.4b"
+    }
+  ]
+}

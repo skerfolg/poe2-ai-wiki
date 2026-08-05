@@ -1,0 +1,29 @@
+{
+  "id": "mechanic.ancient-blooms",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Ancient Blooms",
+    "en": "Ancient Blooms"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Ancient Blooms are Remnants that grant the following bonuses when collected:",
+      "Vivid Blooms grant 5 Charges to all of your Charms",
+      "Primal Blooms grant 5 Charges to all of your Mana Flasks",
+      "Wild Blooms grant 5 Charges to all of your Life Flasks"
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Ancient_Blooms",
+      "patch": "0.5.4b"
+    }
+  ]
+}

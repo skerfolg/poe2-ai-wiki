@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.minion-death-and-killing-minions",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Minion Death and Killing Minions",
+    "en": "Minion Death and Killing Minions"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Minions whose durations expire or that are despawned by the player are considered to have died. However, effects that state they trigger when a Minion is Killed do not trigger in these cases. Minions are only Killed if they reach 0 life, though this can be caused by their summoner as well as enemies."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Minion_Death_and_Killing_Minions",
+      "patch": "0.5.4b"
+    }
+  ]
+}

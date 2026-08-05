@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.corrupted-blood",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Corrupted Blood",
+    "en": "Corrupted Blood"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Corrupted Blood is a Debuff that deals Physical damage over time.",
+      "Up to 10 Corrupted Blood debuffs can be inflicted on each target.",
+      "Corrupted Blood is not Bleeding and is not affected by any stats related to Bleeding."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Corrupted_Blood",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.retaliate-with-thorns",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Retaliate with Thorns",
+    "en": "Retaliate with Thorns"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Retaliating specifically refers only to the inherent ability to deal Thorns damage to enemies when they Hit you.",
+      "Some effects may cause you to deal Thorns damage in other ways, but those are not Retaliation, and effects which specifically care about when you Retaliate will ignore them."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Retaliate_with_Thorns",
+      "patch": "0.5.4b"
+    }
+  ]
+}

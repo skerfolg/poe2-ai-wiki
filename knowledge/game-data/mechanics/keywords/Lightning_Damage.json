@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.lightning-damage",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Lightning Damage",
+    "en": "Lightning Damage"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Lightning damage is one of the five Damage Types. It is reduced by Lightning Resistance. Lightning hits have a chance to Shock based on how much Lightning damage is dealt."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Lightning_Damage",
+      "patch": "0.5.4b"
+    }
+  ]
+}

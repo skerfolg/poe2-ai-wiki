@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.damage-gained-as-extra-x",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Damage Gained as extra X",
+    "en": "Damage Gained as extra X"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Damage gained as a specific damage type only scales with modifiers to the new type, not with modifiers to the source damage's type (unless they're the same type).",
+      "For example, Lightning damage gained from Physical damage scales with Lightning damage modifiers, but not Physical damage modifiers.",
+      "Damage Gain occurs in the same two step process as Damage Conversion. Damage over time cannot benefit from damage Gain."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Damage_Gained_as_extra_X",
+      "patch": "0.5.4b"
+    }
+  ]
+}

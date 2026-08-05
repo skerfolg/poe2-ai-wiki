@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.sustained-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Sustained Skills",
+    "en": "Sustained Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Sustained skills cause a large number of Hits over a period of time. They roll for Critical Hits independently each time they damage enemies, rather than rolling once for the entire skill as other skills do."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Sustained_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.activating-marks",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Activating Marks",
+    "en": "Activating Marks"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Marks all have a condition that makes them Activate.",
+      "When a Mark Activates, it will cause an extra effect and then be Consumed."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Activating_Marks",
+      "patch": "0.5.4b"
+    }
+  ]
+}

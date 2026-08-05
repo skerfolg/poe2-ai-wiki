@@ -22,7 +22,11 @@
       "ShockChanceMultiplier": 25
     },
     "kind": "ailment",
-    "note": "감전은 **Lightning 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
+    "note": "감전은 **Lightning 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다",
+    "keyword_stats": [
+      "Shock is an Ailment that causes targets to take 20% increased damage, and lasts 4 seconds on players or 8 seconds on non-players by default.",
+      "Lightning damage from Hits Contributes to chance to Shock enemies. The higher the Lightning damage dealt, the higher the chance. By default a Hit has 1% chance to Shock for every 4% of the target's Ailment Threshold dealt."
+    ]
   },
   "verification": "POB_CODE",
   "sources": [

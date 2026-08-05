@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.riven-armour",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Riven Armour",
+    "en": "Riven Armour"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Riven Armour is a Debuff inflicted by Hits, which stores 5% of the Pre-mitigation Physical Hit damage of the Hit that inflicts it as its Magnitude.",
+      "The inflicter's subsequent Attack Hits against the target will gain additional unscaleable added Physical Damage equal to that magnitude.",
+      "Enemies with Riven Armour cannot get their Armour Broken further."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Riven_Armour",
+      "patch": "0.5.4b"
+    }
+  ]
+}

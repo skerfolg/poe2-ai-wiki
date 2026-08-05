@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.pinned",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Pinned",
+    "en": "Pinned"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Certain skills and effects allow damage to build up Pinned. Once this build up passes the enemy's Pinned Threshold, they are Pinned, preventing them moving, being moved or Evading for 3 seconds. They are also Light Stunned when they become Pinned.",
+      "Pinned targets count as Immobilised."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Pinned",
+      "patch": "0.5.4b"
+    }
+  ]
+}

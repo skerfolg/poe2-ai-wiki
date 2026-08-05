@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.elemental-surges",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Elemental Surges",
+    "en": "Elemental Surges"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Elemental Surges are consumed when you use a non- Melee Projectile Attack to suffuse the Projectiles fired by that Attack, causing them to trigger a Surging Blast when they reach the end of their flight.",
+      "Your weapon can have a maximum of 6 of each type of Surge active by default. Surges last 15 seconds. Surges are specific to your current weapon, so do not affect non-weapon damage and are not carried over if you weapon swap.",
+      "Projectiles which Split or Fork do not gain the benefits of Surges."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Elemental_Surges",
+      "patch": "0.5.4b"
+    }
+  ]
+}

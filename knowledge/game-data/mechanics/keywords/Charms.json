@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.charms",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Charms",
+    "en": "Charms"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Charms are protective trinkets you can equip that automatically trigger a defensive effect when a specific condition is met. Similar to Flasks, Charms require charges to trigger. Charm charges can be regained by killing monsters, granting charges equal to half of the monster's Power. Checkpoints and Wells completely recharge Charms when activated.",
+      "The maximum number of Charm slots is capped at 3."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Charms",
+      "patch": "0.5.4b"
+    }
+  ]
+}

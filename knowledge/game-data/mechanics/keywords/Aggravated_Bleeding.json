@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.aggravated-bleeding",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Aggravated Bleeding",
+    "en": "Aggravated Bleeding"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Bleeding that has been Aggravated always treats the target as moving, which causes it to deal 100% extra damage.",
+      "Once a Bleeding Debuff has been Aggravated, it will remain Aggravated until its duration expires.",
+      "Each Bleeding Debuff can be Aggravated, or not, independently — one Bleeding Debuff being Aggravated does not mean other Bleeding Debuffs on the target are also Aggravated, and Aggravating some or all of them will have no effect on new Bleeding Debuffs applied afterwards. However, effects which Aggravate Bleeding on a target do so to all Bleeding Debuffs currently on that target unless otherwise specified."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Aggravated_Bleeding",
+      "patch": "0.5.4b"
+    }
+  ]
+}

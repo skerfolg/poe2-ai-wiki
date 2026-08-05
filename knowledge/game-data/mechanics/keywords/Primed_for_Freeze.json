@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.primed-for-freeze",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Primed for Freeze",
+    "en": "Primed for Freeze"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Normal enemies are Primed for Freeze when they have at least 40% Freeze buildup. Magic enemies are instead Primed at 50% buildup, Rare at 60%, and Unique at 70%."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Primed_for_Freeze",
+      "patch": "0.5.4b"
+    }
+  ]
+}

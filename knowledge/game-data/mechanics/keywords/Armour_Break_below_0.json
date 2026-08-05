@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.armour-break-below-0",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Armour Break below 0",
+    "en": "Armour Break below 0"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Enemies with Armour Broken below 0 have negative Armour. This means they take more Physical damage from Hits. Armour broken below 0 is capped by the enemy's base Armour."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Armour_Break_below_0",
+      "patch": "0.5.4b"
+    }
+  ]
+}

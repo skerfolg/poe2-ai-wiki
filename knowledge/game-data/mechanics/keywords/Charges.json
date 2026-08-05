@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.charges",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Charges",
+    "en": "Charges"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Charges can be gained from a number of Skills, passives, and other effects. They do not grant any inherent benefits, but can be consumed to fuel many skills and other effects. Charges last for 15 seconds by default, refreshing whenever you gain another charge of the same type.",
+      "There are three types of Charges — Endurance, Frenzy and Power. By default players can have up to 3 of each type of Charge at once."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Charges",
+      "patch": "0.5.4b"
+    }
+  ]
+}

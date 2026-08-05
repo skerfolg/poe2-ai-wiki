@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.ice-crystals",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Ice Crystals",
+    "en": "Ice Crystals"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Ice Crystals are solid blocks of ice which can be damaged. When destroyed, Ice Crystals will deal Cold damage in an area. Ice Crystals will block the movement of smaller monsters, while larger monsters will destroy Ice Crystals in their path.",
+      "Skills which Consume Freeze will instantly shatter Ice Crystals, causing them to deal more damage in a larger area."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Ice_Crystals",
+      "patch": "0.5.4b"
+    }
+  ]
+}
