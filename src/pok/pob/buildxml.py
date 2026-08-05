@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Any
 from xml.sax.saxutils import escape, quoteattr
@@ -118,6 +119,35 @@ class BuildSpec:
     #
     # 미지정 노드는 PoB 기본 동작을 따른다(override에 넣지 않는다).
     attribute_choices: tuple[tuple[int, str], ...] = field(default=())
+
+
+# 탐침 표기 — 천장을 재기 위한 가정치임을 스펙에 남기는 태그 (회차 종결 R1).
+# `compute_pob`(측정)은 통과시키고 `assemble_pob`(출고)은 거부한다.
+#
+# 실측 2026-08-05: `+16650 생명력` 탐침으로 천장을 재고, 적법성에 걸려 빠진 뒤
+# **주 엔진(생명력)을 실물로 재건하지 않은 채 출고했다.** 부차 축(힘)에는 요구-수급
+# 장부를 만들면서 주 엔진에는 안 만들었다 — 탐침에 표기가 없어서 "재건해야 할 것"
+# 목록에 오르지 못했다.
+PROBE_TAG = re.compile(r"\[(?:탐침|PROBE)\]", re.I)
+
+
+def find_probe_lines(data: dict[str, Any]) -> list[str]:
+    """스펙에 남은 탐침 줄 전량 — 아이템·주얼 텍스트를 훑는다."""
+    out: list[str] = []
+    for item in data.get("items") or []:
+        for line in str(item.get("text", "")).splitlines():
+            if PROBE_TAG.search(line):
+                out.append(f"{item.get('slot', '?')}: {line.strip()}")
+    for jewel in data.get("jewels") or []:
+        for line in str(jewel.get("text", "")).splitlines():
+            if PROBE_TAG.search(line):
+                out.append(f"jewel@{jewel.get('socket_node_id', '?')}: {line.strip()}")
+    return out
+
+
+def strip_probe_tags(text: str) -> str:
+    """PoB에 보내기 전 태그만 벗긴다 — 측정은 태그가 있어도 돼야 한다."""
+    return PROBE_TAG.sub("", text)
 
 
 # 택1 선택 표기 — 짧은 것도 긴 것도 받는다(호출자가 어느 쪽을 쓸지 모른다)
@@ -315,8 +345,10 @@ def to_xml(spec: BuildSpec) -> str:
                 "(소켓을 트리에 할당해야 주얼이 반영된다)"
             )
     all_items = list(spec.items) + [ItemSpec(slot="", text=j.text) for j in spec.jewels]
+    # 탐침 태그는 PoB에 보내기 전에 벗긴다 — 측정은 태그가 있어도 돼야 하고,
+    # 태그를 그대로 보내면 PoB가 그 줄을 접사로 파싱하지 못한다
     item_els = "\n".join(
-        f'    <Item id="{i}">{escape(item.text)}</Item>'
+        f'    <Item id="{i}">{escape(strip_probe_tags(item.text))}</Item>'
         for i, item in enumerate(all_items, start=1)
     )
     slot_els = "\n".join(

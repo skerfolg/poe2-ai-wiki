@@ -234,6 +234,20 @@ def assemble_pob(
 ) -> dict[str, Any]:
     """빌드 조립→검증→계산→artifacts/builds/<build-id>/ 기록. 비합법이면
     거부하고 사유 반환. 성공 시 PoB 공유 코드(build_code) 포함."""
+    from pok.pob.buildxml import find_probe_lines
+
+    probes = find_probe_lines(build_spec)
+    if probes:
+        # **출고 게이트** (회차 종결 R1): 탐침은 천장을 재는 가정치다 — 측정
+        # (`compute_pob`)은 통과하지만 출고는 실물로 재건한 뒤여야 한다. 실측:
+        # `+16650 생명력` 탐침이 빠진 뒤 주 엔진을 재건하지 않은 채 출고됐다.
+        return {
+            "ok": False,
+            "reason": (
+                "탐침([탐침]/[PROBE]) 줄이 남아 있다 — 출고 전에 실물 조달로 "
+                "재건하거나, 뺐다면 그 축을 대체할 것:\n  " + "\n  ".join(probes)
+            ),
+        }
     try:
         built = assemble(spec_from_dict(build_spec), slug, checker=_get_checker())
     except (IllegalBuildError, ValueError) as e:
