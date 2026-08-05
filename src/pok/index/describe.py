@@ -202,6 +202,7 @@ def find_by_value(
     type_: str | None = None,
     minimum: float | None = None,
     maximum: float | None = None,
+    ids: list[str] | None = None,
     limit: int = 30,
     root: Path | None = None,
     db_path: Path | None = None,
@@ -215,17 +216,29 @@ def find_by_value(
     `path`는 점 표기이고 리스트를 만나면 원소마다 갈라진다
     (`reservation.max` → `data.reservation[0].max`, `[1].max`, …).
 
+    `ids`를 주면 **그 집합 안에서만** 찾는다 — "내 트리 112개 노드 중 이 필드를 가진
+    것은?" 같은 조인이다. 그 경로가 없어서 세션이 `tree/*.ndjson`을 파일로 조인했다
+    (이관 5 C12 — B-11과 같은 성격이다). `minimum`·`maximum`을 생략하면 **필드를
+    가졌는지**만 본다(값 필터 없이 존재 검사).
+
     후보 생성일 뿐 **순위나 판단은 하지 않는다**(AD-3) — 값 오름차순으로만 낸다.
     """
     parts = path.split(".")
     con = sqlite3.connect(ensure_index(root, db_path))
     try:
         sql = "SELECT id, name_ko, name_en, json FROM records"
-        params: tuple[Any, ...] = ()
+        where: list[str] = []
+        params: list[Any] = []
         if type_:
-            sql += " WHERE type=?"
-            params = (type_,)
-        rows = con.execute(sql, params).fetchall()
+            where.append("type=?")
+            params.append(type_)
+        if ids:
+            # 큰 집합도 그대로 받는다 — 호출자가 트리 노드 100여 개를 넘긴다
+            where.append(f"id IN ({','.join('?' * len(ids))})")
+            params.extend(str(i) for i in ids)
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        rows = con.execute(sql, tuple(params)).fetchall()
     finally:
         con.close()
 
@@ -233,7 +246,12 @@ def find_by_value(
     for rid, ko, en, blob in rows:
         raw = json.loads(blob)
         for found_path, value in _walk(raw.get("data") or {}, parts):
-            if isinstance(value, bool) or not isinstance(value, int | float):
+            if isinstance(value, bool):
+                continue
+            if not isinstance(value, int | float):
+                # 값 필터가 없으면 **존재 검사**다 — 수치가 아니어도 "가졌다"는 답이다
+                if minimum is None and maximum is None:
+                    hits.append(ValueHit(rid, ko, en, found_path, 0.0))
                 continue
             if minimum is not None and value < minimum:
                 continue

@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from pok.engine.tree.graph import TreeGraph
-from pok.pob.buildxml import BuildSpec, JewelSpec
+from pok.pob.buildxml import BuildSpec, ItemSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
 
 
@@ -216,3 +216,97 @@ def evaluate_bundles(
         if own:
             d.close()
     return out
+
+
+@dataclass(frozen=True)
+class ChangeDelta:
+    """변경안 하나의 실측 — 트리 노드·아이템·주얼을 **섞어** 넣을 수 있다."""
+
+    name: str
+    deltas: dict[str, float]
+    sum_of_parts: dict[str, float]
+    parts: tuple[str, ...]
+
+    def synergy(self, stat: str) -> float:
+        """묶음 델타 - 개별 합. 양수면 **함께여야 열리는 조합**이다."""
+        return round(self.deltas.get(stat, 0.0) - self.sum_of_parts.get(stat, 0.0), 4)
+
+
+def _apply_change(spec: BuildSpec, change: dict[str, Any], graph: TreeGraph) -> BuildSpec:
+    """변경 하나를 스펙에 얹는다 — 아이템은 같은 슬롯을 **교체**한다."""
+    out = spec
+    if nodes := change.get("nodes"):
+        base_tree = set(out.tree_nodes) | {graph.start_of(out.class_name)}
+        added: list[int] = []
+        grown = set(base_tree)
+        for node_id in (int(n) for n in nodes):
+            path = graph.shortest_path(grown, node_id)
+            if path:
+                added.extend(path)
+                grown.update(path)
+        out = dataclasses.replace(out, tree_nodes=tuple(out.tree_nodes) + tuple(added))
+    if item := change.get("item"):
+        slot = str(item["slot"])
+        kept = tuple(i for i in out.items if i.slot != slot)
+        out = dataclasses.replace(out, items=(*kept, ItemSpec(slot=slot, text=str(item["text"]))))
+    if jewel := change.get("jewel"):
+        out = dataclasses.replace(
+            out,
+            jewels=(
+                *out.jewels,
+                JewelSpec(socket_node_id=int(jewel["socket_node_id"]), text=str(jewel["text"])),
+            ),
+        )
+    return out
+
+
+def evaluate_change_bundle(
+    spec: BuildSpec,
+    graph: TreeGraph,
+    changes: list[dict[str, Any]],
+    *,
+    name: str = "",
+    stats: tuple[str, ...] = ("CombinedDPS", "Life", "TotalEHP"),
+    daemon: PobDaemon | None = None,
+) -> ChangeDelta:
+    """변경들을 **동시에** 넣은 델타와 하나씩 넣은 델타의 합을 함께 낸다.
+
+    `evaluate_bundles`가 트리 노드만 받는 데 비해 여기는 **아이템·주얼도 섞는다**.
+    실측 2026-08-05: 눈알 왕관과 래스피스 구체가 각각 단독 델타 **정확히 0**인데
+    함께 넣으면 **1.44배**였다. 아이템 단위 평가로는 둘 다 탈락한다.
+
+    `synergy`(묶음 - 개별 합)가 양수면 임계를 넘겨야 열리는 조합이라는 신호다.
+    **묶음 구성은 호출자가 한다**(AD-3) — 어떤 조합이 말이 되는가는 판단이다.
+
+    changes = [{"item": {"slot","text"}}, {"nodes": [123]}, {"jewel": {...}}]
+    """
+    own = daemon is None
+    d = daemon or PobDaemon()
+    try:
+        base = d.compute_build(spec).stats
+        together = spec
+        for change in changes:
+            together = _apply_change(together, change, graph)
+        combined = d.compute_build(together).stats
+        parts_total = dict.fromkeys(stats, 0.0)
+        labels: list[str] = []
+        for change in changes:
+            single = d.compute_build(_apply_change(spec, change, graph)).stats
+            for key in stats:
+                parts_total[key] += single.get(key, 0.0) - base.get(key, 0.0)
+            labels.append(
+                str(
+                    (change.get("item") or {}).get("slot")
+                    or (change.get("jewel") or {}).get("socket_node_id")
+                    or change.get("nodes")
+                )
+            )
+        return ChangeDelta(
+            name=name or " + ".join(labels),
+            deltas={k: round(combined.get(k, 0.0) - base.get(k, 0.0), 4) for k in stats},
+            sum_of_parts={k: round(v, 4) for k, v in parts_total.items()},
+            parts=tuple(labels),
+        )
+    finally:
+        if own:
+            d.close()

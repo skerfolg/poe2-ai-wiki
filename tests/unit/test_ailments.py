@@ -58,3 +58,19 @@ def test_classification_and_constants() -> None:
     assert parsed["Shock"]["damaging"] is False, "감전은 비피해 상태이상"
     assert parsed["Bleed"]["constants"]["BleedingHitDamagePercentPerMinute"] == 900
     assert parsed["Bleed"]["constants"]["BaseBleedingDuration"] == 5
+
+
+def test_bleed_does_not_stack() -> None:
+    """ "출혈 스킬 6개 = 딜 6배"가 아니다 — 중첩 수단이 PoB에 없다 (이관 4 C8).
+
+    `CalcOffence.lua:5065`가 `maxStacks = 1`에서 시작하고 `<Ailment>CanStack`
+    플래그가 있어야 늘린다. 실측 0.5.4b: 중독 4·감전 2·냉기 2·점화 1개 출처가
+    있고 **출혈과 빙결은 0개**다. `ConfigOptions.lua`의 `ifFlag`는 "이미 세워졌을 때
+    보여줄지"라 세는 대상이 아니다 — 그걸 세면 반대 결론이 난다.
+    """
+    parsed = parse_ailments(pob_src())
+    assert parsed["Bleed"]["can_stack"] is False
+    assert parsed["Freeze"]["can_stack"] is False
+    assert parsed["Poison"]["can_stack"] is True
+    assert parsed["Poison"]["can_stack_sources"], "중독은 여는 모드가 실재한다"
+    assert parsed["Bleed"]["max_stacks_default"] == 1

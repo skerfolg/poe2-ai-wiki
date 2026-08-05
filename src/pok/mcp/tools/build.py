@@ -21,6 +21,7 @@ build_spec dict 형식 (spec_from_dict 계약):
 from __future__ import annotations
 
 import dataclasses
+from pathlib import Path
 from typing import Any
 
 from pok.common.paths import knowledge_dir
@@ -153,8 +154,16 @@ def check_item_legality(item_text: str) -> dict[str, Any]:
     }
 
 
-def parse_pob(build_code: str, anchor: dict[str, Any] | None = None) -> dict[str, Any]:
+def parse_pob(
+    build_code: str = "",
+    anchor: dict[str, Any] | None = None,
+    code_path: str = "",
+) -> dict[str, Any]:
     """PoB 공유 코드 → 구조 요약 (클래스·어센던시·스킬 그룹·트리·아이템·저장 스탯).
+
+    `code_path`로 **파일에서 읽을 수 있다.** 앵커 코드는 2만 자를 넘기도 해서 인라인으로
+    넘기면 도중에 잘린다 — 실측 2026-08-05: 24,244자가 13,737자로 절단돼 분석이
+    실패했다. 긴 코드는 파일로 두고 경로를 준다(사용자 규율과도 맞는다).
 
     anchor를 주면 artifacts/anchors/<id>/에 계보 manifest와 함께 보관한다(D30):
       anchor = {"slug": "user-ember-fusillade",
@@ -164,6 +173,13 @@ def parse_pob(build_code: str, anchor: dict[str, Any] | None = None) -> dict[str
     from pok.artifacts.store import new_anchor_id, record_anchor
     from pok.pob.parse import parse_pob as _parse
 
+    if code_path:
+        source = Path(code_path).expanduser()
+        if not source.exists():
+            return {"ok": False, "reason": f"파일 없음: {source}"}
+        build_code = source.read_text(encoding="utf-8").strip()
+    if not build_code:
+        return {"ok": False, "reason": "build_code 또는 code_path 중 하나는 있어야 한다"}
     try:
         summary = _parse(build_code)
     except ValueError as e:
@@ -231,4 +247,54 @@ def assemble_pob(
         "build_code": built.build_code,
         "duplicates": list(built.duplicates),
         **_pick(built.result, stats),
+    }
+
+
+def measure_leverage(
+    build_spec: dict[str, Any],
+    other_spec: dict[str, Any] | None = None,
+    stat: str = "CombinedDPS",
+) -> dict[str, Any]:
+    """조건 ON/OFF를 두 번 재서 **사전 작업 의존도**를 낸다. 앵커를 주면 2x2 교차 (D1·D2).
+
+    ⚠ **앵커 비교는 반드시 이걸 거칠 것.** 상대의 조건 on 수치를 우리 조건 off 수치와
+    나란히 놓으면 오독한다 — 실측 2026-08-05: 21,302,501 대 302,794를 "70배 차이"로
+    읽었는데 **같은 저울에서는 3.7배**였다.
+
+    `leverage`(조건 on ÷ off)는 그 자체가 강건성 지표다. 실측: 21M 앵커 19.0배,
+    갈퀴질 창 2.1/1.88배, 우리 1.36배. 높을수록 사전 작업 의존이 크고 실전에서
+    무너진다 — 사용자 판정: "이론상 가능해도 추구해서는 안 된다".
+
+    얼마가 적정인지는 판단이라 정하지 않는다(AD-3) — 목표 상태에 상한을 걸 때 쓴다.
+    조건성으로 보는 것은 `condition*`·`enemyCondition*`·`multiplier*` 키다.
+    """
+    from pok.engine.leverage import compare_on_same_scale, measure_operating_cost
+    from pok.engine.leverage import measure_leverage as _measure
+
+    def _reading(r: Any) -> dict[str, Any]:
+        return {
+            "label": r.label,
+            "stat": r.stat,
+            "off": r.off,
+            "on": r.on,
+            "leverage": r.leverage,
+            "conditions_toggled": list(r.conditions),
+        }
+
+    # 운용 비용도 함께 낸다 — DPS·EHP 밖의 축이라 따로 물으면 아무도 안 묻는다(D3).
+    # `evaluate_objective`의 measured에 그대로 넣어 사전식 목표로 쓸 수 있다.
+    cost = measure_operating_cost(build_spec).as_measured()
+    if other_spec is None:
+        return {"ok": True, **_reading(_measure(build_spec, stat=stat)), "operating_cost": cost}
+    comparison = compare_on_same_scale(build_spec, other_spec, stat=stat)
+    return {
+        "ok": True,
+        "ours": _reading(comparison.ours),
+        "other": _reading(comparison.other),
+        "ratio_same_scale": comparison.ratio_off,
+        "ratio_conditions_on": comparison.ratio_on,
+        "naive_ratio_do_not_use": comparison.naive_ratio,
+        "operating_cost": cost,
+        "other_operating_cost": measure_operating_cost(other_spec).as_measured(),
+        "notes": list(comparison.notes),
     }

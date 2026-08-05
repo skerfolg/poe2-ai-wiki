@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -95,18 +96,37 @@ def parse_mod(
     }
 
 
+# `Bonded:` 줄은 **샤먼 전직군 전용**이다(사용자 확정 2026-08-05). PoB는
+# `modLine.bonded` 플래그를 룬 조합 계산에만 쓰고 **직업 조건을 검사하지 않아**,
+# 다른 직업 빌드에서도 계산에 들어간다. 조건 표시 없이 평범한 줄로 두면 세션이
+# 그걸 자기 빌드의 효과로 읽는다 — 실측: 블러드 메이지 빌드가 Bonded 8% 물리를
+# 계산에 넣었다가 사용자 지적으로 알았다.
+_BONDED = re.compile(r"^\s*Bonded\s*:", re.I)
+BONDED_CONDITION = (
+    "샤먼(Shaman) 전직군 전용 — 다른 직업에서는 적용되지 않는다. "
+    "PoB는 이 조건을 검사하지 않으므로 계산에 그대로 들어간다(과대 계상 주의)."
+)
+
+
 def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
     """룬 1건 → 중간 레코드 (슬롯군별 효과 보존)."""
     per_slot: dict[str, list[str]] = {}
+    bonded: dict[str, list[str]] = {}
     rank = 0
     for slot, spec in raw.items():
         if not isinstance(spec, dict):
             continue
-        per_slot[slot] = _texts(spec)
+        texts = _texts(spec)
+        per_slot[slot] = texts
+        # 줄을 지우지 않고 **어느 줄이 조건부인지 따로 짚는다** — 지우면 정보 손실이고
+        # 그대로 두면 오판한다
+        conditional = [t for t in texts if _BONDED.match(t)]
+        if conditional:
+            bonded[slot] = conditional
         ranks = spec.get("rank") or []
         if ranks:
             rank = int(ranks[0])
-    return {
+    out: dict[str, Any] = {
         "pob_key": name,
         "affix_type": "rune",
         "affix_name": name,
@@ -115,6 +135,10 @@ def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
         "origin": "rune",
         "acquisition": ["rune-socket"],
     }
+    if bonded:
+        out["bonded_lines"] = bonded
+        out["bonded_condition"] = BONDED_CONDITION
+    return out
 
 
 def _base_category(raw: dict[str, Any]) -> str:

@@ -56,6 +56,8 @@ def check_constraints(
     exhaustion: dict[str, Any] | None = None,
     sustain: dict[str, Any] | None = None,
     multipliers: dict[str, Any] | None = None,
+    skillset: dict[str, Any] | None = None,
+    loadout: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """설계 제약 원장 5종의 결정적 검사(D27) — 준 것만 검사해 리포트 반환.
 
@@ -89,6 +91,21 @@ def check_constraints(
                      드러낸다. **미개발은 위반이 아니다** — 룬 소켓과 같은 성격이라
                      판단은 호출자 몫이다. 기본 스탯으로는 이 축들이 안 보이므로
                      `stats=["*"]`로 받은 전체를 넘길 것.
+
+      skillset     = {"skills": [{"name","text"?,"reservation"?,"role"?}],
+                      "spirit_pool"?, "main_skill"?}
+                     **스킬 세트도 자원 축이다.** 역할 칸(주력기·트리거·버프·저주·
+                     이동기·소환수·유틸)의 충전율과 정신력 잔여를 낸다. 미사용은
+                     위반이 아니지만 보이지 않으면 판단할 수도 없다 — 실측
+                     2026-08-05: 타 유저 앵커가 스킬 그룹 13~28개인데 우리 산출물은
+                     1개였고 정신력 100 중 0을 썼다. 룬 소켓이 `exhaustion.sockets`
+                     덕에 안 빠진 것과 같은 장치다
+
+      loadout      = {"weapons": [{"slot","name"?,"category"?,"rarity"?}], "keystones"?}
+                     주손·오프핸드 조합 규칙. **거인의 피 없이 양손 무기 + 오프핸드는
+                     성립하지 않는다** — PoB는 이 규칙을 비교(override) 경로에서만
+                     적용해서 조립하면 거짓 통과한다(실측 2026-08-05: 양손 철퇴 +
+                     집중구가 생명력 +84·DPS +378로 정상 계산됐다).
 
     판단 없음(AD-3): 위반 사유·여유분만 — 무엇을 고를지는 호출자 몫.
     """
@@ -188,6 +205,40 @@ def check_constraints(
                 target_pool_ratio_pct=float(target) if target is not None else None,
             )
         )
+    if loadout is not None:
+        from pok.engine.constraints.loadout import check_loadout
+
+        lo = check_loadout(
+            list(loadout.get("weapons", [])), list(loadout.get("keystones", []) or [])
+        )
+        out["loadout"] = {
+            "ok": lo.ok,
+            "violations": list(lo.violations),
+            "notes": list(lo.notes),
+        }
+    if skillset is not None:
+        from pok.engine.constraints.skillset import check_skillset
+
+        spirit_pool = skillset.get("spirit_pool")
+        skill_report = check_skillset(
+            list(skillset.get("skills", [])),
+            spirit_pool=float(spirit_pool) if spirit_pool is not None else None,
+            main_skill=str(skillset.get("main_skill", "")),
+        )
+        out["skillset"] = {
+            "total_skills": skill_report.total_skills,
+            "fill_pct": skill_report.fill_pct,
+            "roles": [
+                {"key": r.key, "label": r.label, "filled": list(r.filled), "empty": r.empty}
+                for r in skill_report.roles
+            ],
+            "empty_roles": list(skill_report.empty_roles),
+            "unclassified": list(skill_report.unclassified),
+            "spirit_pool": skill_report.spirit_pool,
+            "spirit_used": skill_report.spirit_used,
+            "spirit_remaining": skill_report.spirit_remaining,
+            "notes": list(skill_report.notes),
+        }
     if multipliers is not None:
         from pok.engine.constraints.multipliers import build_ledger
 

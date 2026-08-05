@@ -10,12 +10,22 @@
     "ailment"
   ],
   "data": {
+    "keyword_stats": [
+      "Bleeding is an Ailment that deals Physical damage over time, and lasts 5 seconds by default. Damage from Bleeding bypasses Energy Shield",
+      "Bleeding deals an extra 100% damage while the target is moving, or if the Bleeding is Aggravated.",
+      "Physical damage from Hits Contributes to Bleeding Magnitude.",
+      "Damage does not Contribute to Bleeding chance, so it cannot be inflicted without an explicit source of Bleeding chance.",
+      "The base Magnitude of Bleeding is Physical damage per second equal to 15% of the Pre-mitigation Physical damage of the Hit that inflicted it. This magnitude is not further affected by any modifiers to the damage you deal.",
+      "Modifiers and Debuffs that affect the enemy's ability to mitigate damage (such as Shock ) can affect the damage the enemy takes from Bleeding, but any such modifiers that specifically apply to Hit damage (such as Armour Break ) do not affect Bleeding damage."
+    ],
     "elemental": false,
     "damaging": true,
     "scales_from": [
       "Physical"
     ],
     "damage_type": "Physical",
+    "can_stack": false,
+    "max_stacks_default": 1,
     "constants": {
       "BaseBleedingDuration": 5,
       "BaseBloodstainedAfterBleedingDuration": 6,
@@ -24,15 +34,8 @@
       "no_extra_bleeding_damage_while_moving": 1
     },
     "kind": "ailment",
-    "note": "출혈은 **Physical 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다",
-    "keyword_stats": [
-      "Bleeding is an Ailment that deals Physical damage over time, and lasts 5 seconds by default. Damage from Bleeding bypasses Energy Shield",
-      "Bleeding deals an extra 100% damage while the target is moving, or if the Bleeding is Aggravated.",
-      "Physical damage from Hits Contributes to Bleeding Magnitude.",
-      "Damage does not Contribute to Bleeding chance, so it cannot be inflicted without an explicit source of Bleeding chance.",
-      "The base Magnitude of Bleeding is Physical damage per second equal to 15% of the Pre-mitigation Physical damage of the Hit that inflicted it. This magnitude is not further affected by any modifiers to the damage you deal.",
-      "Modifiers and Debuffs that affect the enemy's ability to mitigate damage (such as Shock ) can affect the damage the enemy takes from Bleeding, but any such modifiers that specifically apply to Hit damage (such as Armour Break ) do not affect Bleeding damage."
-    ]
+    "stacking_note": "**출혈은 중첩되지 않는다**(0.5.4b) — 최대 1중첩이고 `BleedCanStack`을 여는 모드가 PoB 어디에도 없다. 여러 스킬로 걸어도 딜이 곱해지지 않는다 — 그것들은 가동률·커버리지 장치다.",
+    "note": "출혈은 **Physical 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
   },
   "verification": "POB_CODE",
   "sources": [

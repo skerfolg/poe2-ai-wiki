@@ -34,3 +34,21 @@ def test_related_bidirectional() -> None:
     assert any(
         e["direction"] == "reverse" and e["src"] == "passive.chaos-inoculation" for e in edges
     ), "역방향(이 엔티티를 가리키는 관계)은 인덱스가 생성"
+
+
+def test_server_info_reports_actual_registered_tools() -> None:
+    """이관 통보를 받은 세션이 **호출 가능 여부를 확인**할 수단 (이관 4 C10).
+
+    실측 2026-08-05: 한 세션이 소스를 읽고 "도구가 있다"고 보고했는데 호출은
+    `Unexpected keyword argument`로 실패했다. MCP 서버는 세션 시작 시점의 코드로
+    상주하므로 재시작 전에는 새 도구가 없다.
+    """
+    from pok.mcp import server
+
+    info = server.server_info()
+    assert info["tool_count"] > 20
+    # 모듈 전역을 훑으면 데코레이터 반환 형태에 따라 0종이 나온다 — 등록부에서 읽는다
+    assert {"search_kb", "find_by_value", "describe_type", "check_constraints"} <= set(
+        info["tools"]
+    )
+    assert info["commit"], "커밋을 알려줘야 '통보받은 판인가'를 확인할 수 있다"

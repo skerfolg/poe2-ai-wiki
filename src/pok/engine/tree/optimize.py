@@ -80,6 +80,34 @@ class OptimizeResult:
     pruned: tuple[Pruned, ...]  # 가지치기로 회수된 죽은 노드들
     rejected_rounds: int  # 양의 점수 후보가 없어 중단됐으면 1
 
+    @property
+    def wasted_points(self) -> int:
+        """**채택했다가 회수한** 포인트 — 예산을 태우고 아무것도 못 산 몫.
+
+        실측 2026-08-05: 마지막 8스텝이 3~4포인트씩 썼는데 그중 7개가 가지치기에서
+        델타 0으로 잡혔다. 회수 자체는 되지만 "이 지출이 무효였다"가 신호로 읽히지
+        않아, 세션은 예산을 다 쓴 트리를 정상 산출물로 받았다.
+        """
+        return sum(len(p.nodes) for p in self.pruned)
+
+    @property
+    def waste_notes(self) -> tuple[str, ...]:
+        """헛돈 예산을 문장으로 — 보이지 않으면 판단할 수도 없다(AD-3, 룬 소켓과 같은 성격)."""
+        if not self.pruned:
+            return ()
+        out = [
+            f"⚠ 채택 후 회수 {self.wasted_points}포인트 / 스텝 {len(self.pruned)}개 — "
+            f"**그만큼의 예산이 순 효과 없이 소모됐다.** 후보 반경"
+            f"(`candidate_radius`)이나 라운드당 후보 수를 늘려 더 먼 노드를 보게 하라"
+        ]
+        truncated = [p for p in self.pruned if p.chain_truncated]
+        if truncated:
+            out.append(
+                f"그중 {len(truncated)}건은 살아 있는 노드를 만나 **가지 일부만** "
+                f"회수됐다 — 남은 통행 노드는 그대로 예산을 점유한다"
+            )
+        return tuple(out)
+
 
 def optimize_tree(
     spec: BuildSpec,

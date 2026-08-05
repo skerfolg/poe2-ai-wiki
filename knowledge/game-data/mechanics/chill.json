@@ -10,10 +10,20 @@
     "ailment"
   ],
   "data": {
+    "keyword_stats": [
+      "Chill is an Ailment that Slows the afflicted target, and lasts 2 seconds on players or 8 seconds on non-players by default. Chill Magnitude depends on the Chilling damage dealt relative to the target's Elemental Ailment Threshold, with a minimum of 30% and a default maximum of 50%.",
+      "Cold damage from Hits can Chill by default, and does not require a chance to inflict Chill. However, Chills smaller than 30% will be ignored, so small Hits can fail to Chill."
+    ],
     "elemental": true,
     "damaging": false,
     "scales_from": [
       "Cold"
+    ],
+    "can_stack": true,
+    "max_stacks_default": 1,
+    "can_stack_sources": [
+      "Data/ModCache.lua",
+      "Modules/ModParser.lua"
     ],
     "constants": {
       "BaseChillDuration": 8,
@@ -22,11 +32,7 @@
       "ChillMaxEffect": 50
     },
     "kind": "ailment",
-    "note": "냉기는 **Cold 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다",
-    "keyword_stats": [
-      "Chill is an Ailment that Slows the afflicted target, and lasts 2 seconds on players or 8 seconds on non-players by default. Chill Magnitude depends on the Chilling damage dealt relative to the target's Elemental Ailment Threshold, with a minimum of 30% and a default maximum of 50%.",
-      "Cold damage from Hits can Chill by default, and does not require a chance to inflict Chill. However, Chills smaller than 30% will be ignored, so small Hits can fail to Chill."
-    ]
+    "note": "냉기는 **Cold 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
   },
   "verification": "POB_CODE",
   "sources": [
