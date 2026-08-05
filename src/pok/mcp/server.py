@@ -29,6 +29,7 @@ from pok.common import telemetry
 from pok.common.paths import knowledge_dir
 from pok.index.describe import describe_kb as _describe_kb
 from pok.index.describe import describe_type as _describe_type
+from pok.index.describe import find_by_value as _find_by_value
 from pok.index.search import diagnose_empty as _diagnose_empty
 from pok.index.search import get_entry as _get_entry
 from pok.index.search import get_insight as _get_insight
@@ -80,7 +81,12 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
             raise
         outcome = telemetry.classify(result)
         if outcome != "ok":
-            telemetry.record(fn.__name__, _named(fn, args, kwargs), outcome=outcome)
+            telemetry.record(
+                fn.__name__,
+                _named(fn, args, kwargs),
+                outcome=outcome,
+                detail=telemetry.detail_of(result),
+            )
         return result
 
     return mcp.tool(wrapper)  # type: ignore[return-value]
@@ -241,6 +247,38 @@ def describe_type(type: str, field: str | None = None) -> dict[str, Any]:
             for f in profile.fields
         ],
     }
+
+
+@tool
+def find_by_value(
+    path: str,
+    type: str | None = None,
+    minimum: float | None = None,
+    maximum: float | None = None,
+    limit: int = 30,
+) -> list[dict[str, Any]]:
+    """`data` 안의 **수치로** 후보를 찾는다 — `search_kb`(텍스트)로는 닿지 않는 축.
+
+    쓸 때: 자원이 얼마 남았고 **그 안에 들어가는 것**을 찾을 때.
+    예) 정신력 40 잔여 → `find_by_value("reservation.max", type="Skill", maximum=40)`
+        코스트 상한   → `find_by_value("cost.max", type="Skill", maximum=25)`
+
+    `path`는 `data` 아래의 점 표기다. 리스트를 만나면 원소마다 갈라진다
+    (`reservation.max` → `reservation[0].max`, `[1].max`, …). 어떤 경로가 있는지는
+    `describe_type`의 필드 목록에서 본다.
+
+    값 오름차순으로만 낸다 — **순위나 적합성 판단은 하지 않는다**(AD-3).
+    """
+    return [
+        {
+            "id": h.id,
+            "name_ko": h.name_ko,
+            "name_en": h.name_en,
+            "path": h.path,
+            "value": h.value,
+        }
+        for h in _find_by_value(path, type_=type, minimum=minimum, maximum=maximum, limit=limit)
+    ]
 
 
 @tool

@@ -168,3 +168,77 @@ def describe_kb(root: Path | None = None, db_path: Path | None = None) -> dict[s
         "relations": [{"rel": r, "count": n} for r, n in rels],
         "insights": insights,
     }
+
+
+@dataclass(frozen=True)
+class ValueHit:
+    """수치 조회 히트 — 어느 레코드의 어느 경로가 몇이었는지."""
+
+    id: str
+    name_ko: str
+    name_en: str
+    path: str
+    value: float
+
+
+def _walk(node: Any, parts: list[str], prefix: str = "") -> list[tuple[str, Any]]:
+    """점 표기 경로를 따라간다. 리스트를 만나면 **모든 원소**로 갈라진다 —
+    `reservation.max`는 `reservation`이 리스트라서 원소마다 값이 하나씩 나온다."""
+    if not parts:
+        return [(prefix, node)]
+    head, rest = parts[0], parts[1:]
+    out: list[tuple[str, Any]] = []
+    if isinstance(node, list):
+        for i, item in enumerate(node):
+            out += _walk(item, parts, f"{prefix}[{i}]")
+        return out
+    if isinstance(node, dict) and head in node:
+        out += _walk(node[head], rest, f"{prefix}.{head}" if prefix else head)
+    return out
+
+
+def find_by_value(
+    path: str,
+    type_: str | None = None,
+    minimum: float | None = None,
+    maximum: float | None = None,
+    limit: int = 30,
+    root: Path | None = None,
+    db_path: Path | None = None,
+) -> list[ValueHit]:
+    """`data` 안의 **수치로** 레코드를 찾는다 — FTS로는 닿지 않는 축.
+
+    실측 2026-08-05: 점유 검사기가 "정신력 40 남았다"까지는 냈는데 **그 40으로 무엇을
+    넣을 수 있는지** 물을 경로가 없었다. `search_kb`는 텍스트만 매칭하고 `reservation`
+    같은 수치 필드에는 닿지 못한다. 그래서 세션이 파일을 뒤지거나 후보를 포기했다.
+
+    `path`는 점 표기이고 리스트를 만나면 원소마다 갈라진다
+    (`reservation.max` → `data.reservation[0].max`, `[1].max`, …).
+
+    후보 생성일 뿐 **순위나 판단은 하지 않는다**(AD-3) — 값 오름차순으로만 낸다.
+    """
+    parts = path.split(".")
+    con = sqlite3.connect(ensure_index(root, db_path))
+    try:
+        sql = "SELECT id, name_ko, name_en, json FROM records"
+        params: tuple[Any, ...] = ()
+        if type_:
+            sql += " WHERE type=?"
+            params = (type_,)
+        rows = con.execute(sql, params).fetchall()
+    finally:
+        con.close()
+
+    hits: list[ValueHit] = []
+    for rid, ko, en, blob in rows:
+        raw = json.loads(blob)
+        for found_path, value in _walk(raw.get("data") or {}, parts):
+            if isinstance(value, bool) or not isinstance(value, int | float):
+                continue
+            if minimum is not None and value < minimum:
+                continue
+            if maximum is not None and value > maximum:
+                continue
+            hits.append(ValueHit(rid, ko, en, found_path, float(value)))
+    hits.sort(key=lambda h: (h.value, h.id))
+    return hits[:limit]

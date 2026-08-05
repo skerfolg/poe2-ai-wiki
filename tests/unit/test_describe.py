@@ -51,3 +51,30 @@ def test_describe_kb_gives_overview() -> None:
     assert kb["total"] > 10000
     types = {r["type"] for r in kb["types"]}
     assert {"Skill", "Support", "Passive", "Item", "Modifier"} <= types
+
+
+def test_find_by_value_answers_what_fits_in_the_headroom() -> None:
+    """ "정신력 40 남았다"에서 **그 40으로 무엇을 넣나**로 넘어가는 경로.
+
+    실측 2026-08-05: 점유 검사기가 잔여까지는 냈는데 후보를 물을 도구가 없었다.
+    `search_kb`는 텍스트만 매칭해 `reservation` 같은 수치 필드에 닿지 못한다.
+    """
+    from pok.index.describe import find_by_value
+
+    hits = find_by_value("reservation.max", type_="Skill", maximum=40, limit=50)
+    assert hits, "정신력 40 이하로 점유하는 스킬이 있어야 한다"
+    assert all(h.value <= 40 for h in hits)
+    assert hits == sorted(hits, key=lambda h: (h.value, h.id)), "값 오름차순 (순위 판단 없음)"
+    assert all("reservation[" in h.path for h in hits), "리스트는 원소마다 갈라진다"
+
+    # 범위 밖은 걸러진다 — 상한만 준 것과 하한을 함께 준 것이 일관되어야 한다
+    high = find_by_value("reservation.max", type_="Skill", minimum=90, limit=50)
+    assert high and all(h.value >= 90 for h in high)
+    assert not ({h.id for h in hits} & {h.id for h in high}), "40 이하와 90 이상은 겹칠 수 없다"
+
+
+def test_find_by_value_ignores_non_numeric_and_bool() -> None:
+    """bool은 수치가 아니다 — `pob_computable: False`가 0으로 잡히면 안 된다."""
+    from pok.index.describe import find_by_value
+
+    assert not find_by_value("pob_computable", type_="Skill", limit=10)

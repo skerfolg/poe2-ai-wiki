@@ -135,3 +135,22 @@ class TestJewelXml:
 
         with pytest.raises(ValueError, match="tree_nodes에 없음"):
             to_xml(_spec(jewels=(JewelSpec(socket_node_id=999, text="Rarity: RARE\nJ\nSapphire"),)))
+
+
+def test_중첩_스펙_오류가_어디서_무엇이_빠졌는지_말한다() -> None:
+    """raw TypeError는 "missing 1 required positional argument: 'gem_id'"만 남긴다.
+
+    어느 젬인지도, 그 값을 어디서 얻는지도 알 수 없어 호출자는 추측으로 재시도한다.
+    최상위 키는 이미 친절히 거부하고 있었는데 중첩만 날것이었다(실측 2026-08-05).
+    """
+    import pytest
+
+    from pok.pob.buildxml import spec_from_dict
+
+    base = {"class_name": "Witch", "ascendancy": "Witch2", "level": 90}
+    with pytest.raises(ValueError, match=r"skills\[0\]\.gems\[0\].*gem_id"):
+        spec_from_dict({**base, "skills": [{"gems": [{"name": "Bone Blast", "level": 20}]}]})
+    with pytest.raises(ValueError, match=r"모르는 키.*lvl"):
+        spec_from_dict({**base, "skills": [{"gems": [{"gem_id": "x", "name": "y", "lvl": 20}]}]})
+    with pytest.raises(ValueError, match=r"items\[0\].*slot"):
+        spec_from_dict({**base, "items": [{"text": "foo"}]})

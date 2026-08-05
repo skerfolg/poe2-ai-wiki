@@ -62,3 +62,25 @@ def test_기록_실패가_본_작업을_막지_않는다(tmp_path: Path) -> None
 
 def test_이력_없으면_그렇게_말한다(tmp_path: Path) -> None:
     assert "없음" in telemetry.summarize(tmp_path)
+
+
+def test_비어있는게_정상인_필드를_0건으로_보지_않는다() -> None:
+    """`pruned_nodes`가 비었다는 건 **좋은 소식**이지 조회 실패가 아니다.
+
+    실측 2026-08-05: compute_pob 성공 6건이 전부 "empty"로 기록됐다 — 반환 dict의
+    유일한 목록이 `pruned_nodes`(비연결 노드)였고 그게 비어 있었기 때문이다.
+    빈 목록을 세는 대신 **내용이 하나라도 채워졌는가**로 본다.
+    """
+    computed = {"stats": {"CombinedDPS": 1200.0}, "tree_legal": True, "pruned_nodes": []}
+    assert telemetry.classify(computed) == "ok"
+    assert telemetry.classify({"legal": True, "errors": [], "lines": []}) == "ok"
+    # 반대로 내용이 통째로 비면 여전히 0건이다
+    assert telemetry.classify({"stats": {}, "pruned_nodes": []}) == "empty"
+
+
+def test_실패_사유를_기록한다() -> None:
+    """도구는 사유를 돌려주는데 기록하는 쪽이 버리면 원인이 사라진다."""
+    assert telemetry.detail_of({"ok": False, "reason": "젬 티어 범위 초과"}) == "젬 티어 범위 초과"
+    assert "접사" in telemetry.detail_of({"legal": False, "errors": ["접사 수 초과"]})
+    assert telemetry.detail_of([{"empty": True, "why": ["한글 질의"]}]) == "한글 질의"
+    assert telemetry.detail_of({"stats": {}}) == ""

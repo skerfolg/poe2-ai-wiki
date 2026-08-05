@@ -11,6 +11,11 @@ PoE2 지식 **엔진** + Claude/Codex용 **MCP 도구·스킬**. 웹서비스 �
 수 분·수천 토큰이 들지만 search_kb는 1콜이다 (실측 2026-07-30: 파일 탐색 7분 vs 도구 1초).
 파일 직접 접근은 ingest 개발·검증 작업에만.
 
+**"잔여 자원에 무엇이 들어가나"는 `find_by_value`로.** `search_kb`는 텍스트만 매칭해
+`reservation`·`cost` 같은 **수치 필드에 닿지 못한다**. 점유 검사기가 "정신력 40 남았다"까지
+내고도 후보를 물을 경로가 없어 세션이 멈췄다 — 예: `find_by_value("reservation.max",
+type="Skill", maximum=40)`.
+
 **"무엇이 어떤 형태로 있나"는 `describe_kb`·`describe_type`으로.** 레코드를 찾는 게 아니라
 필드 충전율·값 분포를 훑는 질문에는 `search_kb`가 답하지 못하고, `schema/*.schema.json`은
 **정의**라서 실제 채워진 정도와 다르다. 도구 경로가 없어 파일 탐색으로 도피한 사례가 4회

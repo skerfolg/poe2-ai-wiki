@@ -168,7 +168,9 @@ def assemble_pob(
     거부하고 사유 반환. 성공 시 PoB 공유 코드(build_code) 포함."""
     try:
         built = assemble(spec_from_dict(build_spec), slug, checker=_get_checker())
-    except IllegalBuildError as e:
+    except (IllegalBuildError, ValueError) as e:
+        # 스펙 오류(ValueError)도 사유로 돌려준다 — 예외로 터지면 호출자는
+        # "어느 젬의 어느 키"인지 못 보고 추측으로 재시도한다
         return {"ok": False, "reason": str(e)}
     return {
         "ok": True,
