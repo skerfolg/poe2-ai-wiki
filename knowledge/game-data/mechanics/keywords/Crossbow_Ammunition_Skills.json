@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.crossbow-ammunition-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Crossbow Ammunition Skills",
+    "en": "Crossbow Ammunition Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Using a Crossbow Ammunition Skill replaces your Crossbow's basic Attack with the skill indicated. The Ammunition Skill itself does not fire the Ammunition, only load it into your Crossbow. Most Crossbow Ammunition Skills that directly Hit enemies have Knockback."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Crossbow_Ammunition_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

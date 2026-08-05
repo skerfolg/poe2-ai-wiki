@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.low-mana",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Low Mana",
+    "en": "Low Mana"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "You are on Low Mana if you have 35% of your Maximum Mana or less."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Low_Mana",
+      "patch": "0.5.4b"
+    }
+  ]
+}

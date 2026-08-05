@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.powerful-map-boss",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Powerful Map Boss",
+    "en": "Powerful Map Boss"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Powerful Map Bosses are Map Bosses that are even more difficult and drop even better rewards.",
+      "Powerful Map Bosses frequently drop Waystones one Tier higher."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Powerful_Map_Boss",
+      "patch": "0.5.4b"
+    }
+  ]
+}

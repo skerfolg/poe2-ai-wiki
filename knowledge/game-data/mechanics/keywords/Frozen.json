@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.frozen",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Frozen",
+    "en": "Frozen"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "A Frozen target cannot move or act. Targets become Frozen when they reach 100% Freeze buildup."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Frozen",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.attacks",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Attacks",
+    "en": "Attacks"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Attacks are skills that directly damage enemies, usually using your equipped Martial Weapon. Spells are not Attacks.",
+      "The base damage, attack speed and critical hit chance of an attack are determined using your Martial Weapon 's stats unless the skill says otherwise.",
+      "Attacks do not necessarily deal Physical damage — they can deal any damage type."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Attacks",
+      "patch": "0.5.4b"
+    }
+  ]
+}

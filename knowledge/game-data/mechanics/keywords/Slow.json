@@ -1,0 +1,31 @@
+{
+  "id": "mechanic.slow",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Slow",
+    "en": "Slow"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Slows are modifiers from Debuffs that cause actions to take longer. Slows can apply to a specific stat (such as attack speed or movement speed) — if a specific type of slow is not specified, it applies to everything the affected entity does. Slows are always multiplicative with each other.",
+      "Higher Rarity enemies are less affected by Slows:",
+      "15% less Slow effect on Magic monsters",
+      "30% less Slow effect on Rare monsters",
+      "50% less Slow effect on Unique monsters",
+      "Additionally, Slows have 10% less effect on all monsters for each player in the area beyond the first and monsters cannot be slowed below 25% of their base speed."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Slow",
+      "patch": "0.5.4b"
+    }
+  ]
+}

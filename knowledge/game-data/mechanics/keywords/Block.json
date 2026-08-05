@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.block",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Block",
+    "en": "Block"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Blocking completely prevents the damage of an incoming Hit.",
+      "You will still take any Stun from the Blocked hit. You can't Block while Stunned or Frozen.",
+      "Some Skills used by Bosses cannot be blocked. These are indicated by a red glow and audio cue during the windup of the Skill."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Block",
+      "patch": "0.5.4b"
+    }
+  ]
+}

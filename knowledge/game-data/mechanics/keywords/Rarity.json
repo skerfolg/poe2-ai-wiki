@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.rarity",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Rarity",
+    "en": "Rarity"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Item or Monster rarity can be Normal (grey), Magic (blue), Rare (yellow) or Unique (brown). As a general rule, monsters increase in difficulty depending on their Rarity."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Rarity",
+      "patch": "0.5.4b"
+    }
+  ]
+}

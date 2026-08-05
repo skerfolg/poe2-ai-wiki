@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.runic-bindings",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Runic Bindings",
+    "en": "Runic Bindings"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Each Runic Binding grants 10% reduced Spell Damage and 2% reduced Skill cost Efficiency. You can have up to 10 Runic Bindings. Runic Bindings last for 10 seconds.",
+      "Runic Bindings cannot be gained while Shapeshifted."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Runic_Bindings",
+      "patch": "0.5.4b"
+    }
+  ]
+}

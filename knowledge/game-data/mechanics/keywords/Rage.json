@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.rage",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Rage",
+    "en": "Rage"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Rage grants 1% more Attack damage per 1 Rage. By default, you have 30 maximum Rage and lose 1 Rage every 0.2 seconds. Rage loss is paused for 4 seconds upon gaining Rage, or after taking damage.",
+      "Only one Hit every 0.5 seconds can cause you to gain Rage."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Rage",
+      "patch": "0.5.4b"
+    }
+  ]
+}

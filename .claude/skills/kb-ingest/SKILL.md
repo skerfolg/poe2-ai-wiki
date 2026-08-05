@@ -5,7 +5,7 @@ description: PoE2 KB 수집·정형화를 감독한다 (patch 갱신 시). poe2d
 
 # kb-ingest
 
-**정본 지침은 [AGENTS.md](AGENTS.md)다 — 먼저 그것을 읽고 순서를 그대로 따른다.**
+**정본 지침은 [AGENTS.md](../../../skills/kb-ingest/AGENTS.md)다 — 먼저 그것을 읽고 순서를 그대로 따른다.**
 이 워크플로는 저비용 에이전트로도 실행되도록 **재량을 제거한 절차**다. 순서를
 벗어나지 말 것.
 

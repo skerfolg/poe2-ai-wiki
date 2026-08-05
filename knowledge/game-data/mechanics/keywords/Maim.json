@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.maim",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Maim",
+    "en": "Maim"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Maimed enemies suffer from 30% Slower Movement Speed and 15% reduced Evasion Rating. Maim lasts for 4 seconds unless otherwise specified."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Maim",
+      "patch": "0.5.4b"
+    }
+  ]
+}

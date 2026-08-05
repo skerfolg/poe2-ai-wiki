@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.sacrifice",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Sacrifice",
+    "en": "Sacrifice"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Sacrificing is loss of a resource (commonly Life, Mana or Energy Shield ) that does not count as taking damage. You cannot Sacrifice a resource you do not have. Sacrificing Life cannot reduce you below 1 Life, but Sacrifices you cause on others (such as Sacrificing Minion Life) can lead to their death."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Sacrifice",
+      "patch": "0.5.4b"
+    }
+  ]
+}

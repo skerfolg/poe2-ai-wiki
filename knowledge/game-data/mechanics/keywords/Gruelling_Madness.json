@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.gruelling-madness",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Gruelling Madness",
+    "en": "Gruelling Madness"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "The first Gruelling Madness on a target Slows their movement speed by 15%.",
+      "Each additional Gruelling Madness instead increases the Slowing Potency of Debuffs on the targets by 10%, which affects both the first Gruelling Madness and any other Debuffs that are Slowing the target.",
+      "A maximum of 10 Gruelling Madness can be inflicted on each target. Targets will lose 1 Gruelling Madness every 2 seconds that passes without more being inflicted."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Gruelling_Madness",
+      "patch": "0.5.4b"
+    }
+  ]
+}

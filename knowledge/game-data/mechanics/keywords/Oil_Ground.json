@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.oil-ground",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Oil Ground",
+    "en": "Oil Ground"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Enemies standing in Oil Ground have their movement speed Slowed and are inflicted with Exposure.",
+      "Ignited enemies, Ignited Ground, or Detonator Skills that touch the Oil cause it to catch fire, Igniting enemies instead of Slowing them, but still inflicting the Exposure."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Oil_Ground",
+      "patch": "0.5.4b"
+    }
+  ]
+}

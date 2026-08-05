@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.eaten-souls",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Eaten Souls",
+    "en": "Eaten Souls"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Each Soul eaten grants 1% increased Skill Speed. You can have up to 50 eaten Souls, and lose a Soul every 0.5 seconds if you have not eaten one in the past 4 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Eaten_Souls",
+      "patch": "0.5.4b"
+    }
+  ]
+}

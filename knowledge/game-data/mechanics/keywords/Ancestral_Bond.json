@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.ancestral-bond",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Ancestral Bond",
+    "en": "Ancestral Bond"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Your Totem Limit is doubled",
+      "No cost or Charge requirement for placing Totems",
+      "Totems reserve 75 Spirit each"
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Ancestral_Bond",
+      "patch": "0.5.4b"
+    }
+  ]
+}

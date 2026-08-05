@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.easy-target",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Easy Target",
+    "en": "Easy Target"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Easy Target is a Debuff which causes the next Projectile Attack Hit against the affected target to deal increased Damage, at which point the Debuff is consumed."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Easy_Target",
+      "patch": "0.5.4b"
+    }
+  ]
+}

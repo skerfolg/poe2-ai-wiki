@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.chilled-ground",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Chilled Ground",
+    "en": "Chilled Ground"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Chilled Ground Chills those standing in it, and lasts 6 seconds by default."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Chilled_Ground",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.helbryms-composure",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Helbrym's Composure",
+    "en": "Helbrym's Composure"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "While you have this Buff, damage you take is stored. When the Buff expires, you gain Guard equal to 50% of the stored damage and Rage equal to 3% of the stored damage."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Helbryms_Composure",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "id": "mechanic.hollow-palm-technique",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Hollow Palm Technique",
+    "en": "Hollow Palm Technique"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Can Attack as though using a Quarterstaff while both of your hand slots are empty",
+      "Unarmed Attacks that would use an Equipped Quarterstaff 's damage have:",
+      "• Base Unarmed Physical damage replaced with damage based on their Skill Level",
+      "• 1% more Attack Speed per 75 Item Evasion on Equipped Armour Items",
+      "• +0.1% to Critical Hit Chance per 10 Item Energy Shield on Equipped Armour Items"
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Hollow_Palm_Technique",
+      "patch": "0.5.4b"
+    }
+  ]
+}

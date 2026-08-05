@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.low-life",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Low Life",
+    "en": "Low Life"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "A player or monster is on Low Life if it has 35% of its Maximum Life or less."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Low_Life",
+      "patch": "0.5.4b"
+    }
+  ]
+}

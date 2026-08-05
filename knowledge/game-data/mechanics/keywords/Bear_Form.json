@@ -1,0 +1,30 @@
+{
+  "id": "mechanic.bear-form",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Bear Form",
+    "en": "Bear Form"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Shapeshifting into a Bear grants access to devastating Slams and Fire Attacks fuelled by smouldering Rage.",
+      "While in Bear form, you gain:",
+      "• +10 to Armour per level",
+      "• 30% of Armour also applies to Elemental Damage",
+      "• an Endurance Charge for every 15 Rage you spend"
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Bear_Form",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.runefathers-boast",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Runefather's Boast",
+    "en": "Runefather's Boast"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "You can have up to 10,000 Runefather's Boast Buffs.",
+      "Each Runefather's Boast grants +1 to Armour, +1 to Evasion Rating, and +1 to Stun Threshold.",
+      "Runefather's Boast does not have a duration, but is lost when you die or change area."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Runefathers_Boast",
+      "patch": "0.5.4b"
+    }
+  ]
+}

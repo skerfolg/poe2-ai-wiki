@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.staves",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Staves",
+    "en": "Staves"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Staves are Two-Handed Spellcasting weapons that require Intelligence to equip.",
+      "Staves cannot be used to Attack. However, they grant inbuilt Spells based on the staff type and powerful bonuses to spells."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Staves",
+      "patch": "0.5.4b"
+    }
+  ]
+}

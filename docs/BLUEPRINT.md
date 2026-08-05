@@ -76,7 +76,7 @@ flowchart LR
 ```
 
 - **MCP = 저수준 도구**(조회/조립/계산/피드백) — Claude·Codex 공통, 크로스플랫폼.
-- **스킬 = 고수준 워크플로** — Claude는 `SKILL.md`, Codex는 `AGENTS.md`. 같은 MCP 도구 호출.
+- **스킬 = 고수준 워크플로** — Claude는 `.claude/skills/<이름>/SKILL.md`(그 경로만 탐색된다), Codex는 `skills/<이름>/AGENTS.md`. 지침 본문은 AGENTS.md 한 벌이고 SKILL.md는 진입점이다. 같은 MCP 도구 호출.
 - **엔진은 결정적**, 지능(무엇을 만들지)은 외부 에이전트.
 
 ---

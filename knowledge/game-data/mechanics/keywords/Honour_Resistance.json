@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.honour-resistance",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Honour Resistance",
+    "en": "Honour Resistance"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "You lose this much less Honour.",
+      "Maximum Honour Resistance is capped at 75% by default and cannot be higher than 90%."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Honour_Resistance",
+      "patch": "0.5.4b"
+    }
+  ]
+}

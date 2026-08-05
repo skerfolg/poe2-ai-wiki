@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.monster-category",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Monster Category",
+    "en": "Monster Category"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Every Monster has exactly one Monster Category. These are Humanoid, Beast, Undead, Construct, Demon and Eldritch.",
+      "Certain Skills interact with specific Monster Categories."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Monster_Category",
+      "patch": "0.5.4b"
+    }
+  ]
+}

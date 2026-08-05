@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.volatility",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Volatility",
+    "en": "Volatility"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Volatility explodes after 4 seconds, dealing 100 Physical Damage to you per Volatility. For 10 seconds after explosion, you will gain Volatile Power, Gaining 1% of Damage as Chaos for each Volatility which exploded. The explosion timer will reset on gaining another stack of Volatility.",
+      "Volatility can be gained once every 0.1 seconds, and the default maximum for Volatility stacks on you at once is 200."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Volatility",
+      "patch": "0.5.4b"
+    }
+  ]
+}

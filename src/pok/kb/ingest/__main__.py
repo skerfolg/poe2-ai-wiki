@@ -68,6 +68,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_ail.add_argument("--patch", required=True)
 
+    p_kw = sub.add_parser(
+        "keywords", help="키워드(메커니즘) 정의 수집 — fetch(네트워크) 후 오프라인 수록"
+    )
+    p_kw.add_argument("--patch", required=True)
+    p_kw.add_argument("--fetch", action="store_true", help="hover 조각을 먼저 받는다")
+
     p_gs = sub.add_parser(
         "gem-stats", help="젬 효과 문구(.explicitMod) 전수 수록 (오프라인 재파싱)"
     )
@@ -241,6 +247,12 @@ def main(argv: list[str] | None = None) -> int:
         from pok.kb.ingest.ailments import ingest_ailments
 
         print(json.dumps(ingest_ailments(args.patch), ensure_ascii=False, indent=1))
+    elif args.cmd == "keywords":
+        from pok.kb.ingest.keywords import fetch_definitions, ingest_keywords
+
+        if args.fetch:
+            print(json.dumps(fetch_definitions(raw_dir), ensure_ascii=False, indent=1))
+        print(json.dumps(ingest_keywords(raw_dir, args.patch), ensure_ascii=False, indent=1))
     elif args.cmd == "gem-stats":
         from pok.kb.ingest.gem_stats import apply_gem_stats
 

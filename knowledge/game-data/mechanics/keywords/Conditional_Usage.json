@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.conditional-usage",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Conditional Usage",
+    "en": "Conditional Usage"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Skills which are Conditional require some sort of condition to be met before they can be used. Combo is an example of this, but almost anything can be a condition, such as having to have killed a certain number of enemies Recently or having to have moved a certain distance."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Conditional_Usage",
+      "patch": "0.5.4b"
+    }
+  ]
+}

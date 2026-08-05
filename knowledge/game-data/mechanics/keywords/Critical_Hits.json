@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.critical-hits",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Critical Hits",
+    "en": "Critical Hits"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Critical Hits deal +100% extra damage (i.e. twice as much damage) by default. Critical Damage Bonuses can further modify this value.",
+      "Attacks usually use your weapon's base Critical Hit Chance, while Spells and some other skills have their base Critical Hit Chance listed on the skill.",
+      "Most modifiers to Critical Hit Chance are percentage based. For example, gaining 100% increased Critical Hit Chance on a base Critical Hit Chance of 7% would result in a final Critical Hit Chance of 14%."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Critical_Hits",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "id": "mechanic.vaal-pact",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Vaal Pact",
+    "en": "Vaal Pact"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "50% more amount of Life Leeched",
+      "Leech Life 67% less quickly",
+      "Cannot Recover Life other than from Leech",
+      "Life Leech effects are not removed when Unreserved Life is Filled"
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Vaal_Pact",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.hit-damage",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Hit Damage",
+    "en": "Hit Damage"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Any damage that isn't damage over time is Hit damage.",
+      "Damaging Ailments which result from a Hit will calculate their damage from that Hit, and will not subsequently have Damage modifiers applied directly to them. As a result of this, raising Hit Damage will result in more powerful Damaging Ailments innately."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Hit_Damage",
+      "patch": "0.5.4b"
+    }
+  ]
+}

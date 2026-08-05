@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.heat",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Heat",
+    "en": "Heat"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Heat is gained from using specific Crossbow Skills, and can be either beneficial or detrimental depending on the Skill."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Heat",
+      "patch": "0.5.4b"
+    }
+  ]
+}

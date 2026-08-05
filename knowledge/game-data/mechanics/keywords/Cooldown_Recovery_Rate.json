@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.cooldown-recovery-rate",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Cooldown Recovery Rate",
+    "en": "Cooldown Recovery Rate"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Cooldown Recovery Rate modifies the speed at which your Skill cooldowns are restored. For example, with 100% increased Cooldown Recovery Rate your Skill cooldowns will effectively be halved.",
+      "Cooldown Recovery Rate does not affect anything other than Skill cooldowns."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Cooldown_Recovery_Rate",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.reviving-minions",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Reviving Minions",
+    "en": "Reviving Minions"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Reviving Minions heal after avoiding damage for a short time, and automatically revive after a short delay when killed. This delay is reset whenever another Reviving Minion dies."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Reviving_Minions",
+      "patch": "0.5.4b"
+    }
+  ]
+}

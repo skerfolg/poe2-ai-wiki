@@ -1,0 +1,30 @@
+{
+  "id": "mechanic.exposure",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Exposure",
+    "en": "Exposure"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Exposure is a type of Debuff that lowers the affected enemy's Total Elemental Resistances. By default it lowers Resistances by -20% and lasts for 4 seconds, though some sources of exposure can override these values. Like most sources of lowering Resistances, this can cause the enemy's Resistance to become negative.",
+      "Higher Rarity enemies are less affected by Exposure:",
+      "15% less Exposure effect on Magic monsters",
+      "30% less Exposure effect on Rare monsters",
+      "50% less Exposure effect on Unique monsters"
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Exposure",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.unarmed-attacks",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Unarmed Attacks",
+    "en": "Unarmed Attacks"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Unarmed Attacks are Attacks which are performed while Unarmed and use your character's base Unarmed Damage where other Attacks would use the base Damage from a Martial Weapon.",
+      "Attacks which can be performed while Unarmed but draw their base damage from other sources, such as skills which use a Shield to attack, are not considered Unarmed Attacks."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Unarmed_Attacks",
+      "patch": "0.5.4b"
+    }
+  ]
+}

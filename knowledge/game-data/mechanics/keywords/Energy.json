@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.energy",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Energy",
+    "en": "Energy"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Several Meta Skills generate and use Energy. Each Skill which generates Energy has its own Energy count particular to that Skill. Most effects which use Energy do so to Trigger other effects or Skills, based on the use time of the triggered Skill. When calculating Energy gain or consumption from the use time of a Skill, modifiers to Total use time are treated as though they were double the value.",
+      "Energy cannot be gained from direct effects of Triggered Skills."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Energy",
+      "patch": "0.5.4b"
+    }
+  ]
+}

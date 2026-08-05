@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.energy-shield",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Energy Shield",
+    "en": "Energy Shield"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Energy Shield protects your Life by taking damage instead. Rapidly Recharges if you don't lose Energy Shield for a short time.",
+      "Chaos damage removes twice as much Energy Shield.",
+      "Damage from Bleeding and Poison bypasses Energy Shield to remove Life directly."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Energy_Shield",
+      "patch": "0.5.4b"
+    }
+  ]
+}

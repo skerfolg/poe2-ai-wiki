@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.burning",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Burning",
+    "en": "Burning"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Enemies taking Fire damage over time are Burning. Usually this occurs because the enemy is Ignited."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Burning",
+      "patch": "0.5.4b"
+    }
+  ]
+}

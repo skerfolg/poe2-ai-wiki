@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.fear-incarnate",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Fear Incarnate",
+    "en": "Fear Incarnate"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Each Fear Incarnate grants 10% increased Culling Strike Threshold and lasts 10 seconds. This duration is refreshed when you gain another Fear Incarnate.",
+      "You can have up to a maximum of 20 Fear Incarnate."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Fear_Incarnate",
+      "patch": "0.5.4b"
+    }
+  ]
+}

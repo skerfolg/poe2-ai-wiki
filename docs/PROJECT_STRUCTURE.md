@@ -87,10 +87,11 @@ poe2-ai-wiki/
 │
 ├── external/pob/<snapshot>/     # PoB 스냅샷 독립 클론 (gitignore, 재현성 D4)
 │
+├── .claude/skills/<이름>/SKILL.md  # Claude 진입점 (frontmatter). **이 경로만 탐색된다**
+│                                #   — skills/ 아래 두면 `/스킬명`이 뜨지 않는다
 ├── skills/                      # ══ 고수준 워크플로 (D6) — 생성 파이프라인 오케스트레이션 ══
-│   ├── build-generation/{SKILL.md, AGENTS.md}
-│   ├── tree-optimization/{SKILL.md, AGENTS.md}
-│   └── cost-estimation/{SKILL.md, AGENTS.md}
+│   ├── build-generation/AGENTS.md   # 지침 본문(정본) 한 벌. SKILL.md가 여기를 가리킨다
+│   └── kb-ingest/AGENTS.md
 │
 ├── tests/{unit, integration, eval}/   # eval = 반프록시 생성 품질 (PoB 실측, AD-8)
 └── scripts/                     # PoB 셋업·버전검증, 인덱스 재생성 CLI

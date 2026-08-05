@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.allies",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Allies",
+    "en": "Allies"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Your allies include other players, Minions, and any other entity that fights alongside you and has its own stats.",
+      "You do not count as your own Ally."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Allies",
+      "patch": "0.5.4b"
+    }
+  ]
+}

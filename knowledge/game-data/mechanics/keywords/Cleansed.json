@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.cleansed",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Cleansed",
+    "en": "Cleansed"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "The Corruption in this area has been Cleansed, which may add an additional modifier to the area.",
+      "Cleansed areas also contain monsters twisted by the disruption of power in the area."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Cleansed",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.affinity",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Affinity",
+    "en": "Affinity"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Affinity is a buff granted by the Trinity skill. There are three types of Affinity: Fire, Cold and Lightning. You can have a maximum of 100 of each type of Affinity.",
+      "You lose 10 Affinity per second of specific types if you haven't gained Affinity of that type in the past 8 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Affinity",
+      "patch": "0.5.4b"
+    }
+  ]
+}

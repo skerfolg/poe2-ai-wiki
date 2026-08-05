@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.nova-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Nova Skills",
+    "en": "Nova Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Nova Skills take effect in a circular area around their user."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Nova_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

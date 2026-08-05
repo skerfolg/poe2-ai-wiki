@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.traps",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Traps",
+    "en": "Traps"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Traps are Two-Handed ranged weapons that require Dexterity and Intelligence to equip. Traps cannot be used to Attack directly.",
+      "Throwing a Trap places it on the ground, where it can either be detonated manually or triggered by Close by enemies depending on the Trap type."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Traps",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.expected-knockback",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Expected Knockback",
+    "en": "Expected Knockback"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "The Expected Knockback distance is the distance a target would be Knocked Back were there nothing impeding that Knockback, such as terrain, other entities, or other mitigating circumstances."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Expected_Knockback",
+      "patch": "0.5.4b"
+    }
+  ]
+}

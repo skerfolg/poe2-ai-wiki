@@ -1,0 +1,29 @@
+{
+  "id": "mechanic.bifurcated-critical-hits",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Bifurcated Critical Hits",
+    "en": "Bifurcated Critical Hits"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Hits with this weapon roll against their Critical Hit chance twice when determining if they are a Critical Hit.",
+      "If either roll succeeds, the hit will be a Critical Hit, and thus the Critical Damage Bonus will apply as normal.",
+      "If both rolls succeed, the hit will be a Critical Hit, and the Critical Damage Bonus will apply twice to that Hit.",
+      "If a modifier makes your Critical Hit Chance Lucky, that Luck will apply individually to both of these rolls."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Bifurcated_Critical_Hits",
+      "patch": "0.5.4b"
+    }
+  ]
+}

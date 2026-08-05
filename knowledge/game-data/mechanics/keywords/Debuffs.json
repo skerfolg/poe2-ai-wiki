@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.debuffs",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Debuffs",
+    "en": "Debuffs"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Debuffs are negative effects that deal damage or penalise an entity's stats, either for a set duration or when a condition is met.",
+      "Unless otherwise stated, Debuffs of the same type do not stack — only the copy with the strongest effect applies."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Debuffs",
+      "patch": "0.5.4b"
+    }
+  ]
+}

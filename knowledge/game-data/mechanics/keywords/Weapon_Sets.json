@@ -1,0 +1,29 @@
+{
+  "id": "mechanic.weapon-sets",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Weapon Sets",
+    "en": "Weapon Sets"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Your character has two Weapon Sets that can be used independently by equipping items into both sets.",
+      "By default your Skills will use the currently active Weapon Set if possible, or automatically swap to your other Weapon Set if required to use the Skill. You can also specify the Weapon Set you want to automatically swap to for each Skill in that Skill's information panel.",
+      "In addition to changing your active items, Weapon Sets also have dedicated Passive Skill Points that can be allocated differently in each Weapon Set.",
+      "Weapon Sets can have differing amounts of available Spirit, due to weapons with Spirit (such as Sceptres ), Weapon Set Passive Skills, or Persistent Skills that are active in specific Weapon Sets."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Weapon_Sets",
+      "patch": "0.5.4b"
+    }
+  ]
+}

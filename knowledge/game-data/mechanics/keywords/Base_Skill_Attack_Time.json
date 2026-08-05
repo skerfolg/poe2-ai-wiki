@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.base-skill-attack-time",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Base Skill Attack Time",
+    "en": "Base Skill Attack Time"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "This refers to the base amount of time to perform an Attack Skill, accounting only for the Attacks per Second value of the relevant Weapon and the percentage of Base Attack Speed listed on the Attack gem."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Base_Skill_Attack_Time",
+      "patch": "0.5.4b"
+    }
+  ]
+}

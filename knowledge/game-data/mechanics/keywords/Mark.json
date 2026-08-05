@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.mark",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Mark",
+    "en": "Mark"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Marks are a family of Debuffs that apply powerful effects to a single enemy, usually for a limited duration. You can have multiple Marked enemies at once, but each individual enemy can only have a single Mark applied to them at once.",
+      "Marks can be Activated when specific conditions occur, which will case some extra effect and then Consume the Mark."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Mark",
+      "patch": "0.5.4b"
+    }
+  ]
+}

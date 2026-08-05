@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.unbound-potential",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Unbound Potential",
+    "en": "Unbound Potential"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Each Unbound Potential grants 20% increased Damage, 10% increased Armour, and 10% increased Energy Shield. You can have up to 10 Unbound Potential, and will lose one every 5 seconds.",
+      "Lose all Unbound Potential when you Shapeshift into a Human."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Unbound_Potential",
+      "patch": "0.5.4b"
+    }
+  ]
+}

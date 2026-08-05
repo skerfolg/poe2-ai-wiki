@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.waystones",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Waystones",
+    "en": "Waystones"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Waystones are items that can be used to travel to Maps on the Atlas.",
+      "Higher Waystone tiers open higher level areas containing more difficult monsters which drop higher level items and allows the use of higher tier Atlas Passives.",
+      "Waystones can be modified to increase the difficulty and reward of monsters encountered in Maps."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Waystones",
+      "patch": "0.5.4b"
+    }
+  ]
+}

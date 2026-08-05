@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.runic-ward",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Runic Ward",
+    "en": "Runic Ward"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Runic Ward is a last line of protection, absorbing fatal damage instead of your Life. If you take damage that would cause your Life to reach 0 while you have Runic Ward, you will drop to 1 Life and your Runic Ward will take the remaining damage. You will still die if you do not have enough Runic Ward to absorb the remaining damage. Runic Ward does not protect against Life loss that is not caused by taking damage.",
+      "Runic Ward constantly regenerates at a default rate of 5% per second.",
+      "Monsters can also have Runic Ward. While a monster has Runic Ward, it cannot be Culled."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Runic_Ward",
+      "patch": "0.5.4b"
+    }
+  ]
+}

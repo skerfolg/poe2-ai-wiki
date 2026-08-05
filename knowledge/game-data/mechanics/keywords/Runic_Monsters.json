@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.runic-monsters",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Runic Monsters",
+    "en": "Runic Monsters"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Runic Monsters are powerful monsters encountered in Expeditions.",
+      "Runic Monsters are more commonly found by using explosives on larger Expedition markers."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Runic_Monsters",
+      "patch": "0.5.4b"
+    }
+  ]
+}

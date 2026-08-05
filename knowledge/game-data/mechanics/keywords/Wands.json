@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.wands",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Wands",
+    "en": "Wands"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Wands are One-Handed Spellcasting weapons that require Intelligence to equip.",
+      "Wands cannot be Dual Wielded and cannot be used to Attack directly. However, they grant inbuilt Spells based on the wand type and powerful bonuses to spells."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Wands",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.overflow",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Overflow",
+    "en": "Overflow"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Recovery which Overflows its maximum can be recovered up to 1.5 times that maximum."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Overflow",
+      "patch": "0.5.4b"
+    }
+  ]
+}

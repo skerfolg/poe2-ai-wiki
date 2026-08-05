@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.light-stun",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Light Stun",
+    "en": "Light Stun"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Any Hit has a chance to Light Stun the target, interrupting their current action and preventing them from taking actions for a fraction of a second. The chance is based on the damage dealt, up to 100% base chance for Hits that deal 100% of the target's maximum Life. Chances lower than 15% are treated as 0%.",
+      "Physical damage, and player (but not monster) Melee Damage, each have 50% more Light Stun chance. For players, these bonuses are multiplicative with each other."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Light_Stun",
+      "patch": "0.5.4b"
+    }
+  ]
+}

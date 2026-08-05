@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.primed-for-stun",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Primed for Stun",
+    "en": "Primed for Stun"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Normal enemies are Primed for Stun when they have at least 40% Heavy Stun buildup. Magic enemies are instead Primed at 50% buildup, Rare at 60%, and Unique at 70%."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Primed_for_Stun",
+      "patch": "0.5.4b"
+    }
+  ]
+}

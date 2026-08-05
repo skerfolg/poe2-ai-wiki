@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.damage-contributing-to-ailments",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Damage Contributing to Ailments",
+    "en": "Damage Contributing to Ailments"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "By default, specific Ailments are calculated based on only specific damage types, such as only the Fire damage of a Hit mattering when inflicting Ignite.",
+      "Allowing another damage type to contribute to an Ailment means that all damage of the relevant types is summed when performing calculations for that Ailment.",
+      "For Ailments that use Hit damage to determine Ailment chance or buildup, this means that the damage type becomes capable of inflicting that Ailment. For Ailments that only use Hit damage to determine Ailment Magnitude (i.e. Bleeding and Poison ), you still need a way to apply those Ailments (e.g. a source of Bleeding or Poison chance)."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Damage_Contributing_to_Ailments",
+      "patch": "0.5.4b"
+    }
+  ]
+}

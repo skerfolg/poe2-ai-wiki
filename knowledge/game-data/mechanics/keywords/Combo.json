@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.combo",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Combo",
+    "en": "Combo"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Combo is a counter on some Skills that can be required to use the Skill or grant extra effects. Skills gain Combo when you Strike Enemies. Combo will fall off after a short time without this happening.",
+      "Combo can only be built while using the same weapon as the Combo Skill is bound to, and will be lost if you Swap Weapons."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Combo",
+      "patch": "0.5.4b"
+    }
+  ]
+}

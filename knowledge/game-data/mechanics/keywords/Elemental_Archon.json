@@ -1,0 +1,32 @@
+{
+  "id": "mechanic.elemental-archon",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Elemental Archon",
+    "en": "Elemental Archon"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Elemental Archon is a type of Archon Buff. It grants:",
+      "• 25% more Elemental Damage with Spells",
+      "• Cannot deal Non-Elemental Damage with Spells",
+      "• Hits with Spells cause 100% more Freeze Buildup",
+      "• Spells have 100% more Flammability Magnitude",
+      "• Hits with Spells have 100% more Shock chance",
+      "Using a non-instant Attack causes Elemental Archon to be removed immediately."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Elemental_Archon",
+      "patch": "0.5.4b"
+    }
+  ]
+}

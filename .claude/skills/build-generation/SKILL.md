@@ -5,7 +5,7 @@ description: PoE2 빌드를 설계 루프로 생성·개정한다. 컨셉을 받
 
 # build-generation
 
-**정본 지침은 [AGENTS.md](AGENTS.md)다 — 먼저 그것을 읽고 그대로 따른다.** 이 파일은
+**정본 지침은 [AGENTS.md](../../../skills/build-generation/AGENTS.md)다 — 먼저 그것을 읽고 그대로 따른다.** 이 파일은
 진입점일 뿐이라 규율을 여기 복사하지 않는다(두 벌이 되면 어긋난다).
 
 ## 시작 전 3가지

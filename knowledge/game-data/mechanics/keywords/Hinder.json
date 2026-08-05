@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.hinder",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Hinder",
+    "en": "Hinder"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Hinder is a Debuff that Slows movement speed by 30% unless otherwise specified. Unless Specified, Hinder has a duration of 4 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Hinder",
+      "patch": "0.5.4b"
+    }
+  ]
+}

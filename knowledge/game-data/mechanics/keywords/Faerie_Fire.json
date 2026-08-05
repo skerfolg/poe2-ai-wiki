@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.faerie-fire",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Faerie Fire",
+    "en": "Faerie Fire"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Each Faerie Fire Debuff causes Hits against the affected target to Gain 2% of damage as Extra Damage of a random Element. The Debuff lasts 8 seconds, and up to 10 can be applied to each target."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Faerie_Fire",
+      "patch": "0.5.4b"
+    }
+  ]
+}

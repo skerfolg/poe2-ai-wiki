@@ -1,0 +1,32 @@
+{
+  "id": "mechanic.abyss",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Abyss",
+    "en": "Abyss"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "An Abyss is a pit which leads deep underground with multiple fissures branching from it. Any monsters spawned near an Abyss will be weakened by it.",
+      "Defeating these weakened monsters will cause the fissures to close.",
+      "Once the fissures have closed all the way to the pit, the pit will activate and spawn a large number of Abyssal monsters. Defeating these monsters will close the pit.",
+      "Each closed pit has a chance to spawn an Abyssal Trove which can grant pieces of Preserved Bone to craft onto your Items. The final Abyss in the area has a chance to instead open an underground dungeon called an Abyssal Depths.",
+      "There are three separate groups of Abyssal Monsters: the Lightless, the Blackblooded and the Legion of the Pit, each area generally contains one of these groups.",
+      "The rarity of the monsters spawned depends on the rarity of the slain weakened monsters and the emerging Abyssal will steal some or all of the modifiers from them.",
+      "Any of the modifiers stolen by Rare Abyssal can be upgraded to Abyssal Modifiers."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Abyss",
+      "patch": "0.5.4b"
+    }
+  ]
+}
