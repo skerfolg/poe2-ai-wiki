@@ -27,6 +27,35 @@
         "min": 9.0,
         "max": 62.0
       }
+    ],
+    "stats": [
+      "Impact radius is 1.8 metres",
+      "Limit 6 Poison Clouds",
+      "Does not Hit, but Poisons enemies as though Hitting them",
+      "Gains +20% more Radius per second, up to a maximum of +80%",
+      "Cloud radius is 1.8 metres",
+      "Cloud duration is 4 seconds",
+      "Converts 100% of Physical damage to Fire damage",
+      "base is projectile [1]",
+      "can perform skill while moving [1]",
+      "check for targets between initiator and projectile source [1]",
+      "disable visual hit effect [1]",
+      "has modular projectiles enabled [1]",
+      "is area damage [1]",
+      "movement speed +% final while performing action [-70]",
+      "movement speed acceleration +% per second while performing action [160]",
+      "projectile uses contact direction [1]",
+      "projectile uses contact position [1]",
+      "projectiles fire at ground [1]",
+      "should use additive aiming animation [1]",
+      "display skill poisons without hit [1]",
+      "display statset hide usage stats [1]",
+      "display statset no hit damage [1]"
+    ],
+    "quality_stats": [
+      "+(0 — 0.4) metres to impact radius",
+      "Deals (0 — 20)% more Fire Damage",
+      "+(0 — 0.4) metres to cloud radius"
     ]
   },
   "verification": "GAME_DATA",

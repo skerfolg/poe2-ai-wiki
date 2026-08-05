@@ -66,6 +66,11 @@ class ProcessedItem:
     tags: list[str] = field(default_factory=list)
     tier: int | None = None
     description: str | None = None
+    # 효과 문구(수치가 실린 줄) — `description`(산문)과 다르다. 실측 2026-08-05:
+    # 이걸 안 담아서 Support 537건 전량에 배율이 없었다.
+    stats: list[str] = field(default_factory=list)
+    implicit_stats: list[str] = field(default_factory=list)
+    quality_stats: list[str] = field(default_factory=list)
     acquisition: list[str] = field(default_factory=list)
     has_level_effect: bool = False
     in_pob: bool = False
@@ -78,6 +83,8 @@ def _poe2db_entity(item: ProcessedItem) -> SourceEntity:
     substance = list(item.tags)
     if item.description:
         substance.append(item.description)
+    # 효과 문구는 실질 정보다 — substance에 넣어야 ⑦(정보량 하한)이 누락을 잡는다
+    substance.extend(item.stats)
     if item.has_level_effect:
         substance.append("level-effect-table")
     return SourceEntity(
@@ -196,6 +203,9 @@ def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -
             tags=page.tags,
             tier=page.tier,
             description=page.description,
+            stats=page.stats,
+            implicit_stats=page.implicit_stats,
+            quality_stats=page.quality_stats,
             acquisition=page.acquisition,
             has_level_effect=page.has_level_effect,
             in_pob=pob is not None,

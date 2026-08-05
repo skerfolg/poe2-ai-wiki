@@ -20,6 +20,32 @@
         "min": 10.0,
         "max": 102.0
       }
+    ],
+    "stats": [
+      "Limit 10 Raised Zombies",
+      "Zombie duration is 20 seconds",
+      "Empowered Zombies take 30% less damage",
+      "Empowered Zombies deal (100 — 253)% more damage with Hits",
+      "Empowered Zombies have 25% more movement speed",
+      "can perform skill while moving [1]",
+      "display minion monster type [1]",
+      "display statset no hit damage [1]",
+      "movement speed +% final while performing action [-70]",
+      "movement speed acceleration +% per second while performing action [160]",
+      "movement speed while performing action locked duration% [50]",
+      "zombie base decay rate permyriad [0]",
+      "zombie decay rate increase +% final [25]",
+      "melee conditional step distance [10]",
+      "projectile uses contact position [1]",
+      "skill can fire wand projectiles [1]",
+      "use scaled contact offset [1]"
+    ],
+    "implicit_stats": [
+      "monster no drops or experience [1]"
+    ],
+    "quality_stats": [
+      "(0 — 25)% increased effect of Empowerment on Raised Zombies",
+      "Limit (0 — 4) Raised Zombies"
     ]
   },
   "verification": "GAME_DATA",
