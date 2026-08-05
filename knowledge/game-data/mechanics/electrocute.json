@@ -1,0 +1,33 @@
+{
+  "id": "mechanic.electrocute",
+  "type": "Mechanic",
+  "name": {
+    "ko": "전기 충격",
+    "en": "Electrocute"
+  },
+  "tags": [
+    "mechanic",
+    "buildup"
+  ],
+  "data": {
+    "scales_from": [],
+    "constants": {
+      "ElectrocuteDamageScale": 1.7,
+      "ElectrocuteDuration": 5000,
+      "ElectrocuteDurationPlayer": 2000,
+      "ElectrocuteModifierDuration": 15,
+      "ElectrocuteThresholdModifier": 500
+    },
+    "kind": "buildup",
+    "note": "전기 충격은 PoB `buildupTypes`에 스케일 근원이 비어 있다 — 피해량으로 축적되지 않는 축이다"
+  },
+  "verification": "POB_CODE",
+  "sources": [
+    {
+      "src": "pob",
+      "ref": "Modules/Data.lua (ailmentTypeList·defaultAilmentDamageTypes·buildupTypes) · Data/Misc.lua (gameConstants)",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "id": "mechanic.pin",
+  "type": "Mechanic",
+  "name": {
+    "ko": "고정",
+    "en": "Pin"
+  },
+  "tags": [
+    "mechanic",
+    "buildup"
+  ],
+  "data": {
+    "scales_from": [],
+    "constants": {
+      "PinDamageScale": 4.2,
+      "PinDuration": 3,
+      "PinDurationPlayer": 2,
+      "PinModifierDuration": 13,
+      "PinThresholdModifier": 500,
+      "enable_movement_skill_animation_skipping": 1
+    },
+    "kind": "buildup",
+    "note": "고정은 PoB `buildupTypes`에 스케일 근원이 비어 있다 — 피해량으로 축적되지 않는 축이다"
+  },
+  "verification": "POB_CODE",
+  "sources": [
+    {
+      "src": "pob",
+      "ref": "Modules/Data.lua (ailmentTypeList·defaultAilmentDamageTypes·buildupTypes) · Data/Misc.lua (gameConstants)",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    }
+  ]
+}
