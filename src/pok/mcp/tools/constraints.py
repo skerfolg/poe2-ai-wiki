@@ -18,6 +18,7 @@ from pok.engine.constraints import (
     ReservationEntry,
     SideEffect,
     SkillLinks,
+    SocketPlan,
     check_color_majority,
     check_exhaustion,
     check_point_budget,
@@ -67,7 +68,13 @@ def check_constraints(
                      로우라이프 판정은 생명력 축에서만(임계 생략 = KB resource.life).
                      축별로 각각 호출하라 — 한 축 검증이 다른 축을 대신하지 않는다
       exhaustion   = {"skills": […color_ledger와 동일…], "anoints":
-                      [{"item","existing"?,"planned"?}], "max_supports_per_skill"?}
+                      [{"item","existing"?,"planned"?}], "max_supports_per_skill"?,
+                      "sockets": [{"item","sockets","filled"?}]}
+                     **룬 소켓도 자원 축이다** — `sockets`를 주면 충전율과 미사용
+                     칸을 보고한다. 총 칸은 베이스의 `data.socket_limit`(KB 수록).
+                     미사용은 위반이 아니지만(비용상 의도일 수 있다) 보이지 않으면
+                     판단할 수도 없다 — 실측 사고: 16칸 0% 사용에도 "5종 통과"였고,
+                     나중에 채우자 DPS +37~47%가 나왔다
       sustain      = {"effects": [{"name","base_amount","mitigation_pct"?}], "pool",
                       "target_pool_ratio_pct"?} — 지속 가능성 경계(성립 질문의 산수):
                       부작용·비용 실효량 vs 가용 자원, 필요 경감 역산. 미측정이어도
@@ -134,13 +141,25 @@ def check_constraints(
         max_supports = int(
             exhaustion.get("max_supports_per_skill") or _get_defaults().max_supports_per_skill
         )
-        out["exhaustion"] = dataclasses.asdict(
-            check_exhaustion(
-                _skills(exhaustion.get("skills", [])),
-                anoints,
-                max_supports_per_skill=max_supports,
+        socket_plans = tuple(
+            SocketPlan(
+                item=str(s["item"]),
+                sockets=int(s.get("sockets", 0)),
+                filled=int(s.get("filled", 0)),
             )
+            for s in exhaustion.get("sockets", [])
         )
+        exhaust_report = check_exhaustion(
+            _skills(exhaustion.get("skills", [])),
+            anoints,
+            max_supports_per_skill=max_supports,
+            sockets=socket_plans,
+        )
+        # rune_fill_pct는 property라 asdict에 안 실린다 — 0%가 조용히 지나가지 않게
+        out["exhaustion"] = {
+            **dataclasses.asdict(exhaust_report),
+            "rune_fill_pct": exhaust_report.rune_fill_pct,
+        }
     if sustain is not None:
         effects = tuple(
             SideEffect(

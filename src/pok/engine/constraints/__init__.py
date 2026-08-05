@@ -23,7 +23,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from pok.engine.constraints.colors import ColorLedgerReport, SkillLinks, check_color_majority
-from pok.engine.constraints.exhaust import AnointPlan, ExhaustionReport, check_exhaustion
+from pok.engine.constraints.exhaust import (
+    AnointPlan,
+    ExhaustionReport,
+    SocketPlan,
+    check_exhaustion,
+)
 from pok.engine.constraints.points import Bundle, PointBudgetReport, check_point_budget
 from pok.engine.constraints.reservation import (
     ReservationEntry,
@@ -43,6 +48,7 @@ __all__ = [
     "ReservationReport",
     "SideEffect",
     "SkillLinks",
+    "SocketPlan",
     "SustainReport",
     "check_color_majority",
     "check_exhaustion",

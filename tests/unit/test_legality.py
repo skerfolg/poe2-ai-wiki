@@ -392,3 +392,35 @@ def test_유니크_그랜드_스펙트럼은_Ruby만_실존(checker: ItemLegalit
     ):
         report = checker.check(f"Rarity: UNIQUE\nGrand Spectrum\nRuby\nItem Level: 80\n{line}")
         assert not report.is_legal, report
+
+
+# ── 룬 부여 (2026-08-05 실측: 16줄 전부 UNKNOWN이었다) ────────────────
+
+
+def test_룬_줄은_룬_풀에서_판정한다() -> None:
+    """`origins:["rune"]`이 색인에서 빠져 있었고, 룬은 `texts`가 없고 `per_slot`을
+    쓴다 — origin만 추가해도 색인이 비었다. 둘 다 고쳐야 잡힌다."""
+    checker = ItemLegalityChecker(knowledge_dir())
+    item = "\n".join(
+        ["Rarity: RARE", "T", "Advanced Vaal Cuirass", "--------", "{rune}+9 to Dexterity"]
+    )
+    (verdict,) = checker.check(item).verdicts
+    assert verdict.status == "LEGAL"
+    assert verdict.modifier_id is not None and "rune" in verdict.modifier_id
+
+
+def test_룬_접두가_없으면_일반_접사로_판정한다() -> None:
+    """같은 문구라도 룬과 일반 접사는 다른 풀이다 — 접두를 무시하면 오판한다."""
+    checker = ItemLegalityChecker(knowledge_dir())
+    item = "\n".join(["Rarity: RARE", "T", "Advanced Vaal Cuirass", "--------", "+9 to Dexterity"])
+    (verdict,) = checker.check(item).verdicts
+    assert verdict.status != "LEGAL"  # 일반 접사 티어 범위로 걸린다
+
+
+def test_룬_풀에_없는_문구는_UNKNOWN() -> None:
+    checker = ItemLegalityChecker(knowledge_dir())
+    item = "\n".join(
+        ["Rarity: RARE", "T", "Advanced Vaal Cuirass", "--------", "{rune}존재하지 않는 효과"]
+    )
+    (verdict,) = checker.check(item).verdicts
+    assert verdict.status == "UNKNOWN" and "룬 풀" in verdict.reason

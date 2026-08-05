@@ -43,6 +43,24 @@ _CRAFT_EQUIVALENT = ("crafting-currency", "poe2db:normal")
 _SUFFIX_EFFECT = re.compile(r"^(\d+(?:\.\d+)?)% increased Effect of Suffixes$", re.IGNORECASE)
 
 
+_RUNE_PREFIX = re.compile(r"^\s*\{rune\}\s*", re.I)
+
+
+def _mod_texts(data: dict[str, Any]) -> list[str]:
+    """모드의 효과 문구 — `texts` 우선, 없으면 슬롯별 `per_slot` 전량.
+
+    룬은 같은 이름이라도 장착 슬롯(무기/방어구/주문구)에 따라 효과가 다르므로
+    `per_slot`에 나뉘어 있다. 어느 슬롯 표기로 적혀 오든 매칭되게 전부 색인한다.
+    """
+    texts = list(data.get("texts") or [])
+    if texts:
+        return texts
+    per_slot = data.get("per_slot")
+    if isinstance(per_slot, dict):
+        return [str(t) for lines in per_slot.values() if isinstance(lines, list) for t in lines]
+    return []
+
+
 def _norm(text: str) -> str:
     """수치·범위 → '#' 정규화 (매칭 키).
 
@@ -118,12 +136,14 @@ class ItemLegalityChecker:
                 self._uniques[r.name_en.lower()] = r.raw  # 유니크 우선 (category도 가질 수 있다)
             elif r.type == "Item" and r.raw.get("data", {}).get("category"):
                 self._bases[r.name_en.lower()] = r.raw
-            elif r.type == "Modifier" and {"item", "jewel", "desecrated"} & set(
+            elif r.type == "Modifier" and {"item", "jewel", "desecrated", "rune"} & set(
                 r.raw.get("data", {}).get("origins", [])
             ):  # jewel origin도 크래프팅 풀 — 주얼 베이스 검증에 필요 (2026-07-31).
                 # desecrated도 합성 검증 풀에 포함(사용자 지시 2026-07-31) —
                 # spawn_weights가 없어 _route_base_fit의 pages/scope 신호로 판정된다.
-                for text in r.raw["data"].get("texts", []):
+                # rune은 `texts`가 없고 슬롯별 `per_slot`을 쓴다 — 그래서 origin만
+                # 넣으면 색인이 비고, 실제로 룬 16줄이 전부 UNKNOWN이었다(2026-08-05).
+                for text in _mod_texts(r.raw["data"]):
                     self._mods.setdefault(_norm(text), []).append(r.raw)
             elif r.type == "Modifier" and "heart-of-the-well" in r.raw.get("data", {}).get(
                 "origins", []
@@ -425,7 +445,26 @@ class ItemLegalityChecker:
     def _check_line(
         self, line: str, base: dict[str, Any] | None, ilvl: int, *, suffix_effect: float = 0.0
     ) -> LineVerdict:
+        # PoB는 룬 부여 줄을 `{rune}` 접두로 표기한다. 룬은 일반 접사와 **다른 풀**이라
+        # 접두를 무시하면 동명 접사에 먼저 매칭돼 "티어 범위 밖"으로 오판한다
+        # (실측 2026-08-05: 룬 16줄이 전부 UNKNOWN·오판이었다).
+        rune_line = bool(_RUNE_PREFIX.match(line))
+        if rune_line:
+            line = _RUNE_PREFIX.sub("", line, count=1).strip()
         candidates = self._mods.get(_norm(line), [])
+        if rune_line:
+            # 룬 줄은 룬 풀에서만 찾는다 — 티어 범위는 룬에 적용되지 않는다(고정값)
+            runes = [c for c in candidates if "rune" in (c.get("data") or {}).get("origins", [])]
+            if runes:
+                return LineVerdict(
+                    line,
+                    "LEGAL",
+                    modifier_id=str(runes[0]["id"]),
+                    reason="룬 부여 — 소켓 한도는 check_constraints(sockets)로 검사",
+                )
+            return LineVerdict(
+                line, "UNKNOWN", reason="`{rune}` 표기지만 룬 풀에 일치 없음 — 표기 확인 필요"
+            )
         if not candidates:
             near = self._near_texts(line)
             hint = (
