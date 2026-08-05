@@ -557,3 +557,53 @@ def test_currency_parse_and_merge(tmp_path: Path) -> None:
     assert chaos["data"]["rarity"] == "currency"
     assert chaos["name"]["ko"] == "카오스 오브"
     assert chaos["data"]["effect_ko"] == "희귀 아이템의 무작위 속성 제거"
+
+
+def test_base_category_prefers_weapon_family_over_filename() -> None:
+    """육척봉이 시전 지팡이로 뭉뚱그려지지 않아야 한다 — `staff.lua`가 두 계열을 담는다.
+
+    실측 0.5.4b: `staff.lua` 48건 중 31건이 `subType="Warstaff"`(육척봉)이고
+    17건은 시전 지팡이다. 파일명만 쓰면 둘이 같은 `staff`가 되어, 설계가 육척봉을
+    시전 무기로 오판한다(2026-08-05 실측 사고).
+    """
+    from pok.kb.ingest.mods import _base_category
+
+    quarterstaff = {
+        "_base_file": "staff",
+        "subType": "Warstaff",
+        "tags": {"weapon": True, "warstaff": True, "twohand": True},
+    }
+    assert _base_category(quarterstaff) == "warstaff"
+
+    caster_staff = {
+        "_base_file": "staff",
+        "tags": {"weapon": True, "staff": True, "twohand": True},
+    }
+    assert _base_category(caster_staff) == "staff", "시전 지팡이는 그대로"
+
+    mace = {"_base_file": "mace", "tags": {"weapon": True, "mace": True}}
+    assert _base_category(mace) == "mace", "파일명이 tags에 있으면 파일명 (무기 306건)"
+
+    # 방어구의 subType은 방어 타입(Armour/Evasion)이지 계열이 아니다 — 건드리면 안 된다
+    body = {"_base_file": "body", "subType": "Armour/Evasion", "tags": {"body_armour": True}}
+    assert _base_category(body) == "body"
+
+
+def test_unique_category_inherits_from_base() -> None:
+    """유니크 계열은 `Uniques/*.lua` 파일명이 아니라 **베이스**가 정한다.
+
+    `Uniques/staff.lua`에 육척봉 유니크와 지팡이 유니크가 섞여 있다 — 실측 0.5.4b:
+    유니크 476건 중 7건(전부 육척봉)이 파일명으로는 `staff`로 잘못 잡혔다.
+    """
+    from pok.kb.ingest.uniques_page import _unique_category
+
+    base_cats = {"Long Quarterstaff": "warstaff", "Chiming Staff": "staff"}
+    pillar = {"base_type": "Long Quarterstaff", "category": "staff"}
+    assert _unique_category(pillar, base_cats) == "warstaff", "갇힌 신의 기둥은 육척봉"
+
+    shards = {"base_type": "Chiming Staff", "category": "staff"}
+    assert _unique_category(shards, base_cats) == "staff"
+
+    # 베이스를 모르면 파일명이 폴백 — 계열을 통째로 잃는 것보다 낫다
+    unknown = {"base_type": "Nonexistent Base", "category": "amulet"}
+    assert _unique_category(unknown, base_cats) == "amulet"

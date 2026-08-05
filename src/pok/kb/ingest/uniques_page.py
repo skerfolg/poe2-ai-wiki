@@ -352,7 +352,45 @@ def process(raw_dir: Path, pob_dir: Path, out_dir: Path) -> dict[str, Any]:
     return report
 
 
-def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
+def _base_categories(records: dict[str, Any]) -> dict[str, str]:
+    """정본 베이스 레코드의 이름(영/한) → 계열. 유니크 계열 상속용."""
+    out: dict[str, str] = {}
+    for rec in records.values():
+        data = rec.raw.get("data") or {}
+        if not data.get("spawn_tags") or not data.get("category"):
+            continue  # 베이스만 — 유니크는 spawn_tags가 없다
+        name = rec.raw.get("name") or {}
+        for key in (name.get("en"), name.get("ko")):
+            if key:
+                out[str(key)] = str(data["category"])
+    return out
+
+
+def _unique_category(item: dict[str, Any], base_cats: dict[str, str]) -> str | None:
+    """유니크의 계열 — PoB 유니크 파일명이 기본이되, **베이스가 알면 베이스를 따른다.**
+
+    `Uniques/staff.lua`가 그 반례다: 육척봉(Warstaff) 유니크와 시전 지팡이(Staff)
+    유니크가 한 파일에 섞여 있어 파일명으로는 갈리지 않는다. 파일명만 믿으면
+    `갇힌 신의 기둥`(Long Quarterstaff)이 시전 지팡이로 보인다 — 실측 2026-08-05:
+    한 세션이 그걸 보고 육척봉 빌드에 caster 전제를 세웠다.
+
+    실측 0.5.4b: 유니크 476건 중 파일명과 베이스 계열이 어긋나는 건 7건(전부
+    staff→warstaff)이고 469건은 일치, base_type 미해소 0건이다. 그래서 상속을
+    기본으로 두고 파일명은 폴백으로 남긴다.
+
+    `sources`의 `Data/Uniques/<파일>.lua` 참조는 **파일명 그대로** 둔다 — 그건
+    계열이 아니라 출처 경로다.
+    """
+    for key in (item.get("base_type"), item.get("base_type_ko")):
+        if key and (cat := base_cats.get(str(key))):
+            return cat
+    cat = item.get("category")
+    return str(cat) if cat else None
+
+
+def _to_record(
+    item: dict[str, Any], patch: str, base_cats: dict[str, str] | None = None
+) -> dict[str, Any]:
     from pok.kb.ingest.merge import POB_COMMIT, slug_to_id_part
 
     data: dict[str, Any] = {
@@ -362,9 +400,11 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
         "implicits": item["implicits"],
         "explicits": item["explicits"],
     }
-    for key in ("base_type_ko", "category", "requires", "explicits_ko", "radius", "limited_to"):
+    for key in ("base_type_ko", "requires", "explicits_ko", "radius", "limited_to"):
         if item.get(key):
             data[key] = item[key]
+    if category := _unique_category(item, base_cats or {}):
+        data["category"] = category
     if item.get("variants"):
         data["variants"] = item["variants"]
     if item.get("mod_tags"):
@@ -411,11 +451,12 @@ def merge(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     # 샤드를 통째로 다시 쓰므로, 이미 정본에 있는 사람 판정(IN_GAME·CONTRADICTED)을
     # 먼저 읽어 둔다 — 없으면 재실행마다 기계 라벨로 되돌아간다.
     before = store_load(knowledge.parent).records
+    base_cats = _base_categories(before)
     records: list[dict[str, Any]] = []
     kept_verdicts = 0
     seen: set[str] = set()
     for item in items:
-        rec = _to_record(item, patch)
+        rec = _to_record(item, patch, base_cats)
         if rec["id"] in seen:
             continue
         seen.add(rec["id"])

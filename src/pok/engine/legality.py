@@ -525,6 +525,20 @@ class ItemLegalityChecker:
             return LineVerdict(line, "LEGAL", rec["id"], note)
         if conditional is not None:
             return conditional
+        # 접사로는 못 붙지만 **룬 풀에 같은 문구가 있으면** 룬으로는 가능하다.
+        # PoB 표기는 `{rune}` 접두인데 손으로 아이템을 쓸 때는 그걸 모르므로, 접두
+        # 없는 룬 문구가 일반 접사에 매칭돼 "티어 범위 밖"으로 거부되고 접사 한도까지
+        # 잡아먹었다 — 실측 2026-08-05: 그 때문에 룬 17칸을 조립본에서 빼야 했고
+        # 전달 PoB가 실제치를 과소평가했다(DPS -6.6%·EHP -6.9%).
+        runes = [c for c in candidates if "rune" in (c.get("data") or {}).get("origins", [])]
+        if runes:
+            return LineVerdict(
+                line,
+                "CONDITIONAL",
+                str(runes[0]["id"]),
+                "접사로는 불가하나 **룬으로는 가능** — PoB 표기는 `{rune}` 접두다. "
+                "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라",
+            )
         return LineVerdict(line, "ILLEGAL", reason=" / ".join(reasons))
 
 

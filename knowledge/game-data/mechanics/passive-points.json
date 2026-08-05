@@ -1,0 +1,36 @@
+{
+  "id": "mechanic.passive-points",
+  "type": "Mechanic",
+  "name": {
+    "ko": "패시브 포인트",
+    "en": "Passive Points"
+  },
+  "tags": [
+    "mechanic"
+  ],
+  "data": {
+    "from_levels": 99,
+    "from_quests": 24,
+    "max_total": 123,
+    "note": "100레벨 기준 총 123. PoB `Build.lua`의 상한 99는 **레벨 기여분뿐**이고, 퀘스트 보상은 `acts[].questPoints`로 따로 더해진다(QuestRewards.lua 12건 합 24). 99만 보고 상한으로 오해하면 24포인트를 덜 쓴 트리가 나온다 — 실측 2026-08-05.",
+    "_verification": {
+      "from_levels": "POB_CODE",
+      "from_quests": "POB_CODE",
+      "max_total": "IN_GAME"
+    }
+  },
+  "verification": "POB_CODE",
+  "sources": [
+    {
+      "src": "pob",
+      "ref": "Modules/Build.lua:1008 · Data/QuestRewards.lua",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "in-game",
+      "ref": "사용자 확인 2026-08-05 — 100레벨 123포인트",
+      "patch": "0.5.4b"
+    }
+  ]
+}
