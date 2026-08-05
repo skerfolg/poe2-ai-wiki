@@ -62,6 +62,7 @@ def search(
     query: str | None = None,
     tags: list[str] | None = None,
     type_: str | None = None,
+    ascendancy: str | None = None,
     limit: int = 20,
     root: Path | None = None,
     db_path: Path | None = None,
@@ -80,6 +81,10 @@ def search(
         if type_:
             where.append("r.type = ?")
             params.append(type_)
+        if ascendancy:
+            # 코드·영문·한글 중 아무 표기로나 — 부분 일치
+            where.append("r.ascendancy LIKE ?")
+            params.append(f"%{ascendancy}%")
         for t in tags or []:
             where.append("r.id IN (SELECT id FROM tags WHERE tag = ?)")
             params.append(t)

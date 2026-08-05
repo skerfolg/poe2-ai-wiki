@@ -52,17 +52,24 @@ class Step:
 
 @dataclass(frozen=True)
 class Pruned:
-    """가지치기로 제거된 가지 하나 — 끝단(죽은 노터블)+막다른 소노드 전체.
+    """가지치기로 제거된 가지 하나 — 끝단(죽은 노터블)+막다른 소노드.
 
-    끝단의 단독 기여 ~0이 확인되면 가지 전체를 환급한다: 소노드에 가치가
-    있어도 막다른 길에 포인트를 쓰는 건 유저 관점에서 비합리적이므로
-    (사용자 지적 2026-07-31), 환급 후 재투자 결과와 실측 비교해 나은 쪽을 취한다.
+    끝단의 단독 기여 ~0이 확인되면 막다른 가지를 환급한다: 막다른 길에 포인트를
+    쓰는 건 유저 관점에서 비합리적이므로(사용자 지적 2026-07-31), 환급 후 재투자
+    결과와 실측 비교해 나은 쪽을 취한다.
+
+    **`nodes`의 모든 노드는 개별 검증을 통과한 것이다.** 예전엔 끝단만 재고 안쪽
+    연쇄를 무검증으로 함께 지웠는데, 실측에서 -478 DPS가 났다(2026-08-04 빌드
+    테스트). 끝단이 죽었다고 그 안쪽까지 죽었다는 보장이 없다 — 막다른 길에도
+    생명력·피해 소노드가 앉아 있다.
     """
 
     endpoint_id: int
     endpoint_name: str
-    nodes: tuple[int, ...]  # 제거된 가지 전체 (끝단 포함)
+    nodes: tuple[int, ...]  # 제거된 노드 — **각각 개별 검증 통과** (끝단 포함)
     endpoint_removal_deltas: dict[str, float]  # 끝단 단독 제거 델타 (~0 = 죽음의 증거)
+    chain_removal_deltas: dict[str, float]  # **가지 전체** 제거 후 델타 — 손실 판정은 이것
+    chain_truncated: bool = False  # 살아 있는 노드를 만나 도중에 멈췄는가
 
 
 @dataclass(frozen=True)
@@ -250,7 +257,30 @@ def _prune_dead_branches(
             chain.append(cursor)
             alloc.discard(cursor)
             cursor = neighbors[0] if neighbors and neighbors[0] != start else None
-        current = _with_tree(current, tuple(n for n in current.tree_nodes if n not in set(chain)))
+
+        # ③ **연쇄를 한 노드씩 검증하며 제거한다.** 끝단이 죽었다고 그 안쪽까지
+        # 죽었다는 보장이 없다 — 막다른 길에도 생명력·피해 소노드가 앉아 있다.
+        # 무검증 일괄 제거는 실측에서 -478 DPS를 냈고, 보고(`endpoint_removal_deltas`)는
+        # 끝단 1개 기준이라 0으로 보여 손실이 가려졌다(2026-08-04 빌드 테스트).
+        candidate_chain = list(chain)
+        verified: list[int] = []
+        chain_deltas: dict[str, float] = {}
+        probe_spec = current
+        for chain_node in chain:
+            trial = _with_tree(
+                probe_spec, tuple(n for n in probe_spec.tree_nodes if n != chain_node)
+            )
+            trial_stats = daemon.compute_build(trial).stats
+            deltas = {k: trial_stats.get(k, 0.0) - base.stats.get(k, 0.0) for k in measure}
+            if any(abs(v) > _PRUNE_EPS for v in deltas.values()):
+                break  # 이 노드는 살아 있다 — 여기서 멈추고 나머지는 남긴다
+            probe_spec = trial
+            verified.append(chain_node)
+            chain_deltas = deltas
+        if not verified:
+            continue  # 끝단조차 되살아났다(경계 사례) — 이 가지는 건드리지 않는다
+        chain = verified
+        current = probe_spec
         base = daemon.compute_build(current)
         node = graph.nodes.get(endpoint)
         removed.append(
@@ -259,6 +289,8 @@ def _prune_dead_branches(
                 endpoint_name=(node.name_ko or node.name_en) if node else str(endpoint),
                 nodes=tuple(chain),
                 endpoint_removal_deltas=endpoint_deltas,
+                chain_removal_deltas=chain_deltas,
+                chain_truncated=len(verified) < len(candidate_chain),
             )
         )
     return current, removed, sum(len(p.nodes) for p in removed), candidates

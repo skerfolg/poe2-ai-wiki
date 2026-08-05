@@ -17,15 +17,19 @@ from pok.kb.insights import load_insights
 from pok.kb.store import Store, load
 
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
-SCHEMA_VERSION = 4  # v4: insights.scope — 3계층 사다리(season|durable)
+SCHEMA_VERSION = 5  # v5: records.ascendancy — 전직별 노드 열거(파일 grep 도피 해소)
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE records (
     id TEXT PRIMARY KEY, type TEXT NOT NULL,
     name_ko TEXT NOT NULL, name_en TEXT NOT NULL,
-    verification TEXT NOT NULL, json TEXT NOT NULL
+    verification TEXT NOT NULL, json TEXT NOT NULL,
+    -- 전직 식별자: "Witch1 Blood Mage 블러드 메이지" 처럼 코드·영문·한글을 한 줄로.
+    -- 어느 표기로 물어도 찾히게 — 표기 불일치가 조회 실패의 단골 원인이다(B-1).
+    ascendancy TEXT NOT NULL DEFAULT ''
 );
+CREATE INDEX idx_records_asc ON records(ascendancy);
 CREATE TABLE tags (id TEXT NOT NULL, tag TEXT NOT NULL);
 CREATE INDEX idx_tags_tag ON tags(tag);
 CREATE TABLE relations (src TEXT NOT NULL, rel TEXT NOT NULL, target TEXT NOT NULL);
@@ -54,6 +58,20 @@ _BODY_FIELDS = (
     "implicit",
     "affix_name",
 )
+
+
+def _ascendancy_key(raw: dict[str, object]) -> str:
+    """전직 코드·영문·한글을 한 문자열로 — 어느 표기로 물어도 찾히게."""
+    data_obj = raw.get("data")
+    data: dict[str, object] = data_obj if isinstance(data_obj, dict) else {}
+    code = data.get("ascendancy")
+    if not code:
+        return ""
+    names = data.get("ascendancy_name")
+    parts = [str(code)]
+    if isinstance(names, dict):
+        parts += [str(v) for v in names.values() if v]
+    return " ".join(parts)
 
 
 def _fts_body(raw: dict[str, object]) -> str:
@@ -107,7 +125,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
         )
         for r in store.records.values():
             con.execute(
-                "INSERT INTO records VALUES (?,?,?,?,?,?)",
+                "INSERT INTO records VALUES (?,?,?,?,?,?,?)",
                 (
                     r.id,
                     r.type,
@@ -115,6 +133,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
                     r.name_en,
                     str(r.raw["verification"]),
                     json.dumps(r.raw, ensure_ascii=False),
+                    _ascendancy_key(r.raw),
                 ),
             )
             con.executemany("INSERT INTO tags VALUES (?,?)", [(r.id, t) for t in r.tags])
