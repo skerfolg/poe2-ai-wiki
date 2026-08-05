@@ -139,8 +139,58 @@ def _make[T](cls: type[T], data: dict[str, Any], where: str) -> T:
     return cls(**data)
 
 
-def spec_from_dict(data: dict[str, Any]) -> BuildSpec:
-    """JSON 친화 dict → BuildSpec (MCP 도구 입력 경로). 모르는 키는 즉시 거부."""
+def _validate_catalog(spec_data: dict[str, Any]) -> None:
+    """`gem_id`·`config` 키가 PoB에 실재하는지 본다 — **조용한 폴백을 막는다**.
+
+    없는 `gem_id`를 줘도 PoB는 오류를 내지 않는다. `nameSpec`(표시 이름)으로 대체
+    해석하기 때문인데, 이름까지 틀리거나 모호하면 **젬이 소리 없이 사라지고** 호출자는
+    낮은 숫자를 실측으로 받는다. 실측 2026-08-05: 한 세션이 없는 id로 트리 62포인트를
+    최적화한 뒤에야 발견했다.
+
+    막다른 길로 끝내지 않는다 — `check_item_legality`의 표기 후보와 같은 방식으로
+    정본 후보를 함께 낸다. 특히 표시 이름을 id 자리에 넣은 흔한 실수는 정확히 잡힌다
+    ("Heavy Swing" → `SkillGemMeleePhysicalDamageSupport`).
+    """
+    from pok.pob.catalog import (
+        config_vars,
+        gem_ids,
+        suggest_config_vars,
+        suggest_gem_ids,
+    )
+
+    problems: list[str] = []
+    valid_gems = gem_ids()
+    for gi, group in enumerate(spec_data.get("skills", [])):
+        for i, gem in enumerate(group.get("gems", [])):
+            gid = str(gem.get("gem_id", ""))
+            if gid and gid not in valid_gems:
+                # **표시 이름을 먼저 본다** — 이름은 대개 맞고 id만 틀리기 때문이다.
+                # id 문자열 유사도부터 재면 엉뚱한 젬이 후보로 나온다(실측).
+                name = str(gem.get("name", ""))
+                hints = (suggest_gem_ids(name) if name else []) or suggest_gem_ids(gid)
+                problems.append(
+                    f"skills[{gi}].gems[{i}]: gem_id {gid!r}가 PoB에 없다"
+                    + (f" — 후보: {hints}" if hints else " (근접 후보도 없다)")
+                )
+    valid_config = config_vars()
+    for key in dict(spec_data.get("config", {})):
+        if str(key) not in valid_config:
+            hints = suggest_config_vars(str(key))
+            problems.append(
+                f"config[{key!r}]: PoB에 없는 설정 키다" + (f" — 후보: {hints}" if hints else "")
+            )
+    if problems:
+        raise ValueError(
+            "PoB 카탈로그에 없는 값 — 그대로 계산하면 조용히 빠진 채 낮은 수치가 "
+            "나온다:\n  " + "\n  ".join(problems)
+        )
+
+
+def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> BuildSpec:
+    """JSON 친화 dict → BuildSpec (MCP 도구 입력 경로). 모르는 키는 즉시 거부.
+
+    `validate_catalog`는 `gem_id`·`config` 키가 PoB에 실재하는지도 본다(기본 켬).
+    """
     allowed = {f.name for f in fields(BuildSpec)}
     unknown = set(data) - allowed
     if unknown:
@@ -163,6 +213,8 @@ def spec_from_dict(data: dict[str, Any]) -> BuildSpec:
     jewels = tuple(
         _make(JewelSpec, j, f"jewels[{i}]") for i, j in enumerate(data.get("jewels", []))
     )
+    if validate_catalog:
+        _validate_catalog(data)
     config = tuple((str(k), v) for k, v in dict(data.get("config", {})).items())
     return BuildSpec(
         class_name=data["class_name"],
