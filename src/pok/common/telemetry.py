@@ -51,7 +51,13 @@ def _brief(value: Any) -> Any:
 def classify(result: Any) -> str:
     """반환값에서 결과 종류를 읽는다 — 판단이 아니라 형태 판별이다."""
     if isinstance(result, list):
-        return "empty" if not result else "ok"
+        if not result:
+            return "empty"
+        # 0건에 진단만 실어 보낸 것도 조회 실패다 — 진단이 붙었다고 갭 신호를 잃으면
+        # 안 된다(빈 결과는 KB 갭이거나 표기 오류라는 **신호**다, B-1 실측)
+        if len(result) == 1 and isinstance(result[0], dict) and result[0].get("empty") is True:
+            return "empty"
+        return "ok"
     if isinstance(result, dict):
         if result.get("ok") is False:
             return "failed"
