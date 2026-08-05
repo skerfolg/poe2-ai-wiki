@@ -424,3 +424,24 @@ def test_룬_풀에_없는_문구는_UNKNOWN() -> None:
     )
     (verdict,) = checker.check(item).verdicts
     assert verdict.status == "UNKNOWN" and "룬 풀" in verdict.reason
+
+
+def test_접두_없는_룬은_대안을_안내한다() -> None:
+    """실측 2026-08-05: PoB 표기(`{rune}`)를 모르고 손으로 쓴 룬 문구가 일반 접사에
+    매칭돼 "티어 범위 밖"으로 거부되고 접사 한도까지 잡아먹었다. 그 때문에 룬 17칸을
+    조립본에서 빼야 했고 전달 PoB가 실제치를 과소평가했다(DPS -6.6%·EHP -6.9%)."""
+    checker = ItemLegalityChecker(knowledge_dir())
+    item = "\n".join(["Rarity: RARE", "T", "Advanced Vaal Cuirass", "--------", "+9 to Dexterity"])
+    (verdict,) = checker.check(item).verdicts
+    assert verdict.status == "CONDITIONAL"  # ILLEGAL이 아니다 — 룬으로는 가능하다
+    assert verdict.modifier_id is not None and "rune" in verdict.modifier_id
+    assert "룬으로는 가능" in verdict.reason and "{rune}" in verdict.reason
+
+
+def test_룬_판정은_접사_한도를_먹지_않는다() -> None:
+    """룬은 `affix_type="rune"`이라 접두·접미 계수에서 빠져야 한다."""
+    checker = ItemLegalityChecker(knowledge_dir())
+    lines = ["+9 to Dexterity"] * 4  # 접사였다면 접두 한도(3) 초과
+    item = "\n".join(["Rarity: RARE", "T", "Advanced Vaal Cuirass", "--------", *lines])
+    report = checker.check(item)
+    assert not any("한도" in e for e in report.errors)
