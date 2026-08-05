@@ -32,12 +32,20 @@ from pok.pob.buildxml import spec_from_dict
 from pok.pob.runner import PobResult
 
 # 기본 반환 스탯 — 다차원 목적 프로파일의 축(RC3). 전체는 stats=["*"]로.
+# 기본 반환 스탯. **곱연산 인자를 반드시 포함한다** — 이게 빠져 있으면 세션은
+# 가산 항만 보고 그것만 키운다(실측 2026-08-05: PoB가 유효 빌드에서 760종을 내는데
+# 우리는 24종만 봤고, 거기에 `CritEffect`도 층별 경감률도 없었다).
 DEFAULT_STATS = (
     "Life", "EnergyShield", "Mana", "TotalEHP", "PhysicalMaximumHitTaken",
     "Armour", "Evasion", "BlockChance", "SpellSuppressionChance",
     "FireResist", "ColdResist", "LightningResist", "ChaosResist",
     "TotalDPS", "TotalDot", "CombinedDPS", "CritChance", "HitChance",
     "CastSpeed", "Speed", "MovementSpeedMod", "Str", "Dex", "Int",
+    # 곱연산 축 (Π) — 1.0 근처면 그 축이 통째로 미개발이라는 신호
+    "CritEffect", "CritMultiplier",
+    "PhysicalDamageReduction", "FireDamageReduction",
+    "ColdDamageReduction", "LightningDamageReduction", "ChaosDamageReduction",
+    "AverageDamage", "AilmentThreshold",
 )  # fmt: skip
 
 _checker: ItemLegalityChecker | None = None

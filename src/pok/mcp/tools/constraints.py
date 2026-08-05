@@ -55,6 +55,7 @@ def check_constraints(
     reservation: dict[str, Any] | None = None,
     exhaustion: dict[str, Any] | None = None,
     sustain: dict[str, Any] | None = None,
+    multipliers: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """설계 제약 원장 5종의 결정적 검사(D27) — 준 것만 검사해 리포트 반환.
 
@@ -80,6 +81,15 @@ def check_constraints(
                       "target_pool_ratio_pct"?} — 지속 가능성 경계(성립 질문의 산수):
                       부작용·비용 실효량 vs 가용 자원, 필요 경감 역산. 미측정이어도
                       원본·경감·가용이 수치로 있으면 경계는 여기서 계산한다.
+      multipliers  = {"stats": {…compute_pob(..., ["*"])의 stats…}}
+                     **곱연산 축 장부.** 빌드 파워는 여러 인자의 곱인데 파이프라인이
+                     가산 항 하나만 부풀리는 편향이 있다 — 실측 2026-08-05: 패시브
+                     99포인트가 낸 것보다 곱연산 축 하나(치명타)가 더 컸다(8.6배).
+                     1.0 근처인 축(`undeveloped`)과 1.0보다 나쁜 축(`penalised`)을
+                     드러낸다. **미개발은 위반이 아니다** — 룬 소켓과 같은 성격이라
+                     판단은 호출자 몫이다. 기본 스탯으로는 이 축들이 안 보이므로
+                     `stats=["*"]`로 받은 전체를 넘길 것.
+
     판단 없음(AD-3): 위반 사유·여유분만 — 무엇을 고를지는 호출자 몫.
     """
     out: dict[str, Any] = {}
@@ -178,8 +188,29 @@ def check_constraints(
                 target_pool_ratio_pct=float(target) if target is not None else None,
             )
         )
+    if multipliers is not None:
+        from pok.engine.constraints.multipliers import build_ledger
+
+        ledger = build_ledger(dict(multipliers.get("stats") or {}))
+        out["multipliers"] = {
+            "product": ledger.product,
+            "axes": [
+                {
+                    "key": a.key,
+                    "label": a.label,
+                    "value": a.value,
+                    "state": a.state,
+                    "source": a.source,
+                }
+                for a in ledger.axes
+            ],
+            # 위반이 아니다 — 보이지 않으면 판단할 수도 없어서 낸다(룬 소켓과 같은 성격)
+            "undeveloped": [a.key for a in ledger.undeveloped],
+            "penalised": [a.key for a in ledger.penalised],
+            "notes": list(ledger.notes),
+        }
     if not out:
-        return {"ok": False, "reason": "검사할 원장이 없음 — 5종 중 하나 이상을 넘길 것"}
+        return {"ok": False, "reason": "검사할 원장이 없음 — 6종 중 하나 이상을 넘길 것"}
     return out
 
 

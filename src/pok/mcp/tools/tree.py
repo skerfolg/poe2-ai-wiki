@@ -96,3 +96,42 @@ def optimize_tree(
         "final_stats": {k: out.result.stats[k] for k in weights if k in out.result.stats},
         # 공유 코드·기록은 assemble_pob(최종 tree_nodes로 재조립)에서 — 기록 일원화
     }
+
+
+def evaluate_bundles(
+    build_spec: dict[str, Any],
+    bundles: list[dict[str, Any]],
+    stats: list[str] | None = None,
+) -> dict[str, Any]:
+    """묶음을 **통째로** 실측한다 — `optimize_tree`의 노드 단위 그리디가 놓치는 축.
+
+    "치명타 90% 달성"처럼 무기 접미·주얼·노터블을 **동시에** 갖춰야 값이 나오는
+    조합이 있다. 하나씩 넣어 보는 그리디는 각각의 델타가 작으면 전부 버리므로
+    곱연산 축이 구조적으로 탈락한다(실측 2026-08-05: 가산 99포인트보다 치명타 축
+    하나가 8.6배 컸는데 그리디로는 열리지 않았다).
+
+    bundles = [{"name": "치명타 90% 달성", "nodes": [123, 456]}]
+
+    묶음 **구성은 호출자가 한다** — "어떤 조합이 말이 되는가"는 판단이다(AD-3).
+    반환의 `synergy`(묶음 델타 - 개별 합)가 양수면 묶어야 열리는 축이라는 신호다.
+    """
+    from pok.engine.tree.deltas import evaluate_bundles as _bundles
+
+    keys = tuple(stats or ("CombinedDPS", "Life", "TotalEHP"))
+    results = _bundles(spec_from_dict(build_spec), _get_graph(), bundles, stats=keys)
+    return {
+        "bundles": [
+            {
+                "name": b.name,
+                "nodes": list(b.nodes),
+                "points": b.points,
+                "path": list(b.path),
+                "deltas": b.deltas,
+                "sum_of_parts": b.sum_of_parts,
+                "synergy": {k: b.synergy(k) for k in keys},
+                "per_point": {k: round(b.per_point(k), 4) for k in keys},
+                "unreachable": list(b.unreachable),
+            }
+            for b in results
+        ]
+    }
