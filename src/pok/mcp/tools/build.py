@@ -68,11 +68,55 @@ def _pick(result: PobResult, stats: list[str] | None) -> dict[str, Any]:
     }
 
 
+def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """이 빌드에 **관련 있는데 미설정인** PoB config.
+
+    기본값 0을 실측으로 오해하는 것을 구조적으로 막는다 — 실측 2026-08-05:
+    `multiplierIncisionStackCount`가 0이라 절개가 무가치해 보였고 필수 젬을 뺄
+    뻔했다. 관련성은 PoB `ConfigOptions.lua`의 `ifFlag`·`ifMod` 조건을 젬 효과
+    문구(KB `stats`)와 대조해 판정한다 — 추측이 아니라 양쪽 다 게임 데이터다.
+    """
+    from pok.engine.constraints.config_relevance import find_unset_options
+    from pok.index.search import get_entry
+
+    texts: dict[str, list[str]] = {}
+    for group in build_spec.get("skills", []):
+        for gem in group.get("gems", []):
+            name = str(gem.get("name", "")).strip()
+            if not name:
+                continue
+            for prefix in ("support", "skill"):
+                rid = f"{prefix}.{name.lower().replace(' ', '-')}"
+                try:
+                    lines = (get_entry(rid, fields=["data"]).get("data") or {}).get("stats")
+                except KeyError:
+                    continue
+                if lines:
+                    texts[rid] = list(lines)
+                    break
+    if not texts:
+        return []
+    unset = find_unset_options(texts, configured=dict(build_spec.get("config", {})))
+    return [
+        {"var": u.var, "label": u.label, "matched": u.matched_keyword, "from": u.matched_in}
+        for u in unset
+    ]
+
+
 def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> dict[str, Any]:
     """빌드 스펙(dict)을 headless PoB로 계산. stats로 반환 스탯 선별
-    (생략=핵심 24종, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
-    비연결 노드가 있다는 뜻 — 그 노드는 계산에 반영되지 않았다."""
-    return _pick(_compute(spec_from_dict(build_spec)), stats)
+    (생략=핵심 24종+곱연산 축, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
+    비연결 노드가 있다는 뜻 — 그 노드는 계산에 반영되지 않았다.
+
+    `unset_config`는 **이 빌드에 관련 있는데 안 켠 PoB 설정**이다. 미설정 config의
+    기본값에서 나온 델타 0은 "효과 없음"이 아니라 "안 켰다"의 증거다 — 그걸로
+    무엇을 빼기 전에 이 목록을 볼 것(BUILD_DESIGN §2-3 측정 무효의 판정 의무).
+    켜지 않는 게 맞는 축도 있으니 판단은 호출자 몫이다(AD-3)."""
+    out = _pick(_compute(spec_from_dict(build_spec)), stats)
+    unset = _unset_config(build_spec)
+    if unset:
+        out["unset_config"] = unset
+    return out
 
 
 def evaluate_delta(

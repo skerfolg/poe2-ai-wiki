@@ -1,0 +1,99 @@
+"""조용한 실패를 명시적 실패로 (이관 건 3, 2026-08-05).
+
+없는 `gem_id`를 줘도 PoB는 오류를 내지 않는다 — `nameSpec`으로 대체 해석한다.
+이름까지 틀리면 **젬이 소리 없이 사라지고** 호출자는 낮은 숫자를 실측으로 받는다.
+한 세션이 없는 id로 트리 62포인트를 최적화한 뒤에야 발견했다.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from pok.engine.constraints.config_relevance import find_unset_options
+from pok.pob.buildxml import spec_from_dict
+from pok.pob.catalog import config_vars, gem_ids, suggest_gem_ids
+
+BASE = {"class_name": "Sorceress", "ascendancy": "Sorceress1", "level": 90}
+SPARK = "Metadata/Items/Gems/SkillGemSpark"
+
+
+def test_catalog_extraction_is_complete_enough() -> None:
+    assert len(gem_ids()) > 900 and SPARK in gem_ids()
+    assert len(config_vars()) > 500
+    assert {"multiplierIncisionStackCount", "conditionBleedAggravated"} <= config_vars()
+
+
+def test_unknown_gem_id_is_rejected_with_the_canonical_candidate() -> None:
+    """이관 노트의 실측 그대로 — 표시 이름이 맞으면 정본 id를 정확히 짚어야 한다."""
+    with pytest.raises(ValueError, match="SkillGemMeleePhysicalDamageSupport"):
+        spec_from_dict(
+            {
+                **BASE,
+                "skills": [
+                    {
+                        "gems": [
+                            {
+                                "gem_id": "Metadata/Items/Gems/SkillGemHeavySwingSupport",
+                                "name": "Heavy Swing",
+                                "level": 20,
+                            }
+                        ]
+                    }
+                ],
+            }
+        )
+
+
+def test_unknown_config_key_is_rejected_with_candidates() -> None:
+    with pytest.raises(ValueError, match="multiplierIncisionStackCount"):
+        spec_from_dict({**BASE, "config": {"multiplierIncisionStacks": 5}})
+
+
+def test_valid_spec_passes() -> None:
+    spec = spec_from_dict(
+        {
+            **BASE,
+            "skills": [{"gems": [{"gem_id": SPARK, "name": "Spark", "level": 20}]}],
+            "config": {"multiplierIncisionStackCount": 10},
+        }
+    )
+    assert spec.skills[0].gems[0].gem_id == SPARK
+
+
+def test_name_suggestion_beats_id_similarity() -> None:
+    """이름이 대개 맞고 id만 틀리다 — id 유사도부터 재면 엉뚱한 젬이 나온다."""
+    assert suggest_gem_ids("Heavy Swing") == [
+        "Metadata/Items/Gems/SkillGemMeleePhysicalDamageSupport"
+    ]
+
+
+def test_relevant_unset_config_is_surfaced() -> None:
+    """기본값 0을 실측으로 오해하는 것을 막는다 — 이관 노트의 두 건이 나와야 한다."""
+    stats = {
+        "support.incision": [
+            "Hits from Supported Skills inflict 1 Incision",
+            "3% more Magnitude of Bleeding inflicted with Supported Skills per Incision "
+            "consumed Recently, up to 30%",
+        ],
+        "support.bleed-i": ["Supported Skills have 50% chance to inflict Bleeding"],
+    }
+    found = {u.var for u in find_unset_options(stats, configured=[])}
+    assert "multiplierIncisionStackCount" in found, "절개 스택 — 0이면 젬이 무가치해 보인다"
+    assert "conditionBleedAggravated" in found, "가중 출혈 — off면 수치가 절반이다"
+
+
+def test_configured_options_drop_out() -> None:
+    stats = {"support.incision": ["Hits from Supported Skills inflict 1 Incision"]}
+    found = {u.var for u in find_unset_options(stats, ["multiplierIncisionStackCount"])}
+    assert "multiplierIncisionStackCount" not in found
+
+
+def test_unrelated_build_does_not_get_bleed_options() -> None:
+    """관련성 매칭이 헐거우면 경고가 소음이 되어 아무도 안 읽는다."""
+    found = {
+        u.var
+        for u in find_unset_options(
+            {"skill.spark": ["Fires projectiles that deal Lightning Damage"]}, configured=[]
+        )
+    }
+    assert not ({"multiplierIncisionStackCount", "conditionBleedAggravated"} & found)
