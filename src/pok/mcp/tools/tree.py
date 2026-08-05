@@ -36,6 +36,7 @@ def optimize_tree(
     weights: dict[str, float],
     point_budget: int,
     candidate_radius: int = 8,
+    max_candidates_per_round: int = 40,
     jewel_templates: list[str] | None = None,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
@@ -44,7 +45,10 @@ def optimize_tree(
     jewel_templates = 소켓 평가용 가정 주얼 raw 텍스트들(빌드 컨셉에서 도출,
     check_item_legality 통과분만) — 소켓 후보를 템플릿별 실측해 최선을 채택하고
     steps의 jewel_text·결과 jewels에 기록한다(조달 가정임을 남길 것).
-    소요: 라운드당 후보 ~40회 계산(각 ~0.1초) — 예산 30이면 수 분."""
+    max_candidates_per_round = 라운드당 평가할 후보 수(거리순 상한). 시작점 주변이
+    빌드와 무관한 노터블뿐이면(예: 물리 공격 빌드의 마녀 권역) 40개가 전부 델타 <= 0이라
+    `stopped_no_positive`로 즉시 멈춘다 — 그럴 때 늘려서 더 먼 후보까지 본다.
+    소요: 라운드당 후보 수 x ~0.1초 — 예산 30이면 수 분."""
     spec = spec_from_dict(build_spec)
     out = _optimize(
         spec,
@@ -52,6 +56,7 @@ def optimize_tree(
         Objective(weights=weights),
         point_budget=point_budget,
         candidate_radius=candidate_radius,
+        max_candidates_per_round=max_candidates_per_round,
         jewel_templates=tuple(jewel_templates or ()),
     )
     return {
@@ -74,9 +79,13 @@ def optimize_tree(
                 "endpoint": p.endpoint_id,
                 "name": p.endpoint_name,
                 "removed_nodes": list(p.nodes),
+                # 끝단 1개 기준 — **가지 전체 손실은 chain_removal_deltas를 보라**
+                # 끝단 1개 기준 (죽음의 증거). **가지 전체 손실은 chain_removal_deltas**
                 "endpoint_removal_deltas": {
                     k: round(v, 2) for k, v in p.endpoint_removal_deltas.items()
                 },
+                "chain_removal_deltas": {k: round(v, 2) for k, v in p.chain_removal_deltas.items()},
+                "chain_truncated": p.chain_truncated,
             }
             for p in out.pruned
         ],

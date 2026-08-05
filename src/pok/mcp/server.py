@@ -107,12 +107,18 @@ def search_kb(
     query: str | None = None,
     type: str | None = None,
     tags: list[str] | None = None,
+    ascendancy: str | None = None,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
     """KB 검색 (1단계 — 압축 히트). query는 한국어/영어 키워드(FTS5),
     type은 Skill|Support|Passive|Item|Modifier|Resource|Mechanic|Defence,
-    tags는 게임 공식 태그(소문자). 상세는 get_entry로."""
-    hits = _search(query=query, tags=tags, type_=type, limit=limit)
+    tags는 게임 공식 태그(소문자). 상세는 get_entry로.
+
+    ascendancy = 전직별 노드 열거 — 코드·영문·한글 아무 표기나 부분 일치
+    ("블러드 메이지" · "Blood Mage" · "Witch1"). 포인트 예산 장부를 쓰려면
+    그 전직의 노터블 전량이 필요하므로 limit을 넉넉히 준다(전직당 20건 안팎).
+    query와 함께 쓰면 그 전직 안에서 좁힌다."""
+    hits = _search(query=query, tags=tags, type_=type, ascendancy=ascendancy, limit=limit)
     return [asdict(h) for h in hits]
 
 
