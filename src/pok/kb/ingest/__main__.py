@@ -68,6 +68,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_ail.add_argument("--patch", required=True)
 
+    p_pg = sub.add_parser("pob-gaps", help="PoB 미모델링 표시 (룬 슬롯 미매칭·반경 부여 미파싱)")
+    p_pg.add_argument("--patch", required=True)
+
     p_kw = sub.add_parser(
         "keywords", help="키워드(메커니즘) 정의 수집 — fetch(네트워크) 후 오프라인 수록"
     )
@@ -247,6 +250,10 @@ def main(argv: list[str] | None = None) -> int:
         from pok.kb.ingest.ailments import ingest_ailments
 
         print(json.dumps(ingest_ailments(args.patch), ensure_ascii=False, indent=1))
+    elif args.cmd == "pob-gaps":
+        from pok.kb.pob_gaps import apply_gap_flags
+
+        print(json.dumps(apply_gap_flags(), ensure_ascii=False, indent=1)[:600])
     elif args.cmd == "keywords":
         from pok.kb.ingest.keywords import fetch_definitions, ingest_keywords
 
