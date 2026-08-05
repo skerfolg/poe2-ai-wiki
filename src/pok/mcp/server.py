@@ -18,7 +18,7 @@ from __future__ import annotations
 import functools
 import inspect
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -40,6 +40,37 @@ from pok.mcp.tools import build as _build
 from pok.mcp.tools import constraints as _constraints
 from pok.mcp.tools import explore as _explore
 from pok.mcp.tools import tree as _tree
+
+
+def _git_head(root: Path) -> tuple[str, str]:
+    """(짧은 커밋, 제목). 실패해도 세션을 막지 않는다."""
+    import subprocess
+
+    try:
+        commit = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        ).stdout.strip()
+        subject = subprocess.run(
+            ["git", "-C", str(root), "log", "-1", "--format=%s"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        ).stdout.strip()
+        return commit, subject
+    except Exception:
+        return "", ""
+
+
+# **기동 시점**의 HEAD — 이 프로세스가 실제로 로드한 코드의 판이다. 모듈 import 시
+# 한 번 캡처해 두면, 이후 소스가 갱신돼도 이 값은 옛 커밋에 머문다. 그 불일치가
+# 곧 "재시작 필요" 신호다(이관 D-1 — git HEAD만 보고하면 소스를 고치는 순간 commit이
+# 따라 올라가서, 방지 장치가 방지하려는 조건에서 **항상 통과**한다).
+_LOADED_COMMIT, _LOADED_SUBJECT = _git_head(knowledge_dir().parent)
 
 mcp: FastMCP = FastMCP(
     "pok",
@@ -206,62 +237,65 @@ def get_insight(id: str) -> dict[str, Any]:
 
 @tool
 def server_info() -> dict[str, Any]:
-    """이 MCP 서버가 **어느 판인지** — 커밋·도구 목록·KB 지문.
+    """이 MCP 서버가 **어느 판인지** — 로드된 커밋·소스 커밋·도구별 파라미터 지문.
 
-    ⚠ **이관·수정 통보를 받으면 가장 먼저 부를 것.** 소스가 고쳐졌다고 서버가 그
-    코드로 도는 게 아니다 — MCP 서버는 세션 시작 시점의 코드로 상주하므로,
-    **재시작 전에는 새 도구가 없다.** 실측 2026-08-05: 한 세션이 소스를 읽고
-    "도구가 있다"고 사용자에게 보고했는데 호출은 `Unexpected keyword argument`로
-    실패했다. KB 데이터는 파일이라 즉시 보이는 것이 오판을 부추겼다.
+    ⚠ **이관·수정 통보를 받으면 가장 먼저 부를 것.** MCP 서버는 기동 시점의 코드로
+    상주하므로 재시작 전에는 새 도구·새 인자가 없다.
 
-    `tools`에 쓰려는 도구가 없거나 `commit`이 통보받은 것보다 옛것이면 **서버
-    재시작이 필요하다** — 그 사실을 사용자에게 알리고, 그 전까지는 그 도구에
-    의존하는 결론을 내지 않는다.
+    판정 기준 (실측 2026-08-06 — 방지 장치 자신에게 C10이 재발한 뒤 개정):
+
+    - `stale: true` (= `loaded_commit` ≠ `source_commit`) → **재시작 필요.**
+      소스만 갱신되고 프로세스는 옛 코드다. 어느 한쪽 커밋만 보면 안 된다 —
+      git HEAD만 보고하던 이전 판은 소스를 고치는 순간 commit이 따라 올라가서
+      "최신"이라고 답했고, 그 상태에서 `axes` 호출이
+      `Unexpected keyword argument`로 실패했다.
+    - **쓰려는 도구가 목록에 없거나, 쓰려는 인자가 그 도구의 `params`에 없으면**
+      → 재시작 필요. 이름 존재만으로는 부족하다 — 갱신의 상당수가 "기존 도구에
+      인자 추가" 형태다(`axes`·`ids`·`attribute_choices`).
+
+    재시작 전까지는 그 도구·인자에 의존하는 결론을 내지 않는다.
     """
-    import subprocess
+    source_commit, source_subject = _git_head(knowledge_dir().parent)
 
-    root = knowledge_dir().parent
-    try:
-        commit = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        ).stdout.strip()
-        subject = subprocess.run(
-            ["git", "-C", str(root), "log", "-1", "--format=%s"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        ).stdout.strip()
-    except Exception:
-        commit, subject = "", ""
     # **등록부에서 직접 읽는다** — 모듈 전역을 훑으면 데코레이터 반환 형태에 따라
-    # 0종이 나온다(실측). 이 목록이 곧 "이 프로세스가 실제로 제공하는 것"이다.
+    # 0종이 나온다(실측). 파라미터 지문은 등록된 inputSchema에서 뽑는다 — 이것이
+    # "이 프로세스가 실제로 받는 인자"다(이관 D-2).
     import asyncio
 
+    def _collect() -> Sequence[Any]:
+        return asyncio.run(mcp.list_tools())
+
     try:
-        registered = asyncio.run(mcp.list_tools())
-        names = sorted(t.name for t in registered)
+        registered = _collect()
     except RuntimeError:
         # 이미 이벤트 루프 안이면(서버 런타임) 별도 루프에서 돌린다
         import concurrent.futures
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            names = sorted(
-                t.name for t in pool.submit(asyncio.run, mcp.list_tools()).result(timeout=10)
-            )
+            registered = pool.submit(_collect).result(timeout=10)
+
+    # FastMCP FunctionTool의 스키마는 `parameters`에 있다 — `inputSchema`로 읽으면
+    # 전 도구가 빈 지문으로 나온다(실측 2026-08-06, 첫 구현에서 그랬다)
+    tools = {
+        t.name: sorted((getattr(t, "parameters", None) or {}).get("properties", {}))
+        for t in registered
+    }
+    stale = bool(_LOADED_COMMIT and source_commit and source_commit != _LOADED_COMMIT)
     return {
-        "commit": commit,
-        "head_subject": subject,
-        "source_root": str(root),
-        "tools": names,
-        "tool_count": len(names),
+        "loaded_commit": _LOADED_COMMIT,
+        "loaded_subject": _LOADED_SUBJECT,
+        "source_commit": source_commit,
+        "source_subject": source_subject,
+        "stale": stale,
+        "source_root": str(knowledge_dir().parent),
+        "tools": tools,
+        "tool_count": len(tools),
         "note": (
-            "이 목록에 없는 도구는 **이 서버 프로세스에 없다** — 소스에 있어도 "
-            "재시작 전에는 호출되지 않는다."
+            "⚠ stale=true — 소스가 갱신됐지만 이 프로세스는 옛 코드다. **서버 재시작 "
+            "전에는 새 도구·인자가 없다.**"
+            if stale
+            else "이 목록·지문에 없는 도구/인자는 **이 프로세스에 없다** — 소스에 "
+            "있어도 재시작 전에는 호출되지 않는다."
         ),
     }
 
