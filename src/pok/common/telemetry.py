@@ -51,15 +51,47 @@ def _brief(value: Any) -> Any:
 def classify(result: Any) -> str:
     """반환값에서 결과 종류를 읽는다 — 판단이 아니라 형태 판별이다."""
     if isinstance(result, list):
-        return "empty" if not result else "ok"
+        if not result:
+            return "empty"
+        # 0건에 진단만 실어 보낸 것도 조회 실패다 — 진단이 붙었다고 갭 신호를 잃으면
+        # 안 된다(빈 결과는 KB 갭이거나 표기 오류라는 **신호**다, B-1 실측)
+        if len(result) == 1 and isinstance(result[0], dict) and result[0].get("empty") is True:
+            return "empty"
+        return "ok"
     if isinstance(result, dict):
         if result.get("ok") is False:
             return "failed"
-        # 히트 목록을 담는 도구들: 목록이 전부 비면 조회 0건이다
-        buckets = [v for k, v in result.items() if isinstance(v, list) and k != "warnings"]
-        if buckets and all(not v for v in buckets):
+        # 겉이 dict라고 ok가 아니다 — 조회 결과가 통째로 비면 0건이다.
+        # 다만 **빈 목록을 세면 안 된다**: `pruned_nodes`·`warnings`·`violations`처럼
+        # "비어 있는 게 정상"인 필드가 많아서, 그걸 0건으로 보면 정상 계산이 실패로
+        # 기록된다(실측 2026-08-05: compute_pob 6건이 전부 오분류였다 — 비연결 노드가
+        # 없다는 좋은 소식이 실패 신호가 됐다). 그래서 **내용이 하나라도 채워졌는가**로 본다.
+        content = {k: v for k, v in result.items() if k != "ok"}
+        if content and not any(bool(v) for v in content.values()):
             return "empty"
     return "ok"
+
+
+def detail_of(result: Any) -> str:
+    """결과에 담긴 **사유**를 뽑는다 — 없으면 "실패했다"만 남고 원인은 사라진다.
+
+    실측 2026-08-05: 3회차 빌드 테스트의 `assemble_pob` 실패 6건이 전부 detail 없이
+    기록됐다. 도구는 `{"ok": False, "reason": ...}`로 사유를 돌려주고 있었는데
+    기록하는 쪽이 버렸다 — 그래서 그 6건이 왜 실패했는지 이제 알 수 없다.
+    """
+    if isinstance(result, dict):
+        for key in ("reason", "error", "detail"):
+            value = result.get(key)
+            if isinstance(value, str) and value:
+                return value[:400]
+        errors = result.get("errors")
+        if isinstance(errors, list) and errors:
+            return " / ".join(str(e) for e in errors)[:400]
+    if isinstance(result, list) and len(result) == 1 and isinstance(result[0], dict):
+        why = result[0].get("why")  # search_kb 빈 결과 진단
+        if isinstance(why, list) and why:
+            return " / ".join(str(w) for w in why)[:400]
+    return ""
 
 
 def record(

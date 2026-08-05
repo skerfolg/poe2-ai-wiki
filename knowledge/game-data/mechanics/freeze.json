@@ -1,0 +1,38 @@
+{
+  "id": "mechanic.freeze",
+  "type": "Mechanic",
+  "name": {
+    "ko": "빙결",
+    "en": "Freeze"
+  },
+  "tags": [
+    "mechanic",
+    "ailment"
+  ],
+  "data": {
+    "elemental": true,
+    "damaging": false,
+    "scales_from": [
+      "Cold"
+    ],
+    "constants": {
+      "FreezeDamageScale": 2.1,
+      "FreezeDamageScalePlayer": 2,
+      "FreezeDuration": 4,
+      "FreezeDurationPlayer": 2,
+      "FreezeModifierDuration": 14,
+      "FreezeThresholdModifier": 500
+    },
+    "kind": "ailment",
+    "note": "빙결은 **Cold 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
+  },
+  "verification": "POB_CODE",
+  "sources": [
+    {
+      "src": "pob",
+      "ref": "Modules/Data.lua (ailmentTypeList·defaultAilmentDamageTypes·buildupTypes) · Data/Misc.lua (gameConstants)",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    }
+  ]
+}

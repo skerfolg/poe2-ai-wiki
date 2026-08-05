@@ -1,0 +1,36 @@
+{
+  "id": "mechanic.chill",
+  "type": "Mechanic",
+  "name": {
+    "ko": "냉기",
+    "en": "Chill"
+  },
+  "tags": [
+    "mechanic",
+    "ailment"
+  ],
+  "data": {
+    "elemental": true,
+    "damaging": false,
+    "scales_from": [
+      "Cold"
+    ],
+    "constants": {
+      "BaseChillDuration": 8,
+      "BaseChillDurationPlayer": 2,
+      "ChillEffectMultiplier": 100,
+      "ChillMaxEffect": 50
+    },
+    "kind": "ailment",
+    "note": "냉기는 **Cold 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
+  },
+  "verification": "POB_CODE",
+  "sources": [
+    {
+      "src": "pob",
+      "ref": "Modules/Data.lua (ailmentTypeList·defaultAilmentDamageTypes·buildupTypes) · Data/Misc.lua (gameConstants)",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    }
+  ]
+}

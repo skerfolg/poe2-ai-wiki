@@ -27,6 +27,10 @@ from fastmcp import FastMCP
 
 from pok.common import telemetry
 from pok.common.paths import knowledge_dir
+from pok.index.describe import describe_kb as _describe_kb
+from pok.index.describe import describe_type as _describe_type
+from pok.index.describe import find_by_value as _find_by_value
+from pok.index.search import diagnose_empty as _diagnose_empty
 from pok.index.search import get_entry as _get_entry
 from pok.index.search import get_insight as _get_insight
 from pok.index.search import related as _related
@@ -42,8 +46,11 @@ mcp: FastMCP = FastMCP(
     instructions=(
         "PoE2 지식베이스(패치 0.5.x). 2단계 조회: search_kb로 후보를 좁히고 "
         "get_entry로 필요한 필드만 가져올 것(토큰 절약). 질의는 게임 텍스트 용어로 "
-        "— 유저 은어('스태킹')가 아니라 효과 문구('최대 생명력', 'maximum Life')가 "
-        "매칭된다. 다단어는 AND 매칭. 레코드의 verification 라벨(GAME_DATA > "
+        "— 유저 은어('스태킹')가 아니라 효과 문구('maximum Life')가 매칭된다. "
+        "⚠ **효과 문구는 대부분 영어로만 인덱싱돼 있다**(Skill·Support는 한글 0%) — "
+        "이름은 한/영 모두 되지만 효과로 찾을 땐 영어 표기를 쓸 것. "
+        "다단어는 AND 매칭. 0건이면 결과에 진단(`empty`/`why`)이 함께 오니 "
+        "**파일을 뒤지기 전에 그것부터 읽을 것**. 레코드의 verification 라벨(GAME_DATA > "
         "POB_CODE ≈ IN_GAME > SUPPORTED_INFERENCE > UNVERIFIED, CONTRADICTED=모순 "
         "경고)을 판단 신뢰도에 반영할 것."
     ),
@@ -74,7 +81,12 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
             raise
         outcome = telemetry.classify(result)
         if outcome != "ok":
-            telemetry.record(fn.__name__, _named(fn, args, kwargs), outcome=outcome)
+            telemetry.record(
+                fn.__name__,
+                _named(fn, args, kwargs),
+                outcome=outcome,
+                detail=telemetry.detail_of(result),
+            )
         return result
 
     return mcp.tool(wrapper)  # type: ignore[return-value]
@@ -110,16 +122,36 @@ def search_kb(
     ascendancy: str | None = None,
     limit: int = 20,
 ) -> list[dict[str, Any]]:
-    """KB 검색 (1단계 — 압축 히트). query는 한국어/영어 키워드(FTS5),
-    type은 Skill|Support|Passive|Item|Modifier|Resource|Mechanic|Defence,
-    tags는 게임 공식 태그(소문자). 상세는 get_entry로.
+    """KB 검색 (1단계 — 압축 히트). type은 Skill|Support|Passive|Item|Modifier|
+    Resource|Mechanic|Defence, tags는 게임 공식 태그(소문자). 상세는 get_entry로.
+
+    query는 **이름이면 한/영 모두**, **효과 문구면 사실상 영어만** 매칭된다
+    (실측: 효과 문구 한글 보유율 Skill·Support 0% · Passive 19% · Modifier 45%).
+    '공격 속도'는 0건, 'Attack Speed'는 5건이다.
+
+    0건이면 빈 배열 대신 **진단 1건**(`{"empty": true, "why": [...]}`)이 온다 —
+    왜 비었는지(한글·type 오해·AND 매칭)와 다른 타입의 건수·토큰별 건수가 들어 있다.
+    "KB에 없다"고 단정하기 전에 이걸 읽을 것.
 
     ascendancy = 전직별 노드 열거 — 코드·영문·한글 아무 표기나 부분 일치
     ("블러드 메이지" · "Blood Mage" · "Witch1"). 포인트 예산 장부를 쓰려면
     그 전직의 노터블 전량이 필요하므로 limit을 넉넉히 준다(전직당 20건 안팎).
     query와 함께 쓰면 그 전직 안에서 좁힌다."""
     hits = _search(query=query, tags=tags, type_=type, ascendancy=ascendancy, limit=limit)
-    return [asdict(h) for h in hits]
+    if hits:
+        return [asdict(h) for h in hits]
+    # 0건이면 **왜 비었는지**를 함께 낸다. 빈 배열은 아무것도 말하지 않아서, 실측
+    # 2026-08-05에 세션이 9번 모두 "KB에 없다"로 오판하고 파일 탐색으로 도피했다 —
+    # 실제로는 한글 효과 문구·type 오해·AND 매칭 때문이었다.
+    diag = _diagnose_empty(query=query, tags=tags, type_=type, ascendancy=ascendancy)
+    return [
+        {
+            "empty": True,
+            "why": list(diag.reasons),
+            "other_types": [{"type": t, "count": n} for t, n in diag.other_types],
+            "token_counts": [{"token": t, "count": n} for t, n in diag.token_counts],
+        }
+    ]
 
 
 @tool
@@ -173,6 +205,83 @@ def get_insight(id: str) -> dict[str, Any]:
 
 
 @tool
+def describe_kb() -> dict[str, Any]:
+    """KB 전경 — 타입별 건수·관계 엣지 수·인사이트 수. **무엇이 있는지부터 볼 때.**
+
+    `search_kb`는 레코드를 찾아주지만 "무엇이 어떤 형태로 있나"는 답하지 않는다.
+    설계를 시작할 때·수집 갭을 의심할 때 여기서 시작해 describe_type으로 좁혀라.
+    """
+    return _describe_kb()
+
+
+@tool
+def describe_type(type: str, field: str | None = None) -> dict[str, Any]:
+    """타입 하나의 **필드 충전율** — 어떤 필드가 몇 %나 채워져 있고 값이 어떤 꼴인지.
+
+    `schema/*.schema.json`은 **정의**라서 이 질문에 답하지 못한다. 정의상 optional인
+    필드가 실제로 100%일 수도 0%일 수도 있고, 그 차이가 설계 판단을 가른다
+    (예: Skill의 `category`는 12.5%만 채워져 있어 그것으로 거르면 대부분을 놓친다).
+
+    `field`를 주면 그 필드의 **값 분포**(빈도순)를 낸다 — "이 필드에 어떤 값들이
+    실제로 오는가"를 볼 때. `korean_effect_pct`는 효과 문구 한글 보유율이라
+    질의를 한국어로 쓸지 영어로 쓸지의 근거가 된다.
+
+    ⛔ 이 질문 때문에 `knowledge/` NDJSON을 Grep/Read로 뒤지지 말 것 — 실측 4회
+    반복된 도피 경로이고, 이 도구는 인덱스에서 수십 ms에 답한다.
+    """
+    profile = _describe_type(type, field=field)
+    return {
+        "type": profile.type,
+        "total": profile.total,
+        "korean_effect_pct": profile.korean_effect_pct,
+        "verification": [{"label": lab, "count": n} for lab, n in profile.verification],
+        "top_tags": [{"tag": t, "count": n} for t, n in profile.top_tags],
+        "fields": [
+            {
+                "field": f.field,
+                "count": f.count,
+                "pct": f.pct,
+                "value_types": list(f.value_types),
+                "samples": list(f.samples),
+            }
+            for f in profile.fields
+        ],
+    }
+
+
+@tool
+def find_by_value(
+    path: str,
+    type: str | None = None,
+    minimum: float | None = None,
+    maximum: float | None = None,
+    limit: int = 30,
+) -> list[dict[str, Any]]:
+    """`data` 안의 **수치로** 후보를 찾는다 — `search_kb`(텍스트)로는 닿지 않는 축.
+
+    쓸 때: 자원이 얼마 남았고 **그 안에 들어가는 것**을 찾을 때.
+    예) 정신력 40 잔여 → `find_by_value("reservation.max", type="Skill", maximum=40)`
+        코스트 상한   → `find_by_value("cost.max", type="Skill", maximum=25)`
+
+    `path`는 `data` 아래의 점 표기다. 리스트를 만나면 원소마다 갈라진다
+    (`reservation.max` → `reservation[0].max`, `[1].max`, …). 어떤 경로가 있는지는
+    `describe_type`의 필드 목록에서 본다.
+
+    값 오름차순으로만 낸다 — **순위나 적합성 판단은 하지 않는다**(AD-3).
+    """
+    return [
+        {
+            "id": h.id,
+            "name_ko": h.name_ko,
+            "name_en": h.name_en,
+            "path": h.path,
+            "value": h.value,
+        }
+        for h in _find_by_value(path, type_=type, minimum=minimum, maximum=maximum, limit=limit)
+    ]
+
+
+@tool
 def related(id: str, rel: str | None = None) -> list[dict[str, str]]:
     """관계 순회 — 정방향(정본 기록)과 역방향(인덱스 생성)을 모두 반환.
     rel로 특정 관계만(triggers|enables|scales_with|consumes|recovers|converts|
@@ -191,10 +300,12 @@ parse_pob = tool(_build.parse_pob)
 check_constraints = tool(_constraints.check_constraints)
 evaluate_objective = tool(_constraints.evaluate_objective)
 parse_design_doc = tool(_constraints.parse_design_doc)
+compute_trigger_rate = tool(_constraints.compute_trigger_rate)
 
 # 트리 최적화 도구 (P4) — tools/tree.py
 connect_anchors = tool(_tree.connect_anchors)
 optimize_tree = tool(_tree.optimize_tree)
+evaluate_bundles = tool(_tree.evaluate_bundles)
 
 # 능동 탐사 (P5) — tools/explore.py. 후보 생성만, 판정은 사람 게이트
 scan_synergies = tool(_explore.scan_synergies)

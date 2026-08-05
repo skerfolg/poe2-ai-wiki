@@ -17,7 +17,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, fields
+from dataclasses import MISSING, dataclass, field, fields
 from typing import Any
 from xml.sax.saxutils import escape, quoteattr
 
@@ -107,6 +107,38 @@ class BuildSpec:
     config: tuple[tuple[str, str | int | bool], ...] = field(default=())  # Input name→value
 
 
+_KEY_HINTS = {
+    "gem_id": "PoB gemId — KB 젬 레코드의 pob 소스 ref가 그 값이다"
+    " (get_entry로 sources를 보면 'Metadata/Items/Gems/…')",
+}
+
+
+def _make[T](cls: type[T], data: dict[str, Any], where: str) -> T:
+    """dataclass 생성 — 빠진/모르는 키를 **어디서 났는지와 함께** 말한다.
+
+    raw TypeError는 "missing 1 required positional argument: 'gem_id'"만 남긴다.
+    어느 젬인지도, 무엇을 넣어야 하는지도 알 수 없어서 호출자는 추측으로 재시도한다.
+    최상위 키는 이미 친절히 거부하고 있었는데 **중첩만 날것이었다** — 그 비대칭을 없앤다.
+    """
+    allowed = {f.name for f in fields(cls)}  # type: ignore[arg-type]
+    required = {
+        f.name
+        for f in fields(cls)  # type: ignore[arg-type]
+        if f.default is MISSING and f.default_factory is MISSING
+    }
+    missing = sorted(required - set(data))
+    unknown = sorted(set(data) - allowed)
+    if missing or unknown:
+        parts = []
+        if missing:
+            hints = [f"{k}({_KEY_HINTS[k]})" if k in _KEY_HINTS else k for k in missing]
+            parts.append(f"빠진 키: {', '.join(hints)}")
+        if unknown:
+            parts.append(f"모르는 키: {unknown}")
+        raise ValueError(f"{where} — {' · '.join(parts)}. 허용 키: {sorted(allowed)}")
+    return cls(**data)
+
+
 def spec_from_dict(data: dict[str, Any]) -> BuildSpec:
     """JSON 친화 dict → BuildSpec (MCP 도구 입력 경로). 모르는 키는 즉시 거부."""
     allowed = {f.name for f in fields(BuildSpec)}
@@ -114,14 +146,23 @@ def spec_from_dict(data: dict[str, Any]) -> BuildSpec:
     if unknown:
         raise ValueError(f"모르는 키: {sorted(unknown)} (허용: {sorted(allowed)})")
     skills = tuple(
-        SkillGroupSpec(
-            gems=tuple(GemSpec(**g) for g in grp.get("gems", [])),
-            **{k: v for k, v in grp.items() if k != "gems"},
+        _make(
+            SkillGroupSpec,
+            {
+                **{k: v for k, v in grp.items() if k != "gems"},
+                "gems": tuple(
+                    _make(GemSpec, g, f"skills[{gi}].gems[{i}]")
+                    for i, g in enumerate(grp.get("gems", []))
+                ),
+            },
+            f"skills[{gi}]",
         )
-        for grp in data.get("skills", [])
+        for gi, grp in enumerate(data.get("skills", []))
     )
-    items = tuple(ItemSpec(**it) for it in data.get("items", []))
-    jewels = tuple(JewelSpec(**j) for j in data.get("jewels", []))
+    items = tuple(_make(ItemSpec, it, f"items[{i}]") for i, it in enumerate(data.get("items", [])))
+    jewels = tuple(
+        _make(JewelSpec, j, f"jewels[{i}]") for i, j in enumerate(data.get("jewels", []))
+    )
     config = tuple((str(k), v) for k, v in dict(data.get("config", {})).items())
     return BuildSpec(
         class_name=data["class_name"],

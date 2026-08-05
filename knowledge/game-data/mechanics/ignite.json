@@ -1,0 +1,38 @@
+{
+  "id": "mechanic.ignite",
+  "type": "Mechanic",
+  "name": {
+    "ko": "점화",
+    "en": "Ignite"
+  },
+  "tags": [
+    "mechanic",
+    "ailment"
+  ],
+  "data": {
+    "elemental": true,
+    "damaging": true,
+    "scales_from": [
+      "Fire"
+    ],
+    "damage_type": "Fire",
+    "constants": {
+      "BaseIgniteDuration": 4,
+      "IgniteChanceMultiplier": 20,
+      "IgniteHitDamagePercentPerMinute": 1200,
+      "IgniteNonHitFlammabilityModifier": 0.8,
+      "NonHitFlammabilityPermyriadThresholdToIgnite": 5000
+    },
+    "kind": "ailment",
+    "note": "점화는 **Fire 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
+  },
+  "verification": "POB_CODE",
+  "sources": [
+    {
+      "src": "pob",
+      "ref": "Modules/Data.lua (ailmentTypeList·defaultAilmentDamageTypes·buildupTypes) · Data/Misc.lua (gameConstants)",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    }
+  ]
+}

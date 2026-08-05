@@ -35,6 +35,13 @@ class DetailPage:
     # 예: "Reserves 60 Spirit per socketed Curse" (신성 모독). 페이지의 **버프 팝업**
     # 블록에 있어 메인 Stats만 보면 놓친다 (실증 2026-08-02, 백로그 B-4).
     conditional_reservation: list[dict[str, Any]] = field(default_factory=list)
+    # 효과 문구 — **수치가 실려 있는 줄**. `description`(산문 요약)과 다른 것이다.
+    # 파서가 오래도록 `.secDescrText`/og:description만 담아서, 젬 레코드에 "50% chance
+    # to inflict Bleeding" 같은 배율이 통째로 없었다(실측 2026-08-05: Support 537건
+    # 전량에 효과 수치 0건). Passive는 이미 `stats`로 담고 있었으니 규약도 이미 있었다.
+    stats: list[str] = field(default_factory=list)  # .explicitMod
+    implicit_stats: list[str] = field(default_factory=list)  # .implicitMod
+    quality_stats: list[str] = field(default_factory=list)  # .qualityMod·.secondaryQualityMod
 
 
 def _title_name(soup: BeautifulSoup) -> str:
@@ -142,6 +149,51 @@ def parse_stats_costs(stats_text: str) -> dict[str, Any]:
     }
 
 
+_INTERNAL_ID = re.compile(r"[a-z0-9%]+(?:_[a-z0-9%]+)+")
+_MOD_SELECTORS = (
+    ("stats", ".explicitMod"),
+    ("implicit_stats", ".implicitMod"),
+    ("quality_stats", ".qualityMod, .secondaryQualityMod"),
+)
+
+
+def _mod_lines(node: Tag) -> list[str]:
+    """모드 div 하나 → 문구 줄들.
+
+    구분자는 `<br>`다. `get_text("\n")`을 그냥 쓰면 인라인 태그(`<a>`·`<span
+    class=mod-value>`)마다 줄이 갈려 `"Supported Skills have / 80 / % more…"`처럼
+    조각난다 — 실측 2026-08-05. 그래서 `<br>`만 개행으로 바꾸고 나머지는 공백으로 잇는다.
+    """
+    clone = BeautifulSoup(str(node), "html.parser")
+    for br in clone.find_all("br"):
+        br.replace_with("\n")
+    out: list[str] = []
+    for chunk in clone.get_text(" ").split("\n"):
+        line = " ".join(chunk.split())
+        # 수치가 <span>으로 분리돼 "50 %"·"Bleeding , up to" 처럼 벌어진다 — 표기만 정리
+        line = re.sub(r"\s+([%,.])", r"\1", line)
+        # 내부 식별자(`receive_bleeding_chance_%_when_hit`)는 문구가 아니다
+        if line and not _INTERNAL_ID.fullmatch(line):
+            out.append(line)
+    return out
+
+
+def _collect_mods(soup: BeautifulSoup, page: DetailPage) -> None:
+    """효과 문구를 전 `.Stats` 블록에서 모은다 (중복 제거).
+
+    블록이 여러 벌 실리는 페이지가 있어(같은 내용 반복) 순서를 지키며 dedup한다.
+    """
+    for attr, selector in _MOD_SELECTORS:
+        seen: list[str] = []
+        for block in soup.select(".Stats"):
+            for node in block.select(selector):
+                for line in _mod_lines(node):
+                    if line not in seen:
+                        seen.append(line)
+        if seen:
+            setattr(page, attr, seen)
+
+
 def parse_detail(html: str) -> DetailPage:
     soup = BeautifulSoup(html, "html.parser")
     page = DetailPage(name=_title_name(soup))
@@ -153,6 +205,8 @@ def parse_detail(html: str) -> DetailPage:
     tl = soup.select_one(".typeLine")
     if tl is not None:
         page.type_line = tl.get_text(strip=True)
+
+    _collect_mods(soup, page)
 
     stats = soup.select_one(".Stats")
     if stats is not None:

@@ -9,6 +9,7 @@ parse_design_doc(D26). 얇은 어댑터: 산수는 engine/constraints·engine/ob
 from __future__ import annotations
 
 import dataclasses
+from dataclasses import asdict
 from typing import Any
 
 from pok.engine.constraints import (
@@ -54,6 +55,7 @@ def check_constraints(
     reservation: dict[str, Any] | None = None,
     exhaustion: dict[str, Any] | None = None,
     sustain: dict[str, Any] | None = None,
+    multipliers: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """설계 제약 원장 5종의 결정적 검사(D27) — 준 것만 검사해 리포트 반환.
 
@@ -79,6 +81,15 @@ def check_constraints(
                       "target_pool_ratio_pct"?} — 지속 가능성 경계(성립 질문의 산수):
                       부작용·비용 실효량 vs 가용 자원, 필요 경감 역산. 미측정이어도
                       원본·경감·가용이 수치로 있으면 경계는 여기서 계산한다.
+      multipliers  = {"stats": {…compute_pob(..., ["*"])의 stats…}}
+                     **곱연산 축 장부.** 빌드 파워는 여러 인자의 곱인데 파이프라인이
+                     가산 항 하나만 부풀리는 편향이 있다 — 실측 2026-08-05: 패시브
+                     99포인트가 낸 것보다 곱연산 축 하나(치명타)가 더 컸다(8.6배).
+                     1.0 근처인 축(`undeveloped`)과 1.0보다 나쁜 축(`penalised`)을
+                     드러낸다. **미개발은 위반이 아니다** — 룬 소켓과 같은 성격이라
+                     판단은 호출자 몫이다. 기본 스탯으로는 이 축들이 안 보이므로
+                     `stats=["*"]`로 받은 전체를 넘길 것.
+
     판단 없음(AD-3): 위반 사유·여유분만 — 무엇을 고를지는 호출자 몫.
     """
     out: dict[str, Any] = {}
@@ -177,8 +188,29 @@ def check_constraints(
                 target_pool_ratio_pct=float(target) if target is not None else None,
             )
         )
+    if multipliers is not None:
+        from pok.engine.constraints.multipliers import build_ledger
+
+        ledger = build_ledger(dict(multipliers.get("stats") or {}))
+        out["multipliers"] = {
+            "product": ledger.product,
+            "axes": [
+                {
+                    "key": a.key,
+                    "label": a.label,
+                    "value": a.value,
+                    "state": a.state,
+                    "source": a.source,
+                }
+                for a in ledger.axes
+            ],
+            # 위반이 아니다 — 보이지 않으면 판단할 수도 없어서 낸다(룬 소켓과 같은 성격)
+            "undeveloped": [a.key for a in ledger.undeveloped],
+            "penalised": [a.key for a in ledger.penalised],
+            "notes": list(ledger.notes),
+        }
     if not out:
-        return {"ok": False, "reason": "검사할 원장이 없음 — 5종 중 하나 이상을 넘길 것"}
+        return {"ok": False, "reason": "검사할 원장이 없음 — 6종 중 하나 이상을 넘길 것"}
     return out
 
 
@@ -249,3 +281,69 @@ def parse_design_doc(build_id: str, full: bool = False) -> dict[str, Any]:
         out["formulas"] = [dataclasses.asdict(f) for f in d.formulas]
         out["tables"] = [dataclasses.asdict(t) for t in d.tables]
     return out
+
+
+def compute_trigger_rate(
+    gem_id: str,
+    trigger: str,
+    hits_per_second: float,
+    socketed_cast_time_s: float,
+    enemy_rarity: str = "normal",
+    enemy_base_power: float | None = None,
+    energy_gain_increase_pct: float = 0.0,
+) -> dict[str, Any]:
+    """메타 젬 발동률 (B-10) — PoB가 모델링하지 않는 축이라 여기서 잰다.
+
+    `gem_id`는 KB 젬 레코드(`skill.cast-on-…`)이고, 에너지 계수·최대 에너지는
+    그 레코드에서 읽는다(B-9 수록분). `trigger`는 에너지를 얻는 사건
+    (`Freeze`·`Ignite`·`Shock`·`Critically`·`Hit`·`kill` 등 — 젬마다 다르다).
+
+    `socketed_cast_time_s`는 **소켓된 스펠들의 기본 시전시간 합**이다. 최대 에너지가
+    그것으로 정해진다(`10 maximum Energy per 0.1s of base cast time`).
+
+    `energy_gain_increase_pct`에 품질·Impetus(+40%) 같은 "increased Energy gained"를
+    합쳐 넣는다.
+
+    ⚠ 대상 Power는 **예상치**다 — poe2db가 주는 건 등급별 범위 서술뿐이고 몬스터별
+    표는 없다. 결과의 `assumptions`에 그 가정이 실려 온다.
+
+    Power 기반이 아닌 젬(고정 25·이동거리·자원 등)은 계산하지 않고 사유를 낸다 —
+    그 경우 젬 레코드의 `energy_stats` 원문을 읽을 것.
+    """
+    from pok.engine.trigger import Enemy, MetaGem
+    from pok.engine.trigger import compute_trigger_rate as _rate
+    from pok.index.search import get_entry
+
+    record = get_entry(gem_id, fields=["data", "name"])
+    data = record.get("data") or {}
+    per_power = data.get("energy_per_power")
+    if not per_power:
+        return {
+            "ok": False,
+            "reason": (
+                f"{gem_id}: Power 기반 에너지 계수가 없다 — 이 젬은 다른 방식으로 "
+                f"에너지를 얻는다. 원문을 읽을 것: {data.get('energy_stats') or '(수록 없음)'}"
+            ),
+        }
+    gem = MetaGem(
+        name=str((record.get("name") or {}).get("en") or gem_id),
+        energy_per_power=dict(per_power),
+        max_energy_per_100ms=float(data.get("max_energy_per_100ms", 10.0)),
+        max_energy_flat=data.get("max_energy_flat"),
+        energy_gain_increase_pct=energy_gain_increase_pct,
+    )
+    enemy = Enemy(
+        rarity=enemy_rarity,
+        **({"base_power": enemy_base_power} if enemy_base_power is not None else {}),
+    )
+    try:
+        result = _rate(
+            gem,
+            trigger,
+            enemy=enemy,
+            hits_per_second=hits_per_second,
+            socketed_cast_time_s=socketed_cast_time_s,
+        )
+    except ValueError as e:
+        return {"ok": False, "reason": str(e)}
+    return {"ok": True, **asdict(result), "assumptions": list(result.assumptions)}

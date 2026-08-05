@@ -27,7 +27,18 @@ MACHINE_TOP_KEYS = frozenset(
 # _to_record가 채우는 data 키 (기계 소유). 이 목록 밖의 data 키 = 보강분 → 보존
 # (gem_costs의 cost·reservation·cost_multiplier_pct, gem_colors의 색 정보 등).
 _MACHINE_DATA_KEYS = frozenset(
-    {"description", "tier", "category", "pob_computable", "acquisition_unknown"}
+    {
+        "description",
+        "tier",
+        "category",
+        "pob_computable",
+        "acquisition_unknown",
+        # 새 data 키는 여기에도 등록해야 재수집이 갱신한다 (실측 사고: 미등록 키는
+        # 기계 산출인데도 사람 판정으로 취급돼 재수집이 덮지 못했다)
+        "stats",
+        "implicit_stats",
+        "quality_stats",
+    }
 )
 # ingest가 붙일 수 있는 검증 라벨 전부. 그 밖의 라벨(IN_GAME·CONTRADICTED…)은
 # 사람 판정의 결과이므로 재실행이 기계 라벨로 되돌리면 안 된다 (사용자 = 게임 지식 게이트).
@@ -89,6 +100,10 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
     data: dict[str, Any] = {}
     if item.get("description"):
         data["description"] = item["description"]
+    # 효과 문구 — 배율·확률이 여기 있다. `description`(산문)만으로는 젬을 고를 수 없다
+    for key in ("stats", "implicit_stats", "quality_stats"):
+        if item.get(key):
+            data[key] = item[key]
     if item.get("tier") is not None:
         data["tier"] = item["tier"]
     if rtype == "Skill":

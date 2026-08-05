@@ -63,6 +63,21 @@ def main(argv: list[str] | None = None) -> int:
     p_cur = sub.add_parser("currency", help="화폐 아이템(④ 보강): merge (Stackable_Currency 원시)")
     p_cur.add_argument("--patch", required=True)
 
+    p_ail = sub.add_parser(
+        "ailments", help="상태이상·축적 계열 전량 수록 (오프라인, PoB Data.lua·Misc.lua)"
+    )
+    p_ail.add_argument("--patch", required=True)
+
+    p_gs = sub.add_parser(
+        "gem-stats", help="젬 효과 문구(.explicitMod) 전수 수록 (오프라인 재파싱)"
+    )
+    p_gs.add_argument("--patch", required=True)
+
+    p_me = sub.add_parser(
+        "meta-energy", help="메타 젬 에너지 규칙 수록 (오프라인, ingest-raw Stats 재파싱)"
+    )
+    p_me.add_argument("--patch", required=True)
+
     p_gc = sub.add_parser(
         "gem-costs", help="젬 코스트·점유 전수 수록 (오프라인, ingest-raw Stats 재파싱)"
     )
@@ -222,6 +237,18 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         print(f"리포트: {raw_dir / 'currency' / 'report.json'}")
+    elif args.cmd == "ailments":
+        from pok.kb.ingest.ailments import ingest_ailments
+
+        print(json.dumps(ingest_ailments(args.patch), ensure_ascii=False, indent=1))
+    elif args.cmd == "gem-stats":
+        from pok.kb.ingest.gem_stats import apply_gem_stats
+
+        print(json.dumps(apply_gem_stats(raw_dir), ensure_ascii=False, indent=1))
+    elif args.cmd == "meta-energy":
+        from pok.kb.ingest.meta_energy import apply_meta_energy
+
+        print(json.dumps(apply_meta_energy(raw_dir), ensure_ascii=False, indent=1))
     elif args.cmd == "gem-costs":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest.gem_costs import apply_gem_costs
