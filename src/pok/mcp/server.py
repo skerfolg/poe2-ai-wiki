@@ -317,6 +317,7 @@ def find_by_value(
     type: str | None = None,
     minimum: float | None = None,
     maximum: float | None = None,
+    ids: list[str] | None = None,
     limit: int = 30,
 ) -> list[dict[str, Any]]:
     """`data` 안의 **수치로** 후보를 찾는다 — `search_kb`(텍스트)로는 닿지 않는 축.
@@ -329,6 +330,11 @@ def find_by_value(
     (`reservation.max` → `reservation[0].max`, `[1].max`, …). 어떤 경로가 있는지는
     `describe_type`의 필드 목록에서 본다.
 
+    `ids`를 주면 **그 집합 안에서만** 찾는다 — "내 트리 112개 노드 중 이 필드를 가진
+    것은?" 같은 조인이다. `minimum`·`maximum`을 생략하면 **필드를 가졌는지**만 본다
+    (값 필터 없이 존재 검사). 예) `find_by_value("attribute_choice.value",
+    ids=[내 트리 노드 id들])` → 능력치 택1 노드만 걸러낸다.
+
     값 오름차순으로만 낸다 — **순위나 적합성 판단은 하지 않는다**(AD-3).
     """
     return [
@@ -339,7 +345,9 @@ def find_by_value(
             "path": h.path,
             "value": h.value,
         }
-        for h in _find_by_value(path, type_=type, minimum=minimum, maximum=maximum, limit=limit)
+        for h in _find_by_value(
+            path, type_=type, minimum=minimum, maximum=maximum, ids=ids, limit=limit
+        )
     ]
 
 

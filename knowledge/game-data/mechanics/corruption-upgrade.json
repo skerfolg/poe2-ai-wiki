@@ -1,0 +1,41 @@
+{
+  "id": "mechanic.corruption-upgrade",
+  "type": "Mechanic",
+  "name": {
+    "ko": "부패 강화",
+    "en": "Corruption Upgrade"
+  },
+  "tags": [
+    "mechanic",
+    "crafting"
+  ],
+  "data": {
+    "kind": "crafting",
+    "stats": [
+      "희생의 오브 계열이 **희귀(Rare)** 아이템의 부패 인챈트를 한 단계 강화하고, 그 대가로 **무작위 모드 1개를 제거**한다.",
+      "대상 슬롯이 오브마다 다르다 — 카마사(목걸이·반지·허리띠) · 코펙(갑옷) · 야오막(무기·화살통).",
+      "⚠ **유니크는 대상이 아니다.** 문구가 'Rare'로 못 박혀 있다 — 유니크 무기에 부패 강화 모드를 얹는 계획은 성립하지 않는다(실측 2026-08-05: 한 세션이 유니크에 얹어 +147,750을 보고했다가 조달 불가로 뒤집혔다)."
+    ],
+    "orbs": [
+      "item.kamasas-orb-of-sacrifice",
+      "item.kopecs-orb-of-sacrifice",
+      "item.yaomacs-orb-of-sacrifice",
+      "item.yuguls-orb-of-sacrifice"
+    ],
+    "mods_without_spawn_weights": 79,
+    "note": "`corruptionupgrade*` 모드 190건은 PoB `Data/item-exclusive`에서 왔고 그중 132건만 poe2db 스폰 풀(`#ModifiersCalc`)에도 있다. **79건은 `spawn_weights`가 없어 조달 경로가 확인되지 않는다** — 그 모드를 계산에 넣기 전에 조달 가능 여부를 따로 판정할 것(요구-수급 장부 규율)."
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Yaomacs_Orb_of_Sacrifice",
+      "patch": "0.5.4b"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/ModItemExclusive.lua",
+      "patch": "0.5.4b"
+    }
+  ]
+}
