@@ -135,3 +135,35 @@ def evaluate_bundles(
             for b in results
         ]
     }
+
+
+def evaluate_change_bundle(
+    build_spec: dict[str, Any],
+    changes: list[dict[str, Any]],
+    name: str = "",
+    stats: list[str] | None = None,
+) -> dict[str, Any]:
+    """아이템·주얼·트리 노드를 **섞어** 묶음으로 실측한다 (이관 4 C4).
+
+    `evaluate_bundles`가 트리 노드만 받는 데 비해 여기는 장비 조합을 다룬다.
+    실측 2026-08-05: 눈알 왕관과 래스피스 구체가 각각 단독 델타 **정확히 0**인데
+    함께 넣으면 **1.44배**였다 — 아이템 단위 평가로는 둘 다 탈락한다.
+
+    changes = [{"item": {"slot": "Helmet", "text": "Rarity: UNIQUE\n…"}},
+               {"item": {"slot": "Amulet", "text": "…"}},
+               {"nodes": [12345]}, {"jewel": {"socket_node_id": 1, "text": "…"}}]
+
+    반환의 `synergy`(묶음 델타 - 개별 합)가 양수면 **함께여야 열리는 조합**이다.
+    묶음 구성은 호출자가 한다 — 어떤 조합이 말이 되는가는 판단이다(AD-3).
+    """
+    from pok.engine.tree.deltas import evaluate_change_bundle as _bundle
+
+    keys = tuple(stats or ("CombinedDPS", "Life", "TotalEHP"))
+    result = _bundle(spec_from_dict(build_spec), _get_graph(), changes, name=name, stats=keys)
+    return {
+        "name": result.name,
+        "parts": list(result.parts),
+        "deltas": result.deltas,
+        "sum_of_parts": result.sum_of_parts,
+        "synergy": {k: result.synergy(k) for k in keys},
+    }

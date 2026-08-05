@@ -368,6 +368,7 @@ compute_trigger_rate = tool(_constraints.compute_trigger_rate)
 connect_anchors = tool(_tree.connect_anchors)
 optimize_tree = tool(_tree.optimize_tree)
 evaluate_bundles = tool(_tree.evaluate_bundles)
+evaluate_change_bundle = tool(_tree.evaluate_change_bundle)
 
 # 능동 탐사 (P5) — tools/explore.py. 후보 생성만, 판정은 사람 게이트
 scan_synergies = tool(_explore.scan_synergies)

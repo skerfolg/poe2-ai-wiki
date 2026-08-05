@@ -257,7 +257,16 @@ class ItemLegalityChecker:
         verdicts: list[LineVerdict] = []
         for ln in mod_lines:
             if _norm(ln) not in known:
-                verdicts.append(LineVerdict(ln, "UNKNOWN", reason="유니크 고정 모드에 없음"))
+                # **유니크에도 룬 소켓이 있다.** 고정 모드에 없다고 UNKNOWN으로 끝내면
+                # 유니크 무기·방어구의 룬 계획이 조립 게이트를 통과하지 못한다 —
+                # 실측 2026-08-05: `Gain 5% of Damage as Extra Damage of all Elements`가
+                # 그렇게 막혔다. 일반 아이템 경로에는 이미 있는 폴백을 여기에도 둔다.
+                rune = self._rune_line(ln)
+                verdicts.append(
+                    rune
+                    if rune is not None
+                    else LineVerdict(ln, "UNKNOWN", reason="유니크 고정 모드에도 룬 풀에도 없음")
+                )
                 continue
             ok, why = _values_in_range(ln, ranged)
             verdicts.append(
@@ -266,6 +275,22 @@ class ItemLegalityChecker:
                 else LineVerdict(ln, "ILLEGAL", rec["id"], f"롤 범위 밖: {why}")
             )
         return LegalityReport(verdicts=tuple(verdicts))
+
+    def _rune_line(self, line: str) -> LineVerdict | None:
+        """이 문구가 **룬으로** 붙일 수 있는 것인가 (유니크·일반 공통 판정).
+
+        룬은 접사와 별개 축이라 아이템 희귀도와 무관하게 소켓에 들어간다.
+        """
+        for cand in self._mods.get(_norm(line), []):
+            if "rune" in (cand.get("data") or {}).get("origins", []):
+                return LineVerdict(
+                    line,
+                    "CONDITIONAL",
+                    str(cand["id"]),
+                    "고정 모드는 아니지만 **룬으로는 가능** — 유니크에도 룬 소켓이 있다. "
+                    "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라",
+                )
+        return None
 
     def _check_prism(self, rec: dict[str, Any], mod_lines: list[str]) -> LegalityReport:
         """Prism of Belief: "+N to Level of all <스킬> Skills" 1줄 (+Corrupted).
