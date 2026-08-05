@@ -15,6 +15,11 @@
       "Hits from a weapon or skill with this property will not roll a random value between the minimum or maximum damage value, but instead will always roll either the minimum value or the maximum value, with a 50% chance for each.",
       "Each Damage Type has its damage value rolled separately, so if the hit deals multiple types of damage, some types may roll the maximum while others roll minimum.",
       "If the damage rolls are Lucky, that will still apply, make this roll twice and picking the maximum if either roll had that result, only picking minimum damage if both rolls selected minimum. Unlucky damage rolls will prefer minimum damage in the same way."
+    ],
+    "keyword_stats": [
+      "Hits from a weapon or skill with this property will not roll a random value between the minimum or maximum damage value, but instead will always roll either the minimum value or the maximum value, with a 50% chance for each.",
+      "Each Damage Type has its damage value rolled separately, so if the hit deals multiple types of damage, some types may roll the maximum while others roll minimum.",
+      "If the damage rolls are Lucky, that will still apply, make this roll twice and picking the maximum if either roll had that result, only picking minimum damage if both rolls selected minimum. Unlucky damage rolls will prefer minimum damage in the same way."
     ]
   },
   "verification": "GAME_DATA",

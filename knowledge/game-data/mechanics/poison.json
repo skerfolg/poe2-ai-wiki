@@ -10,6 +10,13 @@
     "ailment"
   ],
   "data": {
+    "keyword_stats": [
+      "Poison is an Ailment that deals Chaos damage over time, and lasts 2 seconds by default. Damage from Poison bypasses Energy Shield.",
+      "Physical and Chaos damage from Hits Contribute to Poison Magnitude.",
+      "Damage does not Contribute to Poison chance, so it cannot be inflicted without an explicit source of Poison chance.",
+      "The base Magnitude of Poison is Chaos damage per second equal to 20% of the Pre-mitigation Physical and Chaos damage of the Hit that inflicted it. This magnitude is not further affected by any modifiers to the damage you deal.",
+      "Modifiers and Debuffs that affect the enemy's ability to mitigate damage (such as Shock ) can affect the damage the enemy takes from Poison, but any such modifiers that specifically apply to Hit damage (such as Penetration ) do not affect Poison damage."
+    ],
     "elemental": false,
     "damaging": true,
     "scales_from": [
@@ -17,19 +24,20 @@
       "Chaos"
     ],
     "damage_type": "Chaos",
+    "can_stack": true,
+    "max_stacks_default": 1,
+    "can_stack_sources": [
+      "Data/ModCache.lua",
+      "Data/Skills/sup_dex.lua",
+      "Export/Skills/sup_dex.txt",
+      "Modules/ModParser.lua"
+    ],
     "constants": {
       "BasePoisonDuration": 2,
       "PoisonHitDamagePercentPerMinute": 1200
     },
     "kind": "ailment",
-    "note": "중독은 **Physical·Chaos 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다",
-    "keyword_stats": [
-      "Poison is an Ailment that deals Chaos damage over time, and lasts 2 seconds by default. Damage from Poison bypasses Energy Shield.",
-      "Physical and Chaos damage from Hits Contribute to Poison Magnitude.",
-      "Damage does not Contribute to Poison chance, so it cannot be inflicted without an explicit source of Poison chance.",
-      "The base Magnitude of Poison is Chaos damage per second equal to 20% of the Pre-mitigation Physical and Chaos damage of the Hit that inflicted it. This magnitude is not further affected by any modifiers to the damage you deal.",
-      "Modifiers and Debuffs that affect the enemy's ability to mitigate damage (such as Shock ) can affect the damage the enemy takes from Poison, but any such modifiers that specifically apply to Hit damage (such as Penetration ) do not affect Poison damage."
-    ]
+    "note": "중독은 **Physical·Chaos 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
   },
   "verification": "POB_CODE",
   "sources": [

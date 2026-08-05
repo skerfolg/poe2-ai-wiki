@@ -21,6 +21,7 @@ build_spec dict 형식 (spec_from_dict 계약):
 from __future__ import annotations
 
 import dataclasses
+from pathlib import Path
 from typing import Any
 
 from pok.common.paths import knowledge_dir
@@ -153,8 +154,16 @@ def check_item_legality(item_text: str) -> dict[str, Any]:
     }
 
 
-def parse_pob(build_code: str, anchor: dict[str, Any] | None = None) -> dict[str, Any]:
+def parse_pob(
+    build_code: str = "",
+    anchor: dict[str, Any] | None = None,
+    code_path: str = "",
+) -> dict[str, Any]:
     """PoB 공유 코드 → 구조 요약 (클래스·어센던시·스킬 그룹·트리·아이템·저장 스탯).
+
+    `code_path`로 **파일에서 읽을 수 있다.** 앵커 코드는 2만 자를 넘기도 해서 인라인으로
+    넘기면 도중에 잘린다 — 실측 2026-08-05: 24,244자가 13,737자로 절단돼 분석이
+    실패했다. 긴 코드는 파일로 두고 경로를 준다(사용자 규율과도 맞는다).
 
     anchor를 주면 artifacts/anchors/<id>/에 계보 manifest와 함께 보관한다(D30):
       anchor = {"slug": "user-ember-fusillade",
@@ -164,6 +173,13 @@ def parse_pob(build_code: str, anchor: dict[str, Any] | None = None) -> dict[str
     from pok.artifacts.store import new_anchor_id, record_anchor
     from pok.pob.parse import parse_pob as _parse
 
+    if code_path:
+        source = Path(code_path).expanduser()
+        if not source.exists():
+            return {"ok": False, "reason": f"파일 없음: {source}"}
+        build_code = source.read_text(encoding="utf-8").strip()
+    if not build_code:
+        return {"ok": False, "reason": "build_code 또는 code_path 중 하나는 있어야 한다"}
     try:
         summary = _parse(build_code)
     except ValueError as e:

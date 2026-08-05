@@ -10,11 +10,17 @@
     "ailment"
   ],
   "data": {
+    "keyword_stats": [
+      "Freeze is an Ailment that causes targets to be unable to move or act, and lasts 4 seconds by default.",
+      "Cold damage from Hits Contributes to Freeze Buildup on enemies until they become Frozen."
+    ],
     "elemental": true,
     "damaging": false,
     "scales_from": [
       "Cold"
     ],
+    "can_stack": false,
+    "max_stacks_default": 1,
     "constants": {
       "FreezeDamageScale": 2.1,
       "FreezeDamageScalePlayer": 2,
@@ -24,11 +30,8 @@
       "FreezeThresholdModifier": 500
     },
     "kind": "ailment",
-    "note": "빙결은 **Cold 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다",
-    "keyword_stats": [
-      "Freeze is an Ailment that causes targets to be unable to move or act, and lasts 4 seconds by default.",
-      "Cold damage from Hits Contributes to Freeze Buildup on enemies until they become Frozen."
-    ]
+    "stacking_note": "**빙결은 중첩되지 않는다**(0.5.4b) — 최대 1중첩이고 `FreezeCanStack`을 여는 모드가 PoB 어디에도 없다. 여러 스킬로 걸어도 딜이 곱해지지 않는다 — 그것들은 가동률·커버리지 장치다.",
+    "note": "빙결은 **Cold 피해에서만 스케일한다** — 다른 속성의 피해 증가는 반영되지 않는다"
   },
   "verification": "POB_CODE",
   "sources": [

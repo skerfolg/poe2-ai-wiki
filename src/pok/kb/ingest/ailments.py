@@ -52,6 +52,36 @@ _SCALES = re.compile(r'\["ScalesFrom"\]\s*=\s*\{(.*?)\}', re.S)
 _DMG_TYPE = re.compile(r'\["DamageType"\]\s*=\s*"(\w+)"')
 
 
+# `<Ailment>CanStack` 플래그를 **세우는** 출처를 찾는다. `ConfigOptions.lua`의
+# `ifFlag` 조건은 "이미 세워졌을 때 보여줄지"라 세우는 게 아니다 — 그걸 세는 것으로
+# 오해하면 "출혈도 중첩된다"는 반대 결론이 나온다(실측 2026-08-05).
+_CAN_STACK_SETTER = r'(?:flag\("|name="){name}CanStack'
+_STACK_SCAN_SUFFIXES = (".lua", ".txt")
+
+
+def can_stack_sources(src: Path, name: str) -> list[str]:
+    """이 상태이상의 중첩을 여는 모드가 PoB에 있는가 — 없으면 **중첩 불가**다.
+
+    `CalcOffence.lua:5065`가 `maxStacks = 1`에서 시작하고 이 플래그가 있어야 늘린다.
+    실측 0.5.4b: 중독 8·감전 3·점화 2·냉기 2회, **출혈과 빙결은 0회**.
+
+    빌드 세션이 "출혈을 거는 스킬 6개"를 보고 "그래서 딜이 크다"고 결론냈는데,
+    중첩이 안 되므로 그 6개는 **가동률·커버리지 장치**이지 곱셈이 아니다.
+    """
+    pattern = re.compile(_CAN_STACK_SETTER.format(name=re.escape(name)))
+    out: list[str] = []
+    for path in sorted(src.rglob("*")):
+        if path.suffix not in _STACK_SCAN_SUFFIXES or "ConfigOptions" in path.name:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if pattern.search(text):
+            out.append(str(path.relative_to(src)))
+    return out
+
+
 def pob_src(root: Path | None = None) -> Path:
     return (root or project_root()) / "external" / "pob" / _POB_DIR / "src"
 
@@ -138,6 +168,16 @@ def parse_ailments(src: Path) -> dict[str, dict[str, Any]]:
     for name, body in buildups.items():
         out[name]["scales_from"] = _scales_from(body)
 
+    # 중첩 가능성 — "여러 번 걸면 곱해지는가"는 설계 판단을 크게 가른다
+    for name, entry in out.items():
+        if entry["kind"] != "ailment":
+            continue
+        sources = can_stack_sources(src, name)
+        entry["can_stack"] = bool(sources)
+        entry["max_stacks_default"] = 1
+        if sources:
+            entry["can_stack_sources"] = sources
+
     # 상수: 이름 앞머리가 상태이상 이름과 맞는 것만 붙인다 (Base*/*Duration/*Scale 등)
     for name, entry in out.items():
         picked = {
@@ -162,6 +202,12 @@ def _record(name: str, entry: dict[str, Any], patch: str) -> dict[str, Any]:
     slug = re.sub(r"(?<!^)(?=[A-Z])", "-", name).lower()
     data: dict[str, Any] = {k: v for k, v in entry.items() if k != "kind"}
     data["kind"] = entry["kind"]
+    if entry.get("kind") == "ailment" and entry.get("can_stack") is False:
+        data["stacking_note"] = (
+            f"**{_topic(_KO.get(name, name))} 중첩되지 않는다**(0.5.4b) — 최대 1중첩이고 "
+            f"`{name}CanStack`을 여는 모드가 PoB 어디에도 없다. 여러 스킬로 걸어도 "
+            f"딜이 곱해지지 않는다 — 그것들은 가동률·커버리지 장치다."
+        )
     if scales := entry.get("scales_from"):
         data["note"] = (
             f"{_topic(_KO.get(name, name))} **{'·'.join(scales)} 피해에서만 스케일한다** — "
@@ -197,13 +243,28 @@ def ingest_ailments(
     write: bool = True,
 ) -> dict[str, Any]:
     """상태이상·축적 전량을 `mechanics/`에 개별 JSON으로 쓴다 (KD-1 소량은 JSON)."""
+    from pok.kb.store import load as store_load
+
     parsed = parse_ailments(pob_src(root))
     out_dir = knowledge_dir(root) / "game-data" / "mechanics"
+    existing = store_load(root).records
     written: list[str] = []
+    preserved: list[str] = []
     for name, entry in sorted(parsed.items()):
         rec = _record(name, entry, patch)
         written.append(rec["id"])
+        prev = existing.get(rec["id"])
+        if prev is not None:
+            # **다른 경로가 붙인 필드를 지우지 않는다.** `write_record`는 전체 교체라
+            # 그대로 쓰면 poe2db 키워드 정의(`keyword_stats`)가 날아간다 — 실측
+            # 2026-08-05에 실제로 날렸다. B-7(부분 갱신이 값을 잃는 결함)이 다른
+            # 경로에서 재발한 것이라, 여기서도 같은 계약을 지킨다.
+            prev_data = prev.raw.get("data") or {}
+            foreign = {k: v for k, v in prev_data.items() if k not in rec["data"]}
+            if foreign:
+                rec["data"] = {**foreign, **rec["data"]}
+                preserved.append(rec["id"])
         if write:
             # 정본 쓰기는 store API로만 — 직접 write_text 금지(B-6, kb/AGENTS.md)
             write_record(out_dir / f"{rec['id'].split('.', 1)[1]}.json", rec, root=root)
-    return {"written": written, "count": len(written)}
+    return {"written": written, "count": len(written), "preserved_foreign": sorted(preserved)}

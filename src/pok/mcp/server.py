@@ -205,6 +205,68 @@ def get_insight(id: str) -> dict[str, Any]:
 
 
 @tool
+def server_info() -> dict[str, Any]:
+    """이 MCP 서버가 **어느 판인지** — 커밋·도구 목록·KB 지문.
+
+    ⚠ **이관·수정 통보를 받으면 가장 먼저 부를 것.** 소스가 고쳐졌다고 서버가 그
+    코드로 도는 게 아니다 — MCP 서버는 세션 시작 시점의 코드로 상주하므로,
+    **재시작 전에는 새 도구가 없다.** 실측 2026-08-05: 한 세션이 소스를 읽고
+    "도구가 있다"고 사용자에게 보고했는데 호출은 `Unexpected keyword argument`로
+    실패했다. KB 데이터는 파일이라 즉시 보이는 것이 오판을 부추겼다.
+
+    `tools`에 쓰려는 도구가 없거나 `commit`이 통보받은 것보다 옛것이면 **서버
+    재시작이 필요하다** — 그 사실을 사용자에게 알리고, 그 전까지는 그 도구에
+    의존하는 결론을 내지 않는다.
+    """
+    import subprocess
+
+    root = knowledge_dir().parent
+    try:
+        commit = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        ).stdout.strip()
+        subject = subprocess.run(
+            ["git", "-C", str(root), "log", "-1", "--format=%s"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        ).stdout.strip()
+    except Exception:
+        commit, subject = "", ""
+    # **등록부에서 직접 읽는다** — 모듈 전역을 훑으면 데코레이터 반환 형태에 따라
+    # 0종이 나온다(실측). 이 목록이 곧 "이 프로세스가 실제로 제공하는 것"이다.
+    import asyncio
+
+    try:
+        registered = asyncio.run(mcp.list_tools())
+        names = sorted(t.name for t in registered)
+    except RuntimeError:
+        # 이미 이벤트 루프 안이면(서버 런타임) 별도 루프에서 돌린다
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            names = sorted(
+                t.name for t in pool.submit(asyncio.run, mcp.list_tools()).result(timeout=10)
+            )
+    return {
+        "commit": commit,
+        "head_subject": subject,
+        "source_root": str(root),
+        "tools": names,
+        "tool_count": len(names),
+        "note": (
+            "이 목록에 없는 도구는 **이 서버 프로세스에 없다** — 소스에 있어도 "
+            "재시작 전에는 호출되지 않는다."
+        ),
+    }
+
+
+@tool
 def describe_kb() -> dict[str, Any]:
     """KB 전경 — 타입별 건수·관계 엣지 수·인사이트 수. **무엇이 있는지부터 볼 때.**
 
