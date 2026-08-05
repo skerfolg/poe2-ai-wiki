@@ -266,3 +266,54 @@ def test_경계_가용_0이하는_거부() -> None:
 
     with _pytest.raises(ValueError):
         check_sustain((SideEffect("x", 100.0),), 0.0)
+
+
+# ── ④-b 룬 소켓 축 (2026-08-05 실측 사고) ─────────────────────────────
+#
+# 한 빌드가 룬 16칸을 0칸 쓴 채 "제약 5종 통과"로 기록됐다 — 검사기가 룬을 자원
+# 축으로 안 봤기 때문이다. **없는 축은 위반도 없다.** 나중에 채우자 3티어 전부
+# DPS +37~47%가 나왔다. 미사용은 위반이 아니지만 **보이지 않으면 판단도 못 한다.**
+
+
+def test_룬_소켓_충전율을_보고한다(defaults: KbDefaults) -> None:
+    from pok.engine.constraints import SocketPlan
+
+    report = check_exhaustion(
+        _V6_LINKS[:1],
+        max_supports_per_skill=defaults.max_supports_per_skill,
+        sockets=(SocketPlan("무기", 3, 3), SocketPlan("몸통", 4, 2)),
+    )
+    assert report.ok  # 미사용은 위반이 아니다
+    assert report.rune_fill_pct == 71.4  # 5/7
+    assert any("몸통" in u and "2칸 미사용" in u for u in report.unused)
+
+
+def test_전량_미사용은_총계로_한_번_더_드러낸다(defaults: KbDefaults) -> None:
+    """개별 항목만 보면 놓치기 쉽다 — v1이 정확히 그렇게 지나갔다."""
+    from pok.engine.constraints import SocketPlan
+
+    report = check_exhaustion(
+        _V6_LINKS[:1],
+        max_supports_per_skill=defaults.max_supports_per_skill,
+        sockets=(SocketPlan("무기", 3, 0), SocketPlan("몸통", 4, 0)),
+    )
+    assert report.rune_fill_pct == 0.0
+    assert any("전부 비어 있다" in u for u in report.unused)
+    assert report.ok  # 그래도 위반은 아니다 — 판단은 호출자 몫(AD-3)
+
+
+def test_소켓_초과는_위반이다(defaults: KbDefaults) -> None:
+    from pok.engine.constraints import SocketPlan
+
+    report = check_exhaustion(
+        _V6_LINKS[:1],
+        max_supports_per_skill=defaults.max_supports_per_skill,
+        sockets=(SocketPlan("무기", 3, 5),),
+    )
+    assert not report.ok
+    assert any("소켓 3칸" in v for v in report.violations)
+
+
+def test_소켓을_안_주면_기존_동작_그대로(defaults: KbDefaults) -> None:
+    report = check_exhaustion(_V6_LINKS[:1], max_supports_per_skill=defaults.max_supports_per_skill)
+    assert report.rune_sockets == () and report.rune_fill_pct == 0.0 and report.ok
