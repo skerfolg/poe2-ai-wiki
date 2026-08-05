@@ -9,7 +9,14 @@
     "mechanic"
   ],
   "data": {
-    "max": 8
+    "max": 8,
+    "start_node_is_free": true,
+    "multiple_choice_option_is_free": true,
+    "note": "예산 8은 **시작 노드를 제외한** 수다. PoB `CountAllocNodes`가 `AscendClassStart`·`isFreeAllocate`·`isMultipleChoiceOption`을 세지 않는다 — 8개 배정 요청에 7로 보고되는 것은 정상이며, 시작 노드를 예산에 넣으면 1포인트를 손해 본다.",
+    "_verification": {
+      "start_node_is_free": "POB_CODE",
+      "multiple_choice_option_is_free": "POB_CODE"
+    }
   },
   "verification": "GAME_DATA",
   "sources": [

@@ -1,5 +1,10 @@
 """전직 포인트 예산 검사 — D27 ① (근거: mechanic.ascendancy-points, 예산 8).
 
+⚠️ **예산 8은 시작 노드를 제외한 수다.** PoB `CountAllocNodes`가 `AscendClassStart`·
+`isFreeAllocate`·`isMultipleChoiceOption`을 세지 않는다(POB_CODE 확인 2026-08-04).
+묶음에 시작 노드를 넣으면 1포인트를 손해 본다 — 8개 배정에 PoB가 7로 보고하는 것은
+정상이며 버그가 아니다(빌드 테스트 2건에서 양쪽이 이상으로 보고했다).
+
 v6 실증(design.md §1): 예산 8에 네 묶음 합 10 → 마지막 2포인트에서 분기 강제.
 검사기는 "어느 분기를 골라야 하는가"를 판단하지 않는다(AD-3) — 예산 안에 드는
 극대 선택 조합(=배타 분기)들을 열거해 보고할 뿐이다.
