@@ -58,6 +58,7 @@ def check_constraints(
     multipliers: dict[str, Any] | None = None,
     skillset: dict[str, Any] | None = None,
     loadout: dict[str, Any] | None = None,
+    axes: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """설계 제약 원장 5종의 결정적 검사(D27) — 준 것만 검사해 리포트 반환.
 
@@ -106,6 +107,14 @@ def check_constraints(
                      성립하지 않는다** — PoB는 이 규칙을 비교(override) 경로에서만
                      적용해서 조립하면 거짓 통과한다(실측 2026-08-05: 양손 철퇴 +
                      집중구가 생명력 +84·DPS +378로 정상 계산됐다).
+
+      axes         = {"build_spec": {…compute_pob에 주는 그 스펙…},
+                      "anointed_items"?, "quality_checked"?, "slot_attack_deltas"?}
+                     **획득 공간의 축 완전성** — 젬 레벨·성유·아이템 부여 스킬·
+                     호신부/플라스크·품질·슬롯별 공격 기여를 covered/empty/unmeasured로.
+                     `multipliers`가 스탯 공간을 보는 것과 짝이다. 실측 2026-08-05:
+                     사용자 교정판과의 61배 격차 성분 대부분이 **열거조차 안 한 축**
+                     이었다(젬 레벨 +5=1.28x·카옴 1.26x·성유 방치·부여 스킬 미등록)
 
     판단 없음(AD-3): 위반 사유·여유분만 — 무엇을 고를지는 호출자 몫.
     """
@@ -205,6 +214,24 @@ def check_constraints(
                 target_pool_ratio_pct=float(target) if target is not None else None,
             )
         )
+    if axes is not None:
+        from pok.engine.constraints.axes import check_axes
+
+        axes_report = check_axes(
+            dict(axes.get("build_spec") or {}),
+            anointed_items=tuple(axes.get("anointed_items") or ()),
+            quality_checked=bool(axes.get("quality_checked", False)),
+            slot_attack_deltas=axes.get("slot_attack_deltas"),
+        )
+        out["axes"] = {
+            "axes": [
+                {"key": a.key, "label": a.label, "state": a.state, "detail": a.detail}
+                for a in axes_report.axes
+            ],
+            "empty": list(axes_report.empty_axes),
+            "unmeasured": list(axes_report.unmeasured_axes),
+            "notes": list(axes_report.notes),
+        }
     if loadout is not None:
         from pok.engine.constraints.loadout import check_loadout
 

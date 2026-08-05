@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.item-granted-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "아이템 부여 스킬",
+    "en": "Item-Granted Skills"
+  },
+  "tags": [
+    "mechanic"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "아이템이 부여하는 스킬(Grants Skill)은 **정신력이 0이어도 사용할 수 있다** — 정신력 점유 스킬을 쓸 유일한 경로다.",
+      "실증: 카옴의 심장(정신력 없음)을 입은 빌드가 목걸이 부여 '피의 전령'을 병용할 수 있는 근거가 이것이다.",
+      "설계 함의: '정신력 0 = 버프·전령 포기'가 아니다 — 부여 아이템을 열거하면 그 축이 다시 열린다. 스킬 그룹에 등록해야 계산·점유 장부에 들어간다."
+    ]
+  },
+  "verification": "IN_GAME",
+  "sources": [
+    {
+      "src": "in-game",
+      "ref": "사용자 확인 2026-08-05 — 출혈 빌드 회차 종결 리포트",
+      "patch": "0.5.4b"
+    }
+  ]
+}
