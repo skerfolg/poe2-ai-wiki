@@ -23,4 +23,9 @@ promoted_to: mechanic.trigger, skill.cast-on-minion-death
 - **한 스킬에 여러 트리거를 링크하면 스킬이 비활성화된다** — §3 표 — 영원한 행진을 여러 메타 젬에 링크 시도 결과 *(라벨 IN_GAME)*
 - **CoMD는 최대 2개까지만 병렬 가능하다 (직접 1 + 아이템 1)** — §3 표 *(라벨 IN_GAME)*
 - **트리거된 스킬은 지원 젬으로 지원할 수 없다 (모독 계열 등)** — §3 표 *(라벨 IN_GAME)*
+  - ⚠️ **정정 2026-08-04**: 이 한정("모독 계열 등")을 레코드로 올리면서 무조건 금지로
+    납작하게 만들었고, 앵커 실증이 반례를 냈다 —
+    `20260731-user-bloodmage-coiling-bolts` 그룹 3이 `CoC + Comet + 보조 4종`이다.
+    **일반 메타 젬(CoC·CoEA)이 트리거한 스킬은 보조를 받는다.** 모독 계열의 예외
+    경계는 미확정. `mechanic.trigger.triggered_skills_supportable` 참조.
 - **채널링 스펠은 트리거할 수 없다** — §3 표 *(라벨 IN_GAME)*
