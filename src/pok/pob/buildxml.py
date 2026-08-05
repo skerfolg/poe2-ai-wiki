@@ -105,7 +105,27 @@ class BuildSpec:
     jewels: tuple[JewelSpec, ...] = ()
     main_socket_group: int = 1
     config: tuple[tuple[str, str | int | bool], ...] = field(default=())  # Input name→value
+    # 능력치 택1 노드의 선택 — {node_id: "str"|"dex"|"int"} (이관 5 C13')
+    #
+    # `+N to any Attribute` 노드는 PoB 트리에 `isAttribute=true` + `options[]`로 있고
+    # (293개, KB `attribute_choice`와 정확히 일치), 저장 자리는
+    # `<Tree><Spec><Overrides><AttributeOverride …>`다. 이 자리가 없으면 **선택을
+    # 표현할 수 없어** 전부 기본값으로 계산된다.
+    #
+    # 실측 2026-08-05: 앵커에서 택1 35개를 빼자 Str 184→79·Dex 165→104·Int 137→27.
+    # **한 빌드의 능력치 절반 이상이 이 노드들에서 나온다** — 요구치 판정도, 능력치
+    # 스태킹 빌드도 이걸 없이는 불가능하다.
+    #
+    # 미지정 노드는 PoB 기본 동작을 따른다(override에 넣지 않는다).
+    attribute_choices: tuple[tuple[int, str], ...] = field(default=())
 
+
+# 택1 선택 표기 — 짧은 것도 긴 것도 받는다(호출자가 어느 쪽을 쓸지 모른다)
+_ATTR_KEYS = {
+    "str": "str", "strength": "str", "힘": "str",
+    "dex": "dex", "dexterity": "dex", "민첩": "dex",
+    "int": "int", "intelligence": "int", "지능": "int",
+}  # fmt: skip
 
 _KEY_HINTS = {
     "gem_id": "PoB gemId — KB 젬 레코드의 pob 소스 ref가 그 값이다"
@@ -216,6 +236,20 @@ def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> Bu
     if validate_catalog:
         _validate_catalog(data)
     config = tuple((str(k), v) for k, v in dict(data.get("config", {})).items())
+    # {node_id: "str"} 또는 [[node_id, "str"], …] 둘 다 받는다 — JSON에서 dict 키는
+    # 문자열이 되므로 int로 되돌린다
+    raw_choices = data.get("attribute_choices") or {}
+    pairs = raw_choices.items() if isinstance(raw_choices, dict) else raw_choices
+    attribute_choices: tuple[tuple[int, str], ...] = ()
+    for node, choice in pairs:
+        # **스펙을 만들 때 거부한다** — XML 직렬화까지 미루면 조립 게이트를 통과한
+        # 뒤에 깨진다. 다른 카탈로그 검증과 같은 방침이다(이관 3).
+        if str(choice).strip().lower() not in _ATTR_KEYS:
+            raise ValueError(
+                f"attribute_choices[{node}]: {choice!r}는 알 수 없다 — "
+                f"허용: str|dex|int (strength·dexterity·intelligence·힘·민첩·지능도 받는다)"
+            )
+        attribute_choices = (*attribute_choices, (int(node), str(choice)))
     return BuildSpec(
         class_name=data["class_name"],
         ascendancy=data["ascendancy"],
@@ -226,6 +260,7 @@ def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> Bu
         jewels=jewels,
         main_socket_group=int(data.get("main_socket_group", 1)),
         config=config,
+        attribute_choices=attribute_choices,
     )
 
 
@@ -294,10 +329,33 @@ def to_xml(spec: BuildSpec) -> str:
         if all_items
         else "  <Items/>"
     )
+    spec_children = ""  # <Overrides>·<Sockets> — 줄 길이 때문에 미리 만든다
     sockets_xml = "".join(
         f'<Socket nodeId="{j.socket_node_id}" itemId="{len(spec.items) + i}"/>'
         for i, j in enumerate(spec.jewels, start=1)
     )
+
+    # 능력치 택1 선택 → `<Overrides><AttributeOverride str/dex/intNodes="…"/>`
+    # 타 유저 앵커 실측 형식 그대로. 미지정 노드는 넣지 않는다(PoB 기본값을 따른다).
+    by_attr: dict[str, list[str]] = {"str": [], "dex": [], "int": []}
+    for node_id, choice in spec.attribute_choices:
+        key = _ATTR_KEYS.get(str(choice).strip().lower())
+        if key is None:
+            raise ValueError(
+                f"attribute_choices[{node_id}]: {choice!r}는 알 수 없다 — "
+                f"허용: str|dex|int (strength·dexterity·intelligence도 받는다)"
+            )
+        by_attr[key].append(str(node_id))
+    overrides_xml = ""
+    if any(by_attr.values()):
+        # **세 속성을 항상 쓴다** — `PassiveSpec.lua:203`이 `attrib.strNodes:gmatch(…)`를
+        # nil 검사 없이 부르므로, 빈 축을 생략하면 파싱이 깨져 선택이 엉뚱하게 들어간다
+        # (실측 2026-08-05: 세 선택이 전부 같은 결과가 나왔다). PoB 자신도 저장할 때
+        # 항상 셋을 쓴다(같은 파일 309행).
+        attrs = " ".join(f"{k}Nodes={quoteattr(','.join(v))}" for k, v in by_attr.items())
+        overrides_xml = f"<Overrides><AttributeOverride {attrs}/></Overrides>"
+
+    spec_children = overrides_xml + (f"<Sockets>{sockets_xml}</Sockets>" if spec.jewels else "")
 
     # 대체 모델링 노드(JewelSpec.allocates)를 트리에 병합 — 순서 보존·중복 제거
     allocated = list(spec.tree_nodes) + [
@@ -323,7 +381,7 @@ def to_xml(spec: BuildSpec) -> str:
     </SkillSet>
   </Skills>
   <Tree activeSpec="1">
-    <Spec {spec_attrs}>{f"<Sockets>{sockets_xml}</Sockets>" if spec.jewels else ""}</Spec>
+    <Spec {spec_attrs}>{spec_children}</Spec>
   </Tree>
 {items_xml}
   <Config>
