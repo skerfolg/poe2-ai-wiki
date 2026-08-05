@@ -117,12 +117,32 @@ def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _base_category(raw: dict[str, Any]) -> str:
+    """베이스의 계열 — 파일명이 기본이되, PoB가 파일명과 다른 계열을 쓰면 그것을 쓴다.
+
+    `staff.lua`의 육척봉이 그 경우다: 파일명은 `staff`인데 실제 계열은 `Warstaff`이고
+    (poe2db에서도 무도 무기다) `tags`에도 `warstaff`만 있다. 파일명을 그대로 쓰면
+    **시전용 지팡이와 뭉뚱그려져** 설계가 오판한다 — 실측 2026-08-05: 한 세션이
+    `category="staff"`를 보고 육척봉에 caster 룬을 얹으려 했다.
+
+    `subType`은 파일마다 의미가 다르므로(방어구는 Armour/Evasion 같은 방어 타입)
+    **무기이면서 파일명이 `tags`에 없을 때만** 쓴다. 실측 검증: 이 조건에 걸리는
+    무기는 `staff` 29건뿐이고 나머지 306건은 파일명이 그대로 맞다.
+    """
+    file_cat = str(raw.get("_base_file", ""))
+    tags = {str(k) for k, v in (raw.get("tags") or {}).items() if v}
+    if "weapon" not in tags or file_cat in tags:
+        return file_cat
+    sub = str(raw.get("subType", "")).lower()
+    return sub if sub in tags else file_cat
+
+
 def parse_base(name: str, raw: dict[str, Any]) -> dict[str, Any]:
     """베이스 아이템 1건 → 중간 레코드."""
     out: dict[str, Any] = {
         "name": name,
         "item_class": str(raw.get("type", "")),
-        "category": str(raw.get("_base_file", "")),
+        "category": _base_category(raw),
         "spawn_tags": {str(k): bool(v) for k, v in (raw.get("tags") or {}).items()},
         "req": {str(k): v for k, v in (raw.get("req") or {}).items()}
         if isinstance(raw.get("req"), dict)
