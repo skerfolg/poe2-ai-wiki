@@ -620,7 +620,10 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str]]:
         low = ln.lower()
         if low.startswith("item level:"):
             ilvl = int(ln.split(":", 1)[1].strip())
-        elif low.startswith(("quality:", "sockets:", "--")):
+        elif low.startswith(("quality:", "sockets:", "implicits:", "--")):
+            # implicits: 헤더는 모드가 아니다 — render_unique가 내는 형식(PoB 허용)이
+            # UNKNOWN으로 판정돼 is_legal을 오염시켰다(실측 2026-08-06). 개수만 버리고
+            # 뒤따르는 암묵 모드 줄 자체는 여전히 모드로 검사한다.
             continue
         else:
             mod_lines.append(ln)
