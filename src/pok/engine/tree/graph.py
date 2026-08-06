@@ -46,6 +46,18 @@ class TreeNode:
     kind: str  # keystone|notable|small|mastery|jewel-socket|ascendancy-start
     stats_en: tuple[str, ...]
     ascendancy: str | None  # "Witch2" 등 — None이면 본 트리
+    # 해금 조건 — 특정 어센던시에서만 찍히는 노드({"ascendancy": "Oracle", "nodes": [...]}).
+    # PoB 계산기는 이걸 **검사하지 않아** 스탯을 그대로 더한다. 그래서 후보 단계에서
+    # 걸러야 한다(실측 2026-08-06: 블러드 메이지 빌드에 오라클 전용 7개가 섞였다).
+    unlock_constraint: dict[str, object] | None = None
+
+    @property
+    def locked_to(self) -> str | None:
+        """이 노드를 해금할 수 있는 어센던시 (없으면 None = 누구나)."""
+        if not self.unlock_constraint:
+            return None
+        value = self.unlock_constraint.get("ascendancy")
+        return str(value) if value else None
 
 
 class TreeGraph:
@@ -70,6 +82,7 @@ class TreeGraph:
                 kind=d.get("kind", "small"),
                 stats_en=tuple(d.get("stats_en") or ()),
                 ascendancy=d.get("ascendancy"),
+                unlock_constraint=d.get("unlock_constraint") or None,
             )
             raw_conn[nid] = [int(c) for c in d.get("connections", [])]
         self.adj: dict[int, set[int]] = collections.defaultdict(set)
@@ -164,8 +177,15 @@ class TreeGraph:
         near: set[int],
         max_dist: int,
         kinds: tuple[str, ...] = ("notable", "keystone", "jewel-socket"),
+        ascendancy_name: str | None = None,
     ) -> list[tuple[int, TreeNode, int]]:
-        """near 집합에서 max_dist 안의 후보 노드 (거리 오름차순). 가치 판단은 하지 않는다."""
+        """near 집합에서 max_dist 안의 후보 노드 (거리 오름차순). 가치 판단은 하지 않는다.
+
+        **해금 조건이 맞지 않는 노드는 후보에서 뺀다** — PoB 계산기가 이 제약을 검사하지
+        않아, 넣으면 인게임에서 못 찍는 스탯이 그대로 더해진다(실측 2026-08-06).
+        `ascendancy_name`은 실명("Blood Mage")이며, 주지 않으면 잠긴 노드를 **전부** 뺀다
+        (모르는 채 넣는 것보다 빼고 알리는 쪽이 안전하다).
+        """
         dist = self.distances_from(near, max_dist)
         out = [
             (nid, self.nodes[nid], d)
@@ -174,5 +194,6 @@ class TreeGraph:
             and nid in self.nodes
             and self.nodes[nid].kind in kinds
             and self.nodes[nid].ascendancy is None
+            and self.nodes[nid].locked_to in (None, ascendancy_name)
         ]
         return sorted(out, key=lambda x: (x[2], x[0]))

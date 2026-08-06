@@ -248,6 +248,25 @@ def assemble_pob(
                 "재건하거나, 뺐다면 그 축을 대체할 것:\n  " + "\n  ".join(probes)
             ),
         }
+    # **실현 불가능한 빌드는 출고하지 않는다** (사용자 인게임 대조 2026-08-06).
+    # PoB 계산기는 노드 해금 조건도 어센던시 진입도 검사하지 않고 스탯을 더해 준다 —
+    # 그래서 오라클 전용 노드 7개가 섞인 블러드 메이지 트리가 "정상 산출물"로 나갔고
+    # (출혈 지속시간 1.50→1.90), 공급원 없는 config가 출혈 강도를 x2.76 부풀렸다.
+    # 측정이 빌드를 왜곡하면 그 수치는 산출물이 아니라 거짓이다 — 탐침 게이트와 같은
+    # 이유로 여기서 막는다. 빌드 품질 판정이 아니라(AD-3) 거짓 측정치의 출고 거부다.
+    from pok.engine.constraints.assumptions import check_assumptions
+
+    assumptions = check_assumptions(build_spec)
+    if assumptions.blocking:
+        return {
+            "ok": False,
+            "reason": "실현 불가능한 구성 — 인게임에서 성립하지 않는다",
+            "blocking": list(assumptions.blocking),
+            "locked_nodes": [
+                {"node_id": n.node_id, "name": n.name, "locked_to": n.locked_to}
+                for n in assumptions.locked_nodes
+            ],
+        }
     try:
         built = assemble(spec_from_dict(build_spec), slug, checker=_get_checker())
     except (IllegalBuildError, ValueError) as e:
@@ -272,6 +291,15 @@ def assemble_pob(
             "empty": list(axes_report.empty_axes),
             "unmeasured": list(axes_report.unmeasured_axes),
             "notes": list(axes_report.notes),
+        },
+        # 차단은 안 되지만 **상시 참으로 가정한 config** — 공급원은 있으나 항상 켜져
+        # 있지는 않다. 유지율을 적지 않으면 평시에 안 나오는 수치를 출고하는 것이다.
+        "assumptions": {
+            "always_on_config": [
+                {"var": v.var, "value": v.value, "source": v.matched_in}
+                for v in assumptions.grounded
+            ],
+            "notes": list(assumptions.notes),
         },
         **_pick(built.result, stats),
     }

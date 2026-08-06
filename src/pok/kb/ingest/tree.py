@@ -418,6 +418,13 @@ def process_tree(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) ->
                 "position": positions.get(nid),  # PoB 좌표 공간 {x,y} (PoB 부재면 None)
                 "no_radius": bool(pob_flags.get("noRadius")),  # 반경 판정 없는 소켓
                 "sinister": bool(pob_flags.get("sinister")),  # Sinister 소켓 계열
+                # 해금 조건 — 특정 어센던시(+선행 노드)에서만 찍을 수 있는 노드다.
+                # ⚠ 이걸 안 실으면 **다른 전직의 잠긴 노드를 평범한 후보로 취급**한다.
+                # 실측 2026-08-06(사용자 인게임 대조): 블러드 메이지 빌드가 오라클 전용
+                # 잠금 노드 7개(피의 향기·출혈 지속시간 등)를 찍었고, PoB 계산기는
+                # unlockConstraint를 검사하지 않아 스탯을 그대로 더했다(출혈 지속시간
+                # 1.50→1.90). 트리 화면엔 안 그려지고 인게임에선 찍을 수도 없다.
+                "unlock_constraint": pob_flags.get("unlockConstraint") or None,
             }
         )
 
