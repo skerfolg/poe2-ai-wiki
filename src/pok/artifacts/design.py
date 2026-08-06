@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 _HEADER_KEYS = ("갱신일", "문서 버전", "상태", "운용 목표")
 _HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
@@ -220,3 +221,52 @@ def parse_design(text: str) -> DesignDoc:
         tables=tuple(tables),
         warnings=tuple(warnings),
     )
+
+
+@dataclass(frozen=True)
+class BuildListing:
+    """진행 중·과거 빌드 하나의 요약 — 재개/백지 결정의 재료."""
+
+    build_id: str
+    updated: str | None
+    version: str | None
+    status: str | None
+    goal: str | None
+    has_design: bool
+
+
+def list_builds(root: Path | None = None) -> tuple[BuildListing, ...]:
+    """`artifacts/builds/` 전량의 헤더 요약 — 갱신일 내림차순.
+
+    설계 세션이 시작할 때 **작업 중인 빌드가 있는지 스스로 확인**하는 재료다
+    (사용자 지시 2026-08-06: "매번 백지 상태로 작업하라고 지시하기 번거롭다 —
+    자료 조사 전에 버전업/백지를 강제로 물어보게 하라"). 판단은 하지 않는다 —
+    어느 것이 '진행 중'인지는 `status` 줄을 읽는 쪽의 몫이다(AD-3).
+    """
+    from pok.common.paths import artifacts_dir
+
+    builds = artifacts_dir(root) / "builds"
+    if not builds.exists():
+        return ()
+    out: list[BuildListing] = []
+    for path in sorted(builds.iterdir()):
+        if not path.is_dir():
+            continue
+        design_path = path / "design.md"
+        if design_path.exists():
+            doc = parse_design(design_path.read_text(encoding="utf-8"))
+            out.append(
+                BuildListing(
+                    build_id=path.name,
+                    updated=doc.updated,
+                    version=doc.version,
+                    status=doc.status,
+                    goal=doc.goal,
+                    has_design=True,
+                )
+            )
+        else:
+            out.append(BuildListing(path.name, None, None, None, None, False))
+    # 갱신일 내림차순 — 최근 작업이 위에 와야 "이어받을 후보"가 바로 보인다
+    out.sort(key=lambda b: (b.updated or "", b.build_id), reverse=True)
+    return tuple(out)
