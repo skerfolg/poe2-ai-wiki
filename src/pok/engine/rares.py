@@ -46,7 +46,7 @@ class AffixOption:
     text: str  # 롤 해소된 문구 (여러 줄 가능)
     group: str
     ilvl: int
-    origin: str = "item"  # item(표준 크래프트) | desecrated(신성모독) | corrupted(훼손)
+    origin: str = "item"  # item(표준 크래프트) | desecrated(뼈 무덤 제작) | corrupted(훼손)
 
 
 @dataclass(frozen=True)
@@ -103,7 +103,7 @@ def _mod_spawns_on(weights: Mapping[str, Any], base_tags: frozenset[str]) -> boo
 
 
 def _base_pages(item_class: str, base_tags: frozenset[str]) -> frozenset[str]:
-    """베이스 → 신성모독 접사의 `applicable_pages` 이름들.
+    """베이스 → desecrated(뼈 무덤 제작) 접사의 `applicable_pages` 이름들.
 
     desecrated 모드는 spawn_weights가 없고 poe2db 페이지명(`Foci`·`Boots_str_int` 등)
     으로 수록돼 있다 — item_class 복수형 + 방어구 속성 접미(spawn_tags의
@@ -265,7 +265,7 @@ def optimize_rare(
     ]
     if by_origin["desecrated"]:
         notes.append(
-            f"신성모독 접사 {by_origin['desecrated']}건 포함 — 무덤 제작 조달이 필요하다"
+            f"desecrated(뼈 무덤 제작) 접사 {by_origin['desecrated']}건 포함 — 뼈 조달이 필요하다"
             f"(획득 경로가 티어 산정에 반영돼야 한다)"
         )
     if by_origin["corrupted"]:
