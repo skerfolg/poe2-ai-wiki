@@ -129,6 +129,15 @@
      covered/empty/unmeasured로 낸다. empty는 사유를 적고, unmeasured는 재라.
    - 합성 아이템은 먼저 `check_item_legality` — ILLEGAL/UNKNOWN이면 그 모드를 쓰지
      말고 대체(우회 금지). CONDITIONAL은 획득 경로를 티어 산정(비용)에 반영.
+     **룬으로 붙이는 줄은 `{rune}` 접두를 쓴다** — 안 쓰면 접사로 계수돼 한도
+     초과로 거부된다. 초과 오류에 "룬으로도 붙는다" 힌트가 오면 그 줄에 접두를
+     붙여 해소하고, 소켓 여유는 `check_constraints(exhaustion.sockets)`로 볼 것
+     (실측 2026-08-06: 이 규약을 몰라 룬 소켓 13칸 중 6칸을 비운 채 출고됐고
+     냉기 저항 병목이 그대로 남았다).
+   - **주얼도 `optimize_rare`로 만든다** — `slot="Jewel@<소켓 node_id>"`, 그 소켓이
+     `tree_nodes`에 할당된 상태여야 한다. 슬롯명을 잘못 주면 **모든 접사 델타가
+     0**으로 나오는데 그건 '효과 없음'이 아니라 **측정 무효**다 — 엔진이 notes로
+     그렇게 알려 주니 0을 결과로 읽지 말 것.
    - 트리 노드는 KB `node_id` 그대로. **시작점과 연결된 경로**여야 한다 —
      `compute_pob`의 `pruned_nodes`가 비어있지 않으면 비연결이니 경로를 고쳐라.
    - `assemble_pob(spec, slug)` — slug는 한 줄 요약(예: `spark-stormweaver-저티어`).

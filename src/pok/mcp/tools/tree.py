@@ -261,8 +261,8 @@ def optimize_rare(
     base_type: str,
     weights: dict[str, float],
     floors: dict[str, float] | None = None,
-    prefix_count: int = 3,
-    suffix_count: int = 3,
+    prefix_count: int | None = None,
+    suffix_count: int | None = None,
     top_table: int = 15,
 ) -> dict[str, Any]:
     """이 빌드의 최선 희귀를 결정적으로 생성 (사용자 승인 2026-08-06 — 사고 4·5).
@@ -276,6 +276,12 @@ def optimize_rare(
     ⚠ desecrated는 접사 출처이지 스킬 '신성 모독'(Blasphemy, 정신력 점유)이 아니다.
     ⚠ 완벽 에센스 전용 모드 82건은 부위 매핑이 KB 미수록이라 열거 불가(ingest 갭
     보고됨, 2026-08-06) — 일반 에센스는 표준 풀 보장이라 item에 포함돼 있다.
+
+    **주얼은 `slot="Jewel@<소켓 node_id>"`로 부른다** — 그 소켓이 build_spec의
+    tree_nodes에 할당돼 있어야 PoB가 반영한다. 아니면 델타가 전부 0으로 나오고,
+    엔진이 그것을 notes에 '측정 무효' 신호로 낸다(실측 2026-08-06: 0을 '효과 없음'
+    으로 읽어 주얼이 저스펙 출고됐다). 접사 한도는 정본 판 규칙에서 읽는다
+    (장비 3/3 · 주얼 2/2) — prefix_count/suffix_count는 덮어쓸 때만 준다.
 
     한계도 반환에 있다: 단독 점수 그리디(접사 상호작용은 조립 실측에만 반영),
     롤 mid 고정. 소요: 접사 풀 크기 x ~1.4초 — 슬롯당 1~2분.
