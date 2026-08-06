@@ -23,6 +23,10 @@ from bs4 import BeautifulSoup, Tag
 from pok.kb.ingest.sources import USER_AGENT
 from pok.kb.ingest.verify import SourceEntity, cross_source, verification_block
 
+# 아이템 클래스 → poe2db 페이지 슬러그: 조인 축 단일 정본은 kb.item_classes.
+# 여기(수집)는 미등재 클래스를 **감지**해 보고해야 하므로 dict를 직접 조회한다.
+from pok.kb.item_classes import PAGE_OF_CLASS as _PAGE_OF_CLASS
+
 PAGE_URL = "https://poe2db.tw/{lang}/Essence"
 LANGS = ("us", "kr")
 
@@ -30,39 +34,6 @@ LANGS = ("us", "kr")
 _LIST_HEADER = re.compile(r"^(?:Essence|에센스)\s*/\s*(\d+)")
 # 등급 접두 — 같은 계열의 Lesser/Greater 판을 한 계열로 묶는 축
 _TIER_PREFIX = (("Lesser ", "lesser"), ("Greater ", "greater"))
-
-# PoB 아이템 클래스 → poe2db 페이지 슬러그 (에센스 부여 매핑의 조인 축).
-# 불규칙 복수(Staff→Staves, Focus→Foci)와 개명(Warstaff→Quarterstaves)이 있어
-# 기계 유도가 불가하다 — 미등재 클래스는 조용히 넘기지 않고 리포트에 남긴다.
-_PAGE_OF_CLASS = {
-    "Amulet": "Amulets",
-    "Belt": "Belts",
-    "Body Armour": "Body_Armours",
-    "Boots": "Boots",
-    "Bow": "Bows",
-    "Buckler": "Bucklers",
-    "Crossbow": "Crossbows",
-    "Dagger": "Daggers",
-    "Flail": "Flails",
-    "Focus": "Foci",
-    "Gloves": "Gloves",
-    "Helmet": "Helmets",
-    "One Hand Axe": "One_Hand_Axes",
-    "One Hand Mace": "One_Hand_Maces",
-    "One Hand Sword": "One_Hand_Swords",
-    "Quiver": "Quivers",
-    "Ring": "Rings",
-    "Sceptre": "Sceptres",
-    "Shield": "Shields",
-    "Spear": "Spears",
-    "Staff": "Staves",
-    "Talisman": "Talismans",
-    "Two Hand Axe": "Two_Hand_Axes",
-    "Two Hand Mace": "Two_Hand_Maces",
-    "Two Hand Sword": "Two_Hand_Swords",
-    "Wand": "Wands",
-    "Warstaff": "Quarterstaves",
-}
 
 
 def fetch_pages(raw_dir: Path, client: httpx.Client | None = None) -> dict[str, Any]:
@@ -451,8 +422,8 @@ def process_grants(raw_dir: Path, out_dir: Path, root: Path | None = None) -> di
         if name not in live_names:
             pob_not_live.append(name)
             continue
-        item_id = currency_by_name.get(name)
-        if item_id is None:
+        essence_item = currency_by_name.get(name)
+        if essence_item is None:
             pob_no_currency.append(name)
             continue
         grants = []
@@ -478,7 +449,7 @@ def process_grants(raw_dir: Path, out_dir: Path, root: Path | None = None) -> di
                 }
             )
             matched_mod_ids.add(rid)
-        entries.append({"essence": item_id, "name": name, "slug": None, "grants": grants})
+        entries.append({"essence": essence_item, "name": name, "slug": None, "grants": grants})
 
     # id 충돌(같은 에센스·페이지·텍스트 중복)은 산출 자체가 잘못 — 결정적 id라 재실행엔 안전
     dup_new = len(new_mods) - len({m["id"] for m in new_mods})
