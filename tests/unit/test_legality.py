@@ -445,3 +445,31 @@ def test_룬_판정은_접사_한도를_먹지_않는다() -> None:
     item = "\n".join(["Rarity: RARE", "T", "Advanced Vaal Cuirass", "--------", *lines])
     report = checker.check(item)
     assert not any("한도" in e for e in report.errors)
+
+
+def test_affix_cap_error_hints_at_rune_prefix() -> None:
+    """룬을 평문으로 적어 한도가 터졌으면 그렇게 말해 준다 (빌드 회차 2026-08-06 갭1).
+
+    규약(`{rune}` 접두)을 모르면 오류가 "접미 4개 — 한도 3 초과"로만 보인다.
+    실측: 세션이 원인을 못 찾아 룬 소켓 13칸 중 6칸을 비운 채 출고했다.
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.engine.legality import ItemLegalityChecker
+
+    full = """Rarity: RARE
+Test
+Sacred Focus
+Item Level: 80
+Implicits: 0
+82% increased Spell Damage
+82% increased Lightning Damage
++157 to maximum Mana
+30.5% increased Cast Speed
++2 to Level of all Spell Skills
+56.5% increased Critical Hit Chance for Spells"""
+    checker = ItemLegalityChecker(knowledge_dir())
+    plain = checker.check(full + "\n+12% to Fire Resistance")
+    assert not plain.is_legal
+    assert any("{rune}" in e for e in plain.errors), "원인이 룬이라는 단서를 줘야 한다"
+    tagged = checker.check(full + "\n{rune}+12% to Fire Resistance")
+    assert tagged.is_legal, "룬 표기하면 접사 칸 밖 — 한도에 안 걸린다"

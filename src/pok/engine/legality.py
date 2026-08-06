@@ -194,12 +194,40 @@ class ItemLegalityChecker:
                 if g in groups:
                     errors.append(f"group 중복: {g} ({groups[g]} vs {rec['id']})")
                 groups[g] = rec["id"]
+        cap_errors = False
         for affix, n in counts.items():
             if n > caps[affix]:
                 errors.append(f"{affix} {n}개 — {cap_label} 한도 {caps[affix]} 초과")
+                cap_errors = True
         if sum(counts.values()) > total_cap:
             errors.append(f"접사 총 {sum(counts.values())}개 — {cap_label} 총한도 {total_cap} 초과")
+            cap_errors = True
+        if cap_errors:
+            errors.extend(self._rune_hint(mod_lines))
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+
+    def _rune_hint(self, mod_lines: list[str]) -> list[str]:
+        """접사 칸이 넘쳤을 때, **룬으로도 붙는 줄**이 섞여 있으면 그렇게 말해 준다.
+
+        룬 접두(`{rune}`)를 붙이면 접사 칸 밖으로 빠지는데, 규약을 모르면 오류가
+        "접미 4개 — 초과"로만 보여 원인이 룬이라는 단서가 없다. 실측 2026-08-06
+        (빌드 회차): 세션이 이 오류를 만나고 **룬 소켓 13칸 중 6칸을 비운 채
+        출고**했다 — 냉기 저항 병목이 그대로 남았다. 규약을 아는 사람만 통과하는
+        검사는 조용한 손실을 만든다.
+
+        평문 줄은 접사 풀에 **먼저** 매칭되므로 매칭 결과만 봐서는 룬 가능성을 알 수
+        없다 — 줄 텍스트로 룬 색인을 다시 조회해야 한다.
+        """
+        runic = [ln for ln in mod_lines if not _RUNE_PREFIX.match(ln) and self._rune_line(ln)]
+        if not runic:
+            return []
+        sample = "; ".join(ln.strip()[:40] for ln in runic[:2])
+        return [
+            f"↳ 위 줄 중 {len(runic)}건은 **룬으로도 붙는다**({sample}"
+            f"{'…' if len(runic) > 2 else ''}) — 룬으로 쓸 것이면 줄 앞에 `{{rune}}`를 "
+            f"붙여라. 접사 칸에서 빠져 이 초과가 해소된다 "
+            f"(소켓 여유는 check_constraints(exhaustion.sockets)로 확인)"
+        ]
 
     def _affix_limits(self, rarity: str, category: str | None) -> tuple[dict[str, int], int, str]:
         """판 규칙의 접사 한도 → ({prefix, suffix} 한도, 총한도, 라벨).

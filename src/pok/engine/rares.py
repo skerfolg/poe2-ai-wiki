@@ -126,7 +126,7 @@ def enumerate_base_affixes(
     root: Path | None = None,
     *,
     roll: str = "mid",
-    origins: tuple[str, ...] = ("item", "desecrated", "corrupted", "essence"),
+    origins: tuple[str, ...] = ("item", "jewel", "desecrated", "corrupted", "essence"),
 ) -> list[AffixOption]:
     """베이스에 부여 가능한 접사 풀 — (출처, 그룹)별 최고 티어(ilvl 최대)만.
 
@@ -134,6 +134,8 @@ def enumerate_base_affixes(
     - item(1,868건): `spawn_weights` x 베이스 `spawn_tags` 순서 매칭 — 실측:
       Sacred Focus는 {armour, default, focus, int_armour}라 로컬 ES 접사가 붙는다.
     - desecrated(249건): spawn_weights가 없어 `applicable_pages` x 베이스 페이지명.
+    - jewel(377건): 주얼 전용 크래프팅 풀 — spawn_weights 매칭(`jewel`·`intjewel` 등).
+      빠뜨리면 주얼 후보가 훼손 모드뿐이 된다(실측 2026-08-06 빌드 회차: 11건).
     - corrupted(119건): spawn_weights 매칭 — 접사형이 `corrupted`(별도 칸)다.
     - essence: **에센스 전용 부여**(`granted_by` 보유 ∧ 자연 스폰 전무 →
       `applicable_pages` x 베이스 페이지명, 2026-08-06 ingest 갭 해소분 83건).
@@ -206,6 +208,49 @@ def _checker(root: Path | None) -> Any:
     return ItemLegalityChecker(knowledge_dir(root))
 
 
+def _affix_caps(base_type: str, root: Path | None) -> tuple[int, int, str]:
+    """(접두 한도, 접미 한도, 라벨) — 정본 판 규칙에서. 주얼은 2/2로 장비와 다르다."""
+    import json
+
+    category = (base_record(base_type, root) or {}).get("data", {}).get("category") or ""
+    rules = knowledge_dir(root) / "crafting-rules" / "board-rules.json"
+    caps = (
+        json.loads(rules.read_text(encoding="utf-8")).get("affix_caps", {})
+        if rules.exists()
+        else {}
+    )
+    section = caps.get(category) or caps.get("equipment") or {}
+    rare = section.get("rare") if isinstance(section, dict) else None
+    if not isinstance(rare, dict):
+        return 3, 3, "equipment(기본값)"
+    label = category if caps.get(category) else "equipment"
+    return int(rare.get("prefixes", 3)), int(rare.get("suffixes", 3)), label
+
+
+def _resolve_jewel_slot(spec: Mapping[str, Any], slot: str) -> tuple[str, str]:
+    """주얼 슬롯을 소켓으로 해소한다 — 해소 실패는 **말한다**(델타 0의 침묵 방지).
+
+    실측 2026-08-06(빌드 회차): `slot="Jewel"`로 부르면 PoB가 모르는 슬롯명이라
+    아이템이 통째로 무시되고 **모든 접사 델타가 0**으로 나왔다. 0은 "효과 없음"으로
+    읽혀 주얼이 저스펙으로 출고됐다 — 측정 실패가 측정 결과로 위장한 사례다.
+    """
+    if not slot.startswith("Jewel"):
+        return slot, ""
+    allocated = set(spec.get("tree_nodes") or ())
+    if "@" in slot:
+        node = int(slot.split("@", 1)[1])
+        if allocated and node not in allocated:
+            return slot, (
+                f"⚠ 소켓 {node}가 tree_nodes에 없다 — PoB는 **할당된** 소켓의 주얼만 "
+                f"반영하므로 델타가 전부 0으로 나온다. 트리에 소켓을 먼저 할당할 것"
+            )
+        return slot, ""
+    return slot, (
+        "⚠ slot='Jewel'에는 소켓이 없다 — `Jewel@<소켓 node_id>` 형태로 부르고 그 "
+        "소켓이 tree_nodes에 할당돼 있어야 한다. 지금 측정된 델타는 **전부 무효**다"
+    )
+
+
 def optimize_rare(
     spec: dict[str, Any],
     slot: str,
@@ -214,8 +259,8 @@ def optimize_rare(
     *,
     stats: tuple[str, ...] | None = None,
     floors: Mapping[str, float] | None = None,
-    prefix_count: int = 3,
-    suffix_count: int = 3,
+    prefix_count: int | None = None,
+    suffix_count: int | None = None,
     roll: str = "mid",
     root: Path | None = None,
     compute: ComputeFn | None = None,
@@ -226,14 +271,36 @@ def optimize_rare(
     같은 접사도 빌드마다 델타가 다르다), 상위 접두·접미를 조립해 다시 잰다.
     단독 점수 그리디라 접사 간 상호작용은 조립 실측에만 반영된다 — 그 한계와
     합법성 판정이 결과에 그대로 남는다.
+
+    접사 한도는 **정본 판 규칙**에서 읽는다(장비 3/3, 주얼 2/2) — 하드코딩 3/3으로
+    주얼을 조립하면 못 만드는 아이템이 나온다. 주얼은 `slot="Jewel@<소켓 node_id>"`
+    로 부르고 그 소켓이 `tree_nodes`에 할당돼 있어야 한다 — 아니면 PoB가 무시해
+    **모든 델타가 0으로 나온다**(실측 2026-08-06 빌드 회차: 주얼이 저스펙으로 출고).
     """
     measure = stats or tuple(weights)
     run = compute or _default_compute()
     pool = enumerate_base_affixes(base_type, root, roll=roll)
+    notes_pre: list[str] = []
+    slot, socket_note = _resolve_jewel_slot(spec, slot)
+    if socket_note:
+        notes_pre.append(socket_note)
     # Item Level이 없으면 legality가 기본 1로 파싱해 고티어 접사 전부를 "스폰 불가"로
     # 판정한다(실측 2026-08-06: ilvl 70 접사가 룬 경로로 밀림) — 풀 최고 ilvl로 명시.
     item_level = max((a.ilvl for a in pool), default=1)
-    naked = f"Rarity: RARE\nEngineered {slot}\n{base_type}\nItem Level: {item_level}\nImplicits: 0"
+    # 베이스 암시적은 **텍스트에 적어야** PoB가 반영한다(실측 2026-08-06: 돌의 주먹
+    # 암시적을 빼면 델타 0, 적으면 +100 ES·+300 회피) — 정본에서 읽어 자동 기재한다.
+    implicit = str((base_record(base_type, root) or {}).get("data", {}).get("implicit") or "")
+    implicit_lines = [resolve_rolls(implicit, roll)] if implicit else []
+    naked = "\n".join(
+        [
+            "Rarity: RARE",
+            f"Engineered {slot}",
+            base_type,
+            f"Item Level: {item_level}",
+            f"Implicits: {len(implicit_lines)}",
+            *implicit_lines,
+        ]
+    )
     naked_stats = run(_replace_slot(spec, slot, naked))
 
     readings: list[AffixReading] = []
@@ -242,10 +309,15 @@ def optimize_rare(
         delta = {k: round(measured.get(k, 0.0) - naked_stats.get(k, 0.0), 4) for k in measure}
         readings.append(AffixReading(option=option, delta=delta))
 
+    cap_pre, cap_suf, cap_label = _affix_caps(base_type, root)
+    if prefix_count is not None:
+        cap_pre = prefix_count
+    if suffix_count is not None:
+        cap_suf = suffix_count
     ranked = sorted(readings, key=lambda r: r.score(weights), reverse=True)
     chosen: list[AffixReading] = []
     counts = {"prefix": 0, "suffix": 0, "corrupted": 0}
-    caps = {"prefix": prefix_count, "suffix": suffix_count, "corrupted": 1}
+    caps = {"prefix": cap_pre, "suffix": cap_suf, "corrupted": 1}
     for reading in ranked:
         kind = reading.option.affix_type
         if reading.score(weights) <= 0 or counts[kind] >= caps[kind]:
@@ -275,9 +347,18 @@ def optimize_rare(
         o: sum(r.option.origin == o for r in chosen) for o in ("desecrated", "corrupted", "essence")
     }
     notes = [
+        *notes_pre,
         f"접사 풀 {len(pool)}건(출처·그룹별 최고 티어) 전량 단독 실측 — 롤 {roll} 고정",
+        f"접사 한도 {cap_pre}접두/{cap_suf}접미 — 정본 판 규칙({cap_label})",
         "단독 점수 그리디 조립 — 접사 간 상호작용은 조립 실측에만 반영된다",
     ]
+    if implicit_lines:
+        notes.append(f"베이스 암시적 자동 기재: {implicit_lines[0]} — 안 적으면 PoB가 반영 안 한다")
+    if all(all(abs(v) < 1e-9 for v in r.delta.values()) for r in readings) and readings:
+        notes.append(
+            "⚠ **모든 접사 델타가 0** — 측정이 성립하지 않았다는 신호다(슬롯명 오류·"
+            "미할당 소켓 등). '효과 없음'으로 읽지 말 것"
+        )
     if by_origin["desecrated"]:
         notes.append(
             f"desecrated(뼈 무덤 제작) 접사 {by_origin['desecrated']}건 포함 — 뼈 조달이 필요하다"
