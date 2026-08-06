@@ -182,6 +182,7 @@ def optimize_items(
     max_rounds: int = 3,
     max_candidates_per_slot: int | None = None,
     jewel_sockets: list[int] | None = None,
+    max_chain: int = 4,
 ) -> dict[str, Any]:
     """아이템 그리디 최적화 — `optimize_tree`의 아이템판 (사용자 지시 2026-08-06).
 
@@ -199,8 +200,12 @@ def optimize_items(
     (`per N maximum Life`) 보유 유니크는 그 축을 탐침으로 올린 문맥에서도 잰다.
     1판에서 밀려도 2판 우세면 `conditional_peaks`로 나온다 — 실측: 래스피스의 구체
     1판 DPS +68(희귀 +71에 밀림) / 2판 +134. 탐침 기반은 채택하지 않되(AD-3),
-    **수요 축을 실제로 공급하는 다른 슬롯 후보와의 쌍 실측**(`pairs`)이 단독 최선을
-    이기면 채택한다 — 그건 가정이 아니라 측정이다.
+    **수요 축을 실제로 공급하는 다른 슬롯 후보와의 연쇄 실측**(`chains`)이 단독
+    최선을 이기면 채택한다 — 가정이 아니라 측정이다. 연쇄는 쌍에서 멈추지 않고
+    개선되는 한 `max_chain`(기본 4)까지 이어 붙는다(사용자 지시 2026-08-06 —
+    "쌍만으로는 고차원 빌드 불가"). 시드·공급자 모두 유니크·희귀를 가리지 않아
+    고유+희귀·희귀+희귀 연쇄가 같은 경로로 나온다. 각 연쇄의 `synergy`(연쇄 -
+    단독합)가 곱연산 맞물림의 수치다.
 
     `floors`(예: {"FireResist": 75})를 깨는 채택은 하지 않는다. 롤은 mid 고정.
     소요: 후보당 PoB 1~2회(~1.4초) — 전 슬롯 전수는 라운드당 ~10분.
@@ -216,6 +221,7 @@ def optimize_items(
         max_rounds=max_rounds,
         max_candidates_per_slot=max_candidates_per_slot,
         jewel_sockets=tuple(jewel_sockets or ()),
+        max_chain=max_chain,
     )
     return {
         "spec": result.spec,
@@ -235,17 +241,15 @@ def optimize_items(
             }
             for p in result.conditional_peaks
         ],
-        "pairs": [
+        "chains": [
             {
-                "peak": p.peak_label,
-                "supplier": p.supplier_label,
-                "slots": list(p.slots),
-                "axis": p.axis,
-                "delta_pair": p.delta_pair,
-                "synergy": p.synergy,
-                "blocked": p.blocked,
+                "members": [{"label": m[0], "slot": m[1]} for m in c.members],
+                "axis_path": list(c.axis_path),
+                "delta_chain": c.delta_chain,
+                "synergy": c.synergy,
+                "blocked": c.blocked,
             }
-            for p in result.pairs
+            for c in result.chains
         ],
         "notes": list(result.notes),
     }
@@ -263,14 +267,17 @@ def optimize_rare(
 ) -> dict[str, Any]:
     """이 빌드의 최선 희귀를 결정적으로 생성 (사용자 승인 2026-08-06 — 사고 4·5).
 
-    베이스의 표준 접사 풀(KB, 그룹별 최고 티어)을 **이 빌드 문맥에서 접사별 단독
-    실측**하고, 점수 상위 접두·접미를 조립해 재실측 + 합법성 검사(RC4)까지 낸다.
+    베이스의 접사 풀 — 표준 크래프트(item) + **신성모독(desecrated)·훼손(corrupted)**
+    (사용자 요구: 모든 속성 부여 경로) — 을 **이 빌드 문맥에서 접사별 단독 실측**하고,
+    점수 상위 접두3·접미3(+훼손 1)을 조립해 재실측 + 합법성 검사(RC4)까지 낸다.
     반환 text를 `optimize_items`의 rare_templates에 넣으면 유니크와 같은 조건에서
-    비교된다 — 비교 기준이 세션 판단이 아니라 측정이 된다.
+    비교된다 — 비교 기준이 세션 판단이 아니라 측정이 된다. chosen의 `origin`이
+    획득 경로다(신성모독=무덤 제작 조달, 훼손=바알 오브 도박 — notes에 명시).
+    ⚠ 완벽 에센스 전용 모드 82건은 부위 매핑이 KB 미수록이라 열거 불가(ingest 갭
+    보고됨, 2026-08-06) — 일반 에센스는 표준 풀 보장이라 item에 포함돼 있다.
 
     한계도 반환에 있다: 단독 점수 그리디(접사 상호작용은 조립 실측에만 반영),
-    스폰 태그 근사(최종 판정은 legality), 롤 mid 고정.
-    소요: 접사 풀 크기 x ~1.4초 — 슬롯당 1~2분.
+    롤 mid 고정. 소요: 접사 풀 크기 x ~1.4초 — 슬롯당 1~2분.
     """
     from pok.engine.rares import optimize_rare as _optimize
 
@@ -294,13 +301,19 @@ def optimize_rare(
             {
                 "id": r.option.label,
                 "type": r.option.affix_type,
+                "origin": r.option.origin,
                 "text": r.option.text,
                 "delta": r.delta,
             }
             for r in result.chosen
         ],
         "table_top": [
-            {"id": r.option.label, "type": r.option.affix_type, "delta": r.delta}
+            {
+                "id": r.option.label,
+                "type": r.option.affix_type,
+                "origin": r.option.origin,
+                "delta": r.delta,
+            }
             for r in result.table[:top_table]
         ],
         "table_size": len(result.table),

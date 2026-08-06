@@ -207,12 +207,17 @@ def test_req_shortfall_blocks_candidate_but_not_for_base_faults() -> None:
     assert any("기반 스펙 자체가 요구 속성 미달" in n for n in out.notes)
 
 
-def test_demand_supply_pair_is_measured_and_beats_single(monkeypatch: Any) -> None:
-    """축 수요-공급 쌍 실측 — 탐침(가정)이 아닌 실제 문맥이 단독 최선을 이기면 채택."""
+def test_demand_supply_chain_is_measured_and_beats_single(monkeypatch: Any) -> None:
+    """축 수요-공급 연쇄 실측 — 탐침(가정)이 아닌 실제 문맥이 단독 최선을 이기면 채택.
+
+    쌍(2개)에서 멈추지 않는다(사용자 지시: 쌍만으로는 고차원 빌드 불가) — 개선이
+    계속되면 3개째(고유+희귀+희귀)까지 이어 붙는 것을 잠근다.
+    """
     import pok.engine.items as items_mod
 
     scaler = "Rarity: UNIQUE\nScaler\nBase\nImplicits: 0\n6% increased Damage per 100 maximum Life"
     ring = "Rarity: RARE\nLifeRing\nGold Ring\nImplicits: 0\n+80 to maximum Life"
+    belt = "Rarity: RARE\nLifeBelt\nHeavy Belt\nImplicits: 0\n+100 to maximum Life"
 
     def compute(spec: dict[str, Any]) -> dict[str, float]:
         names = sorted(str(i.get("text", "")).splitlines()[1] for i in spec.get("items") or [])
@@ -220,10 +225,14 @@ def test_demand_supply_pair_is_measured_and_beats_single(monkeypatch: Any) -> No
             "": 100.0,
             "Scaler": 160.0,
             "LifeRing": 100.0,
-            "LifeRing|Scaler": 250.0,  # 쌍 +150 — 단독 합(+60)을 넘는 시너지
+            "LifeBelt": 100.0,
+            "LifeRing|Scaler": 250.0,  # 2연쇄 +150 — 단독 합(+60)을 넘는 시너지
+            "LifeBelt|Scaler": 240.0,
+            "LifeBelt|LifeRing|Scaler": 400.0,  # 3연쇄 +300 — 쌍에서 멈추면 못 여는 고점
             "Probe": 100.0,
             "Probe|Scaler": 240.0,
             "LifeRing|Probe": 100.0,
+            "LifeBelt|Probe": 100.0,
         }
         return {"CombinedDPS": table.get("|".join(names), 100.0)}
 
@@ -235,16 +244,20 @@ def test_demand_supply_pair_is_measured_and_beats_single(monkeypatch: Any) -> No
     monkeypatch.setattr(items_mod, "enumerate_slot_uniques", stub)
     out = items_mod.optimize_items(
         SPEC,
-        ["Weapon 2", "Ring 1"],
+        ["Weapon 2", "Ring 1", "Belt"],
         {"CombinedDPS": 1.0},
-        rare_templates={"Ring 1": [ring]},
+        rare_templates={"Ring 1": [ring], "Belt": [belt]},
         compute=compute,
         max_rounds=1,
     )
-    assert [(s.slot, s.adopted) for s in out.steps] == [
+    assert {(s.slot, s.adopted) for s in out.steps} == {
         ("Weapon 2", "item.scaler"),
         ("Ring 1", "rare:Ring 1#0"),
-    ]
-    pair = out.pairs[0]
-    assert pair.axis == "life" and pair.delta_pair == {"CombinedDPS": 150.0}
-    assert pair.synergy == {"CombinedDPS": 90.0}, "쌍 - 단독합 — 곱연산 맞물림이 수치로 남는다"
+        ("Belt", "rare:Belt#0"),
+    }, "3연쇄 전 구성원 채택 — 고유+희귀+희귀"
+    lengths = {len(c.members) for c in out.chains}
+    assert 2 in lengths and 3 in lengths, "2연쇄를 거쳐 3연쇄까지 확장 실측"
+    trio = next(c for c in out.chains if len(c.members) == 3)
+    assert trio.delta_chain == {"CombinedDPS": 300.0}
+    assert trio.synergy == {"CombinedDPS": 240.0}, "연쇄 - 단독합 — 곱연산 맞물림이 수치로 남는다"
+    assert trio.axis_path == ("life", "life")

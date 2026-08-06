@@ -26,12 +26,20 @@ PoB는 요구 속성 미달이어도 스탯을 계산해 준다 — 즉 1판 델
 않는다.** 대신 부족분을 속성 탐침으로 채운 문맥에서 한 번 더 재서(2판) "제약을
 지불하면 얼마가 나오는가"를 수치로 낸다 — 감수할지는 설계 판단이다.
 
-## 축 수요-공급 페어링 (사용자 사고 6·8, 2026-08-06)
+## 축 수요-공급 연쇄 (사용자 사고 6·8, N개 확장 지시 2026-08-06)
 
 조건부 고점의 수요 축(래스피스=생명력, 요구 미달=속성)이 확인되면, **다른 슬롯
-후보 중 그 축을 공급하는 것**을 골라 쌍으로 실측한다. 사전 정의 묶음이 아니라 축이
-짝을 고른다 — 검사 쌍은 수요·공급이 만나는 곳뿐이라 조합 폭발이 없다. 쌍은 탐침이
-아닌 **실제 문맥** 측정이므로, 점수가 단독 최선을 이기면 채택한다.
+후보 중 그 축을 공급하는 것**을 골라 연쇄로 실측한다 — 쌍에서 멈추지 않고 개선이
+계속되는 한 3개·4개까지 늘린다(사용자: "쌍만으로는 고차원 빌드를 구성할 수 없다").
+확장 축은 매 단계 갱신된다: 연쇄가 아직 착용 불가면 그 속성으로, 아니면 같은
+스케일 축으로. 시드·공급자 모두 유니크와 희귀 템플릿을 가리지 않는다 — 고유+희귀·
+희귀+희귀 연쇄가 같은 경로로 나온다(신성모독엔 `per 100 maximum Mana` 같은 스케일
+접사가 있어 희귀도 수요 시드가 된다).
+
+사전 정의 묶음이 아니라 축이 짝을 고른다 — 검사 조합은 수요·공급이 만나는 곳뿐이라
+조합 폭발이 없다. 연쇄는 탐침이 아닌 **실제 문맥** 측정이므로, 점수가 단독 최선을
+이기면 전 구성원을 채택한다. 축으로 안 잡히는 창발 조합은 이 경로 밖이다 — 그건
+`evaluate_change_bundle`(가설 묶음 실측)과 라운드 재측정 그리디가 맡는 층이다.
 """
 
 from __future__ import annotations
@@ -138,30 +146,28 @@ class CandidateResult:
 
 
 @dataclass(frozen=True)
-class PairResult:
-    """수요-공급 쌍의 실측 — 탐침이 아닌 실제 문맥이므로 채택 근거가 된다."""
+class ChainResult:
+    """수요-공급 연쇄(2개 이상)의 실측 — 탐침이 아닌 실제 문맥이므로 채택 근거가 된다.
 
-    peak_label: str
-    supplier_label: str
-    slots: tuple[str, str]  # (수요 슬롯, 공급 슬롯)
-    axis: str
-    delta_pair: dict[str, float]
-    delta_peak_alone: dict[str, float]
-    delta_supplier_alone: dict[str, float]
+    members[0]이 수요 시드(조건부 고점), 이후가 공급자 순서다. 유니크·희귀 템플릿을
+    가리지 않는다 — 고유+희귀·희귀+희귀 연쇄가 같은 형태로 나온다."""
+
+    members: tuple[tuple[str, str], ...]  # (label, slot) 연쇄 순서
+    axis_path: tuple[str, ...]  # 각 확장이 겨냥한 축 (길이 = len(members) - 1)
+    delta_chain: dict[str, float]
+    delta_members_alone: tuple[dict[str, float], ...]
     floor_violations: tuple[str, ...]
     req_shortfall: dict[str, float]
 
     def score(self, weights: Mapping[str, float]) -> float:
-        return sum(w * self.delta_pair.get(k, 0.0) for k, w in weights.items())
+        return sum(w * self.delta_chain.get(k, 0.0) for k, w in weights.items())
 
     @property
     def synergy(self) -> dict[str, float]:
-        """쌍 - (단독 + 단독) — 양수면 합보다 크다(곱연산 맞물림의 표식)."""
+        """연쇄 - 단독합 — 양수면 합보다 크다(곱연산 맞물림의 표식)."""
         return {
-            k: round(
-                v - self.delta_peak_alone.get(k, 0.0) - self.delta_supplier_alone.get(k, 0.0), 4
-            )
-            for k, v in self.delta_pair.items()
+            k: round(v - sum(d.get(k, 0.0) for d in self.delta_members_alone), 4)
+            for k, v in self.delta_chain.items()
         }
 
     @property
@@ -185,7 +191,7 @@ class ItemOptimizeResult:
     # 추구하려면 그 축을 빌드 성립 조건으로 장부화하고 문맥 확정 후 재측정할 것.
     conditional_peaks: tuple[CandidateResult, ...]
     notes: tuple[str, ...]
-    pairs: tuple[PairResult, ...] = ()  # 수요-공급 쌍 실측 전량 (채택 여부와 무관)
+    chains: tuple[ChainResult, ...] = ()  # 수요-공급 연쇄 실측 전량 (채택 여부와 무관)
 
 
 def resolve_rolls(text: str, roll: str = "mid") -> str:
@@ -441,22 +447,19 @@ def evaluate_slot(
     return results
 
 
-def _measure_pair(
+def _measure_chain(
     spec: dict[str, Any],
     base: Mapping[str, float],
-    peak: CandidateResult,
-    supplier: CandidateResult,
-    axis: str,
+    members: Sequence[CandidateResult],
+    axis_path: Sequence[str],
     *,
     stats: tuple[str, ...],
     floors: Mapping[str, float] | None,
     run: ComputeFn,
-) -> PairResult:
-    variant = _replace_slot(
-        _replace_slot(spec, peak.candidate.slot, peak.candidate.text),
-        supplier.candidate.slot,
-        supplier.candidate.text,
-    )
+) -> ChainResult:
+    variant = dict(spec)
+    for member in members:
+        variant = _replace_slot(variant, member.candidate.slot, member.candidate.text)
     measured = run(variant)
     delta = {k: round(measured.get(k, 0.0) - base.get(k, 0.0), 4) for k in stats}
     violations = tuple(
@@ -464,14 +467,11 @@ def _measure_pair(
         for k, v in (floors or {}).items()
         if measured.get(k, 0.0) < v
     )
-    return PairResult(
-        peak_label=peak.candidate.label,
-        supplier_label=supplier.candidate.label,
-        slots=(peak.candidate.slot, supplier.candidate.slot),
-        axis=axis,
-        delta_pair=delta,
-        delta_peak_alone=peak.delta_now,
-        delta_supplier_alone=supplier.delta_now,
+    return ChainResult(
+        members=tuple((m.candidate.label, m.candidate.slot) for m in members),
+        axis_path=tuple(axis_path),
+        delta_chain=delta,
+        delta_members_alone=tuple(m.delta_now for m in members),
         floor_violations=violations,
         req_shortfall=_req_shortfall(measured, base),
     )
@@ -488,7 +488,8 @@ def optimize_items(
     max_rounds: int = 3,
     max_candidates_per_slot: int | None = None,
     jewel_sockets: Sequence[int] = (),
-    max_pairs_per_round: int = 6,
+    max_chain: int = 4,
+    max_chain_measures_per_round: int = 10,
     root: Path | None = None,
     compute: ComputeFn | None = None,
 ) -> ItemOptimizeResult:
@@ -503,8 +504,12 @@ def optimize_items(
     - **착용 불가는 채택하지 않는다**: `req_shortfall`이 있는 후보는 1판 델타가
       낙관(미달이어도 PoB는 계산)이므로 채택 금지 — 속성 탐침 2판으로만 낸다.
     - **탐침 기반 조건부 고점은 채택하지 않고 드러낸다**: 1판에서 밀려도 2판(요구 축
-      탐침)에서 우세한 후보는 `conditional_peaks`로 나온다. 단 **실제 공급자와의 쌍
-      실측**(`pairs`)이 단독 최선을 이기면 채택한다 — 그건 가정이 아니라 측정이다.
+      탐침)에서 우세한 후보는 `conditional_peaks`로 나온다. 단 **실제 공급자와의
+      연쇄 실측**(`chains`)이 단독 최선을 이기면 채택한다 — 가정이 아니라 측정이다.
+    - **연쇄는 쌍에서 멈추지 않는다**(사용자 지시 2026-08-06): 개선이 계속되는 한
+      `max_chain`까지 공급자를 이어 붙이며 실측한다. 확장 축은 매 단계 갱신 —
+      연쇄가 아직 착용 불가면 그 속성, 아니면 같은 스케일 축. 시드·공급자 모두
+      유니크·희귀 템플릿을 가리지 않는다(고유+희귀·희귀+희귀 연쇄 동일 경로).
     - `slots`에 `"Jewel"`을 넣으면 `jewel_sockets`(트리에 **할당된** 소켓 node_id)의
       빈 칸에 유니크 주얼을 실측한다. 소켓을 안 주면 후보가 있어도 **미측정으로
       보고**한다 — 없다고 단정하지 않는다.
@@ -514,7 +519,7 @@ def optimize_items(
     current = dict(spec)
     steps: list[ItemStep] = []
     peaks: dict[str, CandidateResult] = {}
-    pairs: list[PairResult] = []
+    chains: list[ChainResult] = []
     notes: list[str] = []
     seen_notes: set[str] = set()
 
@@ -576,62 +581,79 @@ def optimize_items(
                 ):
                     peaks[result.candidate.label] = result
 
-        # 축 수요-공급 페어링: 조건부 고점의 수요 축을 실제로 공급하는 다른 슬롯
-        # 후보와 쌍으로 실측한다 — 탐침(가정)을 실측으로 바꾸는 단계.
-        best_pair: tuple[float, PairResult, CandidateResult, CandidateResult] | None = None
+        # 축 수요-공급 연쇄: 조건부 고점의 수요 축을 실제로 공급하는 다른 슬롯
+        # 후보를 이어 붙이며 실측한다 — 개선이 계속되는 한 max_chain까지(쌍에서
+        # 멈추면 고차원 조합이 닫힌다, 사용자 지시). 탐침(가정)을 실측으로 바꾸는 단계.
+        best_chain: tuple[float, ChainResult, list[CandidateResult]] | None = None
         demand = sorted(
             (r for r in round_results if r.conditional_peak),
             key=lambda r: r.probed_score(weights),
             reverse=True,
         )[:3]
-        budget = max_pairs_per_round
-        for peak in demand:
-            axis = peak.scaling_axes[0] if peak.scaling_axes else next(iter(peak.req_shortfall), "")
-            suppliers = sorted(
-                (
-                    r for r in round_results
-                    if r.candidate.slot != peak.candidate.slot
-                    and not r.blocked
-                    and _supply_magnitude(r.candidate.text, axis) > 0
-                ),
-                key=lambda r: _supply_magnitude(r.candidate.text, axis),
-                reverse=True,
-            )[:3]  # fmt: skip
-            for supplier in suppliers:
-                if budget <= 0:
+        budget = max_chain_measures_per_round
+        for seed in demand:
+            members = [seed]
+            axis_path: list[str] = []
+            used_slots = {seed.candidate.slot}
+            cur_score = seed.score(weights)
+            axis = seed.scaling_axes[0] if seed.scaling_axes else next(iter(seed.req_shortfall), "")
+            while axis and len(members) < max_chain and budget > 0:
+                suppliers = sorted(
+                    (
+                        r for r in round_results
+                        if r.candidate.slot not in used_slots
+                        and not r.blocked
+                        and _supply_magnitude(r.candidate.text, axis) > 0
+                    ),
+                    key=lambda r: _supply_magnitude(r.candidate.text, axis),
+                    reverse=True,
+                )[:2]  # fmt: skip
+                extended: tuple[float, ChainResult, CandidateResult] | None = None
+                for supplier in suppliers:
+                    if budget <= 0:
+                        break
+                    budget -= 1
+                    chain = _measure_chain(
+                        current, base_now, [*members, supplier], [*axis_path, axis],
+                        stats=measure, floors=floors, run=run,
+                    )  # fmt: skip
+                    chains.append(chain)
+                    c_score = chain.score(weights)
+                    if (
+                        not chain.blocked
+                        and c_score > 0
+                        and (best_chain is None or c_score > best_chain[0])
+                    ):
+                        best_chain = (c_score, chain, [*members, supplier])
+                    if extended is None or c_score > extended[0]:
+                        extended = (c_score, chain, supplier)
+                # 이번 확장이 현 연쇄 점수를 못 넘으면 이 시드는 여기까지다
+                if extended is None or extended[0] <= cur_score + 1e-9:
                     break
-                budget -= 1
-                pair = _measure_pair(
-                    current, base_now, peak, supplier, axis,
-                    stats=measure, floors=floors, run=run,
-                )  # fmt: skip
-                pairs.append(pair)
-                p_score = pair.score(weights)
-                if (
-                    not pair.blocked
-                    and p_score > 0
-                    and (best_pair is None or p_score > best_pair[0])
-                ):
-                    best_pair = (p_score, pair, peak, supplier)
+                cur_score, chain, supplier = extended
+                members.append(supplier)
+                used_slots.add(supplier.candidate.slot)
+                axis_path.append(axis)
+                # 다음 축: 연쇄가 아직 착용 불가면 그 속성부터, 아니면 같은 축을 계속
+                axis = next(iter(chain.req_shortfall), axis)
 
-        if best_pair is not None and (best is None or best_pair[0] > best[0]):
-            _, pair, peak, supplier = best_pair
-            for part, delta in (
-                (peak, pair.delta_pair),
-                (supplier, pair.delta_supplier_alone),
-            ):
+        if best_chain is not None and (best is None or best_chain[0] > best[0]):
+            _, chain, parts = best_chain
+            for i, part in enumerate(parts):
                 current = _replace_slot(current, part.candidate.slot, part.candidate.text)
                 steps.append(
                     ItemStep(
                         slot=part.candidate.slot,
                         adopted=part.candidate.label,
-                        deltas=delta,
+                        # 연쇄 전체 델타는 시드 걸음에, 공급자 걸음엔 단독 델타를 적는다
+                        deltas=chain.delta_chain if i == 0 else part.delta_now,
                         replaced=_slot_holder(spec, part.candidate.slot),
                     )
                 )
             note(
-                f"쌍 채택: {pair.peak_label} + {pair.supplier_label} (축={pair.axis}) — "
-                f"쌍 실측이 단독 최선을 이겼다. 시너지 성분은 pairs의 synergy 참조"
+                f"연쇄 채택({len(parts)}개): {' + '.join(m[0] for m in chain.members)} "
+                f"(축 경로={list(chain.axis_path)}) — 연쇄 실측이 단독 최선을 이겼다. "
+                f"시너지 성분은 chains의 synergy 참조"
             )
             continue
         if best is None:
@@ -657,7 +679,7 @@ def optimize_items(
         steps=tuple(steps),
         conditional_peaks=tuple(peaks.values()),
         notes=tuple(notes),
-        pairs=tuple(pairs),
+        chains=tuple(chains),
     )
 
 

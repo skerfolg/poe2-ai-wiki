@@ -21,9 +21,9 @@ def test_base_category_lookup() -> None:
 def test_affix_pool_is_deduped_by_group_at_top_tier() -> None:
     pool = enumerate_base_affixes("Sacred Focus")
     assert pool, "집중구 표준 접사 풀이 비면 안 된다"
-    groups = [a.group for a in pool]
-    assert len(groups) == len(set(groups)), "그룹별 최고 티어 1건만 — 티어 중복 금지"
-    assert all(a.affix_type in ("prefix", "suffix") for a in pool)
+    keys = [(a.origin, a.group) for a in pool]
+    assert len(keys) == len(set(keys)), "출처·그룹별 최고 티어 1건만 — 티어 중복 금지"
+    assert all(a.affix_type in ("prefix", "suffix", "corrupted") for a in pool)
     assert all("(" not in a.text for a in pool), "범위는 롤 정책으로 해소돼 있어야 한다"
 
 
@@ -65,3 +65,42 @@ def test_optimize_rare_respects_affix_caps_and_scores() -> None:
     assert len(out.table) == len(enumerate_base_affixes("Sacred Focus")), (
         "단독 실측 전량 — 절단 없음"
     )
+
+
+def test_all_grant_sources_are_enumerated_with_origin() -> None:
+    """모든 속성 부여 경로 열거 (사용자 요구 2026-08-06) — 출처가 함께 남는다.
+
+    desecrated는 applicable_pages, corrupted는 spawn_weights로 매칭이 다르다.
+    완벽 에센스 82건은 부위 매핑 미수록(ingest 갭 보고됨)이라 여기 없다 — 그건
+    '지원 안 함'이 아니라 'KB에 없음'이고, 수록되면 origins 확장으로 들어온다.
+    """
+    pool = enumerate_base_affixes("Sacred Focus")
+    origins = {a.origin for a in pool}
+    assert origins == {"item", "desecrated", "corrupted"}
+    assert all(a.affix_type == "corrupted" or a.origin != "corrupted" for a in pool), (
+        "훼손 모드는 접사 칸 밖(corrupted 칸)으로 분류돼야 한다"
+    )
+    item_only = enumerate_base_affixes("Sacred Focus", origins=("item",))
+    assert {a.origin for a in item_only} == {"item"}
+    assert len(item_only) < len(pool), "출처 확장이 실제로 풀을 넓혀야 한다"
+
+
+def test_corrupted_mod_capped_at_one_and_outside_legality() -> None:
+    """훼손 모드는 1건 캡 + 조립 텍스트에 Corrupted 표기, 합법성 검사는 접사만."""
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        text = "\n".join(str(i.get("text", "")) for i in spec.get("items") or [])
+        dps = 100.0
+        if "increased Spell Damage" in text:
+            dps += 50.0
+        if "Attribute Requirements" in text:
+            dps += 1.0  # 훼손 후보들에 양수 점수를 줘도 1건만 들어가야 한다
+        if "increased Energy Shield" in text:
+            dps += 2.0
+        return {"CombinedDPS": dps}
+
+    out = optimize_rare(SPEC, "Weapon 2", "Sacred Focus", {"CombinedDPS": 1.0}, compute=compute)
+    corrupted = [r for r in out.chosen if r.option.affix_type == "corrupted"]
+    assert len(corrupted) == 1, "바알 오브는 1회 — 훼손 모드 캡 1"
+    assert out.text.splitlines()[-1] == "Corrupted"
+    assert any("도박" in n for n in out.notes), "훼손 조달의 도박성이 명시돼야 한다"
