@@ -418,6 +418,7 @@ optimize_rare = tool(_tree.optimize_rare)
 
 # 능동 탐사 (P5) — tools/explore.py. 후보 생성만, 판정은 사람 게이트
 scan_synergies = tool(_explore.scan_synergies)
+discover_mechanics = tool(_explore.discover_mechanics)
 find_hypotheses = tool(_explore.find_hypotheses)
 
 
