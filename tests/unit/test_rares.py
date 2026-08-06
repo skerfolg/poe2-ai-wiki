@@ -27,6 +27,20 @@ def test_affix_pool_is_deduped_by_group_at_top_tier() -> None:
     assert all("(" not in a.text for a in pool), "범위는 롤 정책으로 해소돼 있어야 한다"
 
 
+def test_spawn_matching_uses_kb_base_spawn_tags() -> None:
+    """스폰 판정은 베이스 정본 `spawn_tags` 기준 — 손 매핑 근사가 놓친 구멍의 회귀.
+
+    사용자 지적 2026-08-06: category→태그 손 매핑이 집중구의 `int_armour` 태그를
+    몰라 로컬 ES 접사·속성 접사(+지능)가 풀에서 통째로 빠졌다(14건 → 22건).
+    """
+    texts = " | ".join(a.text for a in enumerate_base_affixes("Sacred Focus"))
+    assert "to Intelligence" in texts, "속성 부여 접사 — int_armour 태그로 집중구에 스폰"
+    assert "to maximum Energy Shield" in texts, "로컬 ES 접사 — int_armour 태그"
+    assert "to Cold Resistance" in texts, "저항 접미 — 방어구 공통 풀"
+    plate = " | ".join(a.text for a in enumerate_base_affixes("Glorious Plate"))
+    assert "to Intelligence" not in plate, "str_armour 판금엔 지능 접사가 스폰되지 않는다"
+
+
 def test_optimize_rare_respects_affix_caps_and_scores() -> None:
     """단독 델타 상위 접두 3·접미 3만 조립 — 음수 점수 접사는 넣지 않는다."""
 

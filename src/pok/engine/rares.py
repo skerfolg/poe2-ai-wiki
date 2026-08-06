@@ -10,9 +10,14 @@
     점수 상위 접두 3 + 접미 3을 조립 → 조립본 실측 + 합법성 검사(RC4).
 
 한계는 결과에 그대로 남긴다: 단독 델타 기반 그리디라 접사 간 상호작용은 조립 후
-실측에서만 잡히고, 스폰 태그 매칭은 근사(베이스 태그 순서 미반영)라 최종 합법성은
-`ItemLegalityChecker`가 판정한다. 롤은 mid 고정 — 만점 롤 가정이 결론을 뒤집은
-실측이 있다.
+실측에서만 잡히고, 최종 합법성은 `ItemLegalityChecker`가 판정한다. 롤은 mid 고정 —
+만점 롤 가정이 결론을 뒤집은 실측이 있다.
+
+스폰 판정은 **KB base 레코드의 `spawn_tags`**(수집 당시 조사·수록된 정본)를 게임
+방식대로 순서 매칭한다 — 처음엔 category→태그 손 매핑 근사를 썼다가 집중구의
+`int_armour` 태그를 놓쳐 로컬 에너지 실드 접사 전부가 풀에서 빠졌다(사용자 지적
+2026-08-06: "KB 구축 당시 속성 부여도 조사해서 포함"). 정본이 있는데 근사를 만들면
+정본과 어긋난 만큼이 조용한 구멍이 된다.
 """
 
 from __future__ import annotations
@@ -32,32 +37,6 @@ from pok.engine.items import (
     _req_shortfall,
     resolve_rolls,
 )
-
-# 접사 스폰 가중치 태그 근사 — KB base 레코드의 category → 그 베이스가 가질 태그들.
-# 방어구는 속성 조합 태그(str_armour 등)를 전부 포함한다: 베이스의 속성형을 텍스트로
-# 판별할 수 없어 넓게 잡고, 과포함은 최종 합법성 검사가 거른다(결과에 판정이 남는다).
-_ARMOUR_FAMILY = frozenset(
-    {"armour", "str_armour", "dex_armour", "int_armour", "str_dex_armour",
-     "str_int_armour", "dex_int_armour", "str_dex_int_armour"}
-)  # fmt: skip
-_CATEGORY_TAGS: dict[str, frozenset[str]] = {
-    "helmet": frozenset({"helmet"}) | _ARMOUR_FAMILY,
-    "body": frozenset({"body_armour"}) | _ARMOUR_FAMILY,
-    "gloves": frozenset({"gloves"}) | _ARMOUR_FAMILY,
-    "boots": frozenset({"boots"}) | _ARMOUR_FAMILY,
-    "shield": frozenset({"shield"}) | _ARMOUR_FAMILY,
-    "buckler": frozenset({"shield"}) | _ARMOUR_FAMILY,
-    "focus": frozenset({"focus"}),
-    "quiver": frozenset({"quiver"}),
-    "belt": frozenset({"belt"}),
-    "amulet": frozenset({"amulet"}),
-    "ring": frozenset({"ring"}),
-    **{
-        w: frozenset({w, "weapon"})
-        for w in ("mace", "bow", "spear", "staff", "warstaff", "wand", "sceptre",
-                  "sword", "axe", "dagger", "claw", "crossbow", "flail", "talisman")
-    },
-}  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -91,8 +70,8 @@ class RareOptimizeResult:
     notes: tuple[str, ...]
 
 
-def base_category(base_type: str, root: Path | None = None) -> str | None:
-    """베이스 이름 → KB category (rarity=normal 베이스 레코드에서)."""
+def base_record(base_type: str, root: Path | None = None) -> Mapping[str, Any] | None:
+    """베이스 이름 → KB 베이스 레코드 raw (rarity=normal, 이름 정확 일치)."""
     want = base_type.strip().lower()
     for record in _kb_records(root).values():
         if record.type != "Item":
@@ -102,8 +81,24 @@ def base_category(base_type: str, root: Path | None = None) -> str | None:
             continue
         name = str((record.raw.get("name") or {}).get("en") or "").strip().lower()
         if name == want:
-            return data.get("category")
+            return dict(record.raw)
     return None
+
+
+def base_category(base_type: str, root: Path | None = None) -> str | None:
+    """베이스 이름 → KB category (rarity=normal 베이스 레코드에서)."""
+    record = base_record(base_type, root)
+    return (record.get("data") or {}).get("category") if record else None
+
+
+def _mod_spawns_on(weights: Mapping[str, Any], base_tags: frozenset[str]) -> bool:
+    """게임의 스폰 규칙 재현: spawn_weights를 **순서대로** 훑어 베이스 태그와 처음
+    일치하는 항목의 가중치가 판정한다 — `{'focus': 0, 'default': 1}`은 집중구 제외,
+    `{'int_armour': 1, 'default': 0}`은 int 방어구(집중구 포함)에만 스폰."""
+    for tag, weight in weights.items():
+        if tag in base_tags:
+            return bool(weight)
+    return False
 
 
 def enumerate_base_affixes(
@@ -113,32 +108,36 @@ def enumerate_base_affixes(
 
     origins에 "item"이 있는 Modifier = 크래프트 가능 표준 풀(1,868건 실측)이다.
     desecrated·corrupted 등 특수 획득 풀은 여기 안 들어간다 — 그건 획득 경로가
-    티어 산정에 반영돼야 하는 별개 축이다.
+    티어 산정에 반영돼야 하는 별개 축이다. 스폰 판정은 베이스 레코드의
+    `spawn_tags`(정본) x 접사의 `spawn_weights` 순서 매칭 — 실측 2026-08-06:
+    Sacred Focus는 {armour, default, focus, int_armour}라 로컬 ES 접사가 붙는다.
     """
-    category = base_category(base_type, root)
-    tags = _CATEGORY_TAGS.get(category or "")
-    if not tags:
+    record = base_record(base_type, root)
+    if record is None:
+        return []
+    spawn_tags = (record.get("data") or {}).get("spawn_tags") or {}
+    base_tags = frozenset(t for t, on in spawn_tags.items() if on)
+    if not base_tags:
         return []
     best_per_group: dict[str, tuple[int, Any]] = {}
-    for record in _kb_records(root).values():
-        if record.type != "Modifier":
+    for record_ in _kb_records(root).values():
+        if record_.type != "Modifier":
             continue
-        data = record.raw.get("data") or {}
+        data = record_.raw.get("data") or {}
         if "item" not in (data.get("origins") or []):
             continue
-        weights = data.get("spawn_weights") or {}
-        if not any(weights.get(tag) for tag in tags):
+        if not _mod_spawns_on(data.get("spawn_weights") or {}, base_tags):
             continue
         if data.get("affix_type") not in ("prefix", "suffix"):
             continue
         texts = data.get("texts") or []
         if not texts:
             continue
-        group = str(data.get("group") or record.id)
+        group = str(data.get("group") or record_.id)
         ilvl = int(data.get("ilvl") or 0)
         held = best_per_group.get(group)
         if held is None or ilvl > held[0]:
-            best_per_group[group] = (ilvl, record)
+            best_per_group[group] = (ilvl, record_)
     out: list[AffixOption] = []
     for ilvl, record in best_per_group.values():
         data = record.raw.get("data") or {}
