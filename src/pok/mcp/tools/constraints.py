@@ -425,3 +425,43 @@ def compute_trigger_rate(
     except ValueError as e:
         return {"ok": False, "reason": str(e)}
     return {"ok": True, **asdict(result), "assumptions": list(result.assumptions)}
+
+
+def list_builds() -> dict[str, Any]:
+    """`artifacts/builds/` 전량의 헤더 요약 — **설계를 시작하기 전에 부른다.**
+
+    사용자 지시(2026-08-06): *"매번 백지 상태로 작업하라고 지시하기 번거롭다 —
+    자료 조사 전에 작업 중인 빌드가 있으면 버전업할지 백지로 갈지 강제로 물어보게
+    하라."* 이 목록이 그 질문의 재료다.
+
+    ⚠ **design.md 보유 빌드가 하나라도 있으면, KB 조회·설계를 시작하기 전에
+    사용자에게 [기존 빌드 버전업 | 백지 신규] 를 물어야 한다** — 답을 받기 전에는
+    진행하지 않는다(build-generation SKILL.md 0단계). 어느 빌드가 "진행 중"인지는
+    `status` 줄로 판단하되, 물을지 말지는 판단 대상이 아니다 — 목록이 비지 않으면
+    묻는다.
+    """
+    from pok.artifacts.design import list_builds as _list
+
+    builds = _list()
+    with_design = [b for b in builds if b.has_design]
+    return {
+        "builds": [
+            {
+                "build_id": b.build_id,
+                "updated": b.updated,
+                "version": b.version,
+                "status": b.status,
+                "goal": b.goal,
+                "has_design": b.has_design,
+            }
+            for b in builds
+        ],
+        "design_count": len(with_design),
+        "total": len(builds),
+        "note": (
+            "design.md 보유 빌드가 있다 — **사용자에게 [버전업|백지]를 묻기 전에는 "
+            "설계를 시작하지 말 것** (SKILL.md 0단계)"
+            if with_design
+            else "기존 빌드 없음 — 백지 신규로 진행한다"
+        ),
+    }

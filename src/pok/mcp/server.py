@@ -405,6 +405,7 @@ measure_leverage = tool(_build.measure_leverage)
 check_constraints = tool(_constraints.check_constraints)
 evaluate_objective = tool(_constraints.evaluate_objective)
 parse_design_doc = tool(_constraints.parse_design_doc)
+list_builds = tool(_constraints.list_builds)
 compute_trigger_rate = tool(_constraints.compute_trigger_rate)
 
 # 트리 최적화 도구 (P4) — tools/tree.py
