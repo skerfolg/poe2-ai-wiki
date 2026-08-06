@@ -46,7 +46,8 @@ class AffixOption:
     text: str  # 롤 해소된 문구 (여러 줄 가능)
     group: str
     ilvl: int
-    origin: str = "item"  # item(표준 크래프트) | desecrated(뼈 무덤 제작) | corrupted(훼손)
+    # item(표준 크래프트) | desecrated(뼈 무덤 제작) | corrupted(훼손) | essence(에센스 부여)
+    origin: str = "item"
 
 
 @dataclass(frozen=True)
@@ -103,15 +104,16 @@ def _mod_spawns_on(weights: Mapping[str, Any], base_tags: frozenset[str]) -> boo
 
 
 def _base_pages(item_class: str, base_tags: frozenset[str]) -> frozenset[str]:
-    """베이스 → desecrated(뼈 무덤 제작) 접사의 `applicable_pages` 이름들.
+    """베이스 → desecrated·essence 접사의 `applicable_pages` 이름들.
 
-    desecrated 모드는 spawn_weights가 없고 poe2db 페이지명(`Foci`·`Boots_str_int` 등)
-    으로 수록돼 있다 — item_class 복수형 + 방어구 속성 접미(spawn_tags의
-    `str_int_armour` → `_str_int`)로 결정적으로 유도한다.
+    이들 모드는 spawn_weights가 없고 poe2db 페이지명(`Foci`·`Boots_str_int` 등)
+    으로 수록돼 있다 — 페이지 슬러그(정본 kb.item_classes — Staves·Foci 등
+    불규칙 복수 포함) + 방어구 속성 접미(spawn_tags의 `str_int_armour` →
+    `_str_int`)로 결정적으로 유도한다.
     """
-    plural = {"Focus": "Foci"}.get(
-        item_class, item_class if item_class.endswith("s") else item_class + "s"
-    ).replace(" ", "_")
+    from pok.kb.item_classes import page_of_class
+
+    plural = page_of_class(item_class)
     pages = {plural}
     for tag in base_tags:
         if tag.endswith("_armour") and tag != "armour":
@@ -124,7 +126,7 @@ def enumerate_base_affixes(
     root: Path | None = None,
     *,
     roll: str = "mid",
-    origins: tuple[str, ...] = ("item", "desecrated", "corrupted"),
+    origins: tuple[str, ...] = ("item", "desecrated", "corrupted", "essence"),
 ) -> list[AffixOption]:
     """베이스에 부여 가능한 접사 풀 — (출처, 그룹)별 최고 티어(ilvl 최대)만.
 
@@ -133,9 +135,10 @@ def enumerate_base_affixes(
       Sacred Focus는 {armour, default, focus, int_armour}라 로컬 ES 접사가 붙는다.
     - desecrated(249건): spawn_weights가 없어 `applicable_pages` x 베이스 페이지명.
     - corrupted(119건): spawn_weights 매칭 — 접사형이 `corrupted`(별도 칸)다.
-    - ⚠ **완벽 에센스 전용 82건은 열거 불가** — spawn_weights 전부 0이고 부위 매핑이
-      KB 미수록(ingest 갭, 2026-08-06 보고). 일반 에센스는 표준 풀 보장이라 item에
-      포함돼 있다.
+    - essence: **에센스 전용 부여**(`granted_by` 보유 ∧ 자연 스폰 전무 →
+      `applicable_pages` x 베이스 페이지명, 2026-08-06 ingest 갭 해소분 83건).
+      자연 스폰도 되는 에센스 부여 모드는 item 축이 이미 잡는다 — 여기서 또
+      잡으면 이중 계상이므로 applicable_pages 보유분(=스폰 전무분)만 본다.
     """
     record = base_record(base_type, root)
     if record is None:
@@ -152,13 +155,23 @@ def enumerate_base_affixes(
             continue
         data = record_.raw.get("data") or {}
         mod_origins = set(data.get("origins") or [])
-        origin = next((o for o in origins if o in mod_origins), None)
+        # 에센스 축은 PoB 계보(origins)가 아니라 부여 실체(granted_by)가 판별한다
+        # — 합금 모드의 origins는 item이라 계보만 보면 스폰 검사로 탈락한다.
+        origin: str | None
+        if (
+            "essence" in origins
+            and data.get("granted_by")
+            and set(data.get("applicable_pages") or []) & pages
+        ):
+            origin = "essence"
+        else:
+            origin = next((o for o in origins if o != "essence" and o in mod_origins), None)
         if origin is None:
             continue
         if origin == "desecrated":
             if not (set(data.get("applicable_pages") or []) & pages):
                 continue
-        elif not _mod_spawns_on(data.get("spawn_weights") or {}, base_tags):
+        elif origin != "essence" and not _mod_spawns_on(data.get("spawn_weights") or {}, base_tags):
             continue
         if data.get("affix_type") not in ("prefix", "suffix", "corrupted"):
             continue
@@ -258,7 +271,9 @@ def optimize_rare(
     )
     report = _checker(root).check(affix_text)
 
-    by_origin = {o: sum(r.option.origin == o for r in chosen) for o in ("desecrated", "corrupted")}
+    by_origin = {
+        o: sum(r.option.origin == o for r in chosen) for o in ("desecrated", "corrupted", "essence")
+    }
     notes = [
         f"접사 풀 {len(pool)}건(출처·그룹별 최고 티어) 전량 단독 실측 — 롤 {roll} 고정",
         "단독 점수 그리디 조립 — 접사 간 상호작용은 조립 실측에만 반영된다",
@@ -272,6 +287,11 @@ def optimize_rare(
         notes.append(
             "훼손 모드 1건 포함 — 바알 오브는 결과가 무작위라 **노린 모드는 도박**이다. "
             "합법성 검사는 접사만으로 했다(훼손 모드는 접사 칸 밖)"
+        )
+    if by_origin["essence"]:
+        notes.append(
+            f"에센스 전용 부여 접사 {by_origin['essence']}건 포함 — 해당 에센스 조달이 "
+            f"필요하고 부여는 확정적이다 (어느 에센스인지는 KB Modifier의 granted_by)"
         )
     if not report.is_legal:
         notes.append("⚠ 합법성 위반 — 이 조합은 실제로 만들 수 없다. errors 확인")

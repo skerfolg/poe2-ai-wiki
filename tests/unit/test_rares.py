@@ -70,19 +70,37 @@ def test_optimize_rare_respects_affix_caps_and_scores() -> None:
 def test_all_grant_sources_are_enumerated_with_origin() -> None:
     """모든 속성 부여 경로 열거 (사용자 요구 2026-08-06) — 출처가 함께 남는다.
 
-    desecrated는 applicable_pages, corrupted는 spawn_weights로 매칭이 다르다.
-    완벽 에센스 82건은 부위 매핑 미수록(ingest 갭 보고됨)이라 여기 없다 — 그건
-    '지원 안 함'이 아니라 'KB에 없음'이고, 수록되면 origins 확장으로 들어온다.
+    desecrated·essence는 applicable_pages, corrupted·item은 spawn_weights로 매칭이
+    다르다. essence 축은 2026-08-06 ingest 갭 해소(에센스 부여 매핑 수록)로 열렸다
+    — 합금 모드의 origins(PoB 계보)는 item이라 계보가 아니라 granted_by가 판별한다.
     """
     pool = enumerate_base_affixes("Sacred Focus")
     origins = {a.origin for a in pool}
-    assert origins == {"item", "desecrated", "corrupted"}
+    assert origins == {"item", "desecrated", "corrupted", "essence"}
     assert all(a.affix_type == "corrupted" or a.origin != "corrupted" for a in pool), (
         "훼손 모드는 접사 칸 밖(corrupted 칸)으로 분류돼야 한다"
     )
+    labels = [a.label for a in pool]
+    assert len(labels) == len(set(labels)), "같은 모드가 두 출처로 이중 계상되면 안 된다"
     item_only = enumerate_base_affixes("Sacred Focus", origins=("item",))
     assert {a.origin for a in item_only} == {"item"}
     assert len(item_only) < len(pool), "출처 확장이 실제로 풀을 넓혀야 한다"
+
+
+def test_essence_origin_enumerates_alloy_mods_including_staves() -> None:
+    """에센스 전용 부여(합금) 열거 — Staves 불규칙 복수 조인의 회귀.
+
+    페이지 슬러그 자동 유도("Staff"+"s"="Staffs")는 poe2db `Staves`와 어긋나
+    지팡이 대상 에센스·훼손 접사가 통째로 빠진다 — 정본 kb.item_classes 조인 확인.
+    """
+    focus = enumerate_base_affixes("Sacred Focus", origins=("essence",))
+    assert focus, "집중구에 에센스 전용 부여가 있어야 한다 (실측 0.5.4b: 7건)"
+    assert {a.origin for a in focus} == {"essence"}
+    texts = " | ".join(a.text for a in focus)
+    assert "Exposure Effect" in texts, "Prismatic Alloy가 Foci에 부여 (개별 페이지 실측)"
+    staff = enumerate_base_affixes("Gelid Staff", origins=("essence",))
+    staff_texts = " | ".join(a.text for a in staff)
+    assert "Elemental Infusions" in staff_texts, "Mystic Alloy가 Staves에 부여"
 
 
 def test_corrupted_mod_capped_at_one_and_outside_legality() -> None:

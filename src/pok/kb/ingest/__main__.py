@@ -63,6 +63,12 @@ def main(argv: list[str] | None = None) -> int:
     p_cur = sub.add_parser("currency", help="화폐 아이템(④ 보강): merge (Stackable_Currency 원시)")
     p_cur.add_argument("--patch", required=True)
 
+    p_ess = sub.add_parser(
+        "essences", help="에센스: fetch(목록+개별, 네트워크)|grants(부여 매핑 대사)|apply(KB 부착)"
+    )
+    p_ess.add_argument("--patch", required=True)
+    p_ess.add_argument("step", choices=["fetch", "grants", "apply"])
+
     p_ail = sub.add_parser(
         "ailments", help="상태이상·축적 계열 전량 수록 (오프라인, PoB Data.lua·Misc.lua)"
     )
@@ -246,6 +252,19 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         print(f"리포트: {raw_dir / 'currency' / 'report.json'}")
+    elif args.cmd == "essences":
+        from pok.kb.ingest import essences
+
+        out_dir = project_root() / "var" / "ingest" / args.patch
+        if args.step == "fetch":
+            print(json.dumps(essences.fetch_pages(raw_dir), ensure_ascii=False, indent=1))
+            print(json.dumps(essences.fetch_detail_pages(raw_dir), ensure_ascii=False, indent=1))
+        elif args.step == "grants":
+            grants_report = essences.process_grants(raw_dir, out_dir)
+            print(json.dumps(grants_report, ensure_ascii=False, indent=1))
+            print(f"리포트: {raw_dir / 'essences' / 'grants-report.json'}")
+        else:
+            print(json.dumps(essences.apply_grants(out_dir), ensure_ascii=False, indent=1))
     elif args.cmd == "ailments":
         from pok.kb.ingest.ailments import ingest_ailments
 

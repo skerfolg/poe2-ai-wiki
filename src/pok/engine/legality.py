@@ -588,6 +588,16 @@ def _route_base_fit(d: dict[str, Any], base: dict[str, Any]) -> tuple[bool, str]
     name = str(base.get("name", {}).get("en", "")).lower()
     pages = d.get("applicable_pages")
     if pages:
+        # item_class가 있으면 페이지 슬러그 조인(정본 kb.item_classes)이 결정적이다
+        # — 문자열 휴리스틱은 Staves·Foci 같은 불규칙 복수에서 틀렸다(실측 2026-08-06).
+        item_class = str(base_data.get("item_class") or "")
+        if item_class:
+            from pok.kb.item_classes import page_matches_class
+
+            if any(page_matches_class(str(p), item_class) for p in pages):
+                return True, ""
+            pages_s = ", ".join(map(str, pages))
+            return False, f"applicable_pages({pages_s}) 밖 베이스({item_class})"
         for page in pages:
             p = str(page).lower().replace("_", " ").rstrip("s")
             if p and (p in name or name in p or (category and (category in p or p in category))):

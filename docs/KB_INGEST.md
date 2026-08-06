@@ -142,6 +142,16 @@ PoE2에서 PoB의 weightVal이 성기게 채워져 있어, 가중치 0인 모드
   "spawn_weights 축"만 보므로 별도 경로 풀을 죽은 태그로 오인할 수 있다 — ⑥ 해석 주의.
 - **Desecrated 249종**: PoB에 아예 없는 신규 모드군(equipment 198·jewel 32·waystone 19)
   → poe2db 단독 소스로 신규 수록 (SUPPORTED_INFERENCE).
+- **에센스 부여 매핑 (2026-08-06 갭 해소)**: 풀 표기(poe2db:perfect_essence)만으로는
+  "어느 부위에 부여되나"를 판정할 수 없었다(spawn_weights 전부 0 ∧ 부위 매핑 없음).
+  `essences fetch|grants|apply`가 (에센스→부위→모드)를 수록한다 — 합금(Alloy)은
+  poe2db **개별 페이지**의 Class|Modifier 테이블(PoB 매핑 부재분만 수집), 고전
+  에센스는 PoB `Essence.lua`가 정본. 부착: Item(에센스) `grants` 전량 +
+  Modifier `granted_by` 전량 + `applicable_pages`는 **자연 스폰 전무 모드에만**
+  (자연 스폰 모드에 붙이면 에센스 부위 목록이 전체 적용 범위로 오독된다).
+  merge가 모드 샤드를 재생성하면 apply를 재실행해야 한다 (gem_costs와 같은 보강 단계).
+  주의: 카탈로그 계단식 대조의 풀 오귀속이 실존한다(실측: AlloyCastSpeedGloves1 →
+  poe2db:normal) — 부여 실체 판정은 acquisition 문자열이 아니라 `granted_by`로.
 
 **3b 분할 규칙 — 왜 "두 언어의 합의"인가**: poe2db의 `\n`은 **효과 경계**일 때도 있고
 (`Avatar of Fire`: "…Converted to Fire Damage\n Deal no Non-Fire Damage") **단순 줄바꿈**일 때도 있다
