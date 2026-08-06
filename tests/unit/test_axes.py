@@ -88,3 +88,47 @@ def test_probe_tag_variants() -> None:
     assert strip_probe_tags("+100 Life [PROBE]") == "+100 Life "
     assert find_probe_lines({"jewels": [{"socket_node_id": 7, "text": "x [probe]"}]})
     assert not find_probe_lines({"items": [{"slot": "A", "text": "clean line"}]})
+
+
+def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """출고 결과에 축 보고가 **항상** 실린다 — 호출을 건너뛰어도 보이게.
+
+    실측 2026-08-06: axes 검사·유니크 열거가 스킬 문서와 서버에 있었는데 새 세션이
+    부르지 않아 유니크·주얼 미고려가 재발했다. 룬 소켓이 안 빠진 이유는 어차피
+    부르는 exhaustion에 얹혀 나왔기 때문 — 같은 원리로 출고 지점에 자동 부착한다.
+    """
+    from types import SimpleNamespace
+
+    import pok.mcp.tools.build as build_mod
+
+    fake = SimpleNamespace(
+        build_id="t",
+        path="/tmp/t",
+        build_code="X",
+        duplicates=(),
+        result=SimpleNamespace(stats={}, is_tree_legal=True, pruned_nodes=(), meta={}),
+    )
+    monkeypatch.setattr(build_mod, "assemble", lambda *a, **k: fake)
+    out = build_mod.assemble_pob(
+        {
+            "class_name": "Witch",
+            "ascendancy": "Witch2",
+            "skills": [
+                {
+                    "gems": [
+                        {
+                            "gem_id": "Metadata/Items/Gems/SkillGemSpark",
+                            "name": "Spark",
+                            "level": 20,
+                        }
+                    ]
+                }
+            ],
+            "items": [{"slot": "Amulet", "text": "Rarity: RARE\nT\nBase"}],
+        },
+        "axes-autorun-test",
+    )
+    assert out["ok"] is True
+    assert "axes" in out, "부르지 않아도 실려 있어야 한다"
+    assert "성유" in out["axes"]["empty"], "목걸이에 성유 없음이 바로 보인다"
+    assert any("61배" in n for n in out["axes"]["notes"])
