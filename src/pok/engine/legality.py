@@ -588,6 +588,16 @@ def _route_base_fit(d: dict[str, Any], base: dict[str, Any]) -> tuple[bool, str]
     name = str(base.get("name", {}).get("en", "")).lower()
     pages = d.get("applicable_pages")
     if pages:
+        # item_class가 있으면 페이지 슬러그 조인(정본 kb.item_classes)이 결정적이다
+        # — 문자열 휴리스틱은 Staves·Foci 같은 불규칙 복수에서 틀렸다(실측 2026-08-06).
+        item_class = str(base_data.get("item_class") or "")
+        if item_class:
+            from pok.kb.item_classes import page_matches_class
+
+            if any(page_matches_class(str(p), item_class) for p in pages):
+                return True, ""
+            pages_s = ", ".join(map(str, pages))
+            return False, f"applicable_pages({pages_s}) 밖 베이스({item_class})"
         for page in pages:
             p = str(page).lower().replace("_", " ").rstrip("s")
             if p and (p in name or name in p or (category and (category in p or p in category))):
@@ -620,7 +630,10 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str]]:
         low = ln.lower()
         if low.startswith("item level:"):
             ilvl = int(ln.split(":", 1)[1].strip())
-        elif low.startswith(("quality:", "sockets:", "--")):
+        elif low.startswith(("quality:", "sockets:", "implicits:", "--")):
+            # implicits: 헤더는 모드가 아니다 — render_unique가 내는 형식(PoB 허용)이
+            # UNKNOWN으로 판정돼 is_legal을 오염시켰다(실측 2026-08-06). 개수만 버리고
+            # 뒤따르는 암묵 모드 줄 자체는 여전히 모드로 검사한다.
             continue
         else:
             mod_lines.append(ln)
