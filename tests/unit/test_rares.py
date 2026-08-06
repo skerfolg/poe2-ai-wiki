@@ -122,3 +122,59 @@ def test_corrupted_mod_capped_at_one_and_outside_legality() -> None:
     assert len(corrupted) == 1, "바알 오브는 1회 — 훼손 모드 캡 1"
     assert out.text.splitlines()[-1] == "Corrupted"
     assert any("도박" in n for n in out.notes), "훼손 조달의 도박성이 명시돼야 한다"
+
+
+def test_jewel_pool_and_caps_come_from_canon() -> None:
+    """주얼 회귀 (빌드 회차 2026-08-06 갭2): 접사 풀이 훼손 11건뿐이었다.
+
+    origins 기본값에 'jewel'(377건)이 빠져 있었다. 한도도 장비 3/3 하드코딩이라
+    정본 판 규칙(주얼 rare 2/2)과 어긋났다.
+    """
+    pool = enumerate_base_affixes("Diamond")
+    origins = {a.origin for a in pool}
+    assert "jewel" in origins, "주얼 전용 크래프팅 풀이 열거돼야 한다"
+    assert len(pool) > 100, f"훼손 모드뿐이면 안 된다 (실측 갭: 11건) — 지금 {len(pool)}건"
+    from pok.engine.rares import _affix_caps
+
+    assert _affix_caps("Diamond", None)[:2] == (2, 2), "주얼 한도는 정본 기준 2/2"
+    assert _affix_caps("Sacred Focus", None)[:2] == (3, 3), "장비는 3/3"
+
+
+def test_jewel_slot_without_socket_is_reported_invalid() -> None:
+    """소켓 없는 주얼 측정은 델타 0이 된다 — '효과 없음'이 아니라 '측정 무효'로 낸다."""
+    out = optimize_rare(
+        SPEC,
+        "Jewel",
+        "Diamond",
+        {"CombinedDPS": 1.0},
+        compute=lambda spec: {"CombinedDPS": 100.0},
+    )
+    assert any("소켓" in n for n in out.notes), "소켓 미지정을 말해야 한다"
+    assert any("측정" in n and "무효" in n for n in out.notes), "전 델타 0은 측정 실패 신호"
+
+
+def test_unallocated_socket_is_reported() -> None:
+    """할당되지 않은 소켓도 PoB가 무시한다 — 트리 할당 여부를 대조해 경고."""
+    spec = {**SPEC, "tree_nodes": (111, 222)}
+    out = optimize_rare(
+        spec,
+        "Jewel@999",
+        "Diamond",
+        {"CombinedDPS": 1.0},
+        compute=lambda s: {"CombinedDPS": 100.0},
+    )
+    assert any("tree_nodes에 없다" in n for n in out.notes)
+
+
+def test_base_implicit_is_written_into_template() -> None:
+    """PoB는 베이스 암시적을 자동 적용하지 않는다 (갭3) — 텍스트에 기재해야 반영."""
+    out = optimize_rare(
+        SPEC,
+        "Ring 1",
+        "Gold Ring",
+        {"CombinedDPS": 1.0},
+        compute=lambda spec: {"CombinedDPS": 100.0},
+    )
+    assert "Rarity of Items found" in out.text, "정본 implicit이 조립본에 들어가야 한다"
+    assert "Implicits: 1" in out.text
+    assert "(" not in out.text.splitlines()[5], "암시적 범위도 롤 정책으로 해소"
