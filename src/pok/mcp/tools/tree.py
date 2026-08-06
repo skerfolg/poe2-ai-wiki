@@ -171,3 +171,62 @@ def evaluate_change_bundle(
         "sum_of_parts": result.sum_of_parts,
         "synergy": {k: result.synergy(k) for k in keys},
     }
+
+
+def optimize_items(
+    build_spec: dict[str, Any],
+    slots: list[str],
+    weights: dict[str, float],
+    rare_templates: dict[str, list[str]] | None = None,
+    floors: dict[str, float] | None = None,
+    max_rounds: int = 3,
+    max_candidates_per_slot: int = 40,
+) -> dict[str, Any]:
+    """아이템 그리디 최적화 — `optimize_tree`의 아이템판 (사용자 지시 2026-08-06).
+
+    라운드마다 각 슬롯의 후보(**KB 유니크 자동 열거** + `rare_templates`의 희귀안)를
+    현재 문맥에서 PoB 실측하고, 정책 점수 최고의 양수 채택을 반영한 뒤 재측정하며
+    돈다. 유니크 열거를 세션 절차에 맡기지 않는다 — 건너뛰어 카옴이 후보에 오르지
+    못한 것이 61배 격차의 성분이었다.
+
+    **2판 측정**: `per N maximum Life` 같은 스케일 문구가 있는 유니크는 요구 축을
+    탐침(+1000 생명력 등)으로 올린 문맥에서도 잰다. 1판에서 밀려도 2판에서 우세하면
+    `conditional_peaks`로 나온다 — 실측: 래스피스의 구체가 1판 DPS +68(희귀 +71에
+    밀림) / 2판 +134(희귀의 2배). **채택은 하지 않는다** — 그 축을 채울지는 설계
+    판단이고, 추구하면 성립 조건 장부화 + 재측정이 따른다(AD-3).
+
+    `floors`(예: {"FireResist": 75})를 깨는 채택은 하지 않는다. 롤은 mid 고정 —
+    만점 롤 가정 비교가 결론을 뒤집은 실측이 있다.
+
+    소요: 후보당 PoB 1~2회(~0.1초) — 슬롯 3개 x 후보 40이면 라운드당 수십 초.
+    """
+    from pok.engine.items import optimize_items as _optimize
+
+    result = _optimize(
+        build_spec,
+        slots,
+        weights,
+        rare_templates=rare_templates,
+        floors=floors,
+        max_rounds=max_rounds,
+        max_candidates_per_slot=max_candidates_per_slot,
+    )
+    return {
+        "spec": result.spec,
+        "steps": [
+            {"slot": s.slot, "adopted": s.adopted, "deltas": s.deltas, "replaced": s.replaced}
+            for s in result.steps
+        ],
+        "conditional_peaks": [
+            {
+                "label": p.candidate.label,
+                "slot": p.candidate.slot,
+                "scaling_axes": list(p.scaling_axes),
+                "probe": p.probe,
+                "delta_now": p.delta_now,
+                "delta_probed": p.delta_probed,
+            }
+            for p in result.conditional_peaks
+        ],
+        "notes": list(result.notes),
+    }
