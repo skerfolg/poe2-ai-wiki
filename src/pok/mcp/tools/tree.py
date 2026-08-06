@@ -180,25 +180,30 @@ def optimize_items(
     rare_templates: dict[str, list[str]] | None = None,
     floors: dict[str, float] | None = None,
     max_rounds: int = 3,
-    max_candidates_per_slot: int = 40,
+    max_candidates_per_slot: int | None = None,
+    jewel_sockets: list[int] | None = None,
 ) -> dict[str, Any]:
     """아이템 그리디 최적화 — `optimize_tree`의 아이템판 (사용자 지시 2026-08-06).
 
-    라운드마다 각 슬롯의 후보(**KB 유니크 자동 열거** + `rare_templates`의 희귀안)를
-    현재 문맥에서 PoB 실측하고, 정책 점수 최고의 양수 채택을 반영한 뒤 재측정하며
-    돈다. 유니크 열거를 세션 절차에 맡기지 않는다 — 건너뛰어 카옴이 후보에 오르지
-    못한 것이 61배 격차의 성분이었다.
+    라운드마다 각 슬롯의 후보(**KB 유니크 전수 열거** + `rare_templates`의 희귀안 —
+    최선 희귀는 `optimize_rare`로 만들 수 있다)를 현재 문맥에서 PoB 실측하고, 정책
+    점수 최고의 양수 채택을 반영한 뒤 재측정하며 돈다. **전수가 기본**이다(사용자
+    승인 2026-08-06) — max_candidates_per_slot을 주면 자르되 notes로 알린다.
 
-    **2판 측정**: `per N maximum Life` 같은 스케일 문구가 있는 유니크는 요구 축을
-    탐침(+1000 생명력 등)으로 올린 문맥에서도 잰다. 1판에서 밀려도 2판에서 우세하면
-    `conditional_peaks`로 나온다 — 실측: 래스피스의 구체가 1판 DPS +68(희귀 +71에
-    밀림) / 2판 +134(희귀의 2배). **채택은 하지 않는다** — 그 축을 채울지는 설계
-    판단이고, 추구하면 성립 조건 장부화 + 재측정이 따른다(AD-3).
+    슬롯은 PoB 슬롯명 + `"Charm 1"`(호신부)·`"Flask 1"`(플라스크)·`"Jewel"`(유니크
+    주얼 — `jewel_sockets`에 트리에 할당된 소켓 node_id를 줘야 실측되고, 안 주면
+    미측정으로 보고된다).
 
-    `floors`(예: {"FireResist": 75})를 깨는 채택은 하지 않는다. 롤은 mid 고정 —
-    만점 롤 가정 비교가 결론을 뒤집은 실측이 있다.
+    **착용 가능성**: 요구 속성 미달(`ReqStr` 등) 후보는 1판 델타가 낙관이므로 채택
+    금지 — 속성 탐침 2판으로 "지불 시 이득"만 낸다. **2판 측정**: 스케일 문구
+    (`per N maximum Life`) 보유 유니크는 그 축을 탐침으로 올린 문맥에서도 잰다.
+    1판에서 밀려도 2판 우세면 `conditional_peaks`로 나온다 — 실측: 래스피스의 구체
+    1판 DPS +68(희귀 +71에 밀림) / 2판 +134. 탐침 기반은 채택하지 않되(AD-3),
+    **수요 축을 실제로 공급하는 다른 슬롯 후보와의 쌍 실측**(`pairs`)이 단독 최선을
+    이기면 채택한다 — 그건 가정이 아니라 측정이다.
 
-    소요: 후보당 PoB 1~2회(~0.1초) — 슬롯 3개 x 후보 40이면 라운드당 수십 초.
+    `floors`(예: {"FireResist": 75})를 깨는 채택은 하지 않는다. 롤은 mid 고정.
+    소요: 후보당 PoB 1~2회(~1.4초) — 전 슬롯 전수는 라운드당 ~10분.
     """
     from pok.engine.items import optimize_items as _optimize
 
@@ -210,6 +215,7 @@ def optimize_items(
         floors=floors,
         max_rounds=max_rounds,
         max_candidates_per_slot=max_candidates_per_slot,
+        jewel_sockets=tuple(jewel_sockets or ()),
     )
     return {
         "spec": result.spec,
@@ -225,8 +231,78 @@ def optimize_items(
                 "probe": p.probe,
                 "delta_now": p.delta_now,
                 "delta_probed": p.delta_probed,
+                "req_shortfall": p.req_shortfall,
             }
             for p in result.conditional_peaks
         ],
+        "pairs": [
+            {
+                "peak": p.peak_label,
+                "supplier": p.supplier_label,
+                "slots": list(p.slots),
+                "axis": p.axis,
+                "delta_pair": p.delta_pair,
+                "synergy": p.synergy,
+                "blocked": p.blocked,
+            }
+            for p in result.pairs
+        ],
+        "notes": list(result.notes),
+    }
+
+
+def optimize_rare(
+    build_spec: dict[str, Any],
+    slot: str,
+    base_type: str,
+    weights: dict[str, float],
+    floors: dict[str, float] | None = None,
+    prefix_count: int = 3,
+    suffix_count: int = 3,
+    top_table: int = 15,
+) -> dict[str, Any]:
+    """이 빌드의 최선 희귀를 결정적으로 생성 (사용자 승인 2026-08-06 — 사고 4·5).
+
+    베이스의 표준 접사 풀(KB, 그룹별 최고 티어)을 **이 빌드 문맥에서 접사별 단독
+    실측**하고, 점수 상위 접두·접미를 조립해 재실측 + 합법성 검사(RC4)까지 낸다.
+    반환 text를 `optimize_items`의 rare_templates에 넣으면 유니크와 같은 조건에서
+    비교된다 — 비교 기준이 세션 판단이 아니라 측정이 된다.
+
+    한계도 반환에 있다: 단독 점수 그리디(접사 상호작용은 조립 실측에만 반영),
+    스폰 태그 근사(최종 판정은 legality), 롤 mid 고정.
+    소요: 접사 풀 크기 x ~1.4초 — 슬롯당 1~2분.
+    """
+    from pok.engine.rares import optimize_rare as _optimize
+
+    result = _optimize(
+        build_spec,
+        slot,
+        base_type,
+        weights,
+        floors=floors,
+        prefix_count=prefix_count,
+        suffix_count=suffix_count,
+    )
+    return {
+        "text": result.text,
+        "delta": result.delta,
+        "legal": result.legal,
+        "legality_errors": list(result.legality_errors),
+        "floor_violations": list(result.floor_violations),
+        "req_shortfall": result.req_shortfall,
+        "chosen": [
+            {
+                "id": r.option.label,
+                "type": r.option.affix_type,
+                "text": r.option.text,
+                "delta": r.delta,
+            }
+            for r in result.chosen
+        ],
+        "table_top": [
+            {"id": r.option.label, "type": r.option.affix_type, "delta": r.delta}
+            for r in result.table[:top_table]
+        ],
+        "table_size": len(result.table),
         "notes": list(result.notes),
     }

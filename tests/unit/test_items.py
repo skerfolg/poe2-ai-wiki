@@ -131,3 +131,120 @@ def test_floor_violating_candidate_is_not_adopted() -> None:
     by = {r.candidate.label: r for r in results}
     assert not by["rare:a"].floor_violations
     assert by["rare:b"].floor_violations, "위반이 사유와 함께 남아야 한다"
+
+
+def test_full_enumeration_is_default_and_truncation_is_reported() -> None:
+    """조용한 절단 = 조용한 카옴 누락 — 기본은 전수, 자르면 반드시 알린다."""
+    full = enumerate_slot_uniques("Weapon 1")
+    assert len(full) > 40, "limit 기본값이 전수가 아니면 후보가 말없이 빠진다"
+    out = optimize_items(
+        SPEC,
+        ["Weapon 1"],
+        {"CombinedDPS": 1.0},
+        compute=lambda spec: {"CombinedDPS": 0.0},
+        max_rounds=1,
+        max_candidates_per_slot=5,
+    )
+    assert any("절단" in n for n in out.notes)
+
+
+def test_charm_flask_jewel_slots_enumerate() -> None:
+    """플라스크·호신부·주얼 — 매핑 밖이라 후보 0건이던 493-434 구멍의 해소."""
+    assert len(enumerate_slot_uniques("Charm 1")) > 0
+    assert len(enumerate_slot_uniques("Flask 1")) > 0
+    jewels = enumerate_slot_uniques("Jewel")
+    assert len(jewels) > 0
+    charm_bases = {c.text.splitlines()[2] for c in enumerate_slot_uniques("Charm 1")}
+    assert all("Charm" in b for b in charm_bases), "호신부 슬롯에 플라스크가 섞이면 안 된다"
+
+
+def test_jewel_without_sockets_is_reported_unmeasured() -> None:
+    """소켓을 안 주면 주얼은 '없다'가 아니라 '안 쟀다'로 보고된다."""
+    out = optimize_items(
+        SPEC,
+        ["Jewel"],
+        {"CombinedDPS": 1.0},
+        compute=lambda spec: {"CombinedDPS": 0.0},
+        max_rounds=1,
+    )
+    assert any("미측정" in n for n in out.notes)
+
+
+def test_req_shortfall_blocks_candidate_but_not_for_base_faults() -> None:
+    """착용 불가(요구 미달)는 채택 금지 — 단 기반 스펙의 미달을 후보 탓하지 않는다."""
+    heavy = ItemCandidate(
+        "rare:plate",
+        "Body Armour",
+        "Rarity: RARE\nPlate\nBase\nImplicits: 0\nx",
+        "rare-template",
+    )
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        worn = any("Plate" in str(i.get("text", "")) for i in spec.get("items") or [])
+        stats = {"CombinedDPS": 150.0 if worn else 100.0, "Str": 7.0, "ReqInt": 140.0, "Int": 60.0}
+        if worn:
+            stats["ReqStr"] = 121.0  # 후보가 새로 유발한 미달 → 차단
+        for item in spec.get("items") or []:
+            if "Strength" in str(item.get("text", "")):
+                stats["Str"] = 200.0  # 속성 탐침 반영
+        return stats
+
+    r = evaluate_slot(SPEC, "Body Armour", [heavy], stats=("CombinedDPS",), compute=compute)[0]
+    assert r.req_shortfall == {"str": 114.0}, "ReqStr 121 vs Str 7 — 착용 불가 검출"
+    assert "int" not in r.req_shortfall, "기반 스펙의 Int 미달(젬 요구)은 후보 탓이 아니다"
+    assert r.blocked and r.delta_probed is not None, "속성 탐침 2판으로 '지불 시 이득'을 낸다"
+
+    out = optimize_items(
+        SPEC,
+        ["Body Armour"],
+        {"CombinedDPS": 1.0},
+        rare_templates={"Body Armour": [heavy.text]},
+        compute=compute,
+        max_rounds=1,
+        max_candidates_per_slot=0,
+    )
+    assert not out.steps, "1판 +50이어도 착용 불가면 채택하지 않는다"
+    assert any("기반 스펙 자체가 요구 속성 미달" in n for n in out.notes)
+
+
+def test_demand_supply_pair_is_measured_and_beats_single(monkeypatch: Any) -> None:
+    """축 수요-공급 쌍 실측 — 탐침(가정)이 아닌 실제 문맥이 단독 최선을 이기면 채택."""
+    import pok.engine.items as items_mod
+
+    scaler = "Rarity: UNIQUE\nScaler\nBase\nImplicits: 0\n6% increased Damage per 100 maximum Life"
+    ring = "Rarity: RARE\nLifeRing\nGold Ring\nImplicits: 0\n+80 to maximum Life"
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        names = sorted(str(i.get("text", "")).splitlines()[1] for i in spec.get("items") or [])
+        table = {
+            "": 100.0,
+            "Scaler": 160.0,
+            "LifeRing": 100.0,
+            "LifeRing|Scaler": 250.0,  # 쌍 +150 — 단독 합(+60)을 넘는 시너지
+            "Probe": 100.0,
+            "Probe|Scaler": 240.0,
+            "LifeRing|Probe": 100.0,
+        }
+        return {"CombinedDPS": table.get("|".join(names), 100.0)}
+
+    def stub(slot: str, root: Any = None, *, limit: Any = None) -> list[ItemCandidate]:
+        if slot == "Weapon 2":
+            return [ItemCandidate("item.scaler", slot, scaler, "unique-kb")]
+        return []
+
+    monkeypatch.setattr(items_mod, "enumerate_slot_uniques", stub)
+    out = items_mod.optimize_items(
+        SPEC,
+        ["Weapon 2", "Ring 1"],
+        {"CombinedDPS": 1.0},
+        rare_templates={"Ring 1": [ring]},
+        compute=compute,
+        max_rounds=1,
+    )
+    assert [(s.slot, s.adopted) for s in out.steps] == [
+        ("Weapon 2", "item.scaler"),
+        ("Ring 1", "rare:Ring 1#0"),
+    ]
+    pair = out.pairs[0]
+    assert pair.axis == "life" and pair.delta_pair == {"CombinedDPS": 150.0}
+    assert pair.synergy == {"CombinedDPS": 90.0}, "쌍 - 단독합 — 곱연산 맞물림이 수치로 남는다"
