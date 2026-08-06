@@ -254,12 +254,25 @@ def assemble_pob(
         # 스펙 오류(ValueError)도 사유로 돌려준다 — 예외로 터지면 호출자는
         # "어느 젬의 어느 키"인지 못 보고 추측으로 재시도한다
         return {"ok": False, "reason": str(e)}
+    # **축 완전성을 자동으로 얹는다** — 호출해야 작동하는 검사는 호출을 건너뛰면
+    # 무력하다. 실측 2026-08-06: axes·유니크 열거가 스킬 문서와 서버에 있었는데
+    # 새 세션이 부르지 않아 유니크·주얼 미고려가 그대로 재발했다. 룬 소켓이 안
+    # 빠졌던 이유는 어차피 부르는 exhaustion에 얹혀 나왔기 때문이다 — 같은 원리로
+    # 모든 빌드가 통과하는 이 지점(출고)에 붙인다. 위반이 아니라 보고다(AD-3).
+    from pok.engine.constraints.axes import check_axes
+
+    axes_report = check_axes(build_spec)
     return {
         "ok": True,
         "build_id": built.build_id,
         "path": str(built.path),
         "build_code": built.build_code,
         "duplicates": list(built.duplicates),
+        "axes": {
+            "empty": list(axes_report.empty_axes),
+            "unmeasured": list(axes_report.unmeasured_axes),
+            "notes": list(axes_report.notes),
+        },
         **_pick(built.result, stats),
     }
 
