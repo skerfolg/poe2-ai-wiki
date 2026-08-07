@@ -16,6 +16,21 @@ from pok.common.paths import knowledge_dir
 from pok.engine.compute import compute_pob
 from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import spec_from_dict, to_xml
+from pok.pob.versions import find_luajit, resolve_snapshot
+
+
+def _env_ready() -> bool:
+    try:
+        find_luajit()
+        resolve_snapshot()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    return True
+
+
+# PoB를 **실행**하는 테스트다 — LuaJIT과 전체 스냅샷이 필요하다. CI는 카탈로그
+# 파일만 sparse-checkout하므로 여기선 skip된다(기존 통합 테스트와 같은 규약).
+pytestmark = pytest.mark.skipif(not _env_ready(), reason="LuaJIT 또는 external/pob 스냅샷 없음")
 
 
 @pytest.fixture(scope="module")

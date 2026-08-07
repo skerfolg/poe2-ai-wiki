@@ -43,12 +43,20 @@ jobs:
           git init -q "$dir"
           git -C "$dir" remote add origin "$POB_REPO"
           git -C "$dir" config core.sparseCheckout true
+          # 선행 `/`가 있어야 그 경로 하나만 잡는다(non-cone 규칙). 상태이상 중첩
+          # 판정은 `<Ailment>CanStack` 플래그를 여는 출처를 src 전체에서 찾으므로
+          # 그 플래그가 실재하는 파일들도 함께 받는다(실측: 6개 파일에 등장).
           git -C "$dir" sparse-checkout set --no-cone \
-            src/Data/Gems.lua src/Modules/ConfigOptions.lua src/Modules/Data.lua
-          git -C "$dir" fetch --depth 1 -q origin "$POB_COMMIT"
+            /src/Data/Gems.lua /src/Data/Misc.lua /src/Data/ModCache.lua \
+            /src/Data/Skills/sup_dex.lua /src/Modules/ConfigOptions.lua \
+            /src/Modules/Data.lua /src/Modules/ModParser.lua \
+            /src/Modules/CalcPerform.lua
+          # --filter=blob:none 이 핵심 — sparse-checkout은 **작업 트리**만 제한하고
+          # blob은 다 받는다. 실측 2026-08-07: 필터 없이 321MB/28초, 필터 붙여 1.3MB/1초.
+          git -C "$dir" fetch --depth 1 --filter=blob:none -q origin "$POB_COMMIT"
           git -C "$dir" checkout -q FETCH_HEAD
-          ls -l "$dir/src/Data/Gems.lua" "$dir/src/Modules/ConfigOptions.lua" \
-                "$dir/src/Modules/Data.lua"
+          ls -l "$dir/src/Data/Gems.lua" "$dir/src/Data/Misc.lua" \
+                "$dir/src/Modules/ConfigOptions.lua" "$dir/src/Modules/Data.lua"
       - name: Lint (ruff)
         run: ruff check src tests && ruff format --check src tests
       - name: Types (mypy)
