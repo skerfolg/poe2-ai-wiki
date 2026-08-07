@@ -9,6 +9,9 @@ from pathlib import Path
 from pok.kb.ingest.essences import parse_page as parse_essence_page
 from pok.kb.ingest.mod_catalog import (
     _norm_text,
+    align_key,
+    aligned_ko_texts,
+    build_ko_line_index,
     match_key,
     parse_desecrated,
     parse_modsview,
@@ -196,3 +199,55 @@ def test_norm_text_absorbs_notation_differences() -> None:
     assert _norm_text("(15 — 19) % increased Skill Effect Duration") == _norm_text(
         "(15-19)% increased Skill Effect Duration"
     )
+
+
+def test_align_key_ignores_html_derived_spacing() -> None:
+    """poe2db는 `get_text(" ")`로 뽑아 쉼표·괄호 앞을 띄운다 — 의미가 아니라 부산물이다.
+
+    남겨 두면 같은 줄이 다른 줄로 보여 한글이 통째로 떨어져 나간다(실측: 5건).
+    """
+    assert align_key("(20-30)% increased Global Armour, Evasion and Energy Shield") == align_key(
+        "(20-30) % increased global armour , evasion and energy shield"
+    )
+    assert align_key("+(4-5) maximum stacks of Puppet Master") == align_key(
+        "+ (4-5) maximum stacks of puppet master"
+    )
+
+
+def test_ko_index_drops_conflicting_lines_instead_of_guessing() -> None:
+    """한 영문 줄에 서로 다른 한글이 붙으면 **빼고 보고한다** — 임의로 고르지 않는다.
+
+    전역화가 안전한지는 짐작하지 말고 여기서 재는 것이 요점이다 (실측 0.5.4b:
+    3,427줄 중 충돌 0건).
+    """
+    catalog = {
+        "a": {"ko_by_text": {"+(5-8) to strength": "힘 +(5-8)"}},
+        "b": {"ko_by_text": {"+(5-8) to Strength": "힘 +(5-8)"}},  # 표기만 다름 → 같은 줄
+        "c": {"ko_by_text": {"adds fire damage": "화염 피해 추가"}},
+        "d": {"ko_by_text": {"Adds Fire Damage": "불 피해 추가"}},  # 진짜 충돌
+    }
+    index, conflicts = build_ko_line_index(catalog)
+    assert index[align_key("+(5-8) to Strength")] == "힘 +(5-8)", "표기 차이는 흡수"
+    assert conflicts == [align_key("adds fire damage")], "충돌은 색인에서 빠지고 보고된다"
+    assert align_key("adds fire damage") not in index
+
+
+def test_aligned_ko_is_all_or_nothing() -> None:
+    """줄 하나라도 짝이 없으면 통째로 포기한다 — 틀린 번역보다 없는 번역이 낫다.
+
+    이게 `len(texts) == len(texts_ko)`를 **구조적으로** 보장한다(철칙 5). 통째로
+    붙이던 시절 옆 모드의 줄이 섞여 1,536건이 오염됐고, 그 오염이 `radius-grant`
+    오탐 519건을 낳았다 (2026-08-07).
+    """
+    ko_lines = {
+        align_key("+(5-8) to Strength"): "힘 +(5-8)",
+        align_key("Notable Passive Skills in Radius also grant +(2-3) to Strength"): (
+            "반경 내 주요 패시브 스킬이 힘 +(2-3)도 부여"
+        ),
+    }
+    assert aligned_ko_texts(["+(5-8) to Strength"], ko_lines) == ["힘 +(5-8)"], (
+        "슬롯에 반경판이 함께 있어도 자기 줄만 온다"
+    )
+    # 하이브리드: PoB 두 줄 ↔ poe2db 한 줄 → 짝을 못 맞추면 접는다 (KB_INGEST §3b와 동일 판정)
+    assert aligned_ko_texts(["+(5-8) to Strength", "Adds Fire Damage"], ko_lines) == []
+    assert aligned_ko_texts([], ko_lines) == []

@@ -496,6 +496,7 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
       · Desecrated 테이블(249) → 신규 Modifier 레코드 (poe2db 단독)
     """
     from pok.kb.ingest.merge import POB_COMMIT
+    from pok.kb.ingest.mod_catalog import aligned_ko_texts, build_ko_line_index
     from pok.kb.store import load as store_load
 
     mods = json.loads((out_dir / "mods.json").read_text(encoding="utf-8"))
@@ -508,6 +509,14 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     catalog_path = out_dir / "mod_catalog.json"
     catalog: dict[str, dict[str, Any]] = (
         json.loads(catalog_path.read_text(encoding="utf-8")) if catalog_path.exists() else {}
+    )
+    # 전역 (영문 줄 → 한글 줄) 색인. 카탈로그가 있는데 색인 파일이 없으면 옛
+    # 산출물이므로 그 자리에서 만든다 — 슬롯 경유 경로는 남겨 두지 않는다.
+    ko_path = out_dir / "mod_texts_ko.json"
+    ko_lines: dict[str, str] = (
+        json.loads(ko_path.read_text(encoding="utf-8"))
+        if ko_path.exists()
+        else build_ko_line_index(catalog)[0]
     )
     for m in mods:  # poe2db 풀 = 획득 경로 (E-2 실존 풀 연결 포함)
         info = match.get(m["pob_key"]) or {}
@@ -535,6 +544,8 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
 
     by_pool: dict[str, list[dict[str, Any]]] = {}
     ko_attached = 0
+    ko_texts_attached = 0
+    ko_texts_unaligned = 0  # ko는 있으나 영문 줄과 짝이 안 맞아 포기한 것
     upgraded = 0
     for m in included:
         rec = mod_to_record(m, patch, POB_COMMIT)
@@ -557,8 +568,17 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
             if entry.get("affix_name_ko") and same_affix:
                 rec["name"]["ko"] = entry["affix_name_ko"]
                 ko_attached += 1
-            if entry.get("texts_ko"):
-                rec["data"]["texts_ko"] = entry["texts_ko"]
+        # 한글 효과 문구는 **슬롯이 아니라 줄**에서 온다 (catalog_key와 무관하므로
+        # entry 유무 밖에 둔다). 슬롯의 ko 목록을 통째로 붙이면 옆 모드의 줄이
+        # 섞인다 — 실측 2026-08-07: 1,536건 오염 → radius-grant 오탐 519건 →
+        # 세션이 측정 방법론을 바꿈.
+        texts = [str(t) for t in (rec["data"].get("texts") or [])]
+        ko_texts = aligned_ko_texts(texts, ko_lines)
+        if ko_texts:
+            rec["data"]["texts_ko"] = ko_texts
+            ko_texts_attached += 1
+        elif texts:
+            ko_texts_unaligned += 1
         by_pool.setdefault(m["origins"][0], []).append(rec)
 
     base_ko_path = out_dir / "base_names_ko.json"
@@ -595,6 +615,8 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
         "mods_by_pool": {k: len(v) for k, v in sorted(by_pool.items())},
         "verification_upgraded": upgraded,  # POB_CODE → GAME_DATA (양 소스 확인)
         "ko_names": {"mods": ko_attached, "bases": base_ko_attached},
+        # 줄 단위 짝짓기 결과 — unaligned는 **오염 대신 공란**을 택한 건수다
+        "ko_texts": {"attached": ko_texts_attached, "unaligned_skipped": ko_texts_unaligned},
         "bases_written": len(bases),
         "shards": {"modifiers": len(mod_files), "base-items": len(base_files)},
         "kb_total": len(after.records),
