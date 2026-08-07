@@ -263,7 +263,13 @@ def assemble_pob(
             "reason": "실현 불가능한 구성 — 인게임에서 성립하지 않는다",
             "blocking": list(assumptions.blocking),
             "locked_nodes": [
-                {"node_id": n.node_id, "name": n.name, "locked_to": n.locked_to}
+                {
+                    "node_id": n.node_id,
+                    "name": n.name,
+                    "locked_to": n.locked_to,
+                    "missing_nodes": list(n.missing_nodes),
+                    "why": n.why,
+                }
                 for n in assumptions.locked_nodes
             ],
         }

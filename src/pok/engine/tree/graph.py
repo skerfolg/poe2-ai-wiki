@@ -53,11 +53,26 @@ class TreeNode:
 
     @property
     def locked_to(self) -> str | None:
-        """이 노드를 해금할 수 있는 어센던시 (없으면 None = 누구나)."""
+        """이 노드를 해금할 수 있는 어센던시 (없으면 None = 전직 제약 없음)."""
         if not self.unlock_constraint:
             return None
         value = self.unlock_constraint.get("ascendancy")
         return str(value) if value else None
+
+    @property
+    def requires_nodes(self) -> tuple[int, ...]:
+        """먼저 할당해야 열리는 **선행 노드** (전직 제약과 별개 축).
+
+        `unlock_constraint`에 `ascendancy` 없이 `nodes`만 있는 꼴이 있다 — 실측
+        2026-08-07 Passive 3건(탈주자의 길·동혈수호자·신성한 합일). 이건 "다른
+        전직 전용"이 아니라 "저 노터블들을 먼저 찍어야 열린다"이므로 `locked_to`가
+        None이고, 전직 대조만 하던 검사에서는 **그냥 통과했다**. 그중 2건은 본
+        트리 노드라 후보에도 샜다.
+        """
+        if not self.unlock_constraint or self.unlock_constraint.get("ascendancy"):
+            return ()
+        nodes = self.unlock_constraint.get("nodes")
+        return tuple(int(n) for n in nodes) if isinstance(nodes, list) else ()
 
 
 class TreeGraph:
@@ -70,10 +85,19 @@ class TreeGraph:
         kb = store_load(knowledge.parent if knowledge.name == "knowledge" else knowledge)
         self.nodes: dict[int, TreeNode] = {}
         raw_conn: dict[int, list[int]] = {}
+        # 표기 → 실명. 빌드 스펙은 코드("Witch1")를 들고 `unlock_constraint`는
+        # 실명("Oracle")으로 적혀 있어, 잇는 표가 없으면 대조 자체가 성립하지 않는다.
+        self._asc_names: dict[str, str] = {}
         for r in kb.records.values():
             d = r.raw.get("data", {})
             if r.type != "Passive" or "node_id" not in d:
                 continue
+            code = d.get("ascendancy")
+            names = d.get("ascendancy_name") or {}
+            real = str(names.get("en") or "") if isinstance(names, dict) else ""
+            if code and real:
+                for notation in (str(code), real, *(str(v) for v in names.values() if v)):
+                    self._asc_names[notation.casefold()] = real
             nid = int(d["node_id"])
             self.nodes[nid] = TreeNode(
                 node_id=nid,
@@ -105,6 +129,16 @@ class TreeGraph:
                     if c in self.nodes:
                         self.adj[nid].add(c)
                         self.adj[c].add(nid)
+
+    def resolve_ascendancy(self, name: str | None) -> str | None:
+        """코드("Witch1")·영문("Blood Mage")·한글 아무 표기나 → 실명. 모르면 원문 그대로.
+
+        원문 폴백은 의도적이다 — 모르는 표기를 None으로 떨구면 "제약 없음"으로
+        읽혀 잠긴 노드가 통과한다(조용한 폴백은 이 프로젝트가 반복해 데인 꼴이다).
+        """
+        if not name:
+            return None
+        return self._asc_names.get(name.casefold(), name)
 
     def start_of(self, class_name: str) -> int:
         if class_name not in CLASS_START:
@@ -183,9 +217,14 @@ class TreeGraph:
 
         **해금 조건이 맞지 않는 노드는 후보에서 뺀다** — PoB 계산기가 이 제약을 검사하지
         않아, 넣으면 인게임에서 못 찍는 스탯이 그대로 더해진다(실측 2026-08-06).
-        `ascendancy_name`은 실명("Blood Mage")이며, 주지 않으면 잠긴 노드를 **전부** 뺀다
-        (모르는 채 넣는 것보다 빼고 알리는 쪽이 안전하다).
+        `ascendancy_name`은 코드·영문·한글 아무 표기나 받는다. 주지 않으면 잠긴 노드를
+        **전부** 뺀다 — 안전하지만 **과잉**이다(오라클 빌드가 자기 노드를 후보로 못
+        받는다). 호출자는 빌드의 전직을 반드시 넘길 것(B-13).
+
+        선행 노드 요구형(`requires_nodes`)은 **그 노드들이 이미 `near`에 있을 때만**
+        후보다 — 전직 제약이 아니라서 `locked_to` 대조로는 걸러지지 않는다.
         """
+        allowed = self.resolve_ascendancy(ascendancy_name)
         dist = self.distances_from(near, max_dist)
         out = [
             (nid, self.nodes[nid], d)
@@ -194,6 +233,7 @@ class TreeGraph:
             and nid in self.nodes
             and self.nodes[nid].kind in kinds
             and self.nodes[nid].ascendancy is None
-            and self.nodes[nid].locked_to in (None, ascendancy_name)
+            and self.nodes[nid].locked_to in (None, allowed)
+            and set(self.nodes[nid].requires_nodes) <= near
         ]
         return sorted(out, key=lambda x: (x[2], x[0]))

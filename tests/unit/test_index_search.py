@@ -64,3 +64,57 @@ def test_empty_search_still_records_as_empty() -> None:
     assert len(out) == 1 and out[0]["empty"] is True
     assert out[0]["why"], "이유가 비면 진단이 아니다"
     assert telemetry.classify(out) == "empty"
+
+
+def test_이름이_맞는_레코드가_먼저_온다() -> None:
+    """B-14 실측 2026-08-07: `search_kb("보이지 않는 길")`이 엉뚱한 결과만 냈다.
+    레코드는 **있었다** — 176개 노드가 stats에 "보이지 않는 길 필요"를 달고 있어
+    177건이 매칭됐고, `ORDER BY r.id`가 정작 그 노드를 **164번째**로 밀었다.
+    세션은 상위 10건만 보고 "KB에 없다"로 결론냈다.
+    """
+    from pok.index.search import search
+
+    for q in ("보이지 않는 길", "The Unseen Path"):
+        hits = search(query=q, limit=5)
+        assert hits[0].id == "passive.the-unseen-path-5571", f"{q}: 이름 정확 일치가 1위여야 한다"
+
+
+def test_해금_제약이_검색_히트에_실린다() -> None:
+    """B-13: 차단이 조립 시점(assemble_pob)에만 있으면 세션은 그 전에 이미 잘못된
+    설계 결론을 낸다. 후보를 내는 **모든 지점**에서 같은 판정이 나와야 한다.
+    """
+    from pok.index.search import search
+
+    (locked,) = search(query="힘 소진", type_="Passive", for_ascendancy="Witch1")
+    assert locked.locked_to == "Oracle"
+    assert locked.excluded_by_unlock and "찍을 수 없다" in locked.excluded_by_unlock
+
+    # **빼지 않고 표시한다** — 조용히 빼면 "KB에 없다"로 오독된다
+    (owner,) = search(query="힘 소진", type_="Passive", for_ascendancy="Oracle")
+    assert owner.locked_to == "Oracle" and owner.excluded_by_unlock is None
+
+    # 선행 노드 요구형 — 전직 제약이 아니라서 전직 대조만으로는 안 잡힌다
+    (prereq,) = search(query="탈주자의 길", type_="Passive", for_ascendancy="Witch1")
+    assert prereq.locked_to is None
+    assert set(prereq.requires_nodes) == {50239, 9535, 61309}
+    assert prereq.excluded_by_unlock and "선행 노드" in prereq.excluded_by_unlock
+
+
+def test_제약_없는_히트는_칸이_비어_나온다() -> None:
+    """압축 히트(D14)에 상시 None 세 칸을 실으면 전 질의가 토큰을 문다."""
+    from dataclasses import asdict
+
+    from pok.index.search import search
+    from pok.mcp import server
+
+    (hit,) = search(query="Behemoth", type_="Passive", limit=1, for_ascendancy="Witch1")
+    assert (hit.locked_to, hit.requires_nodes, hit.excluded_by_unlock) == (None, (), None)
+    assert set(asdict(hit)) - set(server._hit_dict(hit)) == {
+        "locked_to",
+        "requires_nodes",
+        "excluded_by_unlock",
+    }
+
+    fn = getattr(server.search_kb, "fn", server.search_kb)
+    (out,) = fn(query="힘 소진", type="Passive", for_ascendancy="Witch1")
+    assert out["locked_to"] == "Oracle" and out["excluded_by_unlock"]

@@ -63,8 +63,16 @@ class ConfigVerdict:
 class LockedNode:
     node_id: int
     name: str
-    locked_to: str  # 이 노드를 해금할 수 있는 어센던시 실명
+    locked_to: str  # 이 노드를 해금할 수 있는 어센던시 실명 ("" = 전직 제약 아님)
     stats: tuple[str, ...] = ()
+    # 선행 노드 요구형에서 **아직 안 찍은** 노드들. locked_to가 ""면 이쪽이 사유다.
+    missing_nodes: tuple[int, ...] = ()
+
+    @property
+    def why(self) -> str:
+        if self.locked_to:
+            return f"{self.locked_to} 전용"
+        return f"선행 노드 {', '.join(str(n) for n in self.missing_nodes)} 미할당"
 
 
 @dataclass(frozen=True)
@@ -91,14 +99,12 @@ class AssumptionReport:
         if self.ascendancy_error:
             out.append(self.ascendancy_error)
         if self.locked_nodes:
-            detail = ", ".join(
-                f"{n.node_id}({n.name}→{n.locked_to} 전용)" for n in self.locked_nodes[:6]
-            )
+            detail = ", ".join(f"{n.node_id}({n.name}→{n.why})" for n in self.locked_nodes[:6])
             out.append(
                 f"해금 불가 노드 {len(self.locked_nodes)}개를 찍었다: {detail}"
-                f"{'…' if len(self.locked_nodes) > 6 else ''} — 다른 어센던시에서만 열리는 "
-                f"노드다. **PoB 계산기는 이 제약을 검사하지 않아 스탯을 그대로 더하고**, "
-                f"트리 화면엔 그리지 않으며, 인게임에선 찍을 수 없다"
+                f"{'…' if len(self.locked_nodes) > 6 else ''} — 다른 어센던시에서만 열리거나 "
+                f"선행 노드를 요구하는 노드다. **PoB 계산기는 이 제약을 검사하지 않아 스탯을 "
+                f"그대로 더하고**, 트리 화면엔 그리지 않으며, 인게임에선 찍을 수 없다"
             )
         return tuple(out)
 
@@ -409,37 +415,35 @@ def check_locked_nodes(
     x3·강력한 시전)가 섞여 출혈 지속시간이 1.50 → 1.90으로 부풀었다.
 
     `ascendancy`는 실명("Blood Mage") 또는 코드("Witch2") 어느 쪽이든 받는다.
+
+    **전용 해금 외에 선행 노드 요구형도 잡는다** — `unlock_constraint`에 `ascendancy`
+    없이 `nodes`만 있는 꼴(실측 2026-08-07: 3건). 전직 대조만 하던 이전 판은 이걸
+    그냥 통과시켰다: 「탈주자의 길」은 노터블 3개를 먼저 찍어야 열리는데, 안 찍고
+    할당해도 PoB는 카오스 저항 +8%를 그대로 더해 준다.
     """
     from pok.common.paths import knowledge_dir
     from pok.engine.tree.graph import TreeGraph
 
     graph = TreeGraph(knowledge_dir(root))
-    allowed = {str(ascendancy or "")}
-    for node in graph.nodes.values():
-        if node.ascendancy and str(node.ascendancy) == str(ascendancy):
-            allowed.add(node.ascendancy)
     # 코드(Witch2) → 실명(Blood Mage) 해소 — unlock_constraint는 실명으로 적혀 있다
-    from pok.kb.store import load as store_load
-
-    for rec in store_load(root).records.values():
-        data = rec.raw.get("data") or {}
-        if data.get("kind") != "ascendancy-start":
-            continue
-        names = data.get("ascendancy_name") or {}
-        if str(data.get("ascendancy")) == str(ascendancy) or names.get("en") == ascendancy:
-            allowed.add(str(names.get("en") or ""))
+    allowed = {str(ascendancy or ""), str(graph.resolve_ascendancy(ascendancy) or "")}
+    allocated_ids = {int(n) for n in tree_nodes}
     out: list[LockedNode] = []
-    for node_id in {int(n) for n in tree_nodes}:
-        allocated = graph.nodes.get(node_id)
-        locked_to = allocated.locked_to if allocated else None
-        if allocated is None or locked_to is None or locked_to in allowed:
+    for node_id in allocated_ids:
+        node = graph.nodes.get(node_id)
+        if node is None:
+            continue
+        locked_to = node.locked_to
+        missing = tuple(sorted(set(node.requires_nodes) - allocated_ids))
+        if (locked_to is None or locked_to in allowed) and not missing:
             continue
         out.append(
             LockedNode(
                 node_id=node_id,
-                name=allocated.name_ko or allocated.name_en,
-                locked_to=locked_to,
-                stats=allocated.stats_en,
+                name=node.name_ko or node.name_en,
+                locked_to=locked_to or "",
+                stats=node.stats_en,
+                missing_nodes=missing,
             )
         )
     return tuple(sorted(out, key=lambda n: n.node_id))

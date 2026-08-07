@@ -145,6 +145,18 @@ def _narrative_index(knowledge: Path) -> dict[str, Path]:
     return out
 
 
+def _hit_dict(hit: Any) -> dict[str, Any]:
+    """히트 → dict. **비어 있는 해금 칸은 뺀다** — 압축 히트(D14)에 상시 None 세 칸을
+    실으면 전 질의가 토큰을 무는데, 정작 신호가 필요한 건 제약이 걸린 소수다."""
+    out = asdict(hit)
+    for key in ("locked_to", "requires_nodes", "excluded_by_unlock"):
+        if not out.get(key):
+            out.pop(key, None)
+    if "requires_nodes" in out:
+        out["requires_nodes"] = list(out["requires_nodes"])
+    return out
+
+
 @tool
 def search_kb(
     query: str | None = None,
@@ -152,6 +164,7 @@ def search_kb(
     tags: list[str] | None = None,
     ascendancy: str | None = None,
     limit: int = 20,
+    for_ascendancy: str | None = None,
 ) -> list[dict[str, Any]]:
     """KB 검색 (1단계 — 압축 히트). type은 Skill|Support|Passive|Item|Modifier|
     Resource|Mechanic|Defence, tags는 게임 공식 태그(소문자). 상세는 get_entry로.
@@ -167,10 +180,25 @@ def search_kb(
     ascendancy = 전직별 노드 열거 — 코드·영문·한글 아무 표기나 부분 일치
     ("블러드 메이지" · "Blood Mage" · "Witch1"). 포인트 예산 장부를 쓰려면
     그 전직의 노터블 전량이 필요하므로 limit을 넉넉히 준다(전직당 20건 안팎).
-    query와 함께 쓰면 그 전직 안에서 좁힌다."""
-    hits = _search(query=query, tags=tags, type_=type, ascendancy=ascendancy, limit=limit)
+    query와 함께 쓰면 그 전직 안에서 좁힌다.
+
+    **for_ascendancy = 지금 설계 중인 빌드의 전직.** `ascendancy`와 다른 축이다:
+    저건 "그 전직이 **소유**한 노드" 필터, 이건 "그 전직으로 **해금 가능한가**"
+    판정이다. 다른 전직 전용 해금 노드(Passive 176건)·선행 노드 요구(3건)를
+    `excluded_by_unlock` 사유와 함께 표시한다 — **빼지 않고 표시한다**(조용히 빼면
+    "KB에 없다"로 오독된다). 주면 히트에 `locked_to`·`requires_nodes`도 붙는다.
+    ⚠ 트리 노터블을 고를 땐 반드시 줄 것: 실측 2026-08-07, 오라클 전용 「힘 소진」이
+    인퍼널리스트 빌드의 치명타 병목 해법으로 사용자에게 제시됐다(B-13)."""
+    hits = _search(
+        query=query,
+        tags=tags,
+        type_=type,
+        ascendancy=ascendancy,
+        limit=limit,
+        for_ascendancy=for_ascendancy,
+    )
     if hits:
-        return [asdict(h) for h in hits]
+        return [_hit_dict(h) for h in hits]
     # 0건이면 **왜 비었는지**를 함께 낸다. 빈 배열은 아무것도 말하지 않아서, 실측
     # 2026-08-05에 세션이 9번 모두 "KB에 없다"로 오판하고 파일 탐색으로 도피했다 —
     # 실제로는 한글 효과 문구·type 오해·AND 매칭 때문이었다.
