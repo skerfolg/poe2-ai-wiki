@@ -32,6 +32,7 @@ _COST_KEYS = (
     "conditional_reservation",
     "cost_multiplier_pct",
     "cast_time_s",
+    "cooldown_s",
     "converts_reservation_to",
 )
 
@@ -60,6 +61,8 @@ def _updates_from_page(html: str) -> dict[str, Any]:
         updates["cost_multiplier_pct"] = page.cost_multiplier_pct
     if page.cast_time_s is not None:
         updates["cast_time_s"] = page.cast_time_s
+    if page.cooldown_s is not None:
+        updates["cooldown_s"] = page.cooldown_s
     if page.description and _CONVERT_LIFE.search(page.description):
         updates["converts_reservation_to"] = "life"
     return updates
@@ -90,6 +93,13 @@ def apply_gem_costs(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
             missing_html.append(f"{r.id} ({slug})")
             continue
         updates = _updates_from_page(html_path.read_text(encoding="utf-8"))
+        # 쿨다운은 **없음을 명시적 0으로** 싣는다 — 필드 부재로 두면 "쿨다운 없음"과
+        # "미수록"이 구분되지 않아, 쿨기를 지속 주력기로 오인한 채 회전율을 계산하게
+        # 된다(실측 2026-08-07: 겨울의 눈 10초 쿨다운을 모르고 초당 1.07시전 전제).
+        # 스킬 페이지를 실제로 읽었다는 것이 근거이므로, 표기가 없으면 0이 참이다.
+        # 보조 젬은 자체 쿨다운 개념이 없어 대상에서 뺀다.
+        if r.type == "Skill" and "cooldown_s" not in updates:
+            updates["cooldown_s"] = 0.0
         if not updates:
             no_cost_fields += 1
             continue

@@ -125,3 +125,25 @@ def test_전_Stats_블록을_스캔한다() -> None:
     assert page.conditional_reservation == [
         {"resource": "Spirit", "amount": 60.0, "per": "socketed Curse"}
     ]
+
+
+def test_cooldown_is_collected_and_absence_is_explicit() -> None:
+    """쿨다운 미수록 회귀 (빌드 회차 보고 2026-08-07).
+
+    Skill 401건 전부에 `cooldown` 필드가 없어 **쿨기와 지속 주력기를 구분할 수
+    없었다**. 실측 오판: 겨울의 눈을 시전시간 1.4초로만 보고 "초당 1.07시전"을
+    전제해 생명력 유출·카오스 획득을 계산했는데 실제로는 10초 쿨다운이었다.
+    `quality_stats`엔 "Cooldown Recovery Rate"가 이미 있었다 — 수정 모드는 있는데
+    수정 대상인 기저값이 없던 상태다.
+    """
+    assert parse_stats_costs("Cooldown Time: 10.00 s Cast Time: 1.40 sec")["cooldown_s"] == 10.0
+    assert parse_stats_costs("Cooldown Time: 8.00 s")["cooldown_s"] == 8.0
+    # 표기가 없으면 파서는 None을 낸다 — 명시적 0으로 바꾸는 것은 호출부(레코드
+    # 타입을 아는 곳)의 몫이다. None(미수록)과 0(쿨다운 없음)은 다른 뜻이다.
+    assert parse_stats_costs("Cast Time: 0.60 sec")["cooldown_s"] is None
+
+
+def test_ward_is_a_known_cost_resource() -> None:
+    """룬 수호 소모량 미수록 회귀 — 자원 목록에 Ward가 없어 코스트가 통째로 비었다."""
+    costs = parse_stats_costs("Cost: (15—81) Ward Cast Time: 0.70 sec")["costs"]
+    assert costs == [{"resource": "Ward", "min": 15.0, "max": 81.0}]
