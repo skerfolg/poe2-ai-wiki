@@ -74,6 +74,9 @@ type="Skill", maximum=40)`
 - KB 레코드·스키마·조건·관계 작업 → **docs/KB_DATA_MODEL.md** (KD-1~4 확정)
 - KB 수집·정형화·원시 스냅샷·완전성 기준 → **docs/KB_INGEST.md** (KI-1~7 확정)
 - 지금 어느 단계인지·다음 할 일 → **docs/ROADMAP.md**
+- **미해결 결함·기능 제안 큐 → docs/BACKLOG.md** — 세션을 이어받으면 **여기부터** 읽는다.
+  결함 상태·실측 수치·검증 여부가 있어 조사를 처음부터 다시 하지 않는다.
+  ⚠ 「검증으로 뒤집힌 보고」 절을 반드시 볼 것 — 이관 보고 3건이 틀렸다.
 - 실전 빌드 테스트를 수행한다 → **docs/BUILD_TEST_PROTOCOL.md** (무개입 규칙·기록 항목) (P0~P6, Exit 기준. 단계 건너뛰기 금지)
 - 특정 모듈 작업 → 그 디렉터리의 **AGENTS.md** (자동 로드됨)
 - MCP 도구 추가 → docs/PROJECT_STRUCTURE.md §4(의존 방향)·§7, `src/pok/mcp/AGENTS.md`
