@@ -105,20 +105,48 @@
   **자동 부착으로 바꾼다**(철칙 5). `optimize_tree`가 내부에서 스캔해 후보 반경 밖
   클러스터를 `far_clusters`로 **반환에 싣는다**. `unconnected_regions` 인자 추가.
   `find_clusters`는 독립 도구로도 노출하되 **강제는 자동 부착으로**
+- **알고리즘** (발의 세션이 Bash로 즉석 구현해 실효 확인): 전 노터블의 `position`을
+  후보 중심으로 놓고, 각 반경 내 포함 노터블을 세어 `(개수, 관련성 점수합)` 최대인
+  중심을 고른다. O(n²)이나 노터블 수천 규모라 즉시 끝난다.
+- ⚠ **`exclude` 필터가 결정적이다.** 없이 돌렸더니 "반경 1000에 노터블 9개"가 나왔고
+  그중 **3개가 도리깨 노드**였다. 관련성 필터 없는 결과는 쓰레기다. 인자 형태:
+  `include=[(키워드, 가중치)]` · `exclude=[키워드]` · `radii=[1500,2200,3000,3800]` ·
+  `min_score` · `exclude_ascendancy`
+- **노터블을 효과 텍스트째로 반환할 것.** 「힘 소진」(집정관 버프로 치명타 확률 30%)과
+  「지배」 성유(그 페널티를 무효화)의 상쇄는 **두 축을 동시에 봐야 보이는 조합**이다 —
+  점수만 내면 영원히 못 찾는다.
+- **비연결 할당 아이템 2종** (서로 다른 아이템이라 **동시 착용 가능**):
+  - `item.controlled-metamorphosis` 제어된 변형 — 반경 **가변**(Very Small~Massive),
+    대가 `모든 원소 저항 −(5-20)%`, `limited_to: 1`
+  - `item.from-nothing` 허무의 산물 — 반경 **Small(1000) 고정**, 대가 없음, 타락,
+    `limited_to: 1`
+  - 실측 사례: 자기 번제(-11339,-2544)와 부싯돌 클러스터(-2588,-7108)가 **8,700 이상**
+    떨어져 걸어서 이으면 통행 노드만 수십 포인트인데, 제어된 변형(Massive)이면 **0**
+  - 인자 형태: `unconnected_regions=[{"center": [-2588,-7108], "radius": 3000}]`
+    → 그 원 안의 노드는 **경로 비용 없이** 할당 가능한 것으로 계산
 
 ### 제안 B — 반경 주얼 소켓 평가
 - **문제**: `Time-Lost` 접미는 **반경 내 노터블 수 × 부여값**이 가치인데, PoB
   `ModParser`에 패턴이 없어 파싱되지 않는다 → 서로 다른 소켓의 델타가 **동일**하게 나와
   "소켓 위치는 값어치 없음"으로 오독
 - **방법**: KB `pob_modeling.workaround`가 이미 적어둠 — 반경 내 노터블 수를 세어 효과를
-  텍스트로 합성 후 실측
+  텍스트로 합성 후 실측. 또는 `JewelSpec.allocates`로 편입
+- **대상 모드**(`Time-Lost Diamond`, `sub_type: Radius`, `int_radius_jewel`):
+  `jewelradiusspellcriticalchance`(반경 내 주요 패시브당 주문 치명타 (3-7)%) ·
+  `jewelradiuscriticaldamage`((5-10)%) · `jewelradiusspellcriticaldamage`
+- **증상 재확인용**: 실사용 세션에서 `optimize_tree`가 `jewels: []`로 **하나도 채택하지
+  않았다** — 소켓별 델타가 동일하게 나온 것이 원인이다
 - **선행**: **#12 해결 후**. 지금은 `pob_modeling`이 오염돼 판정 근거가 못 됨
 
 ### 제안 C — 좌표 대량 조회 경로 (도구 갭)
 - **문제**: `AGENTS.md`가 파일 탐색을 금지하는데 **좌표를 관련성으로 거를 경로가 없어**
   세션이 `knowledge/**/*.ndjson`을 직접 읽는 것 외에 방법이 없었다
+- **대안이 왜 없었나**: `get_entry` 380회는 비현실적 · `find_by_value("position.x")`는
+  값 순 정렬만이라 **관련성으로 못 거른다** · `search_kb`는 압축 히트라 좌표를 반환하지
+  않는다
 - **원칙**: 도구 갭은 규율 위반을 강제한다 — **금지하려면 대안 경로를 먼저 만든다**
-  (`insight.disciplines-need-enforcement-points` 따름정리)
+  (`insight.disciplines-need-enforcement-points` 따름정리). `find_clusters`가 생기면
+  자연히 해소되지만, 그 전까지는 **규율이 지켜질 수 없는 상태**임을 기록해 둔다
 
 ---
 
