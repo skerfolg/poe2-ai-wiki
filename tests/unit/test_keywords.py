@@ -9,9 +9,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from pok.kb.ingest.keywords import collect_links, parse_definition
 
 RAW = Path("artifacts/ingest-raw/0.5.4b")
+
+# 원시 스냅샷(poe2db HTML)은 gitignore되는 파생물이라 CI에 없다 — 재수집은 네트워크가
+# 필요하고 패치판에 묶여 있어 CI에서 확보할 수 없다. 없으면 skip한다(통합 테스트가
+# LuaJIT·PoB 스냅샷에 쓰는 규약과 같은 방식). 실측 2026-08-07: 가드가 없어 CI에서
+# FileNotFoundError로 터졌다.
+pytestmark = pytest.mark.skipif(
+    not RAW.is_dir(), reason="artifacts/ingest-raw 스냅샷 없음 (수집 후에만 검증 가능)"
+)
 
 
 def test_only_absolute_hover_urls_are_fetchable() -> None:
