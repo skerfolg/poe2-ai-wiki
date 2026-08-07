@@ -20,7 +20,11 @@ from pok.index.build import build_index, source_fingerprint
 
 @dataclass(frozen=True)
 class Hit:
-    """압축 히트 (D14 1단계 — 토큰 최소화)."""
+    """압축 히트 (D14 1단계 — 토큰 최소화).
+
+    해금 제약 3칸은 **제약이 있을 때만** 채워진다(없으면 None/빈 튜플이고 MCP
+    계층이 생략한다) — 압축 원칙을 지키면서, 잠긴 노드는 놓칠 수 없게.
+    """
 
     id: str
     type: str
@@ -28,6 +32,13 @@ class Hit:
     name_en: str
     tags: list[str]
     verification: str
+    # 이 노드를 해금할 수 있는 어센던시 실명(예: "Oracle"). None = 전직 제약 없음.
+    locked_to: str | None = None
+    # 먼저 찍어야 열리는 선행 노드 — 전직 제약과 **별개 축**이다(실측 2026-08-07: 3건).
+    requires_nodes: tuple[int, ...] = ()
+    # for_ascendancy와 안 맞을 때의 사유 문장. **빼지 않고 실어 보낸다** —
+    # 조용히 빼면 "KB에 없다"로 오독되고, 그게 파일 탐색 도피를 부른다(B-11).
+    excluded_by_unlock: str | None = None
 
 
 def _meta(con: sqlite3.Connection, key: str) -> str | None:
@@ -59,6 +70,52 @@ def _connect(root: Path | None, db_path: Path | None) -> sqlite3.Connection:
     return sqlite3.connect(ensure_index(root, db_path))
 
 
+def _ascendancy_aliases(con: sqlite3.Connection, name: str) -> set[str]:
+    """어떤 표기로 주든 그 전직의 **표기 전량**("Druid1 Oracle 오라클")을 돌려준다.
+
+    `unlock_constraint.ascendancy`는 실명("Oracle")인데 빌드 스펙이 드는 값은 코드
+    ("Witch1")다 — 대조하려면 둘을 잇는 표가 필요하다. 인덱스의 `ascendancy` 칼럼이
+    이미 셋을 한 줄에 담고 있으므로 별도 사전을 두지 않는다.
+    """
+    rows = con.execute(
+        "SELECT DISTINCT ascendancy FROM records WHERE ascendancy != '' AND ascendancy LIKE ?",
+        (f"%{name.strip()}%",),
+    ).fetchall()
+    return {str(r[0]) for r in rows if r[0]}
+
+
+def _unlock_fields(
+    unlock_json: str, aliases: set[str] | None, for_ascendancy: str | None
+) -> tuple[str | None, tuple[int, ...], str | None]:
+    """저장된 해금 제약 → (locked_to, requires_nodes, excluded_by_unlock)."""
+    if not unlock_json:
+        return None, (), None
+    try:
+        unlock = json.loads(unlock_json)
+    except json.JSONDecodeError:
+        return None, (), None
+    locked_to = str(unlock.get("ascendancy") or "") or None
+    nodes = tuple(int(n) for n in unlock.get("nodes") or ())
+    if aliases is None or for_ascendancy is None:
+        return locked_to, nodes, None
+    if locked_to and not any(locked_to in key for key in aliases):
+        return (
+            locked_to,
+            nodes,
+            f"{for_ascendancy!r} 빌드에서는 **인게임에서 찍을 수 없다** — "
+            f"{locked_to} 전용 해금 노드다. PoB는 이 제약을 검사하지 않고 스탯을 "
+            f"그대로 더하므로, 설계 근거로 삼으면 조립 단계에서 거부된다",
+        )
+    if not locked_to and nodes:
+        return (
+            locked_to,
+            nodes,
+            f"선행 노드 {', '.join(str(n) for n in nodes)}를 **모두 할당해야** 열린다 — "
+            f"전직 제약이 아니라 노드 요구다. 트리에 없으면 인게임에서 못 찍는다",
+        )
+    return locked_to, nodes, None
+
+
 def search(
     query: str | None = None,
     tags: list[str] | None = None,
@@ -67,8 +124,14 @@ def search(
     limit: int = 20,
     root: Path | None = None,
     db_path: Path | None = None,
+    for_ascendancy: str | None = None,
 ) -> list[Hit]:
-    """search_kb 1단계 — 압축 히트 반환 (D14)."""
+    """search_kb 1단계 — 압축 히트 반환 (D14).
+
+    `ascendancy`와 `for_ascendancy`는 **다른 축**이다: 전자는 "그 전직이 **소유**한
+    노드"를 거르는 필터, 후자는 "그 전직으로 플레이할 때 **해금 가능한가**"의 판정이다.
+    후자는 거르지 않고 `excluded_by_unlock` 사유를 실어 보낸다.
+    """
     con = _connect(root, db_path)
     try:
         where, params = [], []
@@ -89,16 +152,36 @@ def search(
         for t in tags or []:
             where.append("r.id IN (SELECT id FROM tags WHERE tag = ?)")
             params.append(t)
-        sql = "SELECT r.id, r.type, r.name_ko, r.name_en, r.verification FROM records r"
+        sql = "SELECT r.id, r.type, r.name_ko, r.name_en, r.verification, r.unlock FROM records r"
         if where:
             sql += " WHERE " + " AND ".join(where)
-        sql += " ORDER BY r.id LIMIT ?"
+        # **이름이 맞는 레코드를 먼저** — id 순으로만 내면 "그 이름을 언급만 하는"
+        # 레코드에 정작 그 이름의 레코드가 파묻힌다. 실측 2026-08-07(B-14):
+        # '보이지 않는 길'은 177건 중 **164번째**였다(176건이 stats에 "보이지 않는
+        # 길 필요"를 달고 있어서). 세션은 상위 10건만 보고 "KB에 없다"로 오판했다.
+        if query:
+            needle = query.strip().lower()
+            sql += (
+                " ORDER BY CASE"
+                " WHEN lower(r.name_ko) = ? OR lower(r.name_en) = ? THEN 0"
+                " WHEN instr(lower(r.name_ko), ?) > 0 OR instr(lower(r.name_en), ?) > 0 THEN 1"
+                " ELSE 2 END, r.id LIMIT ?"
+            )
+            params += [needle, needle, needle, needle]
+        else:
+            sql += " ORDER BY r.id LIMIT ?"
         params.append(str(limit))
         rows = con.execute(sql, params).fetchall()
+        aliases = _ascendancy_aliases(con, for_ascendancy) if for_ascendancy else None
         out: list[Hit] = []
-        for rid, rtype, ko, en, ver in rows:
+        for rid, rtype, ko, en, ver, unlock_json in rows:
             tag_rows = con.execute("SELECT tag FROM tags WHERE id=?", (rid,)).fetchall()
-            out.append(Hit(rid, rtype, ko, en, [t[0] for t in tag_rows], ver))
+            locked_to, needs, excluded = _unlock_fields(
+                str(unlock_json or ""), aliases, for_ascendancy
+            )
+            out.append(
+                Hit(rid, rtype, ko, en, [t[0] for t in tag_rows], ver, locked_to, needs, excluded)
+            )
         return out
     finally:
         con.close()
