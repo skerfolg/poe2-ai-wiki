@@ -39,6 +39,17 @@ _STATUS_VERBS = {
     "Stun": "stunned",
     # Bleed 누락으로 "출혈 요구 15건 · 공급 0" 이라는 거짓 갭이 났었다(2026-08-04)
     "Bleed": "bleeding",
+    # 같은 종류의 갭이 2026-08-06에 재발했다: 어휘에 `cursed`가 없어 "저주 대상에
+    # 출혈 악화"(피 가시)의 **요구**를 못 읽었고, config 감사가 "저주 공급원 있음"으로
+    # 오판했다. 어휘 밖 상태는 요구·공급이 통째로 보이지 않는다 — 아래는 KB 문구
+    # 실측(빈도순)으로 채운 것이지 추측이 아니다.
+    "Curse": "cursed",
+    "Blind": "blinded",
+    "Immobilise": "immobilised",
+    "Daze": "dazed",
+    "Hinder": "hindered",
+    "Maim": "maimed",
+    "Mark": "marked",
 }
 _STATUS_ADJS = {
     "Shocked": "shocked",
@@ -49,6 +60,14 @@ _STATUS_ADJS = {
     "Poisoned": "poisoned",
     "Bleeding": "bleeding",
     "Stunned": "stunned",
+    "Cursed": "cursed",
+    "Blinded": "blinded",
+    "Immobilised": "immobilised",
+    "Dazed": "dazed",
+    "Hindered": "hindered",
+    "Maimed": "maimed",
+    "Burning": "burning",
+    "Marked": "marked",
 }
 
 _CHARGES = {
@@ -87,6 +106,10 @@ _DEMAND_PATTERNS: list[tuple[re.Pattern[str], str, str | None]] = [
     (re.compile(r"\byou have\s+(?P<v>\w+)\s+an?\s+Enemy Recently", re.I), "enemy.status", "v"),
     # "Damage against Enemies that are Chilled" 계열
     (re.compile(r"\bEnemies (?:that are|which are)\s+(?P<v>\w+)", re.I), "enemy.status", "v"),
+    # "on Cursed targets" · "on Bleeding targets" — 대상(target) 표기의 요구.
+    # 이 형태를 안 잡아 "저주 대상에 출혈 악화"(피 가시)가 **요구**로 안 읽혔고,
+    # config 감사가 그 노드를 저주 **공급원**으로 오판했다(2026-08-06).
+    (re.compile(r"\bon\s+(?P<v>\w+)\s+targets?\b", re.I), "enemy.status", "v"),
     (re.compile(r"\b(?:while|when)(?:\s+you are)?\s+on Low Life\b", re.I), "self.life.low", None),
     (re.compile(r"\b(?:while|when)(?:\s+you are)?\s+on Full Life\b", re.I), "self.life.full", None),
     (re.compile(r"\bwhile Dual Wielding\b", re.I), "gear.dual-wielding", None),

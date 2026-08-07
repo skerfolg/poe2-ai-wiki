@@ -115,6 +115,46 @@ class AssumptionReport:
         return tuple(out)
 
 
+# 요구절 표지 — 그 조건이 **참일 때** 효과를 얻는다는 문형. 이 안에 등장한 단어는
+# 그 조건을 **공급**하지 않는다. 어휘(KD-2)에 없는 축까지 덮는 문장 층위의 일반화다
+# (사용자 지시 2026-08-06: "특정 상태를 요구하는 기재가 공급하지는 않는다").
+_DEMAND_MARKER = re.compile(
+    r"\b(?:against|while|when(?:ever)?|if|during|per\b|that are|which are"
+    r"|on\s+\w+\s+targets?|have been|you have\s+\w+ed)\b",
+    re.I,
+)
+# 조건 단어 **바로 앞**에 붙는 요구 표지 (사이에 관사·수식어 2개까지 허용)
+_DEMAND_HEAD = re.compile(
+    r"\b(?:against|on|while|when(?:ever)?|if|during|per|that are|which are|versus|vs)\s+"
+    r"(?:\w+\s+){0,2}$",
+    re.I,
+)
+
+
+def _is_demand_only(lines: Sequence[str], patterns: Sequence[re.Pattern[str]]) -> bool:
+    """이 출처가 그 조건을 **요구만** 하는가 (공급하지 않는가).
+
+    실측 2026-08-06: 피 가시의 "Bleeding you inflict **on Cursed targets** is
+    Aggravated"는 저주를 요구할 뿐인데, 단어가 있다는 이유로 저주 공급원으로 오인돼
+    `conditionEnemyCursed`가 통과했다. 그 오판이 `100% more Base`(출혈 악화)를
+    성립시켜 출혈 강도를 x2.76 부풀렸다.
+
+    문장 단위로 본다 — 조건 단어가 든 문장이 **전부** 요구절이고 공급절 표지가 하나도
+    없으면 요구 전용이다. 하나라도 공급절이면 근거로 인정한다(보수적 — 오탐으로 정상
+    빌드를 막으면 게이트 자체가 우회 대상이 된다).
+    """
+    occurrences: list[bool] = []
+    for line in lines:
+        text = str(line)
+        for match in patterns[0].finditer(text):
+            # 표지는 **그 단어 바로 앞**을 봐야 한다 — 문장 어딘가에 공급 동사가 있어도
+            # 다른 대상에 걸린 것일 수 있다. "Bleeding you **inflict** on Cursed targets"의
+            # inflict는 출혈에 걸린 것이지 저주를 공급하지 않는다(실측 오판 사례).
+            prefix = text[max(0, match.start() - 24) : match.start()]
+            occurrences.append(bool(_DEMAND_HEAD.search(prefix)))
+    return bool(occurrences) and all(occurrences)
+
+
 def _stem_pattern(keyword: str) -> re.Pattern[str]:
     """어미 변화를 흡수한 매칭 — 'Aggravated' 설정이 'Aggravate Bleeding' 문구에
     걸려야 한다. 접미 2자를 떼고 `\\w*`로 여는 방식(실측: 룬 문구가 동사형이다)."""
@@ -172,12 +212,67 @@ def build_text_sources(
     return sources
 
 
+_ENEMY_STATUS_VAR = re.compile(r"^conditionEnemy([A-Z]\w+)$")
+
+
+def _status_grounding(
+    var: str, sources: Mapping[str, list[str]], *, root: Path | None
+) -> ConfigVerdict | None:
+    """적 상태이상 config는 **공급 술어**로 판정한다 (일반형, 사용자 지시 2026-08-06).
+
+    문구에 단어가 있기만 하면 근거로 인정하던 방식은 **요구와 공급을 구분하지 못한다**.
+    실측: `conditionEnemyCursed`를 켠 근거로 피 가시 노드가 잡혔는데, 그 노드 문구는
+    "Bleeding you inflict **on Cursed targets** is Aggravated" — 저주를 *요구*하지
+    공급하지 않는다. 빌드에 저주 스킬이 없었고, 그 오판이 `100% more Base`(출혈 악화)를
+    성립시켜 출혈 강도를 x2.76 부풀렸다.
+
+    그래서 KB의 요구·공급 추출기(KD-2 통제 어휘)를 쓴다 — 공급이 하나라도 있어야
+    근거로 인정하고, **요구만 있으면 근거 없음**이다.
+    """
+    m = _ENEMY_STATUS_VAR.match(var)
+    if m is None:
+        return None
+    from pok.kb.graph.predicates import extract_predicates
+    from pok.kb.store import load as store_load
+
+    subjects = store_load(root).subjects
+    status = m.group(1).lower()
+    if status not in (subjects.get("enemy.status", {}).get("values") or []):
+        return None  # 어휘 밖 상태 — 기계로 못 가린다. 키워드 경로에 맡긴다
+    key = f"enemy.status={status}"
+    demanded_in = ""
+    for source, lines in sources.items():
+        for predicate in extract_predicates(list(lines), subjects):
+            if predicate.key != key:
+                continue
+            if predicate.direction == "supply":
+                return ConfigVerdict(
+                    var, "", "grounded",
+                    reason=f"공급 술어 확인({key})", matched_in=source,
+                )  # fmt: skip
+            demanded_in = demanded_in or source
+    reason = (
+        f"'{status}'를 **공급**하는 문구가 빌드에 없다"
+        + (
+            f" — {demanded_in}은 그 상태를 *요구*할 뿐 공급하지 않는다"
+            if demanded_in
+            else " (요구·공급 어느 쪽도 없다)"
+        )
+        + ". 공급원이 없으면 이 조건은 인게임에서 참이 되지 않는다"
+    )
+    return ConfigVerdict(var, "", "ungrounded", reason=reason)
+
+
 def audit_config(
     build_spec: Mapping[str, Any],
     *,
     root: Path | None = None,
 ) -> tuple[ConfigVerdict, ...]:
-    """설정된 config가 빌드에 근거를 갖는지 판정한다 — 없으면 근거 없음."""
+    """설정된 config가 빌드에 근거를 갖는지 판정한다 — 없으면 근거 없음.
+
+    적 상태이상(`conditionEnemy*`)은 **공급 술어**로, 나머지는 PoB 관련성 키워드로
+    판정한다. 전자가 일반형이고 후자는 아직 단어 존재만 보는 근사다.
+    """
     from pok.pob.catalog import config_options
 
     from .config_relevance import _keywords_of
@@ -199,6 +294,16 @@ def audit_config(
                 ConfigVerdict(var, value, "neutral", reason="꺼짐 — 파워를 만들지 않는다")
             )
             continue
+        # 적 상태이상은 **공급 술어**로 판정한다 (요구/공급 구분 — 일반형)
+        status_verdict = _status_grounding(var, sources, root=root)
+        if status_verdict is not None:
+            verdicts.append(
+                ConfigVerdict(
+                    var, value, status_verdict.status,
+                    reason=status_verdict.reason, matched_in=status_verdict.matched_in,
+                )
+            )  # fmt: skip
+            continue
         option = options.get(var)
         keywords = _keywords_of(option.keywords) if option else []
         if not keywords:
@@ -211,11 +316,17 @@ def audit_config(
             continue
         patterns = [_stem_pattern(k) for k in keywords]
         found = ""
+        demand_only_in = ""
         for source, lines in sources.items():
             blob = " ".join(lines)
-            if all(p.search(blob) for p in patterns):
-                found = source
-                break
+            if not all(p.search(blob) for p in patterns):
+                continue
+            # 단어가 있다고 공급이 아니다 — 요구 전용 출처는 근거로 세지 않는다
+            if _is_demand_only(lines, patterns):
+                demand_only_in = demand_only_in or source
+                continue
+            found = source
+            break
         if found:
             verdicts.append(
                 ConfigVerdict(
@@ -223,6 +334,17 @@ def audit_config(
                     label=option.label if option else "",
                     reason=f"공급원 있음({' + '.join(keywords)})",
                     matched_in=found,
+                )
+            )  # fmt: skip
+        elif demand_only_in:
+            verdicts.append(
+                ConfigVerdict(
+                    var, value, "ungrounded",
+                    label=option.label if option else "",
+                    reason=(
+                        f"{demand_only_in}은 '{' + '.join(keywords)}'를 **요구**할 뿐 "
+                        f"공급하지 않는다 — 이 조건을 성립시키는 기재가 빌드에 따로 있어야 한다"
+                    ),
                 )
             )  # fmt: skip
         else:

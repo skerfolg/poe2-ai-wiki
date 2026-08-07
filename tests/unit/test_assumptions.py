@@ -55,11 +55,11 @@ def test_ungrounded_config_is_flagged_grounded_is_not() -> None:
             "enemyLevel": 82,  # 시나리오 설정 — 감사 대상 아님
             "conditionEnemyChilled": "false",  # 꺼짐
         },
+        # ⚠ 강도 증가는 **공급이 아니다** — 출혈을 걸어 주는 문구가 따로 있어야 한다
         "items": [
             {
                 "slot": "Ring 1",
-                "text": "Rarity: RARE\nR\nGold Ring\nImplicits: 0\n"
-                "15% increased Magnitude of Bleeding you inflict",
+                "text": "Rarity: RARE\nR\nGold Ring\nImplicits: 0\n25% chance to inflict Bleeding",
             }
         ],
     }
@@ -89,3 +89,66 @@ def test_report_blocks_only_on_real_impossibilities() -> None:
         }
     )
     assert clean.blocking == (), "정상 빌드는 통과해야 한다"
+
+
+def test_status_config_needs_supply_not_mere_mention() -> None:
+    """일반형 (사용자 지시 2026-08-06): 요구 문구를 공급으로 오인하면 안 된다.
+
+    피 가시는 "Bleeding you inflict on Cursed targets is Aggravated" — 저주를
+    **요구**한다. 이걸 공급으로 세는 바람에 conditionEnemyCursed가 통과했고,
+    출혈 악화(100% more Base)가 성립해 강도가 x2.76 부풀었다.
+    """
+    demand_only = {
+        "class_name": "Witch",
+        "config": {"conditionEnemyCursed": "true"},
+        "items": [
+            {
+                "slot": "Ring 1",
+                "text": "Rarity: RARE\nR\nGold Ring\nImplicits: 0\n"
+                "Bleeding you inflict on Cursed targets is Aggravated",
+            }
+        ],
+    }
+    verdict = next(v for v in audit_config(demand_only) if v.var == "conditionEnemyCursed")
+    assert verdict.status == "ungrounded"
+    assert "요구" in verdict.reason, "요구일 뿐이라는 근거가 보여야 한다"
+
+    with_supply = {
+        **demand_only,
+        "items": [
+            *demand_only["items"],
+            {
+                "slot": "Ring 2",
+                "text": "Rarity: RARE\nS\nGold Ring\nImplicits: 0\n"
+                "Curse Enemies with Despair on Hit",
+            },
+        ],
+    }
+    ok = next(v for v in audit_config(with_supply) if v.var == "conditionEnemyCursed")
+    assert ok.status == "grounded", "실제 공급원이 있으면 통과해야 한다"
+
+
+def test_demand_only_rule_generalizes_beyond_status_vocabulary() -> None:
+    """일반형의 상위 층 (사용자 지시 2026-08-06): 어휘에 없는 축도 갈라야 한다.
+
+    "특정 상태를 요구하는 기재가 요구할 뿐 공급하지는 않는다"는 문장 층위의 규칙이라
+    통제 어휘(KD-2 33종) 밖의 축 — 불구·시듦·절개 — 에도 그대로 적용된다.
+    표지는 조건 단어 **바로 앞**을 본다: "Bleeding you inflict on Cursed targets"의
+    inflict는 출혈에 걸린 것이지 저주를 공급하지 않는다.
+    """
+    from pok.engine.constraints.assumptions import _is_demand_only, _stem_pattern
+
+    def demand_only(lines: list[str], keyword: str) -> bool:
+        return _is_demand_only(lines, [_stem_pattern(keyword)])
+
+    assert demand_only(["Bleeding you inflict on Cursed targets is Aggravated"], "Cursed")
+    assert demand_only(["25% increased Attack Damage against Maimed Enemies"], "Maimed")
+    assert demand_only(["10% increased Damage against Withered Enemies"], "Withered")
+    # 공급절이 하나라도 있으면 근거로 인정한다 (보수적 — 오탐이 게이트를 무력화한다)
+    assert not demand_only(["Inflict 2 Withered on Hit"], "Withered")
+    assert not demand_only(["Gain 1 Rage on Melee Hit"], "Rage")
+    assert not demand_only(
+        ["Hits from Supported Skills inflict 1 Incision",
+         "3% more Magnitude per Incision consumed Recently, up to 30%"],
+        "Incision",
+    )  # fmt: skip
