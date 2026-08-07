@@ -97,3 +97,66 @@ def test_unrelated_build_does_not_get_bleed_options() -> None:
         )
     }
     assert not ({"multiplierIncisionStackCount", "conditionBleedAggravated"} & found)
+
+
+def test_class_and_ascendancy_are_validated_with_candidates() -> None:
+    """조용한 폴백 회귀 (이관 3 #6): 실명·오탈자가 오류 없이 통과했다.
+
+    `ascendancy="Infernalist"`(실명)를 주면 PoB가 조용히 무시하고 meta.ascendancy가
+    "None"이 됐다 — 스펙이 요구하는 값은 내부 코드("Witch1")인데 KB의
+    `ascendancy_name`은 실명이라 매핑을 모르면 맞힐 수 없다.
+    """
+    import pytest
+
+    from pok.pob.buildxml import spec_from_dict
+
+    spec_from_dict({"class_name": "Witch", "ascendancy": "Witch1"})  # 정상은 통과
+    with pytest.raises(ValueError) as err:
+        spec_from_dict({"class_name": "Witch", "ascendancy": "Infernalist"})
+    assert "Witch1" in str(err.value), "실명을 주면 정본 코드를 알려줘야 한다"
+    with pytest.raises(ValueError) as err2:
+        spec_from_dict({"class_name": "NotAClass", "ascendancy": "Witch1"})
+    assert "허용" in str(err2.value)
+
+
+def test_unique_without_explicit_lines_is_rejected() -> None:
+    """유니크 옵션 조용한 무시 회귀 (이관 3 #1).
+
+    이름+베이스만 주면 PoB가 **아무 효과도 안 붙인 채** 계산한다 — 오류도 경고도
+    없어 "그 유니크를 쓴 수치"로 읽힌다(실측: 288.63 vs 옵션 포함 433.08).
+    """
+    import pytest
+
+    from pok.pob.buildxml import spec_from_dict
+
+    base = {"class_name": "Witch", "ascendancy": "Witch1"}
+    with pytest.raises(ValueError) as err:
+        spec_from_dict(
+            {**base, "items": [{"slot": "Weapon 1", "text": "Sacred Flame\nShrine Sceptre"}]}
+        )
+    assert "옵션 줄이 하나도 없다" in str(err.value)
+    # 옵션을 적으면 통과한다 — 롤 수치가 KB 범위와 달라도 같은 줄로 본다
+    spec_from_dict(
+        {
+            **base,
+            "items": [
+                {
+                    "slot": "Weapon 1",
+                    "text": "Rarity: UNIQUE\nSacred Flame\nShrine Sceptre\nImplicits: 0\n"
+                    "Gain 50% of Damage as Extra Fire Damage",
+                }
+            ],
+        }
+    )
+    # 일반 희귀는 무관하다
+    spec_from_dict(
+        {
+            **base,
+            "items": [
+                {
+                    "slot": "Ring 1",
+                    "text": "Rarity: RARE\nMy Ring\nGold Ring\nImplicits: 0\n+80 to maximum Life",
+                }
+            ],
+        }
+    )

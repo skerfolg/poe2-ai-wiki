@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Any
@@ -189,6 +190,49 @@ def _make[T](cls: type[T], data: dict[str, Any], where: str) -> T:
     return cls(**data)
 
 
+@functools.lru_cache(maxsize=1)
+def _unique_index() -> dict[str, tuple[str, ...]]:
+    """유니크 표시명(소문자) → explicits — 옵션 누락 검출용."""
+    from pok.kb.store import load as store_load
+
+    out: dict[str, tuple[str, ...]] = {}
+    for record in store_load().records.values():
+        data = record.raw.get("data") or {}
+        if record.type != "Item" or data.get("rarity") != "unique":
+            continue
+        name = str((record.raw.get("name") or {}).get("en") or "").strip().lower()
+        if name:
+            out[name] = tuple(str(x) for x in (data.get("explicits") or []))
+    return out
+
+
+def _unique_explicits(name: str) -> tuple[str, ...]:
+    return _unique_index().get(name.strip().lower(), ())
+
+
+def _norm_mod(text: str) -> str:
+    """모드 문구 정규화 — 수치·범위를 지워 롤이 달라도 같은 줄로 본다.
+
+    KB는 `Gain (40-60)% of Damage as Extra Fire Damage`, 실물은 `Gain 50% of ...`
+    처럼 롤만 다르다. 앞부분만 잘라 비교하면 "Gain "처럼 너무 짧아 못 쓴다.
+    """
+    stripped = re.sub(r"\(\d+(?:\.\d+)?\s*[-—]\s*\d+(?:\.\d+)?\)|\d+(?:\.\d+)?", "", text)
+    return " ".join(stripped.lower().replace("+", " ").split())
+
+
+@functools.lru_cache(maxsize=1)
+def _ascendancy_codes() -> dict[str, str]:
+    """어센던시 내부 코드 → 실명 (KB 시작 노드가 곧 매핑표)."""
+    from pok.kb.store import load as store_load
+
+    out: dict[str, str] = {}
+    for record in store_load().records.values():
+        data = record.raw.get("data") or {}
+        if data.get("kind") == "ascendancy-start" and data.get("ascendancy"):
+            out[str(data["ascendancy"])] = str((data.get("ascendancy_name") or {}).get("en") or "")
+    return out
+
+
 def _validate_catalog(spec_data: dict[str, Any]) -> None:
     """`gem_id`·`config` 키가 PoB에 실재하는지 본다 — **조용한 폴백을 막는다**.
 
@@ -209,6 +253,51 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
     )
 
     problems: list[str] = []
+
+    # 클래스·어센던시를 **조립 전에** 검증한다. 이 둘은 오탈자여도 조용히 통과해
+    # PoB가 기본값으로 폴백했다 — 실측 2026-08-07(이관 3): `ascendancy="Infernalist"`
+    # (실명)를 줬더니 오류 없이 무시되고 meta.ascendancy가 "None"이 됐다. 스펙에
+    # 필요한 값은 **내부 코드**("Witch1")인데 KB의 `ascendancy_name`은 실명이라
+    # 매핑을 모르면 맞힐 수가 없다. gem_id처럼 정본 후보를 함께 낸다.
+    class_name = str(spec_data.get("class_name", ""))
+    if class_name and class_name not in CLASS_INTERNAL_ID:
+        problems.append(
+            f"class_name {class_name!r}는 PoB 클래스가 아니다 — 허용: {sorted(CLASS_INTERNAL_ID)}"
+        )
+    ascendancy = str(spec_data.get("ascendancy", ""))
+    if ascendancy:
+        codes = _ascendancy_codes()
+        if ascendancy not in codes:
+            by_name = {name.lower(): code for code, name in codes.items() if name}
+            hint = by_name.get(ascendancy.lower())
+            problems.append(
+                f"ascendancy {ascendancy!r}는 내부 코드가 아니다"
+                + (f" — 실명이라면 코드는 {hint!r}다" if hint else f" — 허용: {sorted(codes)}")
+            )
+
+    # 유니크 이름만 적고 옵션 줄을 안 적으면 PoB는 **아무 효과도 안 붙인** 채 계산한다
+    # — 오류도 경고도 없어 "그 유니크를 쓴 수치"로 읽힌다. 실측 2026-08-07(이관 3):
+    # "Sacred Flame\nShrine Sceptre"만 주면 무기 없을 때와 같은 288.63, 옵션을 다 적으면
+    # 433.08(+50%)였다. KB에 그 explicits가 이미 있는데도 그렇다 — unset_config의
+    # 델타 0 함정이 아이템 층에서 재발한 것이다.
+    for ii, item in enumerate(spec_data.get("items", [])):
+        lines = [ln for ln in str(item.get("text", "")).splitlines() if ln.strip()]
+        if len(lines) < 2:
+            continue
+        # 이름 줄은 Rarity 헤더가 있으면 둘째, 없으면 첫째다
+        name = lines[1] if lines[0].lower().startswith("rarity:") else lines[0]
+        explicits = _unique_explicits(name)
+        if not explicits:
+            continue
+        body = " ".join(lines[2:])
+        body_norm = _norm_mod(body)
+        if not any(len(n) >= 12 and n in body_norm for n in (_norm_mod(e) for e in explicits)):
+            problems.append(
+                f"items[{ii}]: {name!r}는 KB 유니크인데 옵션 줄이 하나도 없다 — PoB는 "
+                f"아무 효과도 안 붙인 채 계산한다. KB `data.explicits` {len(explicits)}줄을 "
+                f"텍스트에 적을 것 (예: {explicits[0][:48]!r})"
+            )
+
     valid_gems = gem_ids()
     for gi, group in enumerate(spec_data.get("skills", [])):
         for i, gem in enumerate(group.get("gems", [])):
