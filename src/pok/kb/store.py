@@ -165,8 +165,42 @@ def _condition_objects(record: Record) -> list[dict[str, Any]]:
     return conds
 
 
+def _translation_pair_errors(record: Record) -> list[str]:
+    """⑤ `<필드>` ↔ `<필드>_ko`가 같은 길이인가 — 번역 오염을 **로드에서** 막는다.
+
+    한글 목록이 영문보다 길면 그건 번역이 아니라 **옆 레코드의 줄이 섞인 것**이고,
+    짧으면 줄이 소실된 것이다. 어느 쪽이든 세션은 그걸 그 모드의 문구로 읽는다.
+
+    왜 문서가 아니라 여기인가(철칙 5): 이 계열은 조용히 1,536건까지 쌓였고, 그 오염된
+    한글에 `pob_gaps` 반경 스캐너가 매칭해 비반경 모드 519건에 `radius-grant`가
+    오부착됐으며, 한 세션이 그걸 "주얼 소켓은 PoB에서 구조적으로 저평가된다"로 읽어
+    **측정 방법론을 바꿨다**(실측 2026-08-07). 표기 오류가 아니라 작업 계획의 왜곡이다.
+    감지할 수 있는 규율이므로 문서가 아니라 도구에 넣는다 — `load()`는 모든 쓰기가
+    거쳐 가는 자리라, 여기서 거부하면 이 계열이 다시 샐 수 없다.
+
+    필드명을 열거하지 않고 `_ko` 접미로 **계열 전체**를 본다: 새 번역 필드가 생겨도
+    검사 대상에 자동으로 들어온다(열거했다면 그게 다음 구멍이 된다).
+    """
+    data = record.raw.get("data")
+    if not isinstance(data, dict):
+        return []
+    out: list[str] = []
+    for key, ko in data.items():
+        base = key[:-3] if key.endswith("_ko") else None
+        if base is None or not isinstance(ko, list):
+            continue
+        source = data.get(base)
+        if isinstance(source, list) and len(source) != len(ko):
+            out.append(
+                f"{record.id}: {base} {len(source)}줄 ↔ {key} {len(ko)}줄 — 번역 짝 불일치"
+                " (옆 레코드의 줄이 섞였거나 줄이 소실됐다. 짝을 못 맞추면 부분 부착"
+                f" 대신 {key}를 빼라 — 틀린 번역보다 없는 번역이 낫다)"
+            )
+    return out
+
+
 def load(root: Path | None = None) -> Store:
-    """knowledge/ 전체를 로드하고 4층 검증을 수행한다. 위반 시 KBValidationError."""
+    """knowledge/ 전체를 로드하고 5층 검증을 수행한다. 위반 시 KBValidationError."""
     kdir = root if root is not None and root.name == "knowledge" else knowledge_dir(root)
     sdir = kdir / "schema"
     if not sdir.is_dir():
@@ -241,6 +275,10 @@ def load(root: Path | None = None) -> Store:
             for sat in cond.get("satisfiable_by", []):
                 if sat not in records:
                     errors.append(f"{r.id}: satisfiable_by '{sat}' — 실존하지 않는 id")
+
+    # ⑤ 번역 짝 정합
+    for r in records.values():
+        errors.extend(_translation_pair_errors(r))
 
     if errors:
         raise KBValidationError(errors)

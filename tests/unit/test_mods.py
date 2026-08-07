@@ -355,7 +355,14 @@ def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
                 "kstr": {
                     "affix_name": "of the Brute",
                     "affix_name_ko": "- 짐승",
-                    "texts_ko": ["힘 +(5-8)"],
+                    # 슬롯 키가 유일하지 않아 **옆 모드의 줄**이 함께 쌓인 상태 —
+                    # 실측 0.5.4b에서 728슬롯이 이 모양이었다. 통째로 붙이면 오염된다.
+                    "ko_by_text": {
+                        "+(5-8) to strength": "힘 +(5-8)",
+                        "notable passive skills in radius also grant +(2-3) to strength": (
+                            "반경 내 주요 패시브 스킬이 힘 +(2-3)도 부여"
+                        ),
+                    },
                     "ilvl": 1,
                     "affix_type": "suffix",
                     "families": ["strength"],
@@ -367,7 +374,9 @@ def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
                 "kalloy": {
                     "affix_name": "Celestial Alloy",  # 화폐명 — PoB 접사명과 다름
                     "affix_name_ko": "천상의 합금",
-                    "texts_ko": ["집정관 버프 지속시간 증가"],
+                    "ko_by_text": {
+                        "(35-42)% increased archon buff duration": "집정관 버프 지속시간 증가"
+                    },
                     "ilvl": 45,
                     "affix_type": "suffix",
                     "families": ["archonduration"],
@@ -462,6 +471,10 @@ def test_merge_promotes_ledger_and_desecrated(tmp_path: Path) -> None:
         "poe2db 접사명이 화폐명이면 name.ko 오염 금지 — texts_ko만"
     )
     assert records["modifier.alloyx1"]["data"]["texts_ko"] == ["집정관 버프 지속시간 증가"]
+    assert records["modifier.strength1"]["data"]["texts_ko"] == ["힘 +(5-8)"], (
+        "슬롯에 옆 모드의 반경 부여 줄이 함께 있어도 **자기 영문 줄의 한글만** 온다 —"
+        " 통째로 붙이던 시절 1,536건이 오염됐다 (2026-08-07)"
+    )
     assert records["modifier.strength1"]["name"]["ko"] == "- 짐승", "접사명 일치 → ko 부착"
     assert records["modifier.strength1"]["data"]["acquisition"] == [
         "crafting-currency",
