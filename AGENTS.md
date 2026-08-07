@@ -17,8 +17,10 @@ PoE2 지식 **엔진** + Claude/Codex용 **MCP 도구·스킬**. 웹서비스 �
 
 **"잔여 자원에 무엇이 들어가나"는 `find_by_value`로.** `search_kb`는 텍스트만 매칭해
 `reservation`·`cost` 같은 **수치 필드에 닿지 못한다**. 점유 검사기가 "정신력 40 남았다"까지
-내고도 후보를 물을 경로가 없어 세션이 멈췄다 — 예: `find_by_value("reservation.max",
-type="Skill", maximum=40)`.
+내고도 후보를 물을 경로가 없어 세션이 멈췄다 — 예: `find_by_value("reservation.at_max_level",
+type="Skill", maximum=40)`
+(점유 쌍은 크기 순이 아니라 **레벨 순**이다 — 점유는 레벨이 오를수록 줄어든다. 최고
+레벨 값이 `at_max_level`이고, `min`/`max`는 크기 순 경계다.).
 
 **"무엇이 어떤 형태로 있나"는 `describe_kb`·`describe_type`으로.** 레코드를 찾는 게 아니라
 필드 충전율·값 분포를 훑는 질문에는 `search_kb`가 답하지 못하고, `schema/*.schema.json`은

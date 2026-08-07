@@ -94,11 +94,26 @@ _SEG_END = (
 
 
 def _cost_values(segment: str) -> list[dict[str, Any]]:
+    """`(a—b) Resource` → 값. **a·b는 크기 순이 아니라 레벨 순이다.**
+
+    출처의 두 수는 `(1레벨 값 — 최고레벨 값)`이고, 점유는 레벨이 오를수록 **줄어든다**
+    — 실측 2026-08-07: 해골 방화범 `(90—39) Spirit`은 오기가 아니라 참값이다(PoB
+    `spiritReservationFlat` 90→39). KB 점유 중 범위가 있는 8건이 **전부 감소형**이다.
+    그래서 그 쌍을 `min`/`max`로만 적으면 이름이 거짓말을 한다 — 레벨 의미를 명시한
+    `at_level_1`·`at_max_level`을 함께 싣고, `min`/`max`는 **실제 크기 순**으로 둔다.
+    빌드 설계에 쓰는 값은 대개 `at_max_level`이다.
+    """
     out = []
     for m in _COST_VALUE.finditer(segment):
-        lo = float(m.group(1))
-        hi = float(m.group(2)) if m.group(2) else lo
-        value: dict[str, Any] = {"resource": m.group(4), "min": lo, "max": hi}
+        first = float(m.group(1))
+        last = float(m.group(2)) if m.group(2) else first
+        value: dict[str, Any] = {
+            "resource": m.group(4),
+            "min": min(first, last),
+            "max": max(first, last),
+            "at_level_1": first,
+            "at_max_level": last,
+        }
         if m.group(3):
             value["pct"] = True
         out.append(value)

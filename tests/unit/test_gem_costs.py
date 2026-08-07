@@ -32,20 +32,38 @@ _SUPPORT_MULT = (
 
 def test_스킬_코스트와_시전시간() -> None:
     got = parse_stats_costs(_SKILL)
-    assert got["costs"] == [{"resource": "Mana", "min": 3.0, "max": 37.0}]
+    assert got["costs"] == [
+        {"resource": "Mana", "min": 3.0, "max": 37.0, "at_level_1": 3.0, "at_max_level": 37.0}
+    ]
     assert got["cast_time_s"] == 0.4
     assert got["reservation"] == [] and got["additional_reservation"] == []
 
 
 def test_지속_스킬_점유() -> None:
     got = parse_stats_costs(_PERSISTENT)
-    assert got["reservation"] == [{"resource": "Spirit", "min": 100.0, "max": 100.0}]
+    assert got["reservation"] == [
+        {
+            "resource": "Spirit",
+            "min": 100.0,
+            "max": 100.0,
+            "at_level_1": 100.0,
+            "at_max_level": 100.0,
+        }
+    ]
     assert got["costs"] == []
 
 
 def test_보조_추가_점유는_일반_점유와_구분() -> None:
     got = parse_stats_costs(_SUPPORT_RESV)
-    assert got["additional_reservation"] == [{"resource": "Spirit", "min": 15.0, "max": 15.0}]
+    assert got["additional_reservation"] == [
+        {
+            "resource": "Spirit",
+            "min": 15.0,
+            "max": 15.0,
+            "at_level_1": 15.0,
+            "at_max_level": 15.0,
+        }
+    ]
     assert got["reservation"] == []  # 'Additional Reservation'이 일반 점유로 새면 안 된다
 
 
@@ -88,7 +106,15 @@ def test_apply_전수_수록_멱등(tmp_path: Path) -> None:
         stats = apply_gem_costs(raw, knowledge)
         assert stats["updated"] == 1 and not stats["missing_html"]
         rec = json.loads((gems / "skills.ndjson").read_text(encoding="utf-8"))
-        assert rec["data"]["cost"] == [{"resource": "Mana", "min": 3.0, "max": 37.0}]
+        assert rec["data"]["cost"] == [
+            {
+                "resource": "Mana",
+                "min": 3.0,
+                "max": 37.0,
+                "at_level_1": 3.0,
+                "at_max_level": 37.0,
+            }
+        ]
         assert rec["data"]["cast_time_s"] == 0.4
         assert rec["data"]["converts_reservation_to"] == "life"
         assert rec["data"]["category"] == "spell"  # 기존 필드 보존
@@ -146,4 +172,5 @@ def test_cooldown_is_collected_and_absence_is_explicit() -> None:
 def test_ward_is_a_known_cost_resource() -> None:
     """룬 수호 소모량 미수록 회귀 — 자원 목록에 Ward가 없어 코스트가 통째로 비었다."""
     costs = parse_stats_costs("Cost: (15—81) Ward Cast Time: 0.70 sec")["costs"]
-    assert costs == [{"resource": "Ward", "min": 15.0, "max": 81.0}]
+    assert costs[0]["resource"] == "Ward"
+    assert (costs[0]["min"], costs[0]["max"]) == (15.0, 81.0)
