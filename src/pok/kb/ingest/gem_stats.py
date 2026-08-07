@@ -34,7 +34,7 @@ from pok.kb.ingest.parse import parse_detail
 from pok.kb.store import load as store_load
 from pok.kb.store import patch_records
 
-_STAT_KEYS = ("stats", "implicit_stats", "quality_stats")
+_STAT_KEYS = ("stats", "implicit_stats", "quality_stats", "minion_stats")
 # 효과 문구를 가질 만한 타입 — 아이템·모드는 다른 경로로 이미 수록돼 있다
 _GEM_TYPES = frozenset({"Skill", "Support"})
 
@@ -66,6 +66,7 @@ def apply_gem_stats(
     missing_page: list[str] = []
     no_mods: list[str] = []
     total = 0
+    with_stats = 0
 
     for record in store.records.values():
         if record.type not in _GEM_TYPES:
@@ -77,9 +78,19 @@ def apply_gem_stats(
             missing_page.append(record.id)
             continue
         page = parse_detail(page_path.read_text(encoding="utf-8", errors="replace"))
-        patch = {k: getattr(page, k) for k in _STAT_KEYS if getattr(page, k)}
+        parsed = {k: getattr(page, k) for k in _STAT_KEYS}
+        # **비게 된 키는 지운다** — 빈 값을 그냥 건너뛰면 소스에서 사라진 줄이 레코드에
+        # 눌러붙는다. 실측 2026-08-07(#8-b): 몬스터 카드를 걷어내 `implicit_stats`가
+        # 비었는데도 `monster no drops or experience [1]`가 15건에 남아, `stats`만
+        # 고쳐진 반쪽 상태가 됐다. `patch_records`의 `None` = 삭제 규약이 그 수단이다.
+        data = record.raw.get("data", {})
+        patch: dict[str, Any] = {
+            k: (v if v else None) for k, v in parsed.items() if v or data.get(k)
+        }
         if patch:
             updates[record.id] = patch
+        if any(parsed.values()):
+            with_stats += 1
         else:
             # 원시는 있는데 문구가 안 나왔다 — 정말 없는 젬일 수도, 파서 갭일 수도
             no_mods.append(record.id)
@@ -89,8 +100,8 @@ def apply_gem_stats(
 
     return {
         "gem_records": total,
-        "with_stats": len(updates),
-        "coverage_pct": round(len(updates) / total * 100.0, 1) if total else 0.0,
+        "with_stats": with_stats,
+        "coverage_pct": round(with_stats / total * 100.0, 1) if total else 0.0,
         "missing_raw_page": sorted(missing_page),
         "no_mod_lines": sorted(no_mods),
     }

@@ -71,6 +71,8 @@ class ProcessedItem:
     stats: list[str] = field(default_factory=list)
     implicit_stats: list[str] = field(default_factory=list)
     quality_stats: list[str] = field(default_factory=list)
+    # 소환수 스탯 — 플레이어 줄과 섞지 않고 실체 이름과 함께 (#8-b, parse.DetailPage 참조)
+    minion_stats: list[dict[str, Any]] = field(default_factory=list)
     acquisition: list[str] = field(default_factory=list)
     has_level_effect: bool = False
     in_pob: bool = False
@@ -85,6 +87,9 @@ def _poe2db_entity(item: ProcessedItem) -> SourceEntity:
         substance.append(item.description)
     # 효과 문구는 실질 정보다 — substance에 넣어야 ⑦(정보량 하한)이 누락을 잡는다
     substance.extend(item.stats)
+    # 소환수 스탯도 실질 정보다. 소환 스킬은 실질이 **소환수 쪽에** 있어서, 이걸 빼면
+    # 야생 보호자처럼 플레이어 줄이 2개뿐인 스킬이 정보량 0으로 몰린다 (#8-b 분리 후)
+    substance.extend(line for entity in item.minion_stats for line in entity["stats"])
     if item.has_level_effect:
         substance.append("level-effect-table")
     return SourceEntity(
@@ -206,6 +211,7 @@ def process_patch(raw_dir: Path, out_dir: Path, knowledge: Path | None = None) -
             stats=page.stats,
             implicit_stats=page.implicit_stats,
             quality_stats=page.quality_stats,
+            minion_stats=page.minion_stats,
             acquisition=page.acquisition,
             has_level_effect=page.has_level_effect,
             in_pob=pob is not None,

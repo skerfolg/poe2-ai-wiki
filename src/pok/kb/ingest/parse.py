@@ -49,6 +49,14 @@ class DetailPage:
     stats: list[str] = field(default_factory=list)  # .explicitMod
     implicit_stats: list[str] = field(default_factory=list)  # .implicitMod
     quality_stats: list[str] = field(default_factory=list)  # .qualityMod·.secondaryQualityMod
+    # 소환수 스탯 — **플레이어의 줄이 아니다.** poe2db 스킬 페이지는 그 스킬이 소환하는
+    # 실체(해골 전사·아즈메리 늑대·Djinn)의 스탯 카드를 같은 페이지에 함께 싣는데,
+    # 파서가 페이지의 전 `.Stats`를 훑어 그걸 `stats`에 섞어 넣었다(#8-b). 실측
+    # 2026-08-07: 오라인 `skill.malice`의 19줄 중 15줄이 남의 줄이었고, KB 22건이
+    # 오염됐다. 버리지는 않는다 — 해골 서리 마법사의 Ice Armour 수치처럼 **여기에만
+    # 있는 값**이 있다. 대신 **누구의 줄인지 실체 이름과 함께** 싣는다:
+    # `[{"entity": "Skeletal Frost Mage", "stats": [...]}]`
+    minion_stats: list[dict[str, Any]] = field(default_factory=list)
 
 
 def _title_name(soup: BeautifulSoup) -> str:
@@ -205,20 +213,82 @@ def _mod_lines(node: Tag) -> list[str]:
     return out
 
 
+# 몬스터 스탯 카드의 표식 — poe2db는 스킬이 소환하는 실체(와 이름만 같은 무관한
+# 몬스터)의 카드를 같은 페이지에 싣는다. `col-monster` = 스킬 카드 묶음,
+# `monsterNormalPopup` = 실체 자신의 팝업(이름·종족·고유 속성).
+_MONSTER_CARD = "col-monster"
+_MONSTER_POPUP = "monsterNormalPopup"
+
+
+def _monster_owner(block: Tag) -> Tag | None:
+    """`.Stats` 블록이 몬스터 카드 안이면 그 카드를 돌려준다 (아니면 None)."""
+    for cls in (_MONSTER_CARD, _MONSTER_POPUP):
+        owner = block.find_parent(class_=cls)
+        if owner is not None:
+            return owner
+    return None
+
+
+def _player_blocks(soup: BeautifulSoup) -> list[Tag]:
+    """플레이어 스킬 자신의 `.Stats` 블록만 (몬스터 카드 제외)."""
+    return [b for b in soup.select(".Stats") if _monster_owner(b) is None]
+
+
+# 소환 실체의 이름은 그 실체 탭의 팝업 헤더에 있다 ("Skeletal Warrior" / "Malice Demon").
+_ENTITY_NAME = ".monsterNormalPopup .itemName"
+# 소환수 판정 — **스킬 자신의 문구가 그 실체를 Minion이라 부르는가.** 탭 id로는 못
+# 가른다: 무관한 딜리리움 몬스터의 탭도 `MaliceDeliriumMinion4`처럼 "Minion"을 달고
+# 있다. 실측 2026-08-07: 이 규칙이 소환수·동료 20건을 전부 통과시키고, 동명이인
+# 몬스터만 실린 `Malice`(오라)·`Tornado`(설치물) 2건만 걸러냈다.
+_DECLARES_MINION = re.compile(r"\bminions?\b", re.IGNORECASE)
+
+
 def _collect_mods(soup: BeautifulSoup, page: DetailPage) -> None:
-    """효과 문구를 전 `.Stats` 블록에서 모은다 (중복 제거).
+    """효과 문구를 **플레이어** `.Stats` 블록에서 모은다 (중복 제거).
 
     블록이 여러 벌 실리는 페이지가 있어(같은 내용 반복) 순서를 지키며 dedup한다.
     """
+    blocks = _player_blocks(soup)
     for attr, selector in _MOD_SELECTORS:
         seen: list[str] = []
-        for block in soup.select(".Stats"):
+        for block in blocks:
             for node in block.select(selector):
                 for line in _mod_lines(node):
                     if line not in seen:
                         seen.append(line)
         if seen:
             setattr(page, attr, seen)
+
+
+def _collect_minion_stats(soup: BeautifulSoup, page: DetailPage) -> None:
+    """소환 실체의 스탯을 **실체 이름과 함께** 모은다 (`minion_stats`).
+
+    스킬이 그 실체를 Minion이라 부를 때만 싣는다 — 그렇지 않은 페이지의 몬스터
+    카드는 poe2db가 이름이 같아서 얹은 무관한 몬스터이므로 **버린다**(사용자 판정
+    2026-08-07). 플레이어 블록에 이미 있는 줄은 중복이므로 싣지 않는다.
+    """
+    haystack = " ".join([page.description or "", *page.stats, *page.implicit_stats])
+    if not _DECLARES_MINION.search(haystack):
+        return
+
+    known = {line for attr, _ in _MOD_SELECTORS for line in getattr(page, attr)}
+    by_entity: dict[str, list[str]] = {}
+    for block in soup.select(".Stats"):
+        owner = _monster_owner(block)
+        if owner is None:
+            continue
+        tab = block.find_parent(class_="tab-pane")
+        name_node = tab.select_one(_ENTITY_NAME) if tab is not None else None
+        entity = name_node.get_text(" ", strip=True) if name_node is not None else page.name
+        lines = by_entity.setdefault(" ".join(entity.split()), [])
+        for selector in (".explicitMod", ".implicitMod"):
+            for node in block.select(selector):
+                for line in _mod_lines(node):
+                    if line not in known and line not in lines:
+                        lines.append(line)
+    page.minion_stats = [
+        {"entity": entity, "stats": lines} for entity, lines in by_entity.items() if lines
+    ]
 
 
 def parse_detail(html: str) -> DetailPage:
@@ -229,13 +299,16 @@ def parse_detail(html: str) -> DetailPage:
     if isinstance(og, Tag) and og.get("content"):
         page.description = str(og["content"]).strip()
 
-    tl = soup.select_one(".typeLine")
+    # 몬스터 카드에도 `.typeLine`(실체 이름)이 있다 — 플레이어 팝업의 것만 취한다
+    tl = next((t for t in soup.select(".typeLine") if _monster_owner(t) is None), None)
     if tl is not None:
         page.type_line = tl.get_text(strip=True)
 
     _collect_mods(soup, page)
+    _collect_minion_stats(soup, page)
 
-    stats = soup.select_one(".Stats")
+    player_blocks = _player_blocks(soup)
+    stats = player_blocks[0] if player_blocks else None
     if stats is not None:
         text = stats.get_text(" ", strip=True)
         m = re.search(r"Tier:\s*(\d+)", text)
@@ -244,8 +317,9 @@ def parse_detail(html: str) -> DetailPage:
         page.tags = _extract_tags(text)
         for key, value in parse_stats_costs(text).items():
             setattr(page, key, value)
-    # 조건부(서술형) 점유는 버프 팝업 블록에 있다 — 전 `.Stats`를 합쳐서 스캔
-    all_stats = " ".join(b.get_text(" ", strip=True) for b in soup.select(".Stats"))
+    # 조건부(서술형) 점유는 버프 팝업 블록에 있다 — 플레이어 `.Stats`를 합쳐서 스캔
+    # (몬스터 카드는 뺀다: 소환수가 점유하는 게 아니다)
+    all_stats = " ".join(b.get_text(" ", strip=True) for b in player_blocks)
     page.conditional_reservation = parse_conditional_reservation(all_stats)
 
     for card in soup.select("div.card"):

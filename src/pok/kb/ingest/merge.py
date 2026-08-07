@@ -38,6 +38,7 @@ _MACHINE_DATA_KEYS = frozenset(
         "stats",
         "implicit_stats",
         "quality_stats",
+        "minion_stats",
     }
 )
 # ingest가 붙일 수 있는 검증 라벨 전부. 그 밖의 라벨(IN_GAME·CONTRADICTED…)은
@@ -101,7 +102,7 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
     if item.get("description"):
         data["description"] = item["description"]
     # 효과 문구 — 배율·확률이 여기 있다. `description`(산문)만으로는 젬을 고를 수 없다
-    for key in ("stats", "implicit_stats", "quality_stats"):
+    for key in ("stats", "implicit_stats", "quality_stats", "minion_stats"):
         if item.get(key):
             data[key] = item[key]
     if item.get("tier") is not None:

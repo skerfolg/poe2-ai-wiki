@@ -17,7 +17,8 @@ from pok.kb.insights import load_insights
 from pok.kb.store import Store, load
 
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
-SCHEMA_VERSION = 6  # v6: records.unlock — 해금 제약을 검색 히트에 실어 보낸다(B-13)
+# v6: records.unlock — 해금 제약을 검색 히트에 실어 보낸다(B-13)
+SCHEMA_VERSION = 7  # v7: fts body에 minion_stats — 소환수 효과 검색(#8-b 분리 후 도달 경로)
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -113,6 +114,19 @@ def _fts_body(raw: dict[str, object]) -> str:
         for slot_lines in per_slot.values():
             if isinstance(slot_lines, list):
                 parts += [str(x) for x in slot_lines]
+    # 소환수 스탯은 `[{entity, stats}]` 꼴이라 위의 문자열/리스트 분기에 걸리지 않는다.
+    # 색인 안 하면 **찾을 수 없는 곳으로 옮긴 셈**이 된다 — #8-b 전에는 (엉뚱한 주인
+    # 밑이긴 해도) `stats`에 있어서 검색은 됐다. 도구 갭을 만들면 세션은 파일 탐색으로
+    # 도피한다(철칙 5 따름정리). 실체 이름도 함께 넣어 "해골 서리 마법사"로도 닿게 한다.
+    minions = data.get("minion_stats")
+    if isinstance(minions, list):
+        for entity in minions:
+            if not isinstance(entity, dict):
+                continue
+            parts.append(str(entity.get("entity", "")))
+            lines = entity.get("stats")
+            if isinstance(lines, list):
+                parts += [str(x) for x in lines]
     return " ".join(parts)
 
 
