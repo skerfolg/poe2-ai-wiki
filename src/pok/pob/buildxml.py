@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import functools
 import re
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Any
@@ -47,6 +48,13 @@ class GemSpec:
     level: int = 20
     quality: int = 0
     enabled: bool = True
+    # 단계형(채널링) 스킬의 스테이지 수 — PoB는 **젬 인스턴스 속성**으로 받는다
+    # (`CalcActiveSkill.lua:868` skillStageCount / skillStageCountCalcs). 안 주면
+    # **조용히 1단계**로 계산된다 — 실측 2026-08-07(이관 4): 화염파가 `75% more
+    # damage per Stage` · 최대 10단계인데 1.75배(1회분)만 들어갔고, 세션은 그 수치를
+    # 실측으로 받아 설계 판단을 내렸다. 최대 단계는 스킬마다 다르므로 기본값을
+    # 정하지 않고, 단계형인데 미지정이면 조립 단계에서 알린다.
+    stages: int | None = None
 
 
 @dataclass(frozen=True)
@@ -189,6 +197,73 @@ def _make[T](cls: type[T], data: dict[str, Any], where: str) -> T:
     return cls(**data)
 
 
+@functools.lru_cache(maxsize=1)
+def _staged_skills() -> dict[str, str]:
+    """단계형 스킬 표시명(소문자) → 근거 문구. KB 효과 문구에서 결정적으로 유도한다."""
+    from pok.kb.store import load as store_load
+
+    out: dict[str, str] = {}
+    for record in store_load().records.values():
+        if record.type != "Skill":
+            continue
+        data = record.raw.get("data") or {}
+        lines = [str(x) for x in (data.get("stats") or [])] + [
+            str(x) for x in (data.get("stats_en") or [])
+        ]
+        hit = next(
+            (ln for ln in lines if "maximum Stages" in ln or "per Stage" in ln),
+            "",
+        )
+        if hit:
+            name = str((record.raw.get("name") or {}).get("en") or "").strip().lower()
+            if name:
+                out[name] = hit[:60]
+    return out
+
+
+@functools.lru_cache(maxsize=1)
+def _unique_index() -> dict[str, tuple[str, ...]]:
+    """유니크 표시명(소문자) → explicits — 옵션 누락 검출용."""
+    from pok.kb.store import load as store_load
+
+    out: dict[str, tuple[str, ...]] = {}
+    for record in store_load().records.values():
+        data = record.raw.get("data") or {}
+        if record.type != "Item" or data.get("rarity") != "unique":
+            continue
+        name = str((record.raw.get("name") or {}).get("en") or "").strip().lower()
+        if name:
+            out[name] = tuple(str(x) for x in (data.get("explicits") or []))
+    return out
+
+
+def _unique_explicits(name: str) -> tuple[str, ...]:
+    return _unique_index().get(name.strip().lower(), ())
+
+
+def _norm_mod(text: str) -> str:
+    """모드 문구 정규화 — 수치·범위를 지워 롤이 달라도 같은 줄로 본다.
+
+    KB는 `Gain (40-60)% of Damage as Extra Fire Damage`, 실물은 `Gain 50% of ...`
+    처럼 롤만 다르다. 앞부분만 잘라 비교하면 "Gain "처럼 너무 짧아 못 쓴다.
+    """
+    stripped = re.sub(r"\(\d+(?:\.\d+)?\s*[-—]\s*\d+(?:\.\d+)?\)|\d+(?:\.\d+)?", "", text)
+    return " ".join(stripped.lower().replace("+", " ").split())
+
+
+@functools.lru_cache(maxsize=1)
+def _ascendancy_codes() -> dict[str, str]:
+    """어센던시 내부 코드 → 실명 (KB 시작 노드가 곧 매핑표)."""
+    from pok.kb.store import load as store_load
+
+    out: dict[str, str] = {}
+    for record in store_load().records.values():
+        data = record.raw.get("data") or {}
+        if data.get("kind") == "ascendancy-start" and data.get("ascendancy"):
+            out[str(data["ascendancy"])] = str((data.get("ascendancy_name") or {}).get("en") or "")
+    return out
+
+
 def _validate_catalog(spec_data: dict[str, Any]) -> None:
     """`gem_id`·`config` 키가 PoB에 실재하는지 본다 — **조용한 폴백을 막는다**.
 
@@ -209,6 +284,66 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
     )
 
     problems: list[str] = []
+
+    # 클래스·어센던시를 **조립 전에** 검증한다. 이 둘은 오탈자여도 조용히 통과해
+    # PoB가 기본값으로 폴백했다 — 실측 2026-08-07(이관 3): `ascendancy="Infernalist"`
+    # (실명)를 줬더니 오류 없이 무시되고 meta.ascendancy가 "None"이 됐다. 스펙에
+    # 필요한 값은 **내부 코드**("Witch1")인데 KB의 `ascendancy_name`은 실명이라
+    # 매핑을 모르면 맞힐 수가 없다. gem_id처럼 정본 후보를 함께 낸다.
+    class_name = str(spec_data.get("class_name", ""))
+    if class_name and class_name not in CLASS_INTERNAL_ID:
+        problems.append(
+            f"class_name {class_name!r}는 PoB 클래스가 아니다 — 허용: {sorted(CLASS_INTERNAL_ID)}"
+        )
+    ascendancy = str(spec_data.get("ascendancy", ""))
+    if ascendancy:
+        codes = _ascendancy_codes()
+        if ascendancy not in codes:
+            by_name = {name.lower(): code for code, name in codes.items() if name}
+            hint = by_name.get(ascendancy.lower())
+            problems.append(
+                f"ascendancy {ascendancy!r}는 내부 코드가 아니다"
+                + (f" — 실명이라면 코드는 {hint!r}다" if hint else f" — 허용: {sorted(codes)}")
+            )
+
+    # 유니크 이름만 적고 옵션 줄을 안 적으면 PoB는 **아무 효과도 안 붙인** 채 계산한다
+    # — 오류도 경고도 없어 "그 유니크를 쓴 수치"로 읽힌다. 실측 2026-08-07(이관 3):
+    # "Sacred Flame\nShrine Sceptre"만 주면 무기 없을 때와 같은 288.63, 옵션을 다 적으면
+    # 433.08(+50%)였다. KB에 그 explicits가 이미 있는데도 그렇다 — unset_config의
+    # 델타 0 함정이 아이템 층에서 재발한 것이다.
+    for ii, item in enumerate(spec_data.get("items", [])):
+        lines = [ln for ln in str(item.get("text", "")).splitlines() if ln.strip()]
+        if len(lines) < 2:
+            continue
+        # 이름 줄은 Rarity 헤더가 있으면 둘째, 없으면 첫째다
+        name = lines[1] if lines[0].lower().startswith("rarity:") else lines[0]
+        explicits = _unique_explicits(name)
+        if not explicits:
+            continue
+        body = " ".join(lines[2:])
+        body_norm = _norm_mod(body)
+        if not any(len(n) >= 12 and n in body_norm for n in (_norm_mod(e) for e in explicits)):
+            problems.append(
+                f"items[{ii}]: {name!r}는 KB 유니크인데 옵션 줄이 하나도 없다 — PoB는 "
+                f"아무 효과도 안 붙인 채 계산한다. KB `data.explicits` {len(explicits)}줄을 "
+                f"텍스트에 적을 것 (예: {explicits[0][:48]!r})"
+            )
+
+    # 단계형 스킬인데 스테이지를 안 주면 PoB가 **조용히 1단계**로 잰다 — 실측
+    # 2026-08-07: 화염파 1단계 288.6 vs 10단계 1402.4(**4.86배**). 어느 단계로 설계할지는
+    # 판단이므로 값을 정해 주지 않고, 지정하지 않았다는 사실만 막는다.
+    for gi, group in enumerate(spec_data.get("skills", [])):
+        for i, gem in enumerate(group.get("gems", [])):
+            if gem.get("stages") is not None:
+                continue
+            max_stages = _staged_skills().get(str(gem.get("name", "")).lower())
+            if max_stages:
+                problems.append(
+                    f"skills[{gi}].gems[{i}]: {gem.get('name')!r}는 단계형 스킬인데 "
+                    f"`stages`가 없다 — PoB는 **1단계로 계산**한다({max_stages}). "
+                    f"몇 단계를 유지하는 설계인지 정해 `stages`로 줄 것"
+                )
+
     valid_gems = gem_ids()
     for gi, group in enumerate(spec_data.get("skills", [])):
         for i, gem in enumerate(group.get("gems", [])):
@@ -316,7 +451,12 @@ def to_xml(spec: BuildSpec) -> str:
         gems = "\n".join(
             f"        <Gem gemId={quoteattr(g.gem_id)} variantId={quoteattr(g.name)} "
             f'level="{g.level}" quality="{g.quality}" '
-            f'enabled="{"true" if g.enabled else "false"}" nameSpec={quoteattr(g.name)}/>'
+            + (
+                f'skillStageCount="{g.stages}" skillStageCountCalcs="{g.stages}" '
+                if g.stages is not None
+                else ""
+            )
+            + f'enabled="{"true" if g.enabled else "false"}" nameSpec={quoteattr(g.name)}/>'
             for g in group.gems
         )
         skill_groups.append(

@@ -97,3 +97,99 @@ def test_unrelated_build_does_not_get_bleed_options() -> None:
         )
     }
     assert not ({"multiplierIncisionStackCount", "conditionBleedAggravated"} & found)
+
+
+def test_class_and_ascendancy_are_validated_with_candidates() -> None:
+    """조용한 폴백 회귀 (이관 3 #6): 실명·오탈자가 오류 없이 통과했다.
+
+    `ascendancy="Infernalist"`(실명)를 주면 PoB가 조용히 무시하고 meta.ascendancy가
+    "None"이 됐다 — 스펙이 요구하는 값은 내부 코드("Witch1")인데 KB의
+    `ascendancy_name`은 실명이라 매핑을 모르면 맞힐 수 없다.
+    """
+    import pytest
+
+    from pok.pob.buildxml import spec_from_dict
+
+    spec_from_dict({"class_name": "Witch", "ascendancy": "Witch1"})  # 정상은 통과
+    with pytest.raises(ValueError) as err:
+        spec_from_dict({"class_name": "Witch", "ascendancy": "Infernalist"})
+    assert "Witch1" in str(err.value), "실명을 주면 정본 코드를 알려줘야 한다"
+    with pytest.raises(ValueError) as err2:
+        spec_from_dict({"class_name": "NotAClass", "ascendancy": "Witch1"})
+    assert "허용" in str(err2.value)
+
+
+def test_unique_without_explicit_lines_is_rejected() -> None:
+    """유니크 옵션 조용한 무시 회귀 (이관 3 #1).
+
+    이름+베이스만 주면 PoB가 **아무 효과도 안 붙인 채** 계산한다 — 오류도 경고도
+    없어 "그 유니크를 쓴 수치"로 읽힌다(실측: 288.63 vs 옵션 포함 433.08).
+    """
+    import pytest
+
+    from pok.pob.buildxml import spec_from_dict
+
+    base = {"class_name": "Witch", "ascendancy": "Witch1"}
+    with pytest.raises(ValueError) as err:
+        spec_from_dict(
+            {**base, "items": [{"slot": "Weapon 1", "text": "Sacred Flame\nShrine Sceptre"}]}
+        )
+    assert "옵션 줄이 하나도 없다" in str(err.value)
+    # 옵션을 적으면 통과한다 — 롤 수치가 KB 범위와 달라도 같은 줄로 본다
+    spec_from_dict(
+        {
+            **base,
+            "items": [
+                {
+                    "slot": "Weapon 1",
+                    "text": "Rarity: UNIQUE\nSacred Flame\nShrine Sceptre\nImplicits: 0\n"
+                    "Gain 50% of Damage as Extra Fire Damage",
+                }
+            ],
+        }
+    )
+    # 일반 희귀는 무관하다
+    spec_from_dict(
+        {
+            **base,
+            "items": [
+                {
+                    "slot": "Ring 1",
+                    "text": "Rarity: RARE\nMy Ring\nGold Ring\nImplicits: 0\n+80 to maximum Life",
+                }
+            ],
+        }
+    )
+
+
+def test_staged_skill_requires_explicit_stages() -> None:
+    """단계형 스킬의 조용한 1단계 계산 회귀 (이관 4 #11).
+
+    PoB는 젬 인스턴스의 `skillStageCount`가 없으면 **1단계**로 잰다
+    (`CalcActiveSkill.lua:868`). 실측: 화염파 1단계 288.6 vs 10단계 1402.4 —
+    **4.86배**. 세션은 그 1단계 수치를 실측으로 받아 설계 판단을 내렸다.
+    어느 단계로 설계할지는 판단이므로 값을 정해 주지 않고, 미지정만 막는다.
+    """
+    import pytest
+
+    from pok.pob.buildxml import spec_from_dict, to_xml
+
+    gem = {
+        "name": "Flameblast",
+        "gem_id": "Metadata/Items/Gems/SkillGemFlameblast",
+        "level": 20,
+    }
+    base = {"class_name": "Witch", "ascendancy": "Witch1"}
+    with pytest.raises(ValueError) as err:
+        spec_from_dict({**base, "skills": [{"gems": [gem]}]})
+    assert "단계형" in str(err.value) and "1단계로 계산" in str(err.value)
+
+    spec = spec_from_dict({**base, "skills": [{"gems": [{**gem, "stages": 10}]}]})
+    assert spec.skills[0].gems[0].stages == 10
+    xml = to_xml(spec)
+    assert 'skillStageCount="10"' in xml and 'skillStageCountCalcs="10"' in xml
+
+    # 단계형이 아닌 스킬은 무관하다
+    spec_from_dict({**base, "skills": [{"gems": [
+        {"name": "Spark", "gem_id": "Metadata/Items/Gems/SkillGemSpark", "level": 20}
+    ]}]})  # fmt: skip
