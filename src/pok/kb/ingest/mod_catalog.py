@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -169,8 +170,66 @@ def _norm_text(s: str) -> str:
 
 
 def match_key(affix_name: str, families: list[str], ilvl: int) -> str:
-    """poe2db↔PoB 대조 키. 패밀리는 정렬해 순서 차이를 흡수한다."""
+    """poe2db↔PoB 대조 키. 패밀리는 정렬해 순서 차이를 흡수한다.
+
+    ⚠️ **이 키는 poe2db에서 유일하지 않다** — 한 슬롯에 서로 다른 모드가 쌓인다.
+    반경 주얼판과 일반판이 접사명·패밀리·레벨을 공유하기 때문이다(실측 0.5.4b:
+    `blasting|areaofeffect|1` = 일반 '효과 범위 (4-6)% 증가' + 반경 '주요 패시브가
+    효과 범위 (2-3)% 증가도 부여'). 그래서 슬롯의 텍스트 목록은 **여러 모드의 줄이
+    섞인 풀**이지 한 모드의 문구가 아니다. 줄을 꺼낼 땐 반드시 `aligned_ko_texts`처럼
+    **영문 줄을 축으로** 짝지어야 한다.
+    """
     return f"{affix_name.strip().lower()}|{'+'.join(sorted(f.lower() for f in families))}|{ilvl}"
+
+
+def align_key(text: str) -> str:
+    """영문 줄의 동일성 키 — 공백을 완전히 지운다.
+
+    두 소스의 공백 차이는 의미가 아니라 HTML 추출의 부산물이다(poe2db는
+    `get_text(" ")`로 뽑아 `armour , evasion`·`+ (4-5)`처럼 띄운다). 남겨 두면
+    같은 줄이 다른 줄로 보여 한글이 통째로 떨어져 나간다(실측 2026-08-07: 5건).
+    """
+    return _WS.sub("", _norm_text(text))
+
+
+def build_ko_line_index(catalog: dict[str, dict[str, Any]]) -> tuple[dict[str, str], list[str]]:
+    """전 슬롯의 (영문 줄 → 한글 줄) 짝을 합쳐 **전역 색인**으로 만든다.
+
+    왜 슬롯이 아니라 전역인가: 한 줄의 한글 번역은 그 줄이 **어느 슬롯에서 왔는지와
+    무관**하다. 반면 슬롯 키(`match_key`)는 유일하지 않아 옆 모드의 줄을 함께 담고
+    있고, PoB↔poe2db 대조는 계단식(이름 → 패밀리+ilvl → 텍스트)이라 **다른 모드의
+    슬롯을 가리키기도 한다**. 슬롯을 경유하면 그 두 오차가 곱해진다 — 실측
+    2026-08-07: 그래서 en/ko 줄 수가 어긋난 Modifier가 1,536건이었고, 오염된 한글에
+    `pob_gaps` 반경 스캐너가 매칭해 `radius-grant` 오탐 519건이 붙었으며, 한 세션이
+    그걸 "주얼 소켓은 PoB에서 구조적으로 저평가된다"로 읽어 측정 방법론을 바꿨다.
+    수치도 어긋났다(`JewelRadiusCriticalDamage`: 영문 (5-10)% ↔ 한글 (10-20)%).
+
+    영문 줄을 축으로 삼으면 슬롯이 섞여 있어도 자기 줄만 온다. 전역화가 안전한지는
+    **재보지 말고 여기서 측정한다**: 한 영문 줄에 서로 다른 한글이 붙으면 그 줄은
+    색인에서 **빼고** 충돌로 보고한다(임의로 하나 고르지 않는다). 실측 0.5.4b:
+    3,427줄 중 충돌 0건.
+    """
+    seen: dict[str, set[str]] = {}
+    for entry in catalog.values():
+        for en, ko in (entry.get("ko_by_text") or {}).items():
+            seen.setdefault(align_key(en), set()).add(ko)
+    index = {k: next(iter(v)) for k, v in seen.items() if len(v) == 1}
+    return index, sorted(k for k, v in seen.items() if len(v) > 1)
+
+
+def aligned_ko_texts(texts: list[str], ko_lines: Mapping[str, str]) -> list[str]:
+    """영문 줄 각각에 **그 줄의** 한글을 짝지어 돌려준다 — 하나라도 없으면 빈 목록.
+
+    반환 길이가 입력 길이와 **구조적으로** 같아진다 — 규율을 문서가 아니라 자료구조가
+    강제한다(철칙 5). 짝을 못 찾은 줄이 하나라도 있으면 부분 부착 대신 통째로
+    포기한다: 틀린 한글보다 없는 한글이 낫다. 하이브리드(PoB 두 줄 ↔ poe2db 한 줄)가
+    여기 걸리는데, 젬 쪽에서 이미 같은 판정을 했다 — KB_INGEST §3b "en/ko 항목 수가
+    일치할 때만 분할하고 아니면 접는다".
+    """
+    if not texts:
+        return []
+    matched = [ko_lines.get(align_key(t)) for t in texts]
+    return [k for k in matched if k] if all(matched) else []
 
 
 def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[str, Any]:
@@ -213,6 +272,10 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
                         "affix_type": m["affix_type"],
                         "families": sorted(f.lower() for f in m["families"]),
                         "texts": [],
+                        # 영문 줄(정규화) → 그 줄의 한글. **목록이 아니라 짝**이다 —
+                        # 슬롯 키가 유일하지 않아 목록으로 두면 옆 모드의 줄이 섞인다
+                        # (match_key·aligned_ko_texts 참고).
+                        "ko_by_text": {},
                         "pools": {},
                         "mod_tags": sorted(set(m["mod_tags"])),
                         "drop_chance": m["drop_chance"],
@@ -228,8 +291,7 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
                     k = kr_mods[idx]
                     if (k["ilvl"], k["families"]) == (m["ilvl"], m["families"]):
                         slot.setdefault("affix_name_ko", k["affix_name"])
-                        if k["text"] not in slot.setdefault("texts_ko", []):
-                            slot["texts_ko"].append(k["text"])
+                        slot["ko_by_text"].setdefault(norm, k["text"])
                     else:
                         ko_zip_mismatch += 1
 
@@ -345,7 +407,14 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
         for entry in ledger.get("unobtainable_mods", []):
             revival += [k for k in entry.get("pob_keys", []) if k in match_result]
 
+    # 한글 줄은 슬롯이 아니라 **줄**에 딸린다 — merge가 쓰는 정본 색인 (build_ko_line_index)
+    ko_lines, ko_conflicts = build_ko_line_index(catalog)
+
     out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "mod_texts_ko.json").write_text(
+        json.dumps(dict(sorted(ko_lines.items())), ensure_ascii=False, indent=1) + "\n",
+        encoding="utf-8",
+    )
     (out_dir / "mod_catalog.json").write_text(
         json.dumps(catalog, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
     )
@@ -382,6 +451,13 @@ def process_catalog(raw_dir: Path, out_dir: Path, plan: dict[str, Any]) -> dict[
         "revival_candidates": sorted(revival)[:30],
         "ko": {
             "catalog_with_ko": sum(1 for v in catalog.values() if v.get("affix_name_ko")),
+            # 전역 (영문 줄 → 한글 줄) 색인 — merge가 줄 단위로 짝지을 때 쓰는 정본.
+            # conflicts는 한 영문 줄에 한글이 둘 이상이라 **뺀** 줄이다(임의 선택 금지).
+            "ko_lines": len(ko_lines),
+            "ko_line_conflicts": len(ko_conflicts),
+            # 슬롯 키가 유일하지 않아 한 슬롯에 여러 모드의 줄이 쌓인 건수 — 슬롯을
+            # 경유해 ko를 붙이면 오염되는 자리다(그래서 전역 색인을 쓴다).
+            "slots_with_multiple_texts": sum(1 for v in catalog.values() if len(v["texts"]) > 1),
             "zip_mismatch_skipped": ko_zip_mismatch,
             "base_names_ko": len(base_names_ko),
         },

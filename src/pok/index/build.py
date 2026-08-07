@@ -17,7 +17,8 @@ from pok.kb.insights import load_insights
 from pok.kb.store import Store, load
 
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
-SCHEMA_VERSION = 6  # v6: fts body에 minion_stats — 소환수 효과 검색(#8-b 분리 후 도달 경로)
+# v6: records.unlock — 해금 제약을 검색 히트에 실어 보낸다(B-13)
+SCHEMA_VERSION = 7  # v7: fts body에 minion_stats — 소환수 효과 검색(#8-b 분리 후 도달 경로)
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -27,7 +28,12 @@ CREATE TABLE records (
     verification TEXT NOT NULL, json TEXT NOT NULL,
     -- 전직 식별자: "Witch1 Blood Mage 블러드 메이지" 처럼 코드·영문·한글을 한 줄로.
     -- 어느 표기로 물어도 찾히게 — 표기 불일치가 조회 실패의 단골 원인이다(B-1).
-    ascendancy TEXT NOT NULL DEFAULT ''
+    ascendancy TEXT NOT NULL DEFAULT '',
+    -- data.unlock_constraint 원문(JSON). **조회 히트에 실어 보내기 위한** 칼럼이다:
+    -- 차단이 조립 시점(assemble_pob)에만 있으면 세션은 그 전에 이미 잘못된 설계
+    -- 결론을 낸다(B-13 실측 2026-08-07 — 오라클 전용 노드를 인퍼널리스트 빌드의
+    -- 병목 해법으로 제시). 후보를 내는 **모든 지점**에서 같은 판정이 나와야 한다.
+    unlock TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX idx_records_asc ON records(ascendancy);
 CREATE TABLE tags (id TEXT NOT NULL, tag TEXT NOT NULL);
@@ -72,6 +78,20 @@ def _ascendancy_key(raw: dict[str, object]) -> str:
     if isinstance(names, dict):
         parts += [str(v) for v in names.values() if v]
     return " ".join(parts)
+
+
+def _unlock_key(raw: dict[str, object]) -> str:
+    """해금 제약 원문(JSON) — 없으면 빈 문자열.
+
+    두 꼴이 있다(실측 2026-08-07, Passive 179건): `{"ascendancy": "Oracle",
+    "nodes": [5571]}` 176건은 **전직 전용**, `{"nodes": [...]}` 3건은 **선행 노드
+    요구**(예: 탈주자의 길 — 3개 노터블을 먼저 찍어야 열린다). 후자는 `ascendancy`가
+    없어 전직 대조만으로는 걸러지지 않는다.
+    """
+    data_obj = raw.get("data")
+    data: dict[str, object] = data_obj if isinstance(data_obj, dict) else {}
+    unlock = data.get("unlock_constraint")
+    return json.dumps(unlock, ensure_ascii=False) if isinstance(unlock, dict) and unlock else ""
 
 
 def _fts_body(raw: dict[str, object]) -> str:
@@ -138,7 +158,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
         )
         for r in store.records.values():
             con.execute(
-                "INSERT INTO records VALUES (?,?,?,?,?,?,?)",
+                "INSERT INTO records VALUES (?,?,?,?,?,?,?,?)",
                 (
                     r.id,
                     r.type,
@@ -147,6 +167,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
                     str(r.raw["verification"]),
                     json.dumps(r.raw, ensure_ascii=False),
                     _ascendancy_key(r.raw),
+                    _unlock_key(r.raw),
                 ),
             )
             con.executemany("INSERT INTO tags VALUES (?,?)", [(r.id, t) for t in r.tags])

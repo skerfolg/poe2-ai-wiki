@@ -152,3 +152,34 @@ def test_demand_only_rule_generalizes_beyond_status_vocabulary() -> None:
          "3% more Magnitude per Incision consumed Recently, up to 30%"],
         "Incision",
     )  # fmt: skip
+
+
+# 선행 노드 요구형 해금 (실측 2026-08-07, B-13 착수 중 발견) — `unlock_constraint`에
+# `ascendancy` 없이 `nodes`만 있는 꼴 3건. 전직 대조만 하던 이전 판은 **그냥 통과**시켰다.
+RENEGADE = 51850  # 탈주자의 길 — 노터블 3개를 먼저 찍어야 열린다
+RENEGADE_PREREQS = [50239, 9535, 61309]
+
+
+def test_선행_노드_없이_찍은_해금_노드를_잡는다() -> None:
+    """PoB는 선행을 검사하지 않고 카오스 저항 +8%를 그대로 더해 준다."""
+    (bad,) = check_locked_nodes([RENEGADE], "Witch2")
+    assert bad.node_id == RENEGADE
+    assert bad.locked_to == "", "전직 제약이 아니다 — 그래서 이전 검사가 놓쳤다"
+    assert set(bad.missing_nodes) == set(RENEGADE_PREREQS)
+    assert "선행 노드" in bad.why
+
+
+def test_선행을_다_찍었으면_위반이_아니다() -> None:
+    assert check_locked_nodes([RENEGADE, *RENEGADE_PREREQS], "Witch2") == ()
+
+
+def test_해금_위반은_조립을_막는다() -> None:
+    """검사가 보고만 하고 막지 않으면 규율은 안 지켜진다(철칙 5)."""
+    spec: dict[str, Any] = {"class_name": "Witch", "tree_nodes": [RENEGADE], "ascendancy": "Witch2"}
+    blocking = check_assumptions(spec).blocking
+    assert any("해금 불가 노드" in b and "선행 노드" in b for b in blocking)
+
+
+def test_전직은_코드로_줘도_해소된다() -> None:
+    """빌드 스펙이 드는 값은 실명이 아니라 코드다 — 못 이으면 자기 노드가 위반이 된다."""
+    assert check_locked_nodes(ORACLE_ONLY, "Druid1") == ()

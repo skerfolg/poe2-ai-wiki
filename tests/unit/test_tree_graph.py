@@ -90,3 +90,54 @@ def test_어센던시_경로_비용_v6_기계_검증(graph: TreeGraph) -> None:
     for target in (34419, 18158):  # 웃는 번제 / 불꽃을 가져오는 자
         branch = graph.shortest_path(core, target)
         assert branch is not None and len(branch) == 2  # 각 +2 → 합 10 > 예산 8 (분기 강제)
+
+
+# 해금 제약 (B-13, 실측 2026-08-07) — 오라클 전용 노터블 「힘 소진」이 인퍼널리스트
+# 빌드의 치명타 병목 해법으로 사용자에게 제시됐다. 차단이 파이프라인 끝에만 있으면
+# 세션은 그 전에 이미 잘못된 설계 결론을 낸다.
+_EXHAUST_ALL_POWER = 11428  # Oracle 전용 (unlock_constraint.ascendancy)
+_PATH_OF_THE_RENEGADE = 51850  # 선행 노드 3개 요구 (ascendancy 없음)
+_RENEGADE_PREREQS = (50239, 9535, 61309)
+
+
+def test_전직_표기는_무엇이든_실명으로_해소된다(graph: TreeGraph) -> None:
+    """빌드 스펙은 코드("Witch1"), unlock_constraint는 실명("Oracle") — 잇지 못하면
+    대조 자체가 성립하지 않는다."""
+    assert graph.resolve_ascendancy("Druid1") == "Oracle"
+    assert graph.resolve_ascendancy("오라클") == "Oracle"
+    assert graph.resolve_ascendancy("Oracle") == "Oracle"
+    assert graph.resolve_ascendancy("Witch1") == "Infernalist"
+    assert graph.resolve_ascendancy(None) is None
+    # 모르는 표기는 **원문 그대로** — None으로 떨구면 "제약 없음"으로 읽혀 잠긴 노드가 샌다
+    assert graph.resolve_ascendancy("Nonsense") == "Nonsense"
+
+
+def test_전직을_주면_자기_해금_노드를_후보로_받는다(graph: TreeGraph) -> None:
+    """미지정 기본값(전량 배제)은 안전하지만 **과잉**이다 — 오라클 빌드가 자기
+    노터블 42개를 못 본다. optimize_tree가 전직을 안 넘겨 실제로 그랬다(B-13)."""
+    near = {graph.start_of("Witch")}
+    default = graph.candidates(near, max_dist=40)
+    assert not [n for _, n, _ in default if n.unlock_constraint], "미지정이면 전량 배제"
+
+    oracle = {nid for nid, _, _ in graph.candidates(near, max_dist=40, ascendancy_name="Oracle")}
+    assert _EXHAUST_ALL_POWER in oracle
+    # 코드로 줘도 같은 판정이어야 한다 (빌드 스펙이 드는 값이 코드다)
+    by_code = {nid for nid, _, _ in graph.candidates(near, max_dist=40, ascendancy_name="Druid1")}
+    assert by_code == oracle
+    # 남의 전직에게는 여전히 잠겨 있다
+    infernal = {nid for nid, _, _ in graph.candidates(near, max_dist=40, ascendancy_name="Witch1")}
+    assert _EXHAUST_ALL_POWER not in infernal
+
+
+def test_선행노드형_제약은_선행을_찍어야_후보다(graph: TreeGraph) -> None:
+    """`unlock_constraint`에 ascendancy 없이 nodes만 있는 꼴 — 전직 대조로는 걸러지지
+    않아 본 트리 후보로 샜다(실측 2026-08-07: 2건)."""
+    node = graph.nodes[_PATH_OF_THE_RENEGADE]
+    assert node.locked_to is None, "전직 제약이 아니다 — 그래서 이전 검사가 놓쳤다"
+    assert set(node.requires_nodes) == set(_RENEGADE_PREREQS)
+
+    near = {graph.start_of("Ranger")}
+    without = {nid for nid, _, _ in graph.candidates(near, max_dist=60)}
+    assert _PATH_OF_THE_RENEGADE not in without, "선행 없이 후보에 들면 안 된다"
+    withal = {nid for nid, _, _ in graph.candidates(near | set(_RENEGADE_PREREQS), max_dist=60)}
+    assert _PATH_OF_THE_RENEGADE in withal, "선행을 다 찍었으면 열려야 한다"

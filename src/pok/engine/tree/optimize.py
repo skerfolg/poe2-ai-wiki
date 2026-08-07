@@ -146,7 +146,14 @@ def optimize_tree(
                 tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
                 cands = [
                     nid
-                    for nid, _, d in graph.candidates(tree_now, max_dist=candidate_radius)
+                    for nid, _, d in graph.candidates(
+                        tree_now,
+                        max_dist=candidate_radius,
+                        # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
+                        # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
+                        # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
+                        ascendancy_name=current.ascendancy,
+                    )
                     if d <= budget and nid not in banned
                 ][:max_candidates_per_round]
                 if not cands:

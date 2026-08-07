@@ -8,10 +8,17 @@ PoB는 계산 오라클이지만 **전지하지 않다.** 두 가지 형태로 �
 반환하고 `Item.lua:1172`가 **정확 문자열 일치**로 매칭한다. 복합 키는 어느 쪽과도
 같지 않아 통째로 누락된다. 사용자 확인: **게임에서는 철퇴에 장착 가능하다.**
 
-**② 모드 문구 자체가 파서에 없음.** `ModJewel.lua`의 `JewelBleedingEffect`는
-한 줄뿐인데 KB에는 "반경 내 주요 패시브 스킬이 …도 부여"가 있다. `ModParser`에
-`notable passive skills in radius also grant` 패턴이 없다. 증상: 서로 다른 주얼
-소켓 두 곳의 델타가 **완전히 동일**하게 나와 "반경은 값어치 없음"으로 오독된다.
+**② 모드 문구 자체가 파서에 없음.** 형태는 실재하지만 **현재 검출된 계열은 없다**
+(`_UNPARSED_PATTERNS` 참고 — 여기 있던 `radius-grant`는 오탐이었다).
+
+## 스캐너는 영문만 본다 (2026-08-07)
+
+한글(`texts_ko`)은 **신뢰할 수 없는 입력이었다.** 수집 파서가 옆 모드의 줄을 섞어
+넣어 en/ko 줄 수가 어긋난 Modifier가 1,536건이었고, 그 오염된 한글에 반경 정규식이
+매칭해 **비반경 모드 519건 전량**에 `radius-grant`가 붙었다. 그 플래그는 세션이
+측정 방법을 바꾸는 근거로 쓰이므로, 잘못 붙으면 표기 오류가 아니라 작업 계획을
+왜곡한다 — 실제로 한 세션이 "주얼 소켓은 PoB에서 구조적으로 저평가된다"로 읽고
+최적화 회차를 늘릴 뻔했다. 스캐너의 판단 근거는 **영문(`texts`·`per_slot`)뿐**이다.
 
 ## 왜 PoB를 안 고치나
 
@@ -130,21 +137,37 @@ def apply_gap_flags(root: Path | None = None, *, write: bool = True) -> dict[str
 # ModParser가 아는 문구인지 보는 대신, **패턴 자체가 없는 계열**을 짚는다.
 # 전 모드를 ModParser와 대조하려면 그 거대한 파일의 정규식을 전부 해석해야 하는데,
 # 지금 필요한 건 "우리가 아는 미모델링 계열이 KB 어디에 있는가"다.
-_UNPARSED_PATTERNS: tuple[tuple[str, str, str], ...] = (
-    (
-        "radius-grant",
-        # **줄 단위로** 본다. 텍스트를 이어붙여 매칭하면 "반경"과 "부여"가 서로 다른
-        # 줄에 있어도 걸린다. 다만 길이 제한이 짧으면 정작 긴 문구를 놓친다 —
-        # 실측 2026-08-05: 40자로 뒀다가 지목된 `jewelbleedingeffect`를 놓쳤다.
-        # 규모는 실제로 크다(446건) — 주얼 반경 부여는 흔한 모드 계열이고 그게 통째로
-        # PoB 계산 밖이라는 뜻이다.
-        r"in radius also grant|반경 내[^,;]{0,90}도 부여",
-        "반경 내 노드에 효과를 부여하는 줄 — `ModParser`에 "
-        "`notable passive skills in radius also grant` 패턴이 없어 파싱되지 않는다. "
-        "증상: 서로 다른 주얼 소켓의 델타가 **완전히 동일**하게 나와 "
-        "'반경은 값어치 없음'으로 오독된다",
-    ),
-)
+#
+# ⛔ **여기 넣는 정규식은 영문 문구여야 한다** — 판단 근거는 `texts`·`per_slot`뿐이고
+#    `texts_ko`는 보지 않는다(모듈 docstring "스캐너는 영문만 본다").
+#
+# `radius-grant`는 철회했다 (2026-08-07). 두 근거 모두 무너졌다:
+#   ① 관측된 519건은 전부 **오염된 한글**에만 매칭했다 — 영문 근거 0건.
+#   ② PoB에 패턴이 **있다**: `Modules/ModParser.lua:7041`의
+#      `^(%w+) Passive Skills in Radius also grant (.*)$`가 부여 문구를 재귀 파싱해
+#      노드 종류(Small/Notable)별로 적용하고, `Modules/CalcSetup.lua:122`의
+#      `runRadiusJewelFunc`이 반경 안 노드에 그 목록을 돌린다. 미모델링이 아니다.
+#   원래 관측("`JewelBleedingEffect`는 PoB에서 한 줄인데 KB엔 반경 부여 줄이 있다")도
+#   오염으로 설명된다 — 그 반경 줄은 별개 모드(`JewelRadiusBleedingEffect`)의 것이고,
+#   `JewelBleedingEffect`가 한 줄인 건 **실제로 한 줄이기 때문**이었다.
+_UNPARSED_PATTERNS: tuple[tuple[str, str, str], ...] = ()
+
+
+def scannable_lines(data: dict[str, Any]) -> list[str]:
+    """판정 근거로 삼는 줄 — **영문만**.
+
+    `texts_ko`를 넣으면 수집 오염이 그대로 미모델링 판정이 된다. 실측 2026-08-07:
+    그렇게 `radius-grant`가 519건 붙었고 영문 근거는 0건이었다. 한글 번역은 원문의
+    파생이지 PoB가 파싱하는 대상이 아니므로, 애초에 판정 축이 될 수 없다.
+    """
+    lines: list[str] = []
+    for key in ("texts", "per_slot"):
+        value = data.get(key)
+        if isinstance(value, list):
+            lines.extend(str(t) for t in value)
+        elif isinstance(value, dict):
+            lines.extend(str(x) for v in value.values() for x in v)
+    return lines
 
 
 def scan_unparsed_mod_texts(root: Path | None = None) -> list[PobGap]:
@@ -157,13 +180,7 @@ def scan_unparsed_mod_texts(root: Path | None = None) -> list[PobGap]:
     gaps: list[PobGap] = []
     for record in store_load(root).records.values():
         data = record.raw.get("data") or {}
-        texts: list[str] = []
-        for key in ("texts", "texts_ko", "per_slot"):
-            value = data.get(key)
-            if isinstance(value, list):
-                texts.extend(str(t) for t in value)
-            elif isinstance(value, dict):
-                texts.extend(str(x) for v in value.values() for x in v)
+        texts = scannable_lines(data)
         if not texts:
             continue
         for kind, pattern, why in compiled:
