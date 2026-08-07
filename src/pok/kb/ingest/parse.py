@@ -31,6 +31,13 @@ class DetailPage:
     additional_reservation: list[dict[str, Any]] = field(default_factory=list)  # 보조 젬
     cost_multiplier_pct: float | None = None  # 보조 젬 Cost Multiplier: 115%
     cast_time_s: float | None = None
+    # 쿨다운(초) — **회전율·트리거 발동률의 기저값**이다. 안 실으면 지속 주력기와
+    # 쿨기를 구분할 수 없다. 실측 2026-08-07(빌드 회차): 겨울의 눈을 시전시간
+    # 1.4초로만 보고 "초당 1.07시전"을 전제해 생명력 유출·카오스 획득을 계산했는데
+    # 실제로는 **10초 쿨다운**이었다. `quality_stats`엔 "Cooldown Recovery Rate"를
+    # 이미 싣고 있었으니 **수정 모드는 있는데 수정 대상이 없던** 상태다.
+    # None = 미수록, 0.0 = 쿨다운 없음(명시) — 둘을 구분한다.
+    cooldown_s: float | None = None
     # 서술형 점유 — 라벨(`Reservation:`)이 아니라 문장으로 적히는 조건부 점유.
     # 예: "Reserves 60 Spirit per socketed Curse" (신성 모독). 페이지의 **버프 팝업**
     # 블록에 있어 메인 Stats만 보면 놓친다 (실증 2026-08-02, 백로그 B-4).
@@ -74,7 +81,9 @@ def _extract_tags(stats_text: str) -> list[str]:
 # 값 형태: "30" | "(3 — 37)" (+선택 "%"), 자원: Mana·Life·Spirit·Energy Shield·Rage
 _COST_VALUE = re.compile(
     r"\(?\s*(\d+(?:\.\d+)?)(?:\s*—\s*(\d+(?:\.\d+)?)\s*\))?\s*(%)?\s*"
-    r"(Mana|Life|Spirit|Energy Shield|Rage)"
+    # Ward(룬 수호) 누락으로 으스스한 기둥의 코스트가 통째로 비어 있었다 —
+    # 출처에는 `(15—81) Ward`가 있는데 자원 목록에 없어 못 읽었다(실측 2026-08-07).
+    r"(Mana|Life|Spirit|Energy Shield|Rage|Ward)"
 )
 # 세그먼트 종결자: 다음 라벨/속성 시작 (Stats 텍스트는 라벨 나열이라 접두 구간만 취한다)
 _SEG_END = (
@@ -140,12 +149,15 @@ def parse_stats_costs(stats_text: str) -> dict[str, Any]:
         plain_reservation = m.group(1)
     mult = re.search(r"Cost Multiplier:\s*(\d+(?:\.\d+)?)\s*%", stats_text)
     cast = re.search(r"Cast Time:\s*(\d+(?:\.\d+)?)\s*sec", stats_text)
+    # poe2db 표기는 "Cooldown Time: 10.00 s" (Cast Time의 `sec`과 단위 표기가 다르다)
+    cooldown = re.search(r"Cooldown Time:\s*(\d+(?:\.\d+)?)\s*s\b", stats_text)
     return {
         "costs": _cost_values(_segment(stats_text, "Cost:")),
         "reservation": _cost_values(plain_reservation),
         "additional_reservation": _cost_values(_segment(stats_text, "Additional Reservation:")),
         "cost_multiplier_pct": float(mult.group(1)) if mult else None,
         "cast_time_s": float(cast.group(1)) if cast else None,
+        "cooldown_s": float(cooldown.group(1)) if cooldown else None,
     }
 
 
