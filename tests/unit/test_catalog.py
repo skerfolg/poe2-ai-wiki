@@ -160,3 +160,36 @@ def test_unique_without_explicit_lines_is_rejected() -> None:
             ],
         }
     )
+
+
+def test_staged_skill_requires_explicit_stages() -> None:
+    """단계형 스킬의 조용한 1단계 계산 회귀 (이관 4 #11).
+
+    PoB는 젬 인스턴스의 `skillStageCount`가 없으면 **1단계**로 잰다
+    (`CalcActiveSkill.lua:868`). 실측: 화염파 1단계 288.6 vs 10단계 1402.4 —
+    **4.86배**. 세션은 그 1단계 수치를 실측으로 받아 설계 판단을 내렸다.
+    어느 단계로 설계할지는 판단이므로 값을 정해 주지 않고, 미지정만 막는다.
+    """
+    import pytest
+
+    from pok.pob.buildxml import spec_from_dict, to_xml
+
+    gem = {
+        "name": "Flameblast",
+        "gem_id": "Metadata/Items/Gems/SkillGemFlameblast",
+        "level": 20,
+    }
+    base = {"class_name": "Witch", "ascendancy": "Witch1"}
+    with pytest.raises(ValueError) as err:
+        spec_from_dict({**base, "skills": [{"gems": [gem]}]})
+    assert "단계형" in str(err.value) and "1단계로 계산" in str(err.value)
+
+    spec = spec_from_dict({**base, "skills": [{"gems": [{**gem, "stages": 10}]}]})
+    assert spec.skills[0].gems[0].stages == 10
+    xml = to_xml(spec)
+    assert 'skillStageCount="10"' in xml and 'skillStageCountCalcs="10"' in xml
+
+    # 단계형이 아닌 스킬은 무관하다
+    spec_from_dict({**base, "skills": [{"gems": [
+        {"name": "Spark", "gem_id": "Metadata/Items/Gems/SkillGemSpark", "level": 20}
+    ]}]})  # fmt: skip

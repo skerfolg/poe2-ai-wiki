@@ -48,6 +48,13 @@ class GemSpec:
     level: int = 20
     quality: int = 0
     enabled: bool = True
+    # 단계형(채널링) 스킬의 스테이지 수 — PoB는 **젬 인스턴스 속성**으로 받는다
+    # (`CalcActiveSkill.lua:868` skillStageCount / skillStageCountCalcs). 안 주면
+    # **조용히 1단계**로 계산된다 — 실측 2026-08-07(이관 4): 화염파가 `75% more
+    # damage per Stage` · 최대 10단계인데 1.75배(1회분)만 들어갔고, 세션은 그 수치를
+    # 실측으로 받아 설계 판단을 내렸다. 최대 단계는 스킬마다 다르므로 기본값을
+    # 정하지 않고, 단계형인데 미지정이면 조립 단계에서 알린다.
+    stages: int | None = None
 
 
 @dataclass(frozen=True)
@@ -191,6 +198,30 @@ def _make[T](cls: type[T], data: dict[str, Any], where: str) -> T:
 
 
 @functools.lru_cache(maxsize=1)
+def _staged_skills() -> dict[str, str]:
+    """단계형 스킬 표시명(소문자) → 근거 문구. KB 효과 문구에서 결정적으로 유도한다."""
+    from pok.kb.store import load as store_load
+
+    out: dict[str, str] = {}
+    for record in store_load().records.values():
+        if record.type != "Skill":
+            continue
+        data = record.raw.get("data") or {}
+        lines = [str(x) for x in (data.get("stats") or [])] + [
+            str(x) for x in (data.get("stats_en") or [])
+        ]
+        hit = next(
+            (ln for ln in lines if "maximum Stages" in ln or "per Stage" in ln),
+            "",
+        )
+        if hit:
+            name = str((record.raw.get("name") or {}).get("en") or "").strip().lower()
+            if name:
+                out[name] = hit[:60]
+    return out
+
+
+@functools.lru_cache(maxsize=1)
 def _unique_index() -> dict[str, tuple[str, ...]]:
     """유니크 표시명(소문자) → explicits — 옵션 누락 검출용."""
     from pok.kb.store import load as store_load
@@ -297,6 +328,21 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
                 f"아무 효과도 안 붙인 채 계산한다. KB `data.explicits` {len(explicits)}줄을 "
                 f"텍스트에 적을 것 (예: {explicits[0][:48]!r})"
             )
+
+    # 단계형 스킬인데 스테이지를 안 주면 PoB가 **조용히 1단계**로 잰다 — 실측
+    # 2026-08-07: 화염파 1단계 288.6 vs 10단계 1402.4(**4.86배**). 어느 단계로 설계할지는
+    # 판단이므로 값을 정해 주지 않고, 지정하지 않았다는 사실만 막는다.
+    for gi, group in enumerate(spec_data.get("skills", [])):
+        for i, gem in enumerate(group.get("gems", [])):
+            if gem.get("stages") is not None:
+                continue
+            max_stages = _staged_skills().get(str(gem.get("name", "")).lower())
+            if max_stages:
+                problems.append(
+                    f"skills[{gi}].gems[{i}]: {gem.get('name')!r}는 단계형 스킬인데 "
+                    f"`stages`가 없다 — PoB는 **1단계로 계산**한다({max_stages}). "
+                    f"몇 단계를 유지하는 설계인지 정해 `stages`로 줄 것"
+                )
 
     valid_gems = gem_ids()
     for gi, group in enumerate(spec_data.get("skills", [])):
@@ -405,7 +451,12 @@ def to_xml(spec: BuildSpec) -> str:
         gems = "\n".join(
             f"        <Gem gemId={quoteattr(g.gem_id)} variantId={quoteattr(g.name)} "
             f'level="{g.level}" quality="{g.quality}" '
-            f'enabled="{"true" if g.enabled else "false"}" nameSpec={quoteattr(g.name)}/>'
+            + (
+                f'skillStageCount="{g.stages}" skillStageCountCalcs="{g.stages}" '
+                if g.stages is not None
+                else ""
+            )
+            + f'enabled="{"true" if g.enabled else "false"}" nameSpec={quoteattr(g.name)}/>'
             for g in group.gems
         )
         skill_groups.append(
