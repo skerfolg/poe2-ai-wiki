@@ -36,20 +36,25 @@
       "movement speed acceleration +% per second while performing action [160]",
       "movement speed while performing action locked duration% [50]",
       "zombie base decay rate permyriad [0]",
-      "zombie decay rate increase +% final [25]",
-      "melee conditional step distance [10]",
-      "projectile uses contact position [1]",
-      "skill can fire wand projectiles [1]",
-      "use scaled contact offset [1]"
-    ],
-    "implicit_stats": [
-      "monster no drops or experience [1]"
+      "zombie decay rate increase +% final [25]"
     ],
     "quality_stats": [
       "(0 — 25)% increased effect of Empowerment on Raised Zombies",
       "Limit (0 — 4) Raised Zombies"
     ],
-    "cooldown_s": 0.0
+    "cooldown_s": 0.0,
+    "minion_stats": [
+      {
+        "entity": "Raised Zombie",
+        "stats": [
+          "monster no drops or experience [1]",
+          "melee conditional step distance [10]",
+          "projectile uses contact position [1]",
+          "skill can fire wand projectiles [1]",
+          "use scaled contact offset [1]"
+        ]
+      }
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

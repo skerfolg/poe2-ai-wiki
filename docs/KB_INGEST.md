@@ -121,6 +121,36 @@ artifacts/ingest-raw/<patch>/          # = 데이터 repo 체크아웃
 `passive.schema.json`이 `additionalProperties: true`라 스키마 변경 없이 들어간다.
 **제거 규칙은 이 패턴에만 좁혀 적용한다** — 내부 stat id처럼 보인다고 일괄 삭제하지 않는다.
 
+### 4-2b. 소환수 스탯 분리 — `minion_stats` (2026-08-07 확정, #8-b)
+
+poe2db 스킬 페이지는 그 스킬이 **소환하는 실체**의 스탯 카드를 같은 페이지에 싣는다
+(`div.col-monster` · `div.monsterNormalPopup`). 파서가 페이지의 전 `.Stats`를 훑는 바람에
+그 줄들이 플레이어 스킬의 `stats`로 들어왔다 — **KB 22건 오염**. 실측: 오라인
+`skill.malice`가 19줄 중 15줄을 남에게서 받아 "Fires 5 additional Projectiles" ·
+"Deals 76.52 to 114.8 Physical Damage"를 달고 있었다.
+
+| 판정 | 반영 |
+|---|---|
+| 소환수·동료 20건 — 몬스터 카드는 **그 스킬이 소환한 실체 자신**이다. 버리지 않고 **실체 이름과 함께** 분리 (사용자 판정) | `data.minion_stats = [{entity, stats}]` — `parse._collect_minion_stats` |
+| `Malice`(오라)·`Tornado`(설치물) 2건 — 이름만 같은 무관한 몬스터가 얹힌 것 → **버린다** (사용자 판정) | 소환수 판정 미통과 → 미수록 |
+| 몬스터 카드는 `stats`·`implicit_stats`·`quality_stats`·`tags`·`tier`·조건부 점유·`type_line` 어디에도 들어가지 않는다 | `parse._player_blocks` |
+
+**소환수 판정은 탭 id로 하지 않는다** — 무관한 딜리리움 몬스터의 탭도
+`MaliceDeliriumMinion4`처럼 "Minion"을 달고 있어 갈리지 않는다. 가르는 것은 **스킬 자신의
+문구가 그 실체를 Minion이라 부르는가**이다(`description` + 플레이어 효과 문구). 실측으로
+소환수·동료 20건을 전부 통과시키고 위 2건만 걸러냈다.
+
+**버리지 않는 근거**는 `attribute_choice`(4-2)와 같다 — 삭제만 하면 오염은 없어지지만
+**그 실체에만 있는 값이 함께 사라진다**. 해골 서리 마법사의 Ice Armour 수치(반경 4m·6초·
+피격 피해 40% 감소·455~683 냉기)는 KB 어디에도 다른 출처가 없어, 버리면 소환수 빌드를
+설계할 때 원시 HTML을 다시 뒤져야 한다.
+
+**색인까지가 한 벌이다** — `index/build._fts_body`가 `minion_stats`를 FTS body에 넣는다
+(SCHEMA_VERSION 6). 분리 전에는 주인이 틀렸을 뿐 `stats`에 있어서 검색은 됐으므로,
+색인하지 않고 옮기면 **찾을 수 없는 곳으로 치운 셈**이 되어 세션이 파일 탐색으로 도피한다
+(철칙 5 따름정리). 강제 지점은 `tests/unit/test_minion_stats.py` — 원시에서 몬스터 카드
+줄을 다시 유도해 **전 젬 레코드와 대조**하므로, 파서를 어떻게 고치든 재발하면 걸린다.
+
 ### 4-3. 모드 획득 판정 — 양 소스 교차가 필수인 이유 (2026-07-30 확정)
 
 **PoB 스폰 가중치만으로 모드의 획득 가능성을 판정할 수 없다** (사용자 지적으로 확정):
