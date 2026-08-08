@@ -159,9 +159,13 @@ def scannable_lines(data: dict[str, Any]) -> list[str]:
     `texts_ko`를 넣으면 수집 오염이 그대로 미모델링 판정이 된다. 실측 2026-08-07:
     그렇게 `radius-grant`가 519건 붙었고 영문 근거는 0건이었다. 한글 번역은 원문의
     파생이지 PoB가 파싱하는 대상이 아니므로, 애초에 판정 축이 될 수 없다.
+
+    타입마다 영문 문구가 담기는 키가 다르다: Modifier·룬은 `texts`/`per_slot`,
+    트리 노드는 `stats_en`이다. 후자를 빼 두면 트리 파싱 갭(`pob.parse_gaps`)이
+    "영문 근거 없이 붙은 플래그"로 보인다 — 근거는 있고 이 함수가 못 본 것뿐이다.
     """
     lines: list[str] = []
-    for key in ("texts", "per_slot"):
+    for key in ("texts", "per_slot", "stats_en"):
         value = data.get(key)
         if isinstance(value, list):
             lines.extend(str(t) for t in value)

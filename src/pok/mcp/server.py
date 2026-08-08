@@ -149,7 +149,7 @@ def _hit_dict(hit: Any) -> dict[str, Any]:
     """히트 → dict. **비어 있는 해금 칸은 뺀다** — 압축 히트(D14)에 상시 None 세 칸을
     실으면 전 질의가 토큰을 무는데, 정작 신호가 필요한 건 제약이 걸린 소수다."""
     out = asdict(hit)
-    for key in ("locked_to", "requires_nodes", "excluded_by_unlock"):
+    for key in ("locked_to", "requires_nodes", "excluded_by_unlock", "pob_gap"):
         if not out.get(key):
             out.pop(key, None)
     if "requires_nodes" in out:
@@ -188,7 +188,13 @@ def search_kb(
     `excluded_by_unlock` 사유와 함께 표시한다 — **빼지 않고 표시한다**(조용히 빼면
     "KB에 없다"로 오독된다). 주면 히트에 `locked_to`·`requires_nodes`도 붙는다.
     ⚠ 트리 노터블을 고를 땐 반드시 줄 것: 실측 2026-08-07, 오라클 전용 「힘 소진」이
-    인퍼널리스트 빌드의 치명타 병목 해법으로 사용자에게 제시됐다(B-13)."""
+    인퍼널리스트 빌드의 치명타 병목 해법으로 사용자에게 제시됐다(B-13).
+
+    **`pob_gap`이 붙은 히트는 PoB가 그 문구를 계산에 넣지 못한다** — 그 노드·룬의
+    델타 0은 "값어치 없음"이 아니라 **"측정 안 됨"**이다. 트리 노드 501건(전체의
+    10.2%)이 여기 해당한다(실측 2026-08-07). 그대로 측정해 버리면 원소 집정관
+    계열처럼 축 하나가 통째로 0으로 잠긴다(#3). 상세·대체 조립은 get_entry의
+    `pob_modeling`."""
     hits = _search(
         query=query,
         tags=tags,

@@ -39,6 +39,9 @@ class Hit:
     # for_ascendancy와 안 맞을 때의 사유 문장. **빼지 않고 실어 보낸다** —
     # 조용히 빼면 "KB에 없다"로 오독되고, 그게 파일 탐색 도피를 부른다(B-11).
     excluded_by_unlock: str | None = None
+    # PoB가 이 레코드의 문구를 계산에 넣지 못한다는 경고. None = 모델링됨.
+    # 이 칸이 비어 있던 동안 세션은 **델타 0을 '값어치 없음'으로 읽었다**(#3).
+    pob_gap: str | None = None
 
 
 def _meta(con: sqlite3.Connection, key: str) -> str | None:
@@ -116,6 +119,29 @@ def _unlock_fields(
     return locked_to, nodes, None
 
 
+# 히트에 싣는 한 줄. 레코드 본문의 `detail`을 복사하지 않는다 — 압축 히트(D14)를
+# 지키면서 "여기서 멈추면 안 된다"만 알리고, 상세는 get_entry가 준다.
+_POB_GAP_REASON = {
+    "tree-line-unparsed": (
+        "PoB가 이 노드 문구의 일부(또는 전부)를 **계산에 넣지 못한다** — "
+        "델타 0은 '값어치 없음'이 아니라 '측정 안 됨'이다. "
+        "상세·대체 조립: get_entry의 `pob_modeling`"
+    ),
+    "rune-slot-unmatched": (
+        "PoB가 이 룬을 슬롯에 매칭하지 못해 **계산에서 통째로 빠진다** — "
+        "상세·대체 조립: get_entry의 `pob_modeling`"
+    ),
+}
+
+
+def _pob_gap_reason(kind: str) -> str | None:
+    if not kind:
+        return None
+    return _POB_GAP_REASON.get(
+        kind, f"PoB가 이 레코드를 모델링하지 못한다({kind}) — get_entry의 `pob_modeling` 참조"
+    )
+
+
 def search(
     query: str | None = None,
     tags: list[str] | None = None,
@@ -152,7 +178,10 @@ def search(
         for t in tags or []:
             where.append("r.id IN (SELECT id FROM tags WHERE tag = ?)")
             params.append(t)
-        sql = "SELECT r.id, r.type, r.name_ko, r.name_en, r.verification, r.unlock FROM records r"
+        sql = (
+            "SELECT r.id, r.type, r.name_ko, r.name_en, r.verification, r.unlock, r.pob_gap "
+            "FROM records r"
+        )
         if where:
             sql += " WHERE " + " AND ".join(where)
         # **이름이 맞는 레코드를 먼저** — id 순으로만 내면 "그 이름을 언급만 하는"
@@ -174,13 +203,24 @@ def search(
         rows = con.execute(sql, params).fetchall()
         aliases = _ascendancy_aliases(con, for_ascendancy) if for_ascendancy else None
         out: list[Hit] = []
-        for rid, rtype, ko, en, ver, unlock_json in rows:
+        for rid, rtype, ko, en, ver, unlock_json, pob_gap in rows:
             tag_rows = con.execute("SELECT tag FROM tags WHERE id=?", (rid,)).fetchall()
             locked_to, needs, excluded = _unlock_fields(
                 str(unlock_json or ""), aliases, for_ascendancy
             )
             out.append(
-                Hit(rid, rtype, ko, en, [t[0] for t in tag_rows], ver, locked_to, needs, excluded)
+                Hit(
+                    rid,
+                    rtype,
+                    ko,
+                    en,
+                    [t[0] for t in tag_rows],
+                    ver,
+                    locked_to,
+                    needs,
+                    excluded,
+                    _pob_gap_reason(str(pob_gap or "")),
+                )
             )
         return out
     finally:
