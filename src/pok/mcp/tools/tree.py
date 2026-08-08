@@ -209,6 +209,13 @@ def optimize_items(
 
     `floors`(예: {"FireResist": 75})를 깨는 채택은 하지 않는다. 롤은 mid 고정.
     소요: 후보당 PoB 1~2회(~1.4초) — 전 슬롯 전수는 라운드당 ~10분.
+
+    ⚠ **`weights`에 딜 축만 주면 순수 방어 유니크는 점수가 정확히 0이라 절대
+    채택되지 않는다.** 그래서 방어 축은 가중치와 무관하게 **항상 재고**(PoB가 한 번에
+    전 스탯을 주므로 비용 0), 가중 축 0 · 방어 양수인 후보를 `defensive_only`로 실어
+    보낸다 — 채택은 여전히 가중치가 정하되(AD-3) **안 보이지는 않게** 한다.
+    실측 2026-08-09(허리띠 20종·딜 가중): 채택 가능 **0건**인데 12종이 EHP를 올렸다.
+    방어를 실제로 반영하려면 `weights`에 `TotalEHP` 같은 축을 함께 준다.
     """
     from pok.engine.items import optimize_items as _optimize
 
@@ -250,6 +257,17 @@ def optimize_items(
                 "blocked": c.blocked,
             }
             for c in result.chains
+        ],
+        # 가중 축은 0인데 방어는 개선하는 후보 — **점수로는 절대 안 올라온다**(#18).
+        # 채택하지 않되 보이게 한다: 딜 가중이 기본 사용 패턴이라, 그 패턴에서
+        # 한 부류가 통째로 안 보이는 것이 결함이었다.
+        "defensive_only": [
+            {
+                "label": d.candidate.label,
+                "slot": d.candidate.slot,
+                "delta_now": d.delta_now,
+            }
+            for d in result.defensive_only
         ],
         "notes": list(result.notes),
     }

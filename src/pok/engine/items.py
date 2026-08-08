@@ -145,6 +145,34 @@ class CandidateResult:
         return self.delta_probed is not None
 
 
+# 딜 가중만 준 호출에서도 **항상 재는** 방어·유틸 축 (백로그 #18).
+#
+# 왜 필요한가: `weights={"CombinedDPS":1}`이면 순수 방어 유니크의 점수가 **정확히 0**이고
+# 그리디는 양수만 채택하므로 **후보에 올라도 절대 안 뽑힌다.** 딜 가중이 기본 사용
+# 패턴이라, 그 패턴에서 한 부류가 통째로 안 보이는 것이 결함이다. 실측 2026-08-09
+# (허리띠 20종·딜 가중): 채택 가능 후보 **0건**인데 그중 12종이 EHP를 올렸다
+# (뷔르나바스 +55 · 아홉 꼬리 고양이 +123 · 메긴노드의 허리띠 +90…).
+#
+# 축을 더 담는 비용은 **0**이다 — PoB 1회 실행이 619개 스탯을 한꺼번에 준다.
+_DEFENSIVE_AXES: tuple[str, ...] = (
+    "TotalEHP",
+    "Life",
+    "EnergyShield",
+    "Armour",
+    "Evasion",
+    "MovementSpeed",
+)
+# `TotalEHP`가 방어 축을 대부분 흡수하므로 그것을 대표값으로 쓴다 — 나머지는 왜 올랐는지
+# 읽기 위한 내역이다(저항·회피는 EHP로 합산돼 들어온다).
+_DEFENSIVE_HEADLINE = "TotalEHP"
+_DEFENSIVE_REPORT_LIMIT = 8
+
+
+def _defensive_gain(result: CandidateResult) -> float:
+    """방어 개선 대표값 — 없으면 0. 음수는 개선이 아니므로 0으로 깎는다."""
+    return max(result.delta_now.get(_DEFENSIVE_HEADLINE, 0.0), 0.0)
+
+
 @dataclass(frozen=True)
 class ChainResult:
     """수요-공급 연쇄(2개 이상)의 실측 — 탐침이 아닌 실제 문맥이므로 채택 근거가 된다.
@@ -192,6 +220,9 @@ class ItemOptimizeResult:
     conditional_peaks: tuple[CandidateResult, ...]
     notes: tuple[str, ...]
     chains: tuple[ChainResult, ...] = ()  # 수요-공급 연쇄 실측 전량 (채택 여부와 무관)
+    # 가중 축은 전부 0인데 **방어 축은 양수**인 후보 — 점수가 0이라 그리디가 절대
+    # 채택하지 않는다. 채택하지 않되 **보이게는 한다**(백로그 #18, 자동 보고).
+    defensive_only: tuple[CandidateResult, ...] = ()
 
 
 def resolve_rolls(text: str, roll: str = "mid") -> str:
@@ -514,12 +545,16 @@ def optimize_items(
       빈 칸에 유니크 주얼을 실측한다. 소켓을 안 주면 후보가 있어도 **미측정으로
       보고**한다 — 없다고 단정하지 않는다.
     """
-    measure = stats or tuple(weights)
+    # 방어 축은 **가중치와 무관하게 항상 잰다.** PoB 1회 실행이 619개 스탯을 한꺼번에
+    # 주므로 축을 더 담는 비용은 0이고, 안 담으면 "딜 0 · 방어 양수"를 판정할 근거
+    # 자체가 없다(#18: 딜 위주 weights에서 방어 유니크가 통째로 안 보인 원인).
+    measure = tuple(dict.fromkeys((*(stats or tuple(weights)), *_DEFENSIVE_AXES)))
     run = compute or _default_compute()
     current = dict(spec)
     steps: list[ItemStep] = []
     peaks: dict[str, CandidateResult] = {}
     chains: list[ChainResult] = []
+    defensive: dict[str, CandidateResult] = {}
     notes: list[str] = []
     seen_notes: set[str] = set()
 
@@ -527,6 +562,14 @@ def optimize_items(
         if msg not in seen_notes:
             seen_notes.add(msg)
             notes.append(msg)
+
+    if not any(axis in weights for axis in _DEFENSIVE_AXES):
+        note(
+            "⚠ weights에 방어 축이 없다 — **방어만 개선하는 후보는 점수가 0이라 절대 "
+            "채택되지 않는다.** 그리디는 양수만 채택하므로 후보에 올라도 결과에 안 나온다. "
+            f"그 후보들은 `defensive_only`로 실어 보낸다(판단은 호출자 몫). "
+            f"방어 축 예: {', '.join(_DEFENSIVE_AXES[:3])}"
+        )
 
     for _ in range(max_rounds):
         base_now = run(current)
@@ -574,6 +617,12 @@ def optimize_items(
                 score = result.score(weights)
                 if not result.blocked and score > 0 and (best is None or score > best[0]):
                     best = (score, eval_slot, result)
+                # 점수로는 절대 못 올라오는 방어 개선분을 따로 붙잡는다 (#18).
+                # `best`와 경쟁시키지 않는다 — 채택은 여전히 가중치가 정한다(AD-3).
+                if score <= 0 and not result.blocked and _defensive_gain(result) > 0:
+                    prev = defensive.get(result.candidate.label)
+                    if prev is None or _defensive_gain(result) > _defensive_gain(prev):
+                        defensive[result.candidate.label] = result
                 if (
                     result.conditional_peak
                     and result.probed_score(weights) > max(score, 0.0)
@@ -674,12 +723,20 @@ def optimize_items(
             f"조건부 고점 {len(peaks)}건 — 1판(현재 문맥)에서는 밀리지만 요구 조건(축·"
             f"속성)을 채우면 우세하다. 추구하려면 성립 조건으로 장부화하고 재측정할 것"
         )
+    ranked = sorted(defensive.values(), key=_defensive_gain, reverse=True)
+    if len(ranked) > _DEFENSIVE_REPORT_LIMIT:
+        note(
+            f"방어 전용 후보 {len(ranked)}건 중 상위 {_DEFENSIVE_REPORT_LIMIT}건만 실어 보낸다 "
+            f"— 절단됐다는 사실을 남긴다(조용한 절단 금지)"
+        )
+        ranked = ranked[:_DEFENSIVE_REPORT_LIMIT]
     return ItemOptimizeResult(
         spec=current,
         steps=tuple(steps),
         conditional_peaks=tuple(peaks.values()),
         notes=tuple(notes),
         chains=tuple(chains),
+        defensive_only=tuple(ranked),
     )
 
 
