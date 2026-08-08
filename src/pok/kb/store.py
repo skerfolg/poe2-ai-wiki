@@ -28,9 +28,11 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import tempfile
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +53,50 @@ _TYPE_SCHEMA = {
     "Modifier": "modifier.schema.json",  # P1b ④ 모드 풀 (RC4 근거)
     # 나머지 타입은 P1b에서 스키마 추가 시 등록
 }
+
+
+@lru_cache(maxsize=4)
+def _untracked(kdir: Path) -> frozenset[Path]:
+    """`knowledge/` 안의 **git 미추적** 파일 (없거나 git이 없으면 빈 집합).
+
+    정본은 git이다 — 미추적 파일은 정의상 정본이 아니다. 이걸 모르면 중복 id 하나가
+    "둘 중 뭐가 진짜냐"는 문제로 보이는데, 실제로는 **한쪽이 사본**인 경우가 대부분이다
+    (백로그 #21: macOS의 `… 2.json` 사본 2개가 KB 조회 **전체**를 막았고, 원인을
+    찾는 데 몇 분이 걸렸다 — 무인 세션이었으면 그대로 멈췄을 것이다).
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(kdir), "ls-files", "--others", "--exclude-standard", "-z"],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return frozenset()  # git 없음·저장소 아님 — 판정 못 하면 아무 말도 하지 않는다
+    if proc.returncode != 0:
+        return frozenset()
+    return frozenset(kdir / name for name in proc.stdout.split("\0") if name)
+
+
+def _duplicate_id_error(rel: Path, rid: str, current: Path, existing: Path, kdir: Path) -> str:
+    """중복 id 메시지 — **어느 쪽이 정본이 아닌지**까지 말한다.
+
+    ⚠ 이 함수가 생기기 전 메시지는 사람을 **반대 방향으로** 보냈다. 파일을 이름순으로
+    읽으므로 사본(`Life_Loss 2.json`)이 먼저 등재되고 **원본이 "중복"으로 고발**됐다 —
+    그대로 따르면 진짜 레코드를 지운다. 미추적 여부를 밝히면 그 오도가 사라진다.
+    """
+    base = f"{rel}: 중복 id {rid} (기존: {existing.name})"
+    untracked = _untracked(kdir)
+    culprits = [p for p in (existing, current) if p in untracked]
+    if not culprits:
+        return base
+    names = " · ".join(p.name for p in culprits)
+    return (
+        f"{base}\n"
+        f"  ⚠ **git 미추적**: {names} — 정본이 아니다(사본이 섞였을 가능성). "
+        f"정본은 {(current if current not in untracked else existing).name} 쪽이다.\n"
+        f"  확인: git -C knowledge status --porcelain  ·  미추적 사본이면 옮기거나 지운다"
+    )
 
 
 class KBValidationError(Exception):
@@ -251,7 +297,7 @@ def load(root: Path | None = None) -> Store:
                 errors.append(f"{rel}: data[{rtype}] — {err.message}")
 
         if rid in records:
-            errors.append(f"{rel}: 중복 id {rid} (기존: {records[rid].path.name})")
+            errors.append(_duplicate_id_error(rel, rid, p, records[rid].path, kdir))
             continue
         records[rid] = Record(id=rid, type=rtype, path=p, raw=raw)
 
