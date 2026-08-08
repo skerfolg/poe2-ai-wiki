@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.limit",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Limit",
+    "en": "Limit"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Certain skills can only have a limited number of effects active at once.",
+      "If a new effect is created while at the maximum number of effects, the oldest effect will dissapear.",
+      "Certain support gems and items can modify skill effect limits."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Limit",
+      "patch": "0.5.4b"
+    }
+  ]
+}

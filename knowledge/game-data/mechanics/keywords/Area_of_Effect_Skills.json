@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.area-of-effect-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Area of Effect Skills",
+    "en": "Area of Effect Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "This Skill has an effect that applies to every target in its area, rather than picking specific targets.",
+      "Areas of Effect that originate from a target hit by a Skill will add that target's size to their radius."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Area_of_Effect_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

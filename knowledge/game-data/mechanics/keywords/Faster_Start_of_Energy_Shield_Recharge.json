@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.faster-start-of-energy-shield-recharge",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Faster Start of Energy Shield Recharge",
+    "en": "Faster Start of Energy Shield Recharge"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Affects the delay before your Energy Shield starts Recharging after losing Energy Shield."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Faster_Start_of_Energy_Shield_Recharge",
+      "patch": "0.5.4b"
+    }
+  ]
+}

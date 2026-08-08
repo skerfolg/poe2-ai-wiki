@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.remote-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Remote Skills",
+    "en": "Remote Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Remote Skills are Skills that are performed for you by a different entity, such as a Totem, Trap, or Clone. Minions are not Remote Skills."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Remote_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.chance-to-block",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Chance to Block",
+    "en": "Chance to Block"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Chance to Block only includes modifiers that are explicitly chance-based. Guaranteed Block (such as raising your Shield ) does not affect your Chance to Block."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Chance_to_Block",
+      "patch": "0.5.4b"
+    }
+  ]
+}

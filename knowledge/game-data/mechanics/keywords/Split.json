@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.split",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Split",
+    "en": "Split"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "The first time a Projectile or beam that can Split collides with a target, it splits into a multiple which will all aim at different targets within 6 metres if able. If there aren't enough targets, the rest will be aimed in random directions."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Split",
+      "patch": "0.5.4b"
+    }
+  ]
+}

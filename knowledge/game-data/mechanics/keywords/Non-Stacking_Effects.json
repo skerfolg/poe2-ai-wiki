@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.non-stacking-effects",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Non-Stacking Effects",
+    "en": "Non-Stacking Effects"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "This effect does not stack. Applying it again before the first expires will refresh the duration."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Non-Stacking_Effects",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.stat-conversion",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Stat Conversion",
+    "en": "Stat Conversion"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Converting stat A to stat B applies the base value of stat A to stat B instead. The converted stat scales with percentage modifiers to stat B, but not with percentage modifiers to stat A.",
+      "For example, if you converted your Evasion to Armour, the converted portion would be scaled by percentage modifiers to Armour, but percentage modifiers to Evasion would have no effect."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Stat_Conversion",
+      "patch": "0.5.4b"
+    }
+  ]
+}

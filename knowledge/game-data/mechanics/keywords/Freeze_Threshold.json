@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.freeze-threshold",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Freeze Threshold",
+    "en": "Freeze Threshold"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Freeze Threshold determines how much Freeze buildup is needed to Freeze a target."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Freeze_Threshold",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.cascadable-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Cascadable Skills",
+    "en": "Cascadable Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Warcries, and Non- Channelling Spells that affect an area around you or a targeted location, are Cascadable.",
+      "Certain effects can cause Cascadable Skills to Cascade, making them also affect other locations, or to Echo, affecting the same targeted location again after a delay.",
+      "A Cascadable Spell that Repeats will not Cascade or Echo while Repeating."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Cascadable_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.buff-debuff-effect",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Buff/Debuff Effect",
+    "en": "Buff/Debuff Effect"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Modifiers to the Effect of Buffs or Debuffs usually come from the target it affects and are multiplicative with modifiers to the Magnitudes of the Buff or Debuff, which come from its creator."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Buff_Debuff_Effect",
+      "patch": "0.5.4b"
+    }
+  ]
+}

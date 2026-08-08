@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.player-stun-threshold",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Player Stun Threshold",
+    "en": "Player Stun Threshold"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Your base Stun Threshold is equal to your maximum Life. A Hit that deals damage equal to or greater than your Stun Threshold is guaranteed to Stun you, and the chance scales down linearly for lower damage Hits. A Stun chance of less than 10% is treated as 0%."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Player_Stun_Threshold",
+      "patch": "0.5.4b"
+    }
+  ]
+}

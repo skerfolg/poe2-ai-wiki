@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.totems",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Totems",
+    "en": "Totems"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Totems are allied constructs which use skills for you. Totems are not Minions and their skills benefit from your stats, though they have their own defensive stats and can be damaged or killed.",
+      "Totem Limit is shared between different types of Totem by default."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Totems",
+      "patch": "0.5.4b"
+    }
+  ]
+}

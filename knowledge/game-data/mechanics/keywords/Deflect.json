@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.deflect",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Deflect",
+    "en": "Deflect"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Deflection Rating provides a chance to Deflect damage from Hits, preventing 40% of the damage from those Hits. Exact chance to Deflect also depends on the attacker's Accuracy."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Deflect",
+      "patch": "0.5.4b"
+    }
+  ]
+}

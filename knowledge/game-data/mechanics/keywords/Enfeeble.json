@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.enfeeble",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Enfeeble",
+    "en": "Enfeeble"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Enfeeble is a Curse that lessens the damage dealt by those affected. If not otherwise specified, Enfeeble lessens damage dealt by unique targets by 10%, and other targets by 20%."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Enfeeble",
+      "patch": "0.5.4b"
+    }
+  ]
+}

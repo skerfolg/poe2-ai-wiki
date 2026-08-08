@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.pacification",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Pacification",
+    "en": "Pacification"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Pacified Enemies cannot deal damage."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Pacification",
+      "patch": "0.5.4b"
+    }
+  ]
+}

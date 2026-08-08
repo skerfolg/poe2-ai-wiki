@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.ice-fragments",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Ice Fragments",
+    "en": "Ice Fragments"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Ice Fragments are created by a variety of Skills and Detonate in an Area to deal Cold damage. If a Skill creates multiple Ice Fragments at the same time, only one of them can damage a single enemy.",
+      "Some skills can interact with Ice Fragments. Unless otherwise specified, each Ice Fragment can only interact with a single Skill use during its lifetime."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Ice_Fragments",
+      "patch": "0.5.4b"
+    }
+  ]
+}

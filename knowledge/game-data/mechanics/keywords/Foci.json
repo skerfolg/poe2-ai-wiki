@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.foci",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Foci",
+    "en": "Foci"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Foci are armour items that are equipped in your off hand and require Intelligence to equip.",
+      "Foci can grant significant amounts of Energy Shield and powerful bonuses to your Spells."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Foci",
+      "patch": "0.5.4b"
+    }
+  ]
+}

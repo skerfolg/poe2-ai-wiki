@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.recoup",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Recoup",
+    "en": "Recoup"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "When you take damage from a Hit, Recoup causes you to recover an amount of the stated resource equal to a percentage of the damage you took over 8 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Recoup",
+      "patch": "0.5.4b"
+    }
+  ]
+}

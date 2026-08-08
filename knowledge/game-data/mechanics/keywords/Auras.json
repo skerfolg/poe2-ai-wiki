@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.auras",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Auras",
+    "en": "Auras"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Auras apply Buffs to Allies within a radius, or Debuffs to enemies within a radius of the source of the Aura."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Auras",
+      "patch": "0.5.4b"
+    }
+  ]
+}

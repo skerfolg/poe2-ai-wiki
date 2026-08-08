@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.daze",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Daze",
+    "en": "Daze"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Some skills and effects have a chance to apply Daze to enemies on Hit.",
+      "Daze lasts for 8 seconds, and a Dazed enemy will take 50% more Stun Buildup. There are also a number of Skills, Effects, and other mechanics which interact with Daze for various benefits."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Daze",
+      "patch": "0.5.4b"
+    }
+  ]
+}

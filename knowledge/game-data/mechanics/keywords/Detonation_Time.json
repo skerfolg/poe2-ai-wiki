@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.detonation-time",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Detonation Time",
+    "en": "Detonation Time"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Skills with a Detonation Time Detonate once this time has elapsed. This time is not affected by duration modifiers."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Detonation_Time",
+      "patch": "0.5.4b"
+    }
+  ]
+}

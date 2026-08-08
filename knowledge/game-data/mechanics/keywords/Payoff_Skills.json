@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.payoff-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Payoff Skills",
+    "en": "Payoff Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Payoff Skills have powerful extra affects when Hitting enemies inflicted with specific Debuffs, often Consuming the Debuff in the process. Payoff Skills cannot inflict the Debuff they interact with."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Payoff_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

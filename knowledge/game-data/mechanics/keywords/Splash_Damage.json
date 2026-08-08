@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.splash-damage",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Splash Damage",
+    "en": "Splash Damage"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Strike Skills can be made to deal Splash damage when hitting an enemy, causing an additional Hit to other enemies around the one hit by the Strike.",
+      "The base radius of Splash damage is 1.5 metres."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Splash_Damage",
+      "patch": "0.5.4b"
+    }
+  ]
+}

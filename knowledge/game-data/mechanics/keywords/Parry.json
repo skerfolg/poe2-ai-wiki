@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.parry",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Parry",
+    "en": "Parry"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Parry is a Skill granted by Bucklers that allows you to Block and retaliate against an enemy Hit, leaving them off balance and inflicting the Parried Debuff."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Parry",
+      "patch": "0.5.4b"
+    }
+  ]
+}

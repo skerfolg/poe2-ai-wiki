@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.invocation",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Invocation",
+    "en": "Invocation"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Invocation Skills are Persistent Skills that gain Energy through some condition and can be used once sufficient Energy has been gathered to Invoke socketed Skills, expending the Energy to Trigger them. Invocations can Trigger socketed Skills multiple times if enough Energy is expended, unless otherwise specified."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Invocation",
+      "patch": "0.5.4b"
+    }
+  ]
+}

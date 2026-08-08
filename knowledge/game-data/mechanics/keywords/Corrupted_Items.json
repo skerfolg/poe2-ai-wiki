@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.corrupted-items",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Corrupted Items",
+    "en": "Corrupted Items"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Certain items can be found Corrupted or made Corrupted using a Vaal Orb, changing their properties unpredictably.",
+      "Most methods of item crafting and modification cannot be used on Corrupted items. There is no penalty for using Corrupted items."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Corrupted_Items",
+      "patch": "0.5.4b"
+    }
+  ]
+}

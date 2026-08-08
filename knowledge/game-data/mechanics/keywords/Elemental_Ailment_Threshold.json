@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.elemental-ailment-threshold",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Elemental Ailment Threshold",
+    "en": "Elemental Ailment Threshold"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "A higher Elemental Ailment Threshold makes it less likely that being Hit by Elemental Damage will apply the relevant Ailment, as well as lowering the amount of Freeze and Electrocute buildup recieved. A lower Elemental Ailment Threshold makes it more likely, and increases buildup of Freeze and Electrocute recieved. By default a player's Ailment Threshold is equal to half their Life."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Elemental_Ailment_Threshold",
+      "patch": "0.5.4b"
+    }
+  ]
+}

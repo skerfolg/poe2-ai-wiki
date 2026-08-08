@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.attributes",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Attributes",
+    "en": "Attributes"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Strength, Dexterity, and Intelligence are the 3 primary attributes. The most important use of Attributes is to meet requirements to use Equipment and Gems.",
+      "Each Attribute provides a different inherent bonus."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Attributes",
+      "patch": "0.5.4b"
+    }
+  ]
+}

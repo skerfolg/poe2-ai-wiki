@@ -1,0 +1,29 @@
+{
+  "id": "mechanic.item-rarity",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Item Rarity",
+    "en": "Item Rarity"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Items can be Normal (grey), Magic (blue), Rare (yellow) or Unique (brown). Item Classes which do not have these rarities, such as Currency, have individual rarity for each item.",
+      "Magic items can have 2 Modifiers; a Prefix and a Suffix.",
+      "Rare items can have up to 6 Modifiers; 3 Prefixes and 3 Suffixes.",
+      "More powerful and dangerous enemies are more likely to drop rarer Items."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Item_Rarity",
+      "patch": "0.5.4b"
+    }
+  ]
+}

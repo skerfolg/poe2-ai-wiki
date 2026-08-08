@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.seals-and-sealed-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Seals and Sealed Skills",
+    "en": "Seals and Sealed Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Sealed Skills are skills which gain Seals. Only skills you use yourself can be Sealed.",
+      "When you use a Sealed Skill, its Seals are broken, and that use of the skill will gain some benefit based on how many Seals it had."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Seals_and_Sealed_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

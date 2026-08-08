@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.gaining-stats-from-other-stats",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Gaining Stats from other Stats",
+    "en": "Gaining Stats from other Stats"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Gaining a percentage of stat A as stat B is calculated from the base value of stat A. The portion gained scales with percentage modifiers to stat B, but not with percentage modifiers to stat A.",
+      "For example, if you gained 50% of Evasion as Armour, the portion gained would be scaled by percentage modifiers to Armour, but not by percentage modifiers to Evasion."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Gaining_Stats_from_other_Stats",
+      "patch": "0.5.4b"
+    }
+  ]
+}

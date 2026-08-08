@@ -1,0 +1,32 @@
+{
+  "id": "mechanic.puppet-master",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Puppet Master",
+    "en": "Puppet Master"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Puppet Master is a stacking Buff which grants:",
+      "10% increased Skill Speed with Command Skills",
+      "10% reduced Movement Speed Penalty with Command Skills",
+      "Minions deal 10% increased damage with Command Skills",
+      "Minions have 2% increased Movement Speed",
+      "Minions have 3% increased Skill Speed",
+      "Each stack has an independent duration of 8 seconds. Maximum 5 stacks."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Puppet_Master",
+      "patch": "0.5.4b"
+    }
+  ]
+}

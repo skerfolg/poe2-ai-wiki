@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.resistance-penetration",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Resistance Penetration",
+    "en": "Resistance Penetration"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Penetration causes the target's corresponding Resistance to be treated as lower than its actual value by the specified amount when of calculating Damage taken from your Hits. Resistances can only be Penetrated down to a minimum of 0% by default.",
+      "Since Penetration only affects Hits and applies to the target's defensive stats rather than your own offensive stats, it does not affect damage with Ailments."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Resistance_Penetration",
+      "patch": "0.5.4b"
+    }
+  ]
+}

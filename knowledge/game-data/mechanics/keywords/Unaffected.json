@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.unaffected",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Unaffected",
+    "en": "Unaffected"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Debuffs you are Unaffected by can still be placed on you, but will not actually apply their effect."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Unaffected",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.adding-to-stat-totals",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Adding to Stat Totals",
+    "en": "Adding to Stat Totals"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Adding to the Total value of a stat occurs after all other calculations have been performed. This means that the added value does not benefit from percentage modifiers to the stat."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Adding_to_Stat_Totals",
+      "patch": "0.5.4b"
+    }
+  ]
+}
