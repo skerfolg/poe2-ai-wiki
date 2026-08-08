@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.chance-can-surpass-100-25",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Chance can Surpass 100%",
+    "en": "Chance can Surpass 100%"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "By default, chance-based stats cap at 100% chance for the result to occur. However, some chances can surpass 100%. In this case, the event for which you have a chance to effect will occur once for each 100% chance for that event you have, and then have a normal percentage chance for it to occur again based on the remaining value.",
+      "For example, a Surpassing 215% chance for an event to occur will cause the event to occur twice (once for each 100% chance) and have a 15% chance for it to occur a third time."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Chance_can_Surpass_100_25",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.checkpoints",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Checkpoints",
+    "en": "Checkpoints"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Checkpoints are a form of saving your progress through Wraeclast and will often appear before Boss fights and at points of interest. Reaching a Checkpoint will refill your Life, Mana, Flasks and Charms.",
+      "On death, you can choose to revive either in Town or at the last Checkpoint you reached. For this purpose, Waypoints also function as Checkpoints.",
+      "You can also teleport between Checkpoints within an area, or from a Checkpoint to the Waypoint."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Checkpoints",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.crushed",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Crushed",
+    "en": "Crushed"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Crushed lowers Physical Damage Reduction by 15%. This can result in Physical Damage Reduction being negative, causing more damage to be taken."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Crushed",
+      "patch": "0.5.4b"
+    }
+  ]
+}

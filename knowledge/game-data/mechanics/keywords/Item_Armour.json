@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.item-armour",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Item Armour",
+    "en": "Item Armour"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Stats that refer to an item's Armour use the exact value listed on the item. This means that Quality and local modifiers on the item are taken into account, but stats from other sources that change the amount of Armour actually granted to your character are not considered."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Item_Armour",
+      "patch": "0.5.4b"
+    }
+  ]
+}

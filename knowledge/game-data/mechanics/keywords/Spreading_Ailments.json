@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.spreading-ailments",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Spreading Ailments",
+    "en": "Spreading Ailments"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Spreading an ailment inflicts a new, matching ailment on another target, from the same source. The new ailment can potentially spread further, but never back to the same target twice.",
+      "Ailments can never spread to, or from, the entity that originally inflicted them."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Spreading_Ailments",
+      "patch": "0.5.4b"
+    }
+  ]
+}

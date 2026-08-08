@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.maximum-resistances",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Maximum Resistances",
+    "en": "Maximum Resistances"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "The default maximum for Elemental or Chaos resistances is 75%. Maximum resistances cannot be raised above 90%."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Maximum_Resistances",
+      "patch": "0.5.4b"
+    }
+  ]
+}

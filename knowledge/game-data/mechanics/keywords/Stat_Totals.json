@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.stat-totals",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Stat Totals",
+    "en": "Stat Totals"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "The Total value of a stat is the value after all calculations have been performed. Modifiers to the Total value apply after all other modifiers."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Stat_Totals",
+      "patch": "0.5.4b"
+    }
+  ]
+}

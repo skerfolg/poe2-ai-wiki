@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.desecrated-modifiers",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Desecrated Modifiers",
+    "en": "Desecrated Modifiers"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Desecrating an item adds an Unrevealed Desecrated modifier. If modifiers are full then a random modifier is also removed. These modifiers can be revealed at the Well of Souls.",
+      "Items with Desecrated Modifiers cannot be Desecrated again."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Desecrated_Modifiers",
+      "patch": "0.5.4b"
+    }
+  ]
+}

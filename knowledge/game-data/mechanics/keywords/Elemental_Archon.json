@@ -28,7 +28,14 @@
       "• Spells have 100% more Flammability Magnitude",
       "• Hits with Spells have 100% more Shock chance",
       "Using a non-instant Attack causes Elemental Archon to be removed immediately."
-    ]
+    ],
+    "base_duration_s": 10,
+    "recovery_period_s": 20,
+    "base_values_from": "mechanic.archon-buff",
+    "_verification": {
+      "base_duration_s": "GAME_DATA",
+      "recovery_period_s": "GAME_DATA"
+    }
   },
   "verification": "GAME_DATA",
   "sources": [

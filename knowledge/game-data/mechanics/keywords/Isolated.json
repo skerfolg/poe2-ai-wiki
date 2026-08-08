@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.isolated",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Isolated",
+    "en": "Isolated"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "A target is Isolated if none of its allies are within 6m of it."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Isolated",
+      "patch": "0.5.4b"
+    }
+  ]
+}

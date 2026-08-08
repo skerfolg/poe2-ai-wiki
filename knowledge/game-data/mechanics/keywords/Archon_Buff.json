@@ -1,0 +1,34 @@
+{
+  "id": "mechanic.archon-buff",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Archon Buff",
+    "en": "Archon Buff"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Archons are a type of Buff that significantly augment your prowess with a certain type of Skills, such as Elemental Spells or Plant Skills.",
+      "By default, each Archon Buff lasts 10 seconds.",
+      "You cannot gain any Archon Buff while you already have one, or during a recovery period after you lose one, which lasts 20 seconds by default."
+    ],
+    "base_duration_s": 10,
+    "recovery_period_s": 20,
+    "_verification": {
+      "base_duration_s": "GAME_DATA",
+      "recovery_period_s": "GAME_DATA"
+    }
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Archon_Buff",
+      "patch": "0.5.4b"
+    }
+  ]
+}

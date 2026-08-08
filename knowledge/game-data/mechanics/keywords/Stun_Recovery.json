@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.stun-recovery",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Stun Recovery",
+    "en": "Stun Recovery"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Increasing your Stun Recovery causes you to recover more quickly from being Stunned."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Stun_Recovery",
+      "patch": "0.5.4b"
+    }
+  ]
+}

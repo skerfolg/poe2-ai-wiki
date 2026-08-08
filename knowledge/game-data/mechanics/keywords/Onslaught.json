@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.onslaught",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Onslaught",
+    "en": "Onslaught"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Onslaught grants 20% increased Skill Speed and 10% increased movement speed.",
+      "Unless specified, Onslaught lasts 4 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Onslaught",
+      "patch": "0.5.4b"
+    }
+  ]
+}

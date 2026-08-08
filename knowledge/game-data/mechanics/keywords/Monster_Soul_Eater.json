@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.monster-soul-eater",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Monster Soul Eater",
+    "en": "Monster Soul Eater"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Monsters with Soul Eater gain 1% increased Skill Speed and 1% less damage taken when a monster dies in their Presence, stacking up to 50 times. An eaten Soul is lost every 0.5 seconds if none have been eaten within the past 4 seconds."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Monster_Soul_Eater",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -48,7 +48,19 @@ _ALIAS = {"Bleeding": "mechanic.bleed"}
 
 
 def collect_links(raw_dir: Path) -> dict[str, str]:
-    """원시 스냅샷 전량 → {키워드 슬러그: hover URL} (네트워크 없음)."""
+    """원시 스냅샷 전량 → {키워드 슬러그: hover URL} (네트워크 없음).
+
+    ⚠ **먼저 만난 것을 취하면 안 된다.** 같은 키워드라도 페이지마다 `data-hover`가
+    다르게 붙는다: 스킬 페이지는 CDN 팝업 조각(`https://…`)을 주는데 아이템 분류
+    페이지(`Amulets`·`Charms`·`Bows`…)는 **검색 쿼리**(`?s=Data\\KeywordPopups/…`)를
+    준다. 후자는 정의 조각이 아니라서 `fetch_definitions`가 건너뛴다.
+
+    선입선출이면 **어느 키워드가 수집되는지를 파일명 알파벳 순서가 정한다** —
+    `Amulets.html`이 먼저 와서 열화된 링크를 선점한다. 실측 2026-08-08: 슬러그 493개
+    중 **90개**가 그렇게 버려졌고, 그중 하나가 `Archon_Buff`였다(집정관 버프 지속
+    10초·회복 20초가 거기 있다 — 백로그 #3이 "출처 갭"으로 오분류된 이유).
+    그래서 http 후보를 **우선**한다.
+    """
     pages = raw_dir / "poe2db" / "us"
     out: dict[str, str] = {}
     for path in sorted(pages.glob("*.html")):
@@ -56,9 +68,25 @@ def collect_links(raw_dir: Path) -> dict[str, str]:
         for anchor in soup.select(f"a.KeywordPopups[{_HOVER_ATTR}]"):
             slug = str(anchor.get("href") or "").strip()
             hover = str(anchor.get(_HOVER_ATTR) or "").strip()
-            if slug and hover and slug not in out and not _NOT_A_MECHANIC.match(slug):
+            if not slug or not hover or _NOT_A_MECHANIC.match(slug):
+                continue
+            if slug not in out or (_usable(hover) and not _usable(out[slug])):
                 out[slug] = hover
     return out
+
+
+def _usable(url: str) -> bool:
+    """받아올 수 있는 팝업 조각 주소인가.
+
+    두 가지가 걸러진다:
+    - `?s=Data\\KeywordPopups/…` — 팝업이 아니라 **검색 페이지**(홈페이지가 온다)
+    - 숫자가 `#`로 치환된 것 — 일부 스냅샷 페이지가 `cdn.poe#db.tw`처럼 훼손된 채로
+      온다. http로 시작해 정상처럼 보이지만 호스트가 해석되지 않아 **DNS 오류로
+      죽는다**. 훼손본을 골라 버리면 원인이 "수집 실패"로 잘못 보인다 —
+      실측 2026-08-08: 3건(`Freeze_Threshold`·`Maximum_Resistances`·`Recoup`)이
+      그렇게 3회 재시도를 낭비했다. 이 셋은 어느 페이지에도 성한 http가 없다.
+    """
+    return url.startswith("http") and "#" not in url
 
 
 def fetch_definitions(

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.consecrated-ground",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Consecrated Ground",
+    "en": "Consecrated Ground"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "You and Allies standing on your Consecrated Ground Regenerate 5% of their maximum Life per second, and Curses have 50% reduced effect on them."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Consecrated_Ground",
+      "patch": "0.5.4b"
+    }
+  ]
+}

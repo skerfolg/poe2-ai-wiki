@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.armour-movement-penalties",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Armour Movement Penalties",
+    "en": "Armour Movement Penalties"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Depending on the type of Armour equipped, Players will have a less Movement Speed penalty applied depending on what Attribute the Armour requires. These penalties only apply to equipped Body Armours and Shields.",
+      "For Body Armour, pure Strength has a 5% penalty, hybrid Strength and Dexterity or Intelligence has a 4% penalty and pure Dexterity or Intelligence has a 3% penalty.",
+      "For Shields, pure Strength has a 3% penalty, hybrid Strength and Dexterity or Intelligence has a 1.5% penalty and pure Dexterity or Intelligence has no penalty."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Armour_Movement_Penalties",
+      "patch": "0.5.4b"
+    }
+  ]
+}

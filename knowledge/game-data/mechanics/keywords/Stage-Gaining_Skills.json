@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.stage-gaining-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Stage-Gaining Skills",
+    "en": "Stage-Gaining Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Skills can gain Stages passively or while attacking/casting them, depending on the Skill in question.",
+      "Stages gained for a given Skill apply to that instance of the Skill and will not carry over from one area to another."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Stage-Gaining_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

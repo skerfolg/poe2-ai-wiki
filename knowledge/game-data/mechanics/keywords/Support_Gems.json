@@ -1,0 +1,28 @@
+{
+  "id": "mechanic.support-gems",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Support Gems",
+    "en": "Support Gems"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Support Gems can be inserted into sockets on a Skill Gem in order to modify the effects of that Skill. They only apply to the Skill Gem they are socketed into.",
+      "You cannot use multiple copies of the exact same Lineage Support across multiple Skills, or for Supports that grant global benefits to persistent reservation Skills while active.",
+      "Cannot use multiple Support Gems of the same Category in one Skill."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Support_Gems",
+      "patch": "0.5.4b"
+    }
+  ]
+}

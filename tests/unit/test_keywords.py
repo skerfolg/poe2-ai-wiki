@@ -36,6 +36,30 @@ def test_only_absolute_hover_urls_are_fetchable() -> None:
     assert 200 < len(absolute) < len(links), "절대/상대가 섞여 있어야 정상"
 
 
+def test_absolute_hover_wins_over_search_query(tmp_path: Path) -> None:
+    """같은 키워드가 두 꼴로 링크되면 **팝업 조각 쪽을 취해야** 한다.
+
+    선입선출이면 어느 키워드가 수집되는지를 **파일명 알파벳 순서**가 정한다:
+    `Amulets.html`이 검색 쿼리를 들고 먼저 오면 뒤에 오는 스킬 페이지의 정상 URL이
+    묻힌다. 실측 2026-08-08: 그렇게 **90개**가 버려졌고 그중 `Archon_Buff`에
+    집정관 버프 지속 10초·회복 20초가 있었다(백로그 #3을 "출처 갭"으로 오분류시킨 것).
+    """
+    pages = tmp_path / "poe2db" / "us"
+    pages.mkdir(parents=True)
+    # 알파벳 앞 페이지가 열화된 링크를 준다
+    (pages / "Amulets.html").write_text(
+        '<a class="KeywordPopups" href="Archon_Buff" '
+        'data-hover="?s=Data%5CKeywordPopups%2FArchon">Archon</a>',
+        encoding="utf-8",
+    )
+    (pages / "Zzz_Skill.html").write_text(
+        '<a class="KeywordPopups" href="Archon_Buff" '
+        'data-hover="https://cdn.poe2db.tw/cache2/us/x/abc">Archon</a>',
+        encoding="utf-8",
+    )
+    assert collect_links(tmp_path)["Archon_Buff"].startswith("http")
+
+
 def test_definition_separates_title_from_body() -> None:
     """`.card-header`(제목) + `.keyword-body`(정의). 통짜로 자르면 붙는다."""
     parsed = parse_definition((RAW / "poe2db/keywords/Accuracy.html").read_text(encoding="utf-8"))

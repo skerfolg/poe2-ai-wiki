@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.persistent-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Persistent Skills",
+    "en": "Persistent Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Persistent Skills are toggled in the Skills Panel instead of being used normally and often need to Reserve Spirit in order to be activated."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Persistent_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

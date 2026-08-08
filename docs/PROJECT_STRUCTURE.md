@@ -91,7 +91,8 @@ poe2-ai-wiki/
 │                                #   — skills/ 아래 두면 `/스킬명`이 뜨지 않는다
 ├── skills/                      # ══ 고수준 워크플로 (D6) — 생성 파이프라인 오케스트레이션 ══
 │   ├── build-generation/AGENTS.md   # 지침 본문(정본) 한 벌. SKILL.md가 여기를 가리킨다
-│   └── kb-ingest/AGENTS.md
+│   ├── kb-ingest/AGENTS.md
+│   └── pob-snapshot/AGENTS.md       # PoB 스냅샷 교체 — 핀 8곳 + 파싱 갭 감사 재실행
 │
 ├── tests/{unit, integration, eval}/   # eval = 반프록시 생성 품질 (PoB 실측, AD-8)
 └── scripts/                     # PoB 셋업·버전검증, 인덱스 재생성 CLI

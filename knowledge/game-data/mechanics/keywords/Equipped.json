@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.equipped",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Equipped",
+    "en": "Equipped"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Weapon, Armour, Belt, and Jewellery Items are Equipped to the character in the Inventory Panel. Flasks, Skill Gems, and Jewels are never considered to be Equipped."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Equipped",
+      "patch": "0.5.4b"
+    }
+  ]
+}

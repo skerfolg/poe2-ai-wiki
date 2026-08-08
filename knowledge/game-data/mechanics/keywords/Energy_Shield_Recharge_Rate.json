@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.energy-shield-recharge-rate",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Energy Shield Recharge Rate",
+    "en": "Energy Shield Recharge Rate"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Affects how quickly Energy Shield is recovered by Recharge once it starts Recharging."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Energy_Shield_Recharge_Rate",
+      "patch": "0.5.4b"
+    }
+  ]
+}

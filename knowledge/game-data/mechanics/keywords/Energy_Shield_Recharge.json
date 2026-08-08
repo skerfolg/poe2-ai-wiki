@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.energy-shield-recharge",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Energy Shield Recharge",
+    "en": "Energy Shield Recharge"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Lost Energy Shield will start Recharging at a rate of 12.5% per second after a base delay of 4 seconds. Further loss of Energy Shield resets this delay, interrupting Recharge."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Energy_Shield_Recharge",
+      "patch": "0.5.4b"
+    }
+  ]
+}

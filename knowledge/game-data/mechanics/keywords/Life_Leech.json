@@ -1,0 +1,29 @@
+{
+  "id": "mechanic.life-leech",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Life Leech",
+    "en": "Life Leech"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "When you deal damage with a Hit, Life Leech causes you to recover an amount of Life to a percentage of the damage dealt, over a period of one second.",
+      "Hits that deal more than 40,000 total damage are treated as though they only dealt 40,000 damage for this calculation. If this damage is of multiple Damage Types, the ratios between them will stay the same.",
+      "Monsters have Leech Resistance that increases with monster level, reducing how much you recover from Leech from Hits against them.",
+      "You can only recover from a single instance of Life Leech at a time, and all Life Leech is removed when Life is filled."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Life_Leech",
+      "patch": "0.5.4b"
+    }
+  ]
+}

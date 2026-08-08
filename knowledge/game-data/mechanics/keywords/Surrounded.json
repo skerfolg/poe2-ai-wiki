@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.surrounded",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Surrounded",
+    "en": "Surrounded"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "You are Surrounded if there are at least 5 enemies within 3 metres of you. The number of enemies required to be Surrounded cannot be reduced below 1."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Surrounded",
+      "patch": "0.5.4b"
+    }
+  ]
+}

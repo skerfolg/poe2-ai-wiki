@@ -1,0 +1,27 @@
+{
+  "id": "mechanic.banner-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Banner Skills",
+    "en": "Banner Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Banner Skills generate Glory when you attack a Monster while it is activated. Glory generated corresponds to the Power of the Monster hit. Once at full Glory, the Banner can be placed to create powerful Buffing Areas.",
+      "Normally you have a limit of a single Banner placed at one time."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Banner_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}

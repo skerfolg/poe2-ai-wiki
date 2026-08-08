@@ -1,0 +1,31 @@
+{
+  "id": "mechanic.flammability",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Flammability",
+    "en": "Flammability"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Flammability is a Debuff that provides the chance for Hits to Ignite the target. It is not itself an Ailment, but is closely associated with Ignite, which is.",
+      "Fire damage from Hits Contributes to the Magnitude of Flammability, so Hits that deal more Fire damage will Ignite more often.",
+      "The base Magnitude of Flammability is 1% chance to Ignite the target for every 5% of the target's Ailment Threshold dealt as Fire damage. Flammability from a Hit is applied before that hit checks whether it should Ignite the target, and so will affect that chance for that Hit to Ignite.",
+      "Since chance for Hits to Ignite comes from Flammability on the target, modifiers which increase the chance to inflict Ailments will increase the Magnitude of Flammability inflicted.",
+      "Effects which do not Hit targets, but Ignite as if they had, such as Ignited Ground, also inflict Flammability, but do not roll a random chance to Ignite. Such effects will only Ignite once the total Flammability on the target reaches 50%.",
+      "Multiple instances of Flammability stack, raising the chance for Hits to Ignite the target up to 100%. Each instance of Flammability has its own independent duration, lasting 8 seconds by default."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Flammability",
+      "patch": "0.5.4b"
+    }
+  ]
+}

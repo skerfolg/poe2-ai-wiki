@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.invoke",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Invoke",
+    "en": "Invoke"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Invoked Skills are those Triggered by Invocation Skills."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Invoke",
+      "patch": "0.5.4b"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "mechanic.travel-skills",
+  "type": "Mechanic",
+  "name": {
+    "ko": "Travel Skills",
+    "en": "Travel Skills"
+  },
+  "tags": [
+    "mechanic",
+    "keyword"
+  ],
+  "data": {
+    "kind": "keyword",
+    "stats": [
+      "Travel Skills cover a large amount of distance without needing to target an enemy. If you have multiple Travel Skills with cooldowns, their cooldowns are shared."
+    ]
+  },
+  "verification": "GAME_DATA",
+  "sources": [
+    {
+      "src": "poe2db",
+      "ref": "https://poe2db.tw/us/Travel_Skills",
+      "patch": "0.5.4b"
+    }
+  ]
+}
