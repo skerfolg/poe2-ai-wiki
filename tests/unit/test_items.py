@@ -258,6 +258,68 @@ def test_demand_supply_chain_is_measured_and_beats_single(monkeypatch: Any) -> N
     lengths = {len(c.members) for c in out.chains}
     assert 2 in lengths and 3 in lengths, "2연쇄를 거쳐 3연쇄까지 확장 실측"
     trio = next(c for c in out.chains if len(c.members) == 3)
-    assert trio.delta_chain == {"CombinedDPS": 300.0}
-    assert trio.synergy == {"CombinedDPS": 240.0}, "연쇄 - 단독합 — 곱연산 맞물림이 수치로 남는다"
+    # 방어 축이 항상 측정에 포함되므로(#18) 델타 dict에 0짜리 축들이 함께 온다 —
+    # 문제의 축만 본다.
+    assert trio.delta_chain["CombinedDPS"] == 300.0
+    assert trio.synergy["CombinedDPS"] == 240.0, "연쇄 - 단독합 — 곱연산 맞물림이 수치로 남는다"
     assert trio.axis_path == ("life", "life")
+
+
+def test_defensive_only_candidate_is_surfaced_not_adopted() -> None:
+    """딜 가중만 주면 순수 방어 유니크는 **점수가 정확히 0**이라 절대 채택되지 않는다.
+
+    "딜 가중을 준 사람 책임"으로 보이지만 딜 가중이 **기본 사용 패턴**이고, 그 패턴에서
+    한 부류가 통째로 안 보이는 것이 결함이다(백로그 #18 — 사용자 지적: 여러 세션이
+    고점 세팅에서 마법사의 피를 **항상** 무시했다). 실측 2026-08-09(허리띠 20종·딜
+    가중): 채택 가능 후보 **0건**인데 그중 12종이 EHP를 올렸다.
+
+    채택은 여전히 가중치가 정한다(AD-3) — **보이게만** 한다.
+    """
+    tanky = ItemCandidate(
+        "unique:tank", "Belt", "Rarity: UNIQUE\nTank\nB\nImplicits: 0\n+100 to maximum Life", "u"
+    )
+    useless = ItemCandidate(
+        "unique:meh", "Belt", "Rarity: UNIQUE\nMeh\nB\nImplicits: 0\nnothing", "u"
+    )
+    table = {
+        "": {"CombinedDPS": 100.0, "TotalEHP": 1000.0, "Life": 500.0},
+        "Belt:Tank": {"CombinedDPS": 100.0, "TotalEHP": 1600.0, "Life": 600.0},  # 딜 0 · 방어 +600
+        "Belt:Meh": {"CombinedDPS": 100.0, "TotalEHP": 1000.0, "Life": 500.0},  # 아무것도 안 바뀜
+    }
+    out = optimize_items(
+        SPEC,
+        ["Belt"],
+        {"CombinedDPS": 1.0},
+        rare_templates={"Belt": [tanky.text, useless.text]},
+        compute=_fake_compute(table),
+        max_rounds=1,
+        max_candidates_per_slot=0,
+    )
+    assert not out.steps, "딜이 안 오르므로 채택은 여전히 없어야 한다"
+    labels = {d.candidate.label for d in out.defensive_only}
+    assert labels == {"rare:Belt#0"}, f"방어 개선분만 실려야 한다: {labels}"
+    assert out.defensive_only[0].delta_now["TotalEHP"] == 600.0
+    assert any("방어 축이 없다" in n for n in out.notes), "가중치에 방어 축이 없다는 경고"
+
+
+def test_defensive_axes_are_measured_even_when_not_weighted() -> None:
+    """방어 축을 안 재면 "딜 0 · 방어 양수"를 **판정할 근거 자체가 없다**.
+
+    PoB 1회 실행이 전 스탯을 주므로 축을 더 담는 비용은 0이다.
+    """
+    cand = ItemCandidate("unique:x", "Belt", "Rarity: UNIQUE\nX\nB\nImplicits: 0\n+1 x", "u")
+    table = {
+        "": {"CombinedDPS": 100.0, "TotalEHP": 1000.0},
+        "Belt:X": {"CombinedDPS": 100.0, "TotalEHP": 1200.0},
+    }
+    out = optimize_items(
+        SPEC,
+        ["Belt"],
+        {"CombinedDPS": 1.0},  # 방어 축을 **주지 않았는데도**
+        rare_templates={"Belt": [cand.text]},
+        compute=_fake_compute(table),
+        max_rounds=1,
+        max_candidates_per_slot=0,
+    )
+    assert out.defensive_only, "가중치에 없어도 방어 축이 측정돼 있어야 한다"
+    assert "TotalEHP" in out.defensive_only[0].delta_now
