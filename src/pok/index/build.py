@@ -18,7 +18,8 @@ from pok.kb.store import Store, load
 
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
 # v6: records.unlock — 해금 제약을 검색 히트에 실어 보낸다(B-13)
-SCHEMA_VERSION = 7  # v7: fts body에 minion_stats — 소환수 효과 검색(#8-b 분리 후 도달 경로)
+# v7: fts body에 minion_stats — 소환수 효과 검색(#8-b 분리 후 도달 경로)
+SCHEMA_VERSION = 8  # v8: records.pob_gap — PoB가 못 읽는 문구를 히트에 실어 보낸다(제안 D)
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -33,7 +34,12 @@ CREATE TABLE records (
     -- 차단이 조립 시점(assemble_pob)에만 있으면 세션은 그 전에 이미 잘못된 설계
     -- 결론을 낸다(B-13 실측 2026-08-07 — 오라클 전용 노드를 인퍼널리스트 빌드의
     -- 병목 해법으로 제시). 후보를 내는 **모든 지점**에서 같은 판정이 나와야 한다.
-    unlock TEXT NOT NULL DEFAULT ''
+    unlock TEXT NOT NULL DEFAULT '',
+    -- data.pob_modeling 요약. 같은 이유로 히트에 싣는다: PoB가 못 읽는 문구는
+    -- **경고 없이 델타 0**으로 나오고(pok.pob.parse_gaps), 세션은 그걸 "값어치
+    -- 없음"이라는 실측으로 오독한다. 레코드 본문(get_entry)에만 두면 후보를 훑는
+    -- 단계에서 안 보이고, 오독은 그 단계에서 굳는다(B-13과 같은 구조).
+    pob_gap TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX idx_records_asc ON records(ascendancy);
 CREATE TABLE tags (id TEXT NOT NULL, tag TEXT NOT NULL);
@@ -92,6 +98,21 @@ def _unlock_key(raw: dict[str, object]) -> str:
     data: dict[str, object] = data_obj if isinstance(data_obj, dict) else {}
     unlock = data.get("unlock_constraint")
     return json.dumps(unlock, ensure_ascii=False) if isinstance(unlock, dict) and unlock else ""
+
+
+def _pob_gap_key(raw: dict[str, object]) -> str:
+    """PoB 미모델링 표기 → 히트에 실을 한 줄. 없으면 빈 문자열.
+
+    `pob_modeling`은 두 계열이 쓴다: 룬 슬롯 미매칭(`kb.pob_gaps`)과 트리 문구
+    미파싱(`pob.parse_gaps`). 어느 쪽이든 소비자가 알아야 할 것은 같다 —
+    **이 레코드의 측정값은 일부(또는 전부) 빠져 있다.** 그래서 kind만 싣는다.
+    """
+    data_obj = raw.get("data")
+    data: dict[str, object] = data_obj if isinstance(data_obj, dict) else {}
+    modeling = data.get("pob_modeling")
+    if not isinstance(modeling, dict) or modeling.get("supported") is not False:
+        return ""
+    return str(modeling.get("kind") or "unmodeled")
 
 
 def _fts_body(raw: dict[str, object]) -> str:
@@ -158,7 +179,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
         )
         for r in store.records.values():
             con.execute(
-                "INSERT INTO records VALUES (?,?,?,?,?,?,?,?)",
+                "INSERT INTO records VALUES (?,?,?,?,?,?,?,?,?)",
                 (
                     r.id,
                     r.type,
@@ -168,6 +189,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
                     json.dumps(r.raw, ensure_ascii=False),
                     _ascendancy_key(r.raw),
                     _unlock_key(r.raw),
+                    _pob_gap_key(r.raw),
                 ),
             )
             con.executemany("INSERT INTO tags VALUES (?,?)", [(r.id, t) for t in r.tags])
