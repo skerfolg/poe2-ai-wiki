@@ -7,15 +7,24 @@ build_spec dict 형식 (spec_from_dict 계약):
    "tree_nodes": [4739, ...],
    "skills": [{"gems": [{"gem_id": "Metadata/Items/Gems/SkillGemSpark",
                           "name": "Spark", "level": 20}]}],
-   "items": [{"slot": "Ring 1", "text": "Rarity: RARE\\n..."}],
+   "items": [{"slot": "Ring 1", "text": "Rarity: RARE\\n...",
+               "substitutes": ["25% more Elemental Damage with Spells"]}],
    "jewels": [{"socket_node_id": 55555, "text": "Rarity: UNIQUE\\n...",
                 "allocates": [51868]}],
    "config": {"enemyIsBoss": true}}
 
-주얼의 `allocates`는 **대체 모델링**(B-3): KB `pob_computable: false` 유니크
-(과대망상 등)는 explicits가 플레이스홀더라 PoB가 텍스트로 못 읽으므로, 부여
-노터블의 node_id를 적으면 트리에 병합해 **효과만** 재현한다. 소켓 소모·조달
-가정은 재현되지 않으며, 그 사실이 manifest `substitute_modeling`에 기록된다.
+대체 모델링 두 갈래 — 둘 다 manifest `substitute_modeling`에 기록된다:
+
+**① 주얼 `allocates`** (B-3): KB `pob_computable: false` 유니크(과대망상 등)는
+explicits가 플레이스홀더라 PoB가 텍스트로 못 읽는다. 부여 노터블의 node_id를
+적으면 트리에 병합해 **효과만** 재현한다. 소켓 소모·조달 가정은 재현되지 않는다.
+
+**② 아이템 `substitutes`** (#3): PoB가 **문구를 못 읽는** 것(레코드의
+`pob_modeling.kind`가 `tree-line-unparsed`·`rune-slot-unmatched`)의 값어치를
+등가 문구로 바꿔 잰다. ⛔ `text`에 직접 섞지 말 것 — 섞으면 진짜 아이템 모드와
+구분되지 않아 **추산이 실측으로 둔갑한다**. 이 칸에 적으면 산출물에 추산 사실이
+자동으로 남는다. ⚠ 원문 그대로는 파서가 또 떨어뜨린다(대상 한정어가 원인) —
+한정어를 뺀 형태로 근사하고, 그래서 **적용 범위가 실제보다 넓을 수 있다**.
 """
 
 from __future__ import annotations

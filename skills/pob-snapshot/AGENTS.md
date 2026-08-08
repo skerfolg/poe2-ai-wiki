@@ -6,9 +6,9 @@
 
 ## 왜 절차가 필요한가
 
-핀 하나가 **8곳에 복사돼 있다.** 하나만 빠뜨리면 계산은 새 스냅샷으로 돌고 카탈로그
-검증은 옛 파일을 읽는 식으로 조용히 갈라져 증거 체인이 거짓이 된다. 그리고 스냅샷이
-바뀌면 **PoB가 읽는 문구도 바뀌므로** 파싱 갭 표기(트리 500건)가 통째로 낡는다.
+핀을 잘못 고치면 계산은 새 스냅샷으로 돌고 카탈로그 검증은 옛 파일을 읽는 식으로
+**조용히** 갈라져 증거 체인(AD-2)이 거짓이 된다. 그리고 스냅샷이 바뀌면 **PoB가 읽는
+문구도 바뀌므로** 파싱 갭 표기(트리 500건)가 통째로 낡는다.
 
 문서 체크리스트는 안 지켜진다(철칙 5). 그래서 **빠뜨림은 테스트가 잡는다** —
 `tests/unit/test_pob_pin_consistency.py`(핀 일치)와
@@ -34,18 +34,23 @@ git -C external/pob/${NEW:0:7} checkout $NEW
 ⛔ 기존 `external/pob/<옛 short>/`를 지우거나 덮지 않는다. **새 버전 = 새 클론**이
 재현성의 근거다. 옛 스냅샷은 사람이 따로 지시할 때만 지운다.
 
-### 2. 핀 8곳 갱신
+### 2. 핀 갱신 — 손으로 고칠 곳은 **셋**
 
-| 파일 | 무엇 |
-|---|---|
-| `knowledge/ingest/manifest.json` | `pob_commit` (**정본 핀** — `resolve_snapshot()`이 읽는다) |
-| `.github/workflows/ci.yml` | `POB_COMMIT` |
-| `.github/workflows/pob-smoke.yml` | `POB_COMMIT` |
-| `src/pok/pob/catalog.py` | `_POB_DIR` (short 7자) |
-| `src/pok/kb/ingest/ailments.py` | `_POB_DIR` (short 7자) |
-| `src/pok/kb/ingest/merge.py` | `POB_COMMIT` (전체) |
-| `src/pok/kb/ingest/__main__.py` | `external/pob/<short>` 경로 **2곳** |
-| `tests/unit/test_uniques.py` | `external/pob/<short>` 경로 |
+소스 쪽 파생은 전부 `src/pok/kb/pob_pin.py`의 `POB_COMMIT` 하나에서 나온다(#16).
+나머지 둘은 파이썬 밖이라 자동으로 못 따라온다.
+
+| 순서 | 파일 | 무엇 |
+|---|---|---|
+| ① | `src/pok/kb/pob_pin.py` | `POB_COMMIT` (전체 40자) — **authoring point** |
+| ② | `.github/workflows/ci.yml` | `POB_COMMIT` |
+| ③ | `.github/workflows/pob-smoke.yml` | `POB_COMMIT` |
+
+그리고 **manifest를 재생성한다** — 런타임(`resolve_snapshot()`)이 여는 스냅샷은
+manifest가 정하므로, 이걸 잊으면 상수만 새 것이고 실제로는 옛 PoB가 돈다:
+
+```bash
+PYTHONPATH=src python -m pok.kb.ingest manifest --patch <ver>
+```
 
 ⛔ **`knowledge/game-data/**`의 `sources[].pob`는 건드리지 않는다.** 그건 그 레코드를
 **언제 어느 커밋에서 긁었는가**의 증거다. 스냅샷을 올렸다고 덮으면 계보가 거짓이 된다 —
@@ -58,7 +63,8 @@ git -C external/pob/${NEW:0:7} checkout $NEW
 PYTHONPATH=src pytest tests/unit/test_pob_pin_consistency.py -q
 ```
 
-빠뜨린 곳이 있으면 여기서 **어느 파일인지 이름을 대며** 실패한다.
+빠뜨린 곳이 있으면 **어느 파일인지 이름을 대며** 실패한다(manifest 재생성 누락 ·
+워크플로 2개 · 소스에 옛 경로 재등장 — 네 갈래 전부 돌연변이로 감지 확인).
 
 ### 3. 파싱 갭 감사 재실행 (필수)
 
@@ -66,13 +72,14 @@ PYTHONPATH=src pytest tests/unit/test_pob_pin_consistency.py -q
 노드도 생긴다.
 
 ```bash
-PYTHONPATH=src python -m pok.pob.parse_gaps
+PYTHONPATH=src python -m pok.pob.parse_gaps        # 트리 노드
+PYTHONPATH=src python -m pok.pob.item_parse_gaps   # 아이템·룬 접사 (베이스 20종, 수 분)
 ```
 
 - 출력의 **표기/해제 건수를 보고에 그대로 옮긴다.** 해제(cleared)가 많으면 PoB가
   그 계열을 구현했다는 뜻이라 **설계 판단이 달라진다**(그 노드들의 델타가 이제 0이 아니다)
 - 먼저 세어만 보려면 `--dry-run`
-- 배경: `src/pok/pob/parse_gaps.py`
+- 배경: `src/pok/pob/parse_gaps.py` · `src/pok/pob/item_parse_gaps.py`
 
 ### 4. 전량 검증
 
@@ -113,6 +120,6 @@ PYTHONPATH=src python -m pok.kb.ingest status --patch <ver>
 - ⛔ 기존 스냅샷 디렉터리 덮어쓰기·삭제 (AD-2 — 새 버전은 새 클론)
 - ⛔ `knowledge/game-data/**`의 `sources[].pob` 일괄 치환
 - ⛔ 테스트 기대값을 **먼저** 고치기 (계산 변화는 보고 대상이지 수선 대상이 아니다)
-- ⛔ 3(파싱 갭 감사)을 건너뛰고 4로 가기 — 통합 테스트가 막지만, 막힌 뒤에 도는 건
-  낭비다
+- ⛔ 3(파싱 갭 감사)을 **둘 중 하나만** 돌리고 4로 가기 — 트리와 아이템은 경로가 달라
+  각각 표기가 낡는다. 통합 테스트가 막지만, 막힌 뒤에 도는 건 낭비다
 - ⛔ PoB 소스를 고쳐 문제를 우회 (AD-1 — 계산 소스는 손대지 않는다)

@@ -25,11 +25,10 @@ import re
 from pathlib import Path
 from typing import Any
 
-from pok.common.paths import knowledge_dir, project_root
+from pok.common.paths import knowledge_dir
 from pok.kb.ingest.merge import POB_COMMIT
+from pok.kb.pob_pin import pob_src_dir
 from pok.kb.store import write_record
-
-_POB_DIR = "5d173cb"
 
 # name.ko — 인게임 한글 표기 (효과 문구 한글이 없는 영역이라 이름만이라도 붙인다)
 _KO = {
@@ -83,7 +82,7 @@ def can_stack_sources(src: Path, name: str) -> list[str]:
 
 
 def pob_src(root: Path | None = None) -> Path:
-    return (root or project_root()) / "external" / "pob" / _POB_DIR / "src"
+    return pob_src_dir(root)
 
 
 def _balanced(text: str, open_at: int) -> str:

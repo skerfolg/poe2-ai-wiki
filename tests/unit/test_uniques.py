@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from pok.kb.ingest.uniques import parse_block, parse_pob_uniques
+from pok.kb.pob_pin import pob_src_dir
 
 MULTI_VARIANT = """
 Astramentis
@@ -58,7 +59,7 @@ def test_malformed_block_returns_none() -> None:
 
 def test_parse_real_pob_data() -> None:
     """실제 PoB 데이터가 파싱되는지 (클론이 있을 때만)."""
-    d = Path(__file__).resolve().parents[2] / "external/pob/5d173cb/src/Data/Uniques"
+    d = pob_src_dir() / "Data" / "Uniques"
     if not d.is_dir():
         return  # 클론 없는 환경(CI)에서는 건너뛴다
     items = parse_pob_uniques(d)

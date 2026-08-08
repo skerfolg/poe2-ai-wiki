@@ -80,6 +80,19 @@ class ItemSpec:
 
     slot: str
     text: str
+    # **대리 측정 주입** (백로그 #3, 2026-08-08) — PoB가 계산하지 못하는 효과를 재려고
+    # 여기 적은 줄은 아이템 텍스트에 이어붙어 접사로 파싱된다. `text`에 직접 섞지 말 것:
+    # 섞으면 진짜 아이템 모드와 구분되지 않아 **추산이 실측으로 둔갑한다**.
+    #
+    # 이 칸에 적으면 조립이 manifest `substitute_modeling.injected_lines`에 자동으로
+    # 기록한다 — 산출물을 읽는 쪽이 "이 수치는 추산"임을 알 수 있어야 하는데, 그걸
+    # 사람 기억에 맡기면 사라진다(철칙 5: 규율은 강제 지점이 있어야 한다).
+    #
+    # 쓰는 경우: `pob_modeling.kind == "tree-line-unparsed"`(트리 500건) 또는
+    # `rune-slot-unmatched` 레코드의 효과를 **등가 문구로 바꿔** 재는 것.
+    # ⚠ 원문 그대로 넣으면 파서가 또 떨어뜨린다 — 대상 한정어가 원인이다
+    # (예: "10% increased Archon Buff duration" → PoB는 `Archon Buff`를 못 읽는다).
+    substitutes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -169,6 +182,17 @@ _KEY_HINTS = {
     "gem_id": "PoB gemId — KB 젬 레코드의 pob 소스 ref가 그 값이다"
     " (get_entry로 sources를 보면 'Metadata/Items/Gems/…')",
 }
+
+
+def _with_substitutes(item: ItemSpec) -> str:
+    """대리 측정 줄을 아이템 텍스트 끝에 붙인다 — PoB에는 평범한 접사로 보인다.
+
+    PoB에 보내는 것은 합쳐진 텍스트지만 **스펙에는 따로 남아 있어야** 한다.
+    그래야 조립이 manifest에 "이 줄들은 주입분"이라고 적을 수 있다(#3).
+    """
+    if not item.substitutes:
+        return item.text
+    return item.text.rstrip("\n") + "\n" + "\n".join(item.substitutes)
 
 
 def _make[T](cls: type[T], data: dict[str, Any], where: str) -> T:
@@ -488,7 +512,7 @@ def to_xml(spec: BuildSpec) -> str:
     # 탐침 태그는 PoB에 보내기 전에 벗긴다 — 측정은 태그가 있어도 돼야 하고,
     # 태그를 그대로 보내면 PoB가 그 줄을 접사로 파싱하지 못한다
     item_els = "\n".join(
-        f'    <Item id="{i}">{escape(strip_probe_tags(item.text))}</Item>'
+        f'    <Item id="{i}">{escape(strip_probe_tags(_with_substitutes(item)))}</Item>'
         for i, item in enumerate(all_items, start=1)
     )
     slot_els = "\n".join(

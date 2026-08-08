@@ -1,6 +1,6 @@
 ---
 name: pob-snapshot
-description: PoB(Path of Building) 계산 오라클 스냅샷을 새 커밋으로 교체한다. 새 클론 생성 → 흩어진 핀 8곳 갱신 → 파싱 갭 감사 재실행 → 전량 검증까지. PoB 버전 올리기, external/pob 갱신, pob_commit 변경, 스냅샷 교체 후 KB 표기 갱신에 쓴다.
+description: PoB(Path of Building) 계산 오라클 스냅샷을 새 커밋으로 교체한다. 새 클론 생성 → 핀 3곳 갱신 + manifest 재생성 → 파싱 갭 감사 재실행 → 전량 검증까지. PoB 버전 올리기, external/pob 갱신, pob_commit 변경, 스냅샷 교체 후 KB 표기 갱신에 쓴다.
 ---
 
 # pob-snapshot
@@ -29,6 +29,7 @@ description: PoB(Path of Building) 계산 오라클 스냅샷을 새 커밋으�
 
 ## 잊으면 조용히 틀리는 것
 
-스냅샷이 바뀌면 PoB가 읽는 문구도 바뀐다 → 파싱 갭 표기가 낡는다.
-`PYTHONPATH=src python -m pok.pob.parse_gaps`를 **반드시** 다시 돌린다(절차 3).
+스냅샷이 바뀌면 PoB가 읽는 문구도 바뀐다 → 파싱 갭 표기가 낡는다. 절차 3에서
+**둘 다** 돌린다 — 트리(`pok.pob.parse_gaps`)와 아이템(`pok.pob.item_parse_gaps`)은
+경로가 달라 각각 낡는다.
 안 돌리면 통합 테스트가 막지만, 막힌 뒤에 도는 건 낭비다.

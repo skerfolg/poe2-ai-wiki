@@ -189,7 +189,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.step == "fetch":
             print(json.dumps(uniques_page.fetch_pages(raw_dir), ensure_ascii=False, indent=1))
         elif args.step == "process":
-            pob = project_root() / "external" / "pob" / "5d173cb" / "src" / "Data" / "Uniques"
+            from pok.kb.pob_pin import pob_src_dir
+
+            pob = pob_src_dir() / "Data" / "Uniques"
             print(
                 json.dumps(
                     uniques_page.process(raw_dir, pob, out_dir), ensure_ascii=False, indent=1
@@ -345,7 +347,9 @@ def main(argv: list[str] | None = None) -> int:
 
         out_dir = project_root() / "var" / "ingest" / args.patch
         if args.step == "fetch":
-            pob = project_root() / "external" / "pob" / "5d173cb"
+            from pok.kb.pob_pin import pob_root
+
+            pob = pob_root()
             print(json.dumps(tree_mod.fetch_tree(raw_dir, pob), ensure_ascii=False, indent=1))
         elif args.step == "process":
             print(json.dumps(tree_mod.process_tree(raw_dir, out_dir), ensure_ascii=False, indent=1))
