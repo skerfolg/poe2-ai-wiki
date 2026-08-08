@@ -6,9 +6,9 @@
 
 ## 왜 절차가 필요한가
 
-핀 하나가 **8곳에 복사돼 있다.** 하나만 빠뜨리면 계산은 새 스냅샷으로 돌고 카탈로그
-검증은 옛 파일을 읽는 식으로 조용히 갈라져 증거 체인이 거짓이 된다. 그리고 스냅샷이
-바뀌면 **PoB가 읽는 문구도 바뀌므로** 파싱 갭 표기(트리 500건)가 통째로 낡는다.
+핀을 잘못 고치면 계산은 새 스냅샷으로 돌고 카탈로그 검증은 옛 파일을 읽는 식으로
+**조용히** 갈라져 증거 체인(AD-2)이 거짓이 된다. 그리고 스냅샷이 바뀌면 **PoB가 읽는
+문구도 바뀌므로** 파싱 갭 표기(트리 500건)가 통째로 낡는다.
 
 문서 체크리스트는 안 지켜진다(철칙 5). 그래서 **빠뜨림은 테스트가 잡는다** —
 `tests/unit/test_pob_pin_consistency.py`(핀 일치)와
@@ -34,18 +34,23 @@ git -C external/pob/${NEW:0:7} checkout $NEW
 ⛔ 기존 `external/pob/<옛 short>/`를 지우거나 덮지 않는다. **새 버전 = 새 클론**이
 재현성의 근거다. 옛 스냅샷은 사람이 따로 지시할 때만 지운다.
 
-### 2. 핀 8곳 갱신
+### 2. 핀 갱신 — 손으로 고칠 곳은 **셋**
 
-| 파일 | 무엇 |
-|---|---|
-| `knowledge/ingest/manifest.json` | `pob_commit` (**정본 핀** — `resolve_snapshot()`이 읽는다) |
-| `.github/workflows/ci.yml` | `POB_COMMIT` |
-| `.github/workflows/pob-smoke.yml` | `POB_COMMIT` |
-| `src/pok/pob/catalog.py` | `_POB_DIR` (short 7자) |
-| `src/pok/kb/ingest/ailments.py` | `_POB_DIR` (short 7자) |
-| `src/pok/kb/ingest/merge.py` | `POB_COMMIT` (전체) |
-| `src/pok/kb/ingest/__main__.py` | `external/pob/<short>` 경로 **2곳** |
-| `tests/unit/test_uniques.py` | `external/pob/<short>` 경로 |
+소스 쪽 파생은 전부 `src/pok/kb/pob_pin.py`의 `POB_COMMIT` 하나에서 나온다(#16).
+나머지 둘은 파이썬 밖이라 자동으로 못 따라온다.
+
+| 순서 | 파일 | 무엇 |
+|---|---|---|
+| ① | `src/pok/kb/pob_pin.py` | `POB_COMMIT` (전체 40자) — **authoring point** |
+| ② | `.github/workflows/ci.yml` | `POB_COMMIT` |
+| ③ | `.github/workflows/pob-smoke.yml` | `POB_COMMIT` |
+
+그리고 **manifest를 재생성한다** — 런타임(`resolve_snapshot()`)이 여는 스냅샷은
+manifest가 정하므로, 이걸 잊으면 상수만 새 것이고 실제로는 옛 PoB가 돈다:
+
+```bash
+PYTHONPATH=src python -m pok.kb.ingest manifest --patch <ver>
+```
 
 ⛔ **`knowledge/game-data/**`의 `sources[].pob`는 건드리지 않는다.** 그건 그 레코드를
 **언제 어느 커밋에서 긁었는가**의 증거다. 스냅샷을 올렸다고 덮으면 계보가 거짓이 된다 —
@@ -58,7 +63,8 @@ git -C external/pob/${NEW:0:7} checkout $NEW
 PYTHONPATH=src pytest tests/unit/test_pob_pin_consistency.py -q
 ```
 
-빠뜨린 곳이 있으면 여기서 **어느 파일인지 이름을 대며** 실패한다.
+빠뜨린 곳이 있으면 **어느 파일인지 이름을 대며** 실패한다(manifest 재생성 누락 ·
+워크플로 2개 · 소스에 옛 경로 재등장 — 네 갈래 전부 돌연변이로 감지 확인).
 
 ### 3. 파싱 갭 감사 재실행 (필수)
 

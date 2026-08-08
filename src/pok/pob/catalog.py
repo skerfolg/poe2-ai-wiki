@@ -30,9 +30,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from pok.common.paths import project_root
+from pok.kb.pob_pin import pob_src_dir
 
-_POB_DIR = "5d173cb"
 _GEM_ID = re.compile(r'\["(Metadata/Items/Gems/[^"]+)"\]')
 _NAME_SPEC = re.compile(r'name\s*=\s*"([^"]+)"')
 # 항목 시작만 잡고 **다음 항목 시작 직전까지**를 본문으로 삼는다. 블록을 정규식으로
@@ -45,7 +44,7 @@ _TOOLTIP = re.compile(r'tooltip\s*=\s*"([^"]*)"')
 
 
 def pob_src(root: Path | None = None) -> Path:
-    return (root or project_root()) / "external" / "pob" / _POB_DIR / "src"
+    return pob_src_dir(root)
 
 
 @dataclass(frozen=True)

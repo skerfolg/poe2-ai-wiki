@@ -14,10 +14,13 @@ from pathlib import Path
 from typing import Any
 
 from pok.kb.ingest.process import INCLUDE_VERDICTS, NO_ACQ, NO_POB, RULED_OUT_VERDICTS
+from pok.kb.pob_pin import POB_COMMIT as _PIN_COMMIT
 from pok.kb.store import load as store_load
 from pok.kb.store import write_record, write_shard
 
-POB_COMMIT = "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+# 핀의 authoring point는 `pok.kb.pob_pin` 하나다(#16). 여기서는 재수출만 한다 —
+# 임포터가 많아 이름을 옮기면 호출부가 흩어진다.
+POB_COMMIT = _PIN_COMMIT
 
 # 기계(ingest)가 소유하는 최상위 필드 — 재실행 시 새 값으로 덮어쓴다.
 # 그 밖의 필드는 후속 단계·사람이 붙인 보강으로 보고 샤드 재생성 때 보존한다.
