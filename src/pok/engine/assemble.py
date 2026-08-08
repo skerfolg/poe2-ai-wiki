@@ -129,6 +129,22 @@ def assemble(
             "not_reproduced": ["주얼 소켓 소모", "랜덤 롤 조달 가정"],
             "jewels": substitutes,
         }
+    # 대리 측정 주입(#3, 2026-08-08): PoB가 못 읽는 문구를 등가 표현으로 바꿔 넣은 것.
+    # **이 기록이 없으면 추산이 실측으로 읽힌다** — 산출물을 나중에 보는 쪽은 어느 수치가
+    # 주입분인지 알 방법이 없다. 사람 기억에 맡기지 않고 조립이 자동으로 붙인다(철칙 5).
+    injected = [
+        {"slot": item.slot, "lines": list(item.substitutes)}
+        for item in spec.items
+        if item.substitutes
+    ]
+    if injected:
+        entry = manifest.setdefault("substitute_modeling", {})
+        entry["injected_lines"] = injected
+        entry["estimate"] = (
+            "PoB가 계산하지 못하는 효과를 등가 문구로 주입해 잰 값이다 — **실측이 아니라 "
+            "추산**이다. 원문과 등가라는 보장은 없고, 주입 문구가 원래 대상 한정어를 잃으므로 "
+            "적용 범위가 실제보다 넓을 수 있다"
+        )
     path = record_build(build_id, files, manifest)
     manifest_hash = json.loads((path / "manifest.json").read_text(encoding="utf-8"))["content_hash"]
     dups = tuple(b for b in find_by_hash(manifest_hash) if b != build_id)

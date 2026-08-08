@@ -72,13 +72,14 @@ PYTHONPATH=src pytest tests/unit/test_pob_pin_consistency.py -q
 노드도 생긴다.
 
 ```bash
-PYTHONPATH=src python -m pok.pob.parse_gaps
+PYTHONPATH=src python -m pok.pob.parse_gaps        # 트리 노드
+PYTHONPATH=src python -m pok.pob.item_parse_gaps   # 아이템·룬 접사 (베이스 20종, 수 분)
 ```
 
 - 출력의 **표기/해제 건수를 보고에 그대로 옮긴다.** 해제(cleared)가 많으면 PoB가
   그 계열을 구현했다는 뜻이라 **설계 판단이 달라진다**(그 노드들의 델타가 이제 0이 아니다)
 - 먼저 세어만 보려면 `--dry-run`
-- 배경: `src/pok/pob/parse_gaps.py`
+- 배경: `src/pok/pob/parse_gaps.py` · `src/pok/pob/item_parse_gaps.py`
 
 ### 4. 전량 검증
 
@@ -119,6 +120,6 @@ PYTHONPATH=src python -m pok.kb.ingest status --patch <ver>
 - ⛔ 기존 스냅샷 디렉터리 덮어쓰기·삭제 (AD-2 — 새 버전은 새 클론)
 - ⛔ `knowledge/game-data/**`의 `sources[].pob` 일괄 치환
 - ⛔ 테스트 기대값을 **먼저** 고치기 (계산 변화는 보고 대상이지 수선 대상이 아니다)
-- ⛔ 3(파싱 갭 감사)을 건너뛰고 4로 가기 — 통합 테스트가 막지만, 막힌 뒤에 도는 건
-  낭비다
+- ⛔ 3(파싱 갭 감사)을 **둘 중 하나만** 돌리고 4로 가기 — 트리와 아이템은 경로가 달라
+  각각 표기가 낡는다. 통합 테스트가 막지만, 막힌 뒤에 도는 건 낭비다
 - ⛔ PoB 소스를 고쳐 문제를 우회 (AD-1 — 계산 소스는 손대지 않는다)

@@ -29,6 +29,7 @@ description: PoB(Path of Building) 계산 오라클 스냅샷을 새 커밋으�
 
 ## 잊으면 조용히 틀리는 것
 
-스냅샷이 바뀌면 PoB가 읽는 문구도 바뀐다 → 파싱 갭 표기가 낡는다.
-`PYTHONPATH=src python -m pok.pob.parse_gaps`를 **반드시** 다시 돌린다(절차 3).
+스냅샷이 바뀌면 PoB가 읽는 문구도 바뀐다 → 파싱 갭 표기가 낡는다. 절차 3에서
+**둘 다** 돌린다 — 트리(`pok.pob.parse_gaps`)와 아이템(`pok.pob.item_parse_gaps`)은
+경로가 달라 각각 낡는다.
 안 돌리면 통합 테스트가 막지만, 막힌 뒤에 도는 건 낭비다.

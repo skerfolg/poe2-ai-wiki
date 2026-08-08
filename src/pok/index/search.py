@@ -127,6 +127,11 @@ _POB_GAP_REASON = {
         "델타 0은 '값어치 없음'이 아니라 '측정 안 됨'이다. "
         "상세·대체 조립: get_entry의 `pob_modeling`"
     ),
+    "item-line-unparsed": (
+        "PoB가 이 접사 문구를 **아이템 모드로 읽지 못한다**(베이스 20종 전부에서 실패) — "
+        "델타 0은 '값어치 없음'이 아니라 '측정 안 됨'이다. "
+        "상세·대체 조립: get_entry의 `pob_modeling`"
+    ),
     "rune-slot-unmatched": (
         "PoB가 이 룬을 슬롯에 매칭하지 못해 **계산에서 통째로 빠진다** — "
         "상세·대체 조립: get_entry의 `pob_modeling`"
