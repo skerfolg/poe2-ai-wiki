@@ -38,9 +38,13 @@ PoB는 노드 문구를 줄 단위로 파싱하고, 잔여 텍스트가 남은 �
 낡은 플래그는 `None` 패치로 지운다(`store.patch_records` 계약). 다른 `kind`의
 `pob_modeling`(룬 슬롯 등)은 건드리지 않는다.
 
-⚠ **패치 재수집·PoB 스냅샷 교체 뒤에는 다시 돌린다**:
+⚠ **패치 재수집·PoB 스냅샷 교체 뒤에는 다시 돌린다** (`--dry-run`이면 쓰지 않고 세기만):
 
-    python -m pok.pob.parse_gaps
+    PYTHONPATH=src .venv/bin/python -m pok.pob.parse_gaps
+
+`PYTHONPATH=src`는 이 저장소의 관례다 — editable 설치의 `.pth`가 무시되는 환경이 있다
+(pyproject `[tool.pytest] pythonpath`가 같은 이유로 있다). 실측 2026-08-08(macOS):
+`.pth`에 `com.apple.provenance` xattr가 붙어 `import pok`이 실패했다.
 
 안 돌리면 낡은 판정이 남는다 — 그건 문서 규율이라 안 지켜질 수 있으므로
 `tests/integration/test_pob_parse_gaps.py`가 정본 표기와 현재 PoB 판정을 대조해
