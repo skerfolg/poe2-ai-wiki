@@ -311,7 +311,7 @@ def _verify(
         if degree.get(n["node_id"]):
             routes.append("tree-edge")
         if n["name_en"] in oils:
-            routes.append("liquid-emotion")
+            routes.append("anointable")
         if n["kind"] == "ascendancy-start" or (n["structural"] and n.get("ascendancy")):
             routes.append("ascendancy-choice")
         inc_entities.append(

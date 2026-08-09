@@ -437,7 +437,7 @@ class ItemLegalityChecker:
                         ln, "ILLEGAL", notable["id"], "어센던시 노터블 — Megalomaniac 풀 밖"
                     )
                 )
-            elif notable["data"].get("acquisition") != "liquid-emotion":
+            elif notable["data"].get("acquisition") != "anointable":
                 verdicts.append(
                     LineVerdict(
                         ln,

@@ -29,12 +29,12 @@ LANGS = ("us", "kr")
 
 # (카드 헤더 접두, 획득 분류)
 _CARDS = (
-    ("Liquid Emotions Only Passives", "liquid-emotion-only"),
-    ("Liquid Emotions Passives", "liquid-emotion"),
+    ("Liquid Emotions Only Passives", "anoint-only"),
+    ("Liquid Emotions Passives", "anointable"),
 )
 _KR_CARDS = (
-    ("액체 감정 Only Passives", "liquid-emotion-only"),
-    ("액체 감정 Passives", "liquid-emotion"),
+    ("액체 감정 Only Passives", "anoint-only"),
+    ("액체 감정 Passives", "anointable"),
 )
 
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import unicodedata
 import urllib.parse
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +43,10 @@ _MACHINE_DATA_KEYS = frozenset(
         "implicit_stats",
         "quality_stats",
         "minion_stats",
+        # 부여 스킬 판정 (#4) — 기계 산출이므로 재수집이 갱신해야 한다
+        "source",
+        "granted_by",
+        "granted_by_ids",
     }
 )
 # ingest가 붙일 수 있는 검증 라벨 전부. 그 밖의 라벨(IN_GAME·CONTRADICTED…)은
@@ -91,12 +96,56 @@ def _infer_category(tags: list[str]) -> str | None:
     return None
 
 
+# 젬으로 획득하는 스킬의 From 카드 표기. 이것 말고는 **아이템 이름**이 온다.
+_GEM_ROUTES = ("uncut skill gem", "uncut spirit gem", "uncut support gem")
+
+
+def skill_source(
+    acquisition: list[str], item_ids: Mapping[str, str] | None = None
+) -> dict[str, Any]:
+    """From 카드 → `source`(+`granted_by`) (백로그 #4, 사용자 판정 2026-08-09).
+
+    젬 스킬과 아이템 부여 스킬이 구분되지 않아 `skill.purity-of-fire`·`skill.malice`를
+    **젬 오라로 오인**해 정신력 배분표에 넣었다. 실제로는 셉터 부여라 젬으로 못 켜고
+    **셉터당 하나만** 고를 수 있어 서로 배타다.
+
+    사용자 지적대로 판정 근거는 **poe2db의 획득 출처**에 이미 있었다 — 실측:
+
+        skill.fireball          ['Uncut Skill Gem']   → gem
+        skill.purity-of-fire    ['Shrine Sceptre']    → item-granted
+        skill.malice            ['Omen Sceptre']      → item-granted
+
+    ⚠ 빈 출처는 **모른다**로 둔다 — `gem`으로 넘겨짚으면 같은 오인이 재발한다.
+
+    ⚠ From 카드에 오는 것이 **아이템만은 아니다**: 실측 427종 중 150종이 KB Item으로
+    해석되지 않고 그중 상당수가 전직 노드·다른 스킬이다(`Archon of Chayula` ·
+    `Called Shots`). 그래서 `item_ids`로 실제 해석되는 것만 `item-granted`라 부르고,
+    나머지는 `other-granted`로 남긴다 — **이름을 지어내지 않는다.**
+    """
+    if not acquisition:
+        return {}
+    if any(route.lower() in _GEM_ROUTES for route in acquisition):
+        return {"source": "gem"}
+    names = sorted(acquisition)
+    out: dict[str, Any] = {"granted_by": names}
+    known = item_ids or {}
+    resolved = sorted({known[n.lower()] for n in names if n.lower() in known})
+    if resolved:
+        out["source"] = "item-granted"
+        out["granted_by_ids"] = resolved
+    else:
+        out["source"] = "other-granted"
+    return out
+
+
 def _record_id(item: dict[str, Any]) -> str:
     """intermediate 항목 → KB id. 제외 판정분도 id를 알아야 기존 레코드와 대조할 수 있다."""
     return f"{_ID_PREFIX[_kb_type(item['categories'])]}.{slug_to_id_part(item['slug'])}"
 
 
-def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
+def _to_record(
+    item: dict[str, Any], patch: str, item_ids: Mapping[str, str] | None = None
+) -> dict[str, Any]:
     """intermediate 항목 → envelope 레코드 (신규 벌크용)."""
     rtype = _kb_type(item["categories"])
     rid = _record_id(item)
@@ -114,6 +163,7 @@ def _to_record(item: dict[str, Any], patch: str) -> dict[str, Any]:
         cat = _infer_category(item["tags"])
         if cat:
             data["category"] = cat
+        data.update(skill_source(item.get("acquisition") or [], item_ids))
     if item["verdict"] == NO_POB:
         data["pob_computable"] = False  # PoB 미지원 — compute 단계에서 거부 근거
     if item["verdict"] == NO_ACQ:
@@ -201,10 +251,15 @@ def merge_patch(
     included = [i for i in items if i["verdict"] in INCLUDE_VERDICTS]
 
     existing = store_load(knowledge.parent)  # 검증 겸 현재 정본 로드
+    # From 카드의 이름을 실제 아이템으로 해석하는 색인 — 없는 것을 `item-granted`라
+    # 부르지 않기 위해서다(#4: 전직 노드·다른 스킬도 From 카드에 온다).
+    item_ids = {
+        rec.name_en.lower(): rid for rid, rec in existing.records.items() if rec.type == "Item"
+    }
     updated_seeds = 0
     bulk: dict[str, list[dict[str, Any]]] = {"Skill": [], "Support": []}
     for item in included:
-        rec = _to_record(item, patch)
+        rec = _to_record(item, patch, item_ids)
         prev = existing.records.get(rec["id"])
         if prev is not None and not prev.in_shard:
             # 개별 큐레이션 JSON 시드 → 그 파일만 갱신 (수작업 관계·조건·facets·notes 보존).
