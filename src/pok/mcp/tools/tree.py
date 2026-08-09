@@ -38,6 +38,7 @@ def optimize_tree(
     candidate_radius: int = 8,
     max_candidates_per_round: int = 40,
     jewel_templates: list[str] | None = None,
+    exclude_nodes: list[int] | None = None,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
@@ -48,7 +49,13 @@ def optimize_tree(
     max_candidates_per_round = 라운드당 평가할 후보 수(거리순 상한). 시작점 주변이
     빌드와 무관한 노터블뿐이면(예: 물리 공격 빌드의 마녀 권역) 40개가 전부 델타 <= 0이라
     `stopped_no_positive`로 즉시 멈춘다 — 그럴 때 늘려서 더 먼 후보까지 본다.
-    소요: 라운드당 후보 수 x ~0.1초 — 예산 30이면 수 분."""
+    소요: 라운드당 후보 수 x ~0.1초 — 예산 30이면 수 분.
+
+    `exclude_nodes` = **설계 판단으로 뺀 노드**. 그리디는 배타 관계를 모르므로 손으로
+    빼도 그냥 다시 뽑는다 — 실측 2026-08-09: 원소 집정관 축을 위해 「검은화염 계약」
+    (화염 주문 100%를 카오스로 전환 — 집정관의 `Cannot deal Non-Elemental Damage with
+    Spells`와 정면 충돌)을 뺐는데 재실행하자 **그것과 「피의 제물」을 그대로 재채택**했다.
+    PoB가 집정관을 모델링하지 않아(#3) 충돌이 점수에 안 보이기 때문이다."""
     spec = spec_from_dict(build_spec)
     out = _optimize(
         spec,
@@ -58,6 +65,7 @@ def optimize_tree(
         candidate_radius=candidate_radius,
         max_candidates_per_round=max_candidates_per_round,
         jewel_templates=tuple(jewel_templates or ()),
+        exclude_nodes=tuple(exclude_nodes or ()),
     )
     return {
         "steps": [
