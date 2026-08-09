@@ -160,7 +160,11 @@ _DEFENSIVE_AXES: tuple[str, ...] = (
     "EnergyShield",
     "Armour",
     "Evasion",
-    "MovementSpeed",
+    # ⚠ `MovementSpeed`가 아니라 **`MovementSpeedMod`**다. 없는 키를 넣으면 델타가
+    # 늘 0으로 나오고 — 이 결함이 고치려던 바로 그 「조용한 0」이다. 실측 2026-08-09:
+    # 처음에 `MovementSpeed`로 적었고 후보 20종이 전부 0.000으로 찍혔는데도 넘어갔다.
+    # 그래서 축 이름이 실재하는지는 `tests/integration/`이 PoB 실측으로 잠근다.
+    "MovementSpeedMod",
 )
 # `TotalEHP`가 방어 축을 대부분 흡수하므로 그것을 대표값으로 쓴다 — 나머지는 왜 올랐는지
 # 읽기 위한 내역이다(저항·회피는 EHP로 합산돼 들어온다).
