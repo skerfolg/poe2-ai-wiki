@@ -88,3 +88,17 @@ def test_other_ascendancy_locked_nodes_are_excluded(graph: TreeGraph) -> None:
     )
     locked = [h for c in clusters for h in c.hits if h.locked_to and h.locked_to != "Infernalist"]
     assert not locked, f"다른 전직 전용이 섞였다: {[h.name_ko for h in locked]}"
+
+
+def test_hits_carry_positions(graph: TreeGraph) -> None:
+    """좌표가 없으면 세션이 **파일을 뒤진다** (제안 C — 도구 갭이 규율 위반을 강제한다).
+
+    클러스터 중심만으로는 "이 노터블이 내 트리에서 얼마나 먼가"를 못 재는데,
+    그 질문이 실제로 나온다(`unconnected_regions`의 center를 정할 때).
+    """
+    clusters = find_clusters(graph, include=[("ignite", 1.0)], exclude=["minion"], top=3)
+    hits = [hit for cluster in clusters for hit in cluster.hits]
+    assert hits
+    assert all(len(hit.position) == 2 for hit in hits)
+    # 중심은 그대로 `unconnected_regions`에 넣을 수 있는 꼴이어야 한다
+    assert all(len(cluster.center) == 2 for cluster in clusters)

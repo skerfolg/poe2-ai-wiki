@@ -54,6 +54,9 @@ class ClusterHit:
     name_en: str
     score: float
     stats_en: tuple[str, ...]
+    # 트리 좌표 — **이게 없으면 세션이 파일을 뒤진다**(제안 C). 클러스터 중심만으로는
+    # "이 노터블이 내 트리에서 얼마나 먼가"를 못 재고, 그 질문이 실제로 나온다.
+    position: tuple[float, float]
     locked_to: str | None = None
 
 
@@ -159,6 +162,7 @@ def find_clusters(
                             name_en=graph.nodes[nid].name_en,
                             score=score,
                             stats_en=graph.nodes[nid].stats_en,
+                            position=graph.nodes[nid].position or (0.0, 0.0),
                             locked_to=graph.nodes[nid].locked_to,
                         )
                         for nid, score in sorted(members, key=lambda m: -m[1])[:top]

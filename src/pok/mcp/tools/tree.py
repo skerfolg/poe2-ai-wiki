@@ -99,6 +99,7 @@ def optimize_tree(
                         "node_id": h.node_id,
                         "name": h.name_ko or h.name_en,
                         "score": h.score,
+                        "position": list(h.position),
                         "stats_en": list(h.stats_en),
                         **({"locked_to": h.locked_to} if h.locked_to else {}),
                     }
@@ -513,6 +514,7 @@ def find_clusters(
                         "node_id": h.node_id,
                         "name": h.name_ko or h.name_en,
                         "score": h.score,
+                        "position": list(h.position),
                         "stats_en": list(h.stats_en),
                         **({"locked_to": h.locked_to} if h.locked_to else {}),
                     }
