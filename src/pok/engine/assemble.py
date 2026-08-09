@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -140,6 +141,12 @@ def assemble(
     if injected:
         entry = manifest.setdefault("substitute_modeling", {})
         entry["injected_lines"] = injected
+        # 룬 증폭 함정 — 주입 줄은 PoB가 룬으로 인식하지 못해 `socketedRuneEffectModifier`가
+        # **안 곱해진다**. 실측 2026-08-09(룬 효과 +200%): 정본 표기 +300 vs 주입 +100.
+        # 문서 규율로 두면 안 지켜진다(철칙 5) — 감지되는 조건이므로 조립이 붙인다.
+        rune_warning = _rune_amplification_warning(spec)
+        if rune_warning:
+            entry["rune_amplification"] = rune_warning
         entry["estimate"] = (
             "PoB가 계산하지 못하는 효과를 등가 문구로 주입해 잰 값이다 — **실측이 아니라 "
             "추산**이다. 원문과 등가라는 보장은 없고, 주입 문구가 원래 대상 한정어를 잃으므로 "
@@ -185,3 +192,34 @@ def _pruned_reason(pruned: tuple[int, ...]) -> str:
     if rest:
         parts.append(f"트리 비연결 노드: {tuple(rest)}")
     return " / ".join(parts) if parts else f"트리 비연결 노드: {pruned}"
+
+
+_RUNE_EFFECT_LINE = re.compile(r"(\d+(?:\.\d+)?)%\s+increased effect of Socketed Runes", re.I)
+
+
+def _rune_amplification_warning(spec: BuildSpec) -> str:
+    """주입 줄이 룬 증폭을 잃는 상황인가 (#3 확장, 2026-08-09).
+
+    `substitutes`로 넣은 줄은 `augmentType == "Rune"`이 안 붙어 아이템의
+    `increased effect of Socketed Runes`가 **곱해지지 않는다**. 실측(`Greater Body
+    Rune` 2개 · 룬 효과 +200%): 정본 표기 **+300** vs 주입 **+100** — 3배 과소다.
+
+    조건이 명확하니(주입 줄 + 그 아이템에 룬 효과 줄) 문서가 아니라 여기서 잡는다.
+    수치를 고쳐 주지는 않는다 — 무엇을 얼마로 선반영할지는 호출자의 판단이다(AD-3).
+    """
+    hits: list[str] = []
+    for item in spec.items:
+        if not item.substitutes:
+            continue
+        match = _RUNE_EFFECT_LINE.search(item.text)
+        if match:
+            hits.append(f"{item.slot}(+{match.group(1)}%)")
+    if not hits:
+        return ""
+    return (
+        f"⚠ 주입 줄이 있는 아이템에 **룬 효과 증폭**이 걸려 있다({' · '.join(hits)}) — "
+        "`substitutes` 줄은 룬으로 인식되지 않아 그 증폭이 **안 곱해진다**(실측: 정본 "
+        "+300 vs 주입 +100). 룬을 대리 측정한 것이라면 수치에 (1 + 룬효과/100)을 "
+        "선반영하고 그 사실을 산출물에 적을 것 — 안 적으면 다음 사람이 두 번 곱한다. "
+        "가능하면 대리 측정 대신 `optimize_runes`/`render_runed`를 쓴다"
+    )

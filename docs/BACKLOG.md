@@ -19,7 +19,7 @@
 >
 > **번호 규칙 (v0.2에서 정함)**: 번호는 **이 파일이 발급한다.** `[빌드]` 세션의 보고
 > 안 번호(#1~#8 등)와 섞이면 참조가 깨진다 — 실제로 `#17`이 두 항목에 붙어 있었고
-> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#34**다.
+> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#35**다.
 >
 > **PR 번호를 「(이 PR)」로 적지 말 것** — 머지되면 무엇을 가리키는지 알 수 없다.
 > 올린 뒤 실제 번호로 되돌아와 적는다(v0.2에서 17곳을 정정했다).
@@ -74,8 +74,8 @@
 
 | 항목 | 상태 | 다음 한 걸음 |
 |---|---|---|
+| **#34** 아이템 생성기가 PoB 포맷을 안 따름 | **차단성** · 원인규명 완료 | `Item.lua::BuildRaw()`를 규격으로 A~F 구현 — 왕복 일치를 회귀 테스트로 잠글 것 |
 | **#16** PoB 핀 분산 | 완화됨(테스트 방어) | 소스 파생으로 3곳 → 그 이상은 파이썬 밖이라 불가 |
-| **#3** 원소 집정관 | 부분 해결 | 주입 규약을 아이템·룬·성유로 확장 |
 
 **판정 대기 0건** — 2026-08-09에 7건을 한꺼번에 받아 전부 반영했다(§4 참조).
 
@@ -197,16 +197,77 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
 
 ## 1. 열린 결함
 
-### #3 원소 집정관 — **부분 해결**, 주입 규약 확장만 남음
-- **상태**: 부분 해결 (2026-08-08~09)
-- **해결된 것**: 트리 500건·아이템 1,864건에 `pob_modeling` 표기(제안 D) ·
-  기저 수치 수록(`base_duration_s: 10` · `recovery_period_s: 20` — **유지율 33.3%**) ·
-  `ItemSpec.substitutes` 주입 규약(manifest 자동 기록)
-- ⬜ **남은 것**: 주입 규약을 **아이템 접미·룬·성유**로 확장. 지금 규약은
-  `skills/build-generation/AGENTS.md` §대리 측정에 있고 트리 기준으로 쓰였다
-- **알아 둘 것**: 「지배」 성유(회복 기간 제거)가 없으면 재획득 트리거를 아무리 걸어도
-  **유지율이 33.3%에 묶인다**(원문 `You cannot gain any Archon Buff while you already
-  have one`). 즉 집정관 축은 성유 확보가 전제다
+### #34 〔신규〕 아이템 생성기가 **PoB 아이템 포맷을 따르지 않는다** — 사람이 만든 것과 다른 물건이 나온다
+- **상태**: 원인규명 (빌드 세션 2026-08-09) · **검증: PoB 소스 대조 완료**
+- **영향**: **차단성.** 생성기가 낸 10슬롯 중 **8슬롯이 인게임에서 만들 수 없거나 값이
+  틀렸다**. 그 위에서 낸 `IgniteDPS 168,115`는 전량 폐기했다
+
+**목표 (사용자 지시 2026-08-09)**: *"내가 직접 만드는 아이템과 너가 만드는 아이템이
+동일한 것"*. 즉 생성기 출력이 **PoB가 스스로 쓰는 텍스트와 같아야** 한다.
+
+⚠ **정본은 사용자가 올린 PoB 코드가 아니다.** 그건 예시일 뿐이다. **규격은 PoB
+소스**이며, 착수 세션은 아래 두 함수를 직접 읽고 구현할 것:
+- **쓰기(정본)**: `external/pob/<pin>/src/Classes/Item.lua::ItemClass:BuildRaw()` (L1396~1601)
+- **읽기**: 같은 파일 `ParseRaw`의 스펙 줄 분기 (L540~710)
+- 이 둘이 왕복(`BuildAndParseRaw`, L1603)하므로 **BuildRaw 출력 = 파싱 가능한 정본**이다
+
+**BuildRaw가 쓰는 줄 순서 (구현은 이 순서를 그대로 따를 것)**
+
+```
+Rarity: <RARITY>
+<title>            (유니크: 고유명 줄 + 다음 줄에 baseName)
+<baseName>         (희귀: namePrefix..baseName..nameSuffix 한 줄)
+Charm Slots: N     / Spirit: N
+Armour: / Evasion: / Energy Shield: / Ward:      (armourData 있는 것만, 이 순서)
+Unique ID: / League: / Unreleased: true
+Crafted: true
+Prefix: {range:R}<PobModId>        ← 접두 수만큼
+Suffix: {range:R}<PobModId>        ← 접미 수만큼 (빈 칸은 "Suffix: None")
+Catalyst: <이름>                    ← catalystList (Item.lua:14)
+CatalystQuality: N
+Item Level: N
+Variant: <이름> …  / Selected Variant: N
+  Has Alt Variant: true / Selected Alt Variant: N   (Two~Five까지 동일 꼴)
+  Allow Duplicate Variants: true
+Quality: N
+Sockets: S S S     +  Rune: <이름|None>  × 소켓 수
+Sockets: J J       (주얼 소켓)
+LevelReq: N
+Radius: <라벨>      (주얼)
+Limited to: N
+Implicits: <runeModLines + enchantModLines + implicitModLines 개수>
+<모드 줄들>          접두사: {range:}{corruptedRange:}{rune}{enchant}{custom}
+                    {fractured}{desecrated}{mutated}{crafted}{unscalable}
+                    {variant:a,b}{tags:t1,t2}  (writeModLine, L1461~1503)
+Corrupted / Twice Corrupted / Mirrored / Sanctified
+```
+
+**고쳐야 할 것 A~F — 각각 실측 사고가 있다**
+
+| # | 지금 | 되어야 할 것 | 실측 사고 |
+|---|---|---|---|
+| **A** | `optimize_rare`가 **사람이 읽는 문구 줄**을 낸다 | `Crafted: true` + `Prefix: {range:1}<PobModId>` / `Suffix: …`. **`chosen[].id`에 이미 `modifier.criticalstrikechance5`가 있다** → `CriticalStrikeChance5`로 변환만 하면 된다 | 텍스트로 쓰다 보니 값을 지어냈다: 실오라기 `204% increased Spell Damage`(실제 옵션에 없는 문구) · 룬 `150%`(실제 30%) |
+| **B** | 유니크 옵션을 텍스트로 직접 쓴다 | `Variant:` 목록 + `Selected Variant: N` (+ Alt Variant). KB `data.variants`에 이미 있다 | 모리오르를 수기로 써서 **PoB에서 오류**가 났다. KB엔 `[3 Random Socket Modifiers]` · `Has 4 Augment Sockets (Hidden)`가 있었는데 안 읽었다 |
+| **C** | 퀄리티·촉매를 **출력하지 않는다** | `Catalyst: <이름>` + `CatalystQuality: N`. #22가 "부분 해결"인데 **생성 출력엔 아직 없다** | 목걸이 40%·균열반지 60% 작업이 통째로 빠졌다. 사용자가 **두 번** 지적한 항목이다 |
+| **D** | 유니크 소켓 수를 **베이스에서 폴백**한다 | 유니크 실제 소켓 수를 KB에 수록하고 그것을 쓸 것. 그리고 **`{rune}` 줄을 생성하지 말 것** — `Sockets:`+`Rune:`만 쓰면 `UpdateRunes()`가 만든다 | `item.threaded-light.socket_limit = None` → 베이스(Woven Focus) 3으로 폴백 → **실제 1**. 그리고 손으로 쓴 `{rune}` 줄이 PoB 생성분과 겹쳐 **모리오르 4소켓에 효과 6줄**이 나왔다 |
+| **E** | 주얼이 **2접두/2접미 고정**, 반경 주얼 없음 | ① **5줄 주얼** — 접두 `(40-60)% increased Effect of Suffixes`가 접미를 증폭한다 ② **Time-Lost 계열 반경 주얼** — `Radius: Very Large` + `Notable Passive Skills in Radius also grant …` + `Upgrades Radius to …` | 생성기는 평범한 Emerald에 점화 강도 접사만 냈다. 실사용 주얼은 `Maelstrom Shine`(5줄, 접미 효과 +54%)과 `Viper Ornament`(Time-Lost Sapphire, 반경 노터블마다 주문 치명타 +7%)였다 — **인퍼널리스트 치명타 병목의 실제 해법이 이 축이었는데 도구가 모른다** |
+| **F** | 접사 **그룹 배타**를 안 본다 | 같은 group 접사 공존 금지 | 목걸이에 `+3 to Level of all Spell Skills`와 `+1 to Level of all Skills`를 동시에 냈다 — 같은 그룹이라 인게임 불가 |
+
+**A가 근본이다.** 모드 id로 내면 값·티어·롤 범위를 **PoB가 자기 정의에서 만들므로**
+생성기가 수치를 지어낼 여지가 사라진다. 이번 사고 전량(#31 룬 수치 부풀림, 없는 베이스
+`Silk Gloves`, 실오라기 204%, 티어 범위 밖)이 **"텍스트를 손으로 쓴다"** 하나에서 나왔다.
+
+**수용 기준 (이게 강제 지점이다 — 철칙 5)**
+1. 생성기 출력 텍스트를 PoB에 넣고 `BuildAndParseRaw()` 왕복시켜 **입력과 출력이 일치**할 것.
+   불일치는 곧 "사람이 만든 것과 다른 물건"이다 — 회귀 테스트로 잠글 것
+2. 왕복 후 `Implicits:` 개수와 `Sockets:` 개수가 선언과 **일치**할 것
+   (모리오르 4소켓에 효과 6줄 같은 것이 자동으로 걸린다)
+3. `check_item_legality`가 **자기 도구의 출력**을 통과시킬 것 (#23·#30 계열 재발 방지)
+
+**근거 위치**: `external/pob/<pin>/src/Classes/Item.lua` — `BuildRaw` L1396~1601 ·
+`writeModLine` L1461~1503 · `ParseRaw` 스펙 분기 L540~710 · `catalystList` L14 ·
+`UpdateRunes` 조건 L1046~1058 · 룬 증폭 L2192~2209 ·
+KB `item.threaded-light` · `item.morior-invictus` · `item.runeseekers-call`
 
 ### #16 PoB 스냅샷 핀 분산 — 완화됨, 근본은 남음
 - **상태**: 완화됨(PR #47·#48) — 수기 자리 **8곳 → 3곳**
@@ -257,6 +318,7 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
 
 | 결함 | 조치 | PR |
 |---|---|---|
+| 〔#3〕 주입 규약이 **트리에만** 있었다 — 아이템 접사 1,864건·룬·성유에도 같은 갭이 있다 | 대상별 주의를 규약에 추가. ⛔ **룬 증폭 함정**: 주입 줄은 룬으로 인식되지 않아 증폭이 안 곱해진다(실측 정본 +300 vs 주입 +100). 조립이 **자동 경고**로 붙인다 | 대기 |
 | 〔#22〕 **임플리싯 축이 접사 풀에 안 들어온다** — 「에센스 +20% → 기폭제 40% → 옵션 교체」의 부품이 전부 임플리싯이라 후보에 못 올랐다 | `engine/implicits.py` + MCP `list_implicits`. ⚠ **값은 못 잰다**: `+20% to Maximum Quality`를 PoB가 못 읽는다(`Maximum Quality is 40%`는 읽는다 — 대리 측정 후보) | 대기 |
 | 〔`unscored_axes`〕 **가중치에 없는 축은 안 보인다** — #18·#22·#25가 전부 이 형태였고 셋 다 사용자가 지적해야 발견됐다 | 움직였는데 점수에 없는 축을 반환값에 자동 부착. **압축은 크기가 아니라 계열로** (실측 57축 → 20계열, 변화율 1% 미만은 0개였다) | 대기 |
 | 〔#5〕 `cost`의 "명시적 0"과 "미수록"이 섞여 마나 0으로 단정한 오판 | 쿨다운 선례 적용 — `[]`=무코스트 / 부재=미수록. **충전율 63.8% → 100%**. `Cost:`가 첫 블록에만 있는 게 아니어서 27건이 통째로 빠져 있었다 | 대기 |
