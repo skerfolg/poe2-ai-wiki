@@ -315,7 +315,15 @@ def server_info() -> dict[str, Any]:
         for t in registered
     }
     stale = bool(_LOADED_COMMIT and source_commit and source_commit != _LOADED_COMMIT)
+    # 사본을 빼고 로드했으면 **말한다** — 조용히 빼면 "왜 이 레코드가 안 보이지"가 된다(#21)
+    from pok.kb.store import load as store_load
+
+    try:
+        skipped = list(store_load().skip_warnings)
+    except Exception:  # 진단 도구는 KB가 깨져도 답해야 한다
+        skipped = []
     return {
+        "kb_skipped_copies": skipped,
         "loaded_commit": _LOADED_COMMIT,
         "loaded_subject": _LOADED_SUBJECT,
         "source_commit": source_commit,

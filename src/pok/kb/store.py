@@ -26,6 +26,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -76,6 +77,31 @@ def _untracked(kdir: Path) -> frozenset[Path]:
     if proc.returncode != 0:
         return frozenset()
     return frozenset(kdir / name for name in proc.stdout.split("\0") if name)
+
+
+def _redundant_copies(kdir: Path, paths: Iterable[Path]) -> dict[Path, Path]:
+    """**미추적 + 바이트 동일** 파일 → 그 정본. 로드에서 빼도 잃는 정보가 없다.
+
+    ⚠ 조건 둘 다 필요하다 (사용자 판정 2026-08-09, 백로그 #21):
+    - **미추적**만으로는 부족하다 — 새 레코드를 만드는 세션은 커밋 전이라 **정상적으로
+      미추적**이다. 그걸 빼면 방금 만든 레코드가 조용히 사라진다.
+    - **내용 동일**이 방어선이다. 사본이므로 뺀 쪽이 갖고 있던 정보가 0이다.
+
+    맞지 않으면(내용이 다르면) 예전처럼 **검증 실패**로 남긴다 — 정본이 깨진 채
+    조회가 되는 것도 위험하다.
+    """
+    untracked = _untracked(kdir)
+    if not untracked:
+        return {}
+    canonical: dict[str, Path] = {}
+    suspects: list[tuple[Path, str]] = []
+    for p in paths:
+        digest = hashlib.sha256(p.read_bytes()).hexdigest()
+        if p in untracked:
+            suspects.append((p, digest))
+        else:
+            canonical.setdefault(digest, p)
+    return {p: canonical[d] for p, d in suspects if d in canonical}
 
 
 def _duplicate_id_error(rel: Path, rid: str, current: Path, existing: Path, kdir: Path) -> str:
@@ -171,9 +197,21 @@ class Store:
 
     records: dict[str, Record]
     subjects: dict[str, Any]
+    # 로드에서 제외한 **미추적 바이트 동일 사본** → 정본. 비어 있는 게 정상이다.
+    # 조용히 빼지 않는다 — 뺐다는 사실은 호출자가 볼 수 있어야 한다(#21).
+    skipped_copies: tuple[tuple[Path, Path], ...] = ()
 
     def get(self, entity_id: str) -> Record:
         return self.records[entity_id]
+
+    @property
+    def skip_warnings(self) -> tuple[str, ...]:
+        """사람이 읽을 경고 문장 — 사본을 치우라고 말한다."""
+        return tuple(
+            f"미추적 사본을 로드에서 제외했다: {copy.name} (정본 {origin.name}과 바이트 동일) "
+            f"— 지우거나 knowledge/ 밖으로 옮길 것"
+            for copy, origin in self.skipped_copies
+        )
 
 
 def _load_json(path: Path) -> Any:
@@ -265,10 +303,16 @@ def load(root: Path | None = None) -> Store:
     subjects: dict[str, Any] = schemas["vocab/condition-subjects.json"]["subjects"]
 
     # 개별 JSON(큐레이션) + NDJSON 샤드(벌크, KD-1) 모두 수집
+    files = sorted((kdir / "game-data").rglob("*.json")) + sorted(
+        (kdir / "game-data").rglob("*.ndjson")
+    )
+    # **미추적 + 바이트 동일** 사본은 로드에서 뺀다 — 안 그러면 사본 하나가 조회 전체를
+    # 막고 무인 세션이 그대로 멈춘다(#21). 내용이 다르면 여전히 검증 실패로 남는다.
+    copies = _redundant_copies(kdir, files)
     sources: list[tuple[Path, Any]] = []
-    for p in sorted((kdir / "game-data").rglob("*.json")):
+    for p in (f for f in files if f.suffix == ".json" and f not in copies):
         sources.append((p, _load_json(p)))
-    for p in sorted((kdir / "game-data").rglob("*.ndjson")):
+    for p in (f for f in files if f.suffix == ".ndjson" and f not in copies):
         for line_no, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             if not line.strip():
                 continue
@@ -328,7 +372,11 @@ def load(root: Path | None = None) -> Store:
 
     if errors:
         raise KBValidationError(errors)
-    return Store(records=records, subjects=subjects)
+    return Store(
+        records=records,
+        subjects=subjects,
+        skipped_copies=tuple(sorted(copies.items())),
+    )
 
 
 # ── 쓰기 (B-6: 정본 쓰기 단일 경로) ────────────────────────────────

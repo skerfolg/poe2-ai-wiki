@@ -137,3 +137,17 @@ def test_minion_stats_is_registered_as_machine_generated() -> None:
     from pok.kb.ingest.merge import _MACHINE_DATA_KEYS
 
     assert "minion_stats" in _MACHINE_DATA_KEYS
+
+
+def test_internal_phrase_filter_does_not_erase_the_minion() -> None:
+    """표기 정리(#8-c)가 **분류를 바꾸면 안 된다** — 실측으로 한 번 무너졌다.
+
+    좀비의 소환 선언 근거는 `is resummoning minion [1]` 한 줄뿐이었다. 그 줄을
+    플레이어 `stats`에서 빼자 판정 haystack에서도 사라져 `Raised Zombie` 실체가
+    통째로 없어졌다. 판정은 **거르기 전 원문**으로 한다.
+    """
+    page = _page("Raise_Zombie")
+    entities = [m["entity"] for m in page.minion_stats]  # type: ignore[attr-defined]
+    assert "Raised Zombie" in entities, entities
+    # 그리고 플레이어 줄에는 내부 문구가 남지 않는다 (양방향)
+    assert not [s for s in page.stats if s.endswith("[1]")]  # type: ignore[attr-defined]

@@ -185,6 +185,17 @@ def parse_stats_costs(stats_text: str) -> dict[str, Any]:
 
 
 _INTERNAL_ID = re.compile(r"[a-z0-9%]+(?:_[a-z0-9%]+)+")
+# 띄어 쓴 엔진 내부 문구 + 원값 꼬리 — `is area damage [1]` · `base deal no damage [1]`
+# (백로그 #8-c, 사용자 판정 2026-08-09: 삭제. 필요해지면 그때 다시 넣는다)
+#
+# ⚠ `_INTERNAL_ID`가 **공백 없는** 식별자만 걸러서 이 형태가 통과했다 — Skill 3,526줄 ·
+# Support 208줄이 효과 문구인 척 들어와 있었다(`skill.wild-protector`는 남은 2줄이
+# 전부 이 부류였다). 판정 근거는 꼬리 `[N]`이다: poe2db가 내부 stat의 **원값**을
+# 그렇게 표기하고, 플레이어용 문구에는 이 꼬리가 붙지 않는다.
+#
+# 트리(Passive)는 **대상이 아니다** — 내부 stat id 32줄 보존이 이미 판정돼 있고
+# (KB_INGEST 4-2), 실측상 이 형태에 걸리는 Passive는 0건이다.
+_INTERNAL_PHRASE = re.compile(r"[a-z0-9_%+\-/' ]+ \[-?\d+\]")
 _MOD_SELECTORS = (
     ("stats", ".explicitMod"),
     ("implicit_stats", ".implicitMod"),
@@ -192,8 +203,12 @@ _MOD_SELECTORS = (
 )
 
 
-def _mod_lines(node: Tag) -> list[str]:
+def _mod_lines(node: Tag, *, drop_internal_phrases: bool = False) -> list[str]:
     """모드 div 하나 → 문구 줄들.
+
+    `drop_internal_phrases`는 **플레이어 문구에만** 건다(#8-c). 소환수 카드에 걸면
+    실측상 좀비처럼 **줄이 전부 내부 문구인 실체**가 통째로 사라져 "이 스킬이 무엇을
+    소환하는가"라는 사실까지 잃는다 — 그건 #8-b가 일부러 남긴 것이다.
 
     구분자는 `<br>`다. `get_text("\n")`을 그냥 쓰면 인라인 태그(`<a>`·`<span
     class=mod-value>`)마다 줄이 갈려 `"Supported Skills have / 80 / % more…"`처럼
@@ -207,8 +222,11 @@ def _mod_lines(node: Tag) -> list[str]:
         line = " ".join(chunk.split())
         # 수치가 <span>으로 분리돼 "50 %"·"Bleeding , up to" 처럼 벌어진다 — 표기만 정리
         line = re.sub(r"\s+([%,.])", r"\1", line)
-        # 내부 식별자(`receive_bleeding_chance_%_when_hit`)는 문구가 아니다
-        if line and not _INTERNAL_ID.fullmatch(line):
+        # 내부 식별자(`receive_bleeding_chance_%_when_hit`)는 어느 쪽이든 문구가 아니다
+        internal = _INTERNAL_ID.fullmatch(line) or (
+            drop_internal_phrases and _INTERNAL_PHRASE.fullmatch(line)
+        )
+        if line and not internal:
             out.append(line)
     return out
 
@@ -253,7 +271,7 @@ def _collect_mods(soup: BeautifulSoup, page: DetailPage) -> None:
         seen: list[str] = []
         for block in blocks:
             for node in block.select(selector):
-                for line in _mod_lines(node):
+                for line in _mod_lines(node, drop_internal_phrases=True):
                     if line not in seen:
                         seen.append(line)
         if seen:
@@ -267,7 +285,18 @@ def _collect_minion_stats(soup: BeautifulSoup, page: DetailPage) -> None:
     카드는 poe2db가 이름이 같아서 얹은 무관한 몬스터이므로 **버린다**(사용자 판정
     2026-08-07). 플레이어 블록에 이미 있는 줄은 중복이므로 싣지 않는다.
     """
-    haystack = " ".join([page.description or "", *page.stats, *page.implicit_stats])
+    # ⚠ 판정은 **거르기 전 원문**으로 한다. `page.stats`는 내부 문구가 빠진 뒤인데,
+    # 소환 선언이 바로 그 내부 문구에 실려 있는 페이지가 있다 — 실측 2026-08-09:
+    # 좀비의 근거가 `is resummoning minion [1]` 한 줄뿐이라, #8-c 필터를 켜자
+    # `Raised Zombie` 실체가 통째로 사라졌다. 표기 정리가 분류를 바꾸면 안 된다.
+    raw_lines = [
+        line
+        for block in _player_blocks(soup)
+        for _, selector in _MOD_SELECTORS
+        for node in block.select(selector)
+        for line in _mod_lines(node)
+    ]
+    haystack = " ".join([page.description or "", *raw_lines])
     if not _DECLARES_MINION.search(haystack):
         return
 
