@@ -344,9 +344,16 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
         explicits = _unique_explicits(name)
         if not explicits:
             continue
-        body = " ".join(lines[2:])
-        body_norm = _norm_mod(body)
-        if not any(len(n) >= 12 and n in body_norm for n in (_norm_mod(e) for e in explicits)):
+        body_norm = _norm_mod(" ".join(lines[2:]))
+        # 짧은 문구는 **줄 단위 일치**로 본다. 부분 문자열 비교에 12자 문턱을 둔 것은
+        # 짧은 조각이 남의 줄 안에서 우연히 걸리는 오탐을 막으려던 것인데, 그 문턱이
+        # **오거부**를 낳았다: `Onslaught`(정규화 9자)는 텍스트에 멀쩡히 있는데도
+        # 비교 대상에서 통째로 빠져 "옵션 줄이 하나도 없다"가 됐고, 그 유니크가 있는
+        # **Helmet 슬롯 전체가 죽었다**(실측 2026-08-09, `item.thrillsteel`).
+        # 줄 단위 일치는 양쪽을 다 막는다 — 우연한 부분 일치도, 짧다는 이유의 탈락도 없다.
+        line_norms = {_norm_mod(ln) for ln in lines[2:]}
+        norms = [_norm_mod(e) for e in explicits]
+        if not any(n and ((len(n) >= 12 and n in body_norm) or n in line_norms) for n in norms):
             problems.append(
                 f"items[{ii}]: {name!r}는 KB 유니크인데 옵션 줄이 하나도 없다 — PoB는 "
                 f"아무 효과도 안 붙인 채 계산한다. KB `data.explicits` {len(explicits)}줄을 "
