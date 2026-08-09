@@ -77,7 +77,7 @@
 | **#35** `find_clusters`가 타 어센던시 트리 노드를 안 거름 | 원인규명 완료 | `for_ascendancy` 필터에 `node.ascendancy` 축 추가 — 통과 방향 테스트도 함께 |
 | **#36** `unset_config`가 노드·아이템 조건을 안 봄 | 원인규명 완료 | 수집 범위를 할당 노드·장착 아이템까지 확장 (실측: 조용한 0 두 건, 합계 +8,890) |
 | **#37** 인게임 확인 2건 KB 수록 | 미착수 | 자기번제 확산 무효 · 인화성=확률 전용. `verification: IN_GAME` |
-| **#34** 아이템 **생성 방식**이 틀렸다 | **차단성** · 해법 실증됨 | 텍스트 조립을 버리고 **명세만 쓴다** — PoB의 `Craft`→`BuildRaw` 경로를 그대로 탄다 |
+| **#34** 아이템 생성 방식 | **A 완료** · B·E 남음 | `optimize_rare`는 이제 명세만 낸다. 남은 것: **B**(유니크 `Variant:`) · **E**(5줄 주얼·반경 주얼) |
 
 **판정 대기 0건** — 2026-08-09에 7건을 한꺼번에 받아 전부 반영했다(§4 참조).
 
@@ -373,13 +373,37 @@ KB 후보를 붙여 CONDITIONAL로 낸다 — 미수록 UNKNOWN과 구분).
 | 촉매로 오른 수치를 "티어 범위 밖" | 검사기가 촉매를 몰랐다 | `catalyst_scalar` — `(100+quality)/100`, **모드 태그가 촉매 태그와 겹칠 때만**(L32~57) |
 | 고티어 접사 전부 거부 | PoB 정본에는 `Item Level:`이 **없다**(`LevelReq:`만) → ilvl을 1로 봄 | `LevelReq`에서 역산. `LevelReq = floor(mod.level*0.8)`이므로 **올림**이다 — 내림을 쓰면 77레벨 접사를 1 차이로 거부한다(실제로 걸렸다) |
 
+#### A 완료 (2026-08-09) — `optimize_rare`가 명세를 낸다
+
+`build_items()`(명세 → PoB 정본) + `assemble_spec()`. 실제 출력:
+
+```
+Implicits: 1
+{range:0.5}+(10-15) to Intelligence        ← 롤도 우리가 안 푼다
+Crafted: true
+Prefix: {range:0.5}IncreasedAccuracy8      ← 모드 id
+Suffix: {range:0.5}Dexterity8
+{custom}{range:0.5}+(10-15) to Dexterity   ← 훼손·모드 id 없는 것
+Corrupted
+```
+
+**우리가 쓴 수치가 한 개도 없다.** `text`는 이걸 PoB에 태워 되받은 정본이고
+`spec_text`·`pob_rendered`로 계보가 남는다.
+
+⚠ 만들다 걸린 것 넷 — 전부 「우리가 값을 쓰면 안 된다」의 다른 얼굴이었다:
+
+| 걸린 것 | 원인 |
+|---|---|
+| 훼손 접사가 `Suffix: None`으로 사라짐 | 훼손은 **접사 칸 밖**이다 — `{custom}`으로 보낸다 |
+| 접사를 **하나도** 못 고름 | 검사기가 `{range:0.5}` 장식 접두를 몰라 전부 실격시켰다 (`writeModLine` L1461~1503의 접두 전량을 반영) |
+| `+12.5 to Dexterity` (인게임에 없는 값) | 롤을 **우리가** 풀었다 → `{range:R}` + 원문으로 PoB에게 맡긴다 |
+| `pytest`가 10분 초과 | `optimize_rare`마다 PoB 부팅 → `render_with_pob` 인자로 분리 |
+
 #### 다음 한 걸음
 
-1. `pok.pob.roundtrip`을 **생성 경로로 승격** — 명세를 받아 PoB 정본 텍스트를 낸다
-   (검사기는 이미 섰다: `scripts/pob_item_roundtrip.lua`, `Craft`·`UpdateRunes` 포함)
-2. `optimize_rare`가 문구가 아니라 **명세**를 내게 한다 — `chosen[].id`
-   (`modifier.criticalstrikechance5`) → `CriticalStrikeChance5`는 `pob_key`에 이미 있다
-3. 회귀 테스트: 사용자 정본 빌드의 아이템들을 명세로 환원해 넣고 **원문과 일치**할 것
+1. **B** — 유니크를 `Variant:` + `Selected Variant: N`으로 (KB `data.variants` 활용)
+2. **E** — 5줄 주얼(접미어 효과 접두) · Time-Lost 반경 주얼
+3. 회귀 테스트: 사용자 정본 빌드의 아이템 11개를 명세로 환원해 **원문과 일치**할 것
 
 **수용 기준 (강제 지점 — 철칙 5)**
 1. 생성기 출력을 PoB에 넣어 `BuildRaw()` 왕복시켜 **입력과 출력이 일치**할 것

@@ -89,6 +89,16 @@ _SPEC_LINE_PREFIXES = (
 # 보존한다(L1698). "KB에 없다"가 아니라 "규격 밖인 걸 알고 넣었다"이므로 UNKNOWN과
 # 구분한다 — 실측 2026-08-09: 사용자 목걸이의 `+7% to Fire Spell Critical Hit Chance`.
 _CUSTOM_PREFIX = re.compile(r"^\s*\{custom\}", re.I)
+# PoB `writeModLine`(L1461~1503)이 모드 줄 앞에 붙이는 **장식 접두** 전부.
+# `{range:0.5}`·`{tags:attribute}`·`{enchant}` 같은 것으로, 문구가 아니라 표기다.
+# 벗기지 않으면 KB 매칭이 통째로 실패한다 — 실측 2026-08-09: 명세 형식으로 바꾸자
+# 베이스 임플리싯 `{range:0.5}+(10-15) to Intelligence`가 UNKNOWN이 되면서 조립
+# 시도가 전부 실격 판정을 받아 **접사를 하나도 못 골랐다**.
+_MOD_DECORATION = re.compile(
+    r"^\s*(?:\{(?:range|corruptedRange|variant|tags):[^}]*\}|"
+    r"\{(?:enchant|fractured|desecrated|mutated|crafted|unscalable)\})+",
+    re.I,
+)
 # 촉매 — `Item.lua:14`의 목록 순서가 곧 `catalystTags`(L20~)의 인덱스다.
 # 배율은 `(100 + quality)/100`이고 **모드 태그가 촉매 태그와 겹칠 때만** 걸린다(L32~57).
 _CATALYST_TAGS: dict[str, frozenset[str]] = {
@@ -644,8 +654,8 @@ class ItemLegalityChecker:
     ) -> LineVerdict:
         # `{custom}`은 사용자가 **규격 밖인 걸 알고** 넣은 줄이다(PoB `Craft()`도 이것만
         # 보존한다, L1698). "KB에 없다"와 섞으면 진짜 미수록 신호가 묽어진다.
-        if _CUSTOM_PREFIX.match(line):
-            body = _CUSTOM_PREFIX.sub("", line, count=1).strip()
+        if "{custom}" in line.lower():
+            body = _MOD_DECORATION.sub("", _CUSTOM_PREFIX.sub("", line, count=1), count=1).strip()
             return LineVerdict(
                 line,
                 "CONDITIONAL",
@@ -658,6 +668,9 @@ class ItemLegalityChecker:
         # PoB는 룬 부여 줄을 `{rune}` 접두로 표기한다. 룬은 일반 접사와 **다른 풀**이라
         # 접두를 무시하면 동명 접사에 먼저 매칭돼 "티어 범위 밖"으로 오판한다
         # (실측 2026-08-05: 룬 16줄이 전부 UNKNOWN·오판이었다).
+        # 장식 접두를 먼저 벗긴다 — `{rune}`·`{custom}`은 **의미**가 있어 위에서 이미
+        # 갈랐고, 나머지는 표기라 매칭 전에 떼어야 한다.
+        line = _MOD_DECORATION.sub("", line, count=1).strip()
         rune_line = bool(_RUNE_PREFIX.match(line))
         if rune_line:
             line = _RUNE_PREFIX.sub("", line, count=1).strip()

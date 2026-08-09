@@ -385,6 +385,10 @@ def optimize_rare(
     )
     return {
         "text": result.text,
+        # **PoB 명세**(모드 id) — 문구가 아니다(#34 A). `text`는 이 명세를 PoB에
+        # 태워 되받은 정본이고, `pob_rendered: false`면 아직 우리가 쓴 문구다.
+        "spec_text": result.spec_text,
+        "pob_rendered": result.pob_rendered,
         "delta": result.delta,
         "legal": result.legal,
         "legality_errors": list(result.legality_errors),

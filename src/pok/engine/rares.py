@@ -52,6 +52,13 @@ class AffixOption:
     # 그러면 단독 실측 델타가 0으로 나오고 그리디는 절대 안 고른다 — 조립된 희귀가
     # **바닥값**이 되는데 그 사실이 어디에도 안 남는다(백로그 #22).
     pob_unmeasurable: bool = False
+    # PoB 모드 id — **이게 명세의 알맹이다**(#34 A). 있으면 문구 대신 이걸 쓰고
+    # 값·티어·롤·촉매를 PoB가 자기 정의에서 만든다. 훼손 249건은 PoB 모드 DB에
+    # 없어 비어 있고, 그건 `{custom}` 줄로 간다 — 사용자가 목걸이에 쓴 그 방식이다.
+    pob_key: str = ""
+    # KB 원문(롤 미해소). `{custom}` 줄은 이걸 `{range:R}`와 함께 내보내 **PoB가 롤을
+    # 풀게** 한다 — 우리가 풀면 `+12.5 to Dexterity` 같은 인게임에 없는 값이 나온다.
+    raw_text: str = ""
 
 
 @dataclass(frozen=True)
@@ -77,6 +84,12 @@ class RareOptimizeResult:
     # PoB가 문구를 못 읽어 **점수를 매길 수 없는** 접사 (백로그 #22). 이것들이 있으면
     # 조립된 희귀는 그 축을 뺀 **바닥값**이다 — 고점이 아니다.
     unmeasurable: tuple[AffixOption, ...] = ()
+    # **PoB 명세** — 문구가 아니라 모드 id다(#34 A). 이걸 그대로 아이템 텍스트로 쓰면
+    # 값·티어·롤·촉매를 PoB가 만든다. `text`는 이 명세를 PoB에 태워 되받은 정본이고,
+    # PoB를 못 부르면 명세 그대로 남는다(그 사실은 notes에 적힌다).
+    spec_text: str = ""
+    # 명세→정본 변환이 실제로 일어났는가. False면 `text`는 아직 우리가 쓴 것이다.
+    pob_rendered: bool = False
 
 
 def base_record(base_type: str, root: Path | None = None) -> Mapping[str, Any] | None:
@@ -204,6 +217,8 @@ def enumerate_base_affixes(
                 ilvl=ilvl,
                 origin=origin,
                 pob_unmeasurable=(data.get("pob_modeling") or {}).get("supported") is False,
+                pob_key=str(data.get("pob_key") or ""),
+                raw_text="\n".join(str(x) for x in data.get("texts") or []),
             )
         )
     return sorted(out, key=lambda a: a.label)
@@ -278,6 +293,42 @@ def _assemble_text(
     return text
 
 
+_ROLL_RANGE = {"min": "0", "mid": "0.5", "max": "1"}
+
+
+def assemble_spec(head: Sequence[str], chosen: Sequence[AffixReading], *, roll: str = "mid") -> str:
+    """벌거벗은 머리줄 + 채택 접사 → **PoB 명세**(문구를 쓰지 않는다, #34 A).
+
+    사용자 정본이 쓰는 그 형태다 — `Crafted: true` + `Prefix/Suffix: {range:R}<모드 id>`.
+    문구·수치·티어·촉매는 PoB의 `Craft()`가 만든다. 우리가 문구를 쓰면 값을 지어낼
+    여지가 생기고, 실제로 그렇게 났다(실오라기 204% · 룬 150% · 없는 베이스).
+
+    ⚠ `pob_key`가 없는 것(훼손 249건 — PoB 모드 DB 밖)은 `{custom}` 줄로 간다.
+    그게 PoB 자신의 「없는 모드」 표기이고, 사용자도 목걸이에 그렇게 넣었다.
+    `Craft()`는 `{custom}`만 보존하므로(L1698) 이 줄들은 살아남는다.
+    """
+    rng = _ROLL_RANGE.get(roll, "0.5")
+    lines = list(head)
+    if any(r.option.pob_key for r in chosen):
+        lines.append("Crafted: true")
+    customs: list[str] = []
+    for reading in chosen:
+        option = reading.option
+        # ⚠ 훼손(바알 오브)은 **접사 칸 밖**이다 — `Suffix:`로 내면 PoB가 크래프트 풀에서
+        # 못 찾아 `Suffix: None`으로 떨군다(실측 2026-08-09: `CorruptionDexterity1`이
+        # 그렇게 통째로 사라졌다). 모드 id가 없는 것과 같은 길로 보낸다.
+        if option.affix_type == "corrupted" or not option.pob_key:
+            source = option.raw_text or option.text
+            customs += [f"{{custom}}{{range:{rng}}}{ln}" for ln in source.splitlines()]
+            continue
+        kind = "Prefix" if option.affix_type == "prefix" else "Suffix"
+        lines.append(f"{kind}: {{range:{rng}}}{option.pob_key}")
+    lines += customs
+    if any(r.option.affix_type == "corrupted" for r in chosen):
+        lines.append("Corrupted")
+    return "\n".join(lines)
+
+
 def optimize_rare(
     spec: dict[str, Any],
     slot: str,
@@ -290,6 +341,7 @@ def optimize_rare(
     suffix_count: int | None = None,
     roll: str = "mid",
     root: Path | None = None,
+    render_with_pob: bool = True,
     compute: ComputeFn | None = None,
 ) -> RareOptimizeResult:
     """이 빌드 문맥에서 그 베이스로 만들 수 있는 최선 희귀를 조립·실측한다.
@@ -317,7 +369,10 @@ def optimize_rare(
     # 베이스 암시적은 **텍스트에 적어야** PoB가 반영한다(실측 2026-08-06: 돌의 주먹
     # 암시적을 빼면 델타 0, 적으면 +100 ES·+300 회피) — 정본에서 읽어 자동 기재한다.
     implicit = str((base_record(base_type, root) or {}).get("data", {}).get("implicit") or "")
-    implicit_lines = [resolve_rolls(implicit, roll)] if implicit else []
+    # ⚠ 롤 해소를 **우리가 하지 않는다**(#34). 사용자 정본도 `{tags:attribute}{range:1}
+    # +(10-15) to Intelligence` 꼴로 범위를 그대로 두고 PoB에게 맡긴다 — 우리가 풀면
+    # `+12.5` 같은 인게임에 없는 값이 나온다(실측 2026-08-09).
+    implicit_lines = [f"{{range:{_ROLL_RANGE.get(roll, '0.5')}}}{implicit}"] if implicit else []
     naked = "\n".join(
         [
             "Rarity: RARE",
@@ -366,6 +421,12 @@ def optimize_rare(
         counts[kind] += 1
 
     assembled = _assemble_text(naked, chosen)
+    # **명세로 다시 낸다**(#34 A) — 문구를 우리가 쓰지 않는 것이 이 결함의 해법이다.
+    head = [line for line in naked.splitlines() if not line.lower().startswith("item level:")]
+    spec_lines = assemble_spec(head, chosen, roll=roll)
+    # ⚠ PoB 부팅은 **초 단위**다(LuaJIT 프로세스 1회). 가짜 오라클로 도는 시험까지
+    # 부팅하면 스위트가 못 끝난다 — 실측: 이걸 무조건 켜 두자 600초를 넘겼다.
+    canonical, rendered = _render_with_pob(spec_lines, root) if render_with_pob else ("", False)
     base_stats = run(spec)
     measured = run(_replace_slot(spec, slot, assembled))
     delta = {k: round(measured.get(k, 0.0) - base_stats.get(k, 0.0), 4) for k in measure}
@@ -391,6 +452,22 @@ def optimize_rare(
     ]
     if implicit_lines:
         notes.append(f"베이스 암시적 자동 기재: {implicit_lines[0]} — 안 적으면 PoB가 반영 안 한다")
+    if rendered:
+        notes.append(
+            "아이템 텍스트는 **PoB가 만든 정본**이다(#34) — 우리는 명세(`spec_text`, "
+            "모드 id)만 썼고 문구·수치·티어·촉매는 `Craft()`가 냈다"
+        )
+    else:
+        notes.append(
+            "⚠ PoB 정본 변환이 **안 됐다** — `text`는 아직 우리가 조립한 문구다. "
+            "명세는 `spec_text`에 있으니 PoB가 되면 그걸로 다시 낼 것(#34)"
+        )
+    custom_only = [r.option.label for r in chosen if not r.option.pob_key]
+    if custom_only:
+        notes.append(
+            f"모드 id가 없는 접사 {len(custom_only)}건은 `{{custom}}` 줄로 나갔다 — "
+            f"PoB 모드 DB 밖(훼손 계열)이라 **수치는 검증되지 않는다**: {custom_only[:3]}"
+        )
     if all(all(abs(v) < 1e-9 for v in r.delta.values()) for r in readings) and readings:
         notes.append(
             "⚠ **모든 접사 델타가 0** — 측정이 성립하지 않았다는 신호다(슬롯명 오류·"
@@ -422,7 +499,9 @@ def optimize_rare(
             f"등가 문구로 바꿔 `ItemSpec.substitutes`에 넣으면 **추산**으로는 잴 수 있다"
         )
     return RareOptimizeResult(
-        text=assembled,
+        text=canonical or assembled,
+        spec_text=spec_lines,
+        pob_rendered=rendered,
         delta=delta,
         chosen=tuple(chosen),
         table=tuple(ranked),
@@ -433,3 +512,20 @@ def optimize_rare(
         notes=tuple(notes),
         unmeasurable=unmeasurable,
     )
+
+
+def _render_with_pob(spec_text: str, root: Path | None) -> tuple[str, bool]:
+    """명세 → PoB 정본 텍스트. PoB를 못 부르면 `("", False)` — **조용히 넘어가지 않는다**.
+
+    이것이 #34의 해법이다: 우리가 문구를 쓰지 않으면 값을 지어낼 여지가 없다.
+    실측 2026-08-09: 명세만 주고 `Craft()`→`BuildRaw()`를 태우니 사용자가 손으로 쓴
+    아이템과 **값까지 동일**했다(`+73 to maximum Energy Shield` 등).
+    """
+    from pok.pob.roundtrip import RoundtripError, build_items
+
+    try:
+        built = build_items({"rare": spec_text}, root=root)
+    except (RoundtripError, FileNotFoundError, RuntimeError, OSError):
+        return "", False
+    text = built.get("rare", "")
+    return (text, True) if text else ("", False)

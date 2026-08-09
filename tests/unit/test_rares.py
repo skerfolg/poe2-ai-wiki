@@ -55,13 +55,26 @@ def test_optimize_rare_respects_affix_caps_and_scores() -> None:
             dps -= 5.0  # 음수 점수 — 조립에서 빠져야 한다
         return {"CombinedDPS": dps}
 
-    out = optimize_rare(SPEC, "Weapon 2", "Sacred Focus", {"CombinedDPS": 1.0}, compute=compute)
+    out = optimize_rare(
+        SPEC,
+        "Weapon 2",
+        "Sacred Focus",
+        {"CombinedDPS": 1.0},
+        compute=compute,
+        render_with_pob=False,
+    )
     chosen_texts = "\n".join(r.option.text for r in out.chosen)
     assert "increased Spell Damage" in chosen_texts
     assert "Mana Regeneration" not in chosen_texts
     assert sum(r.option.affix_type == "prefix" for r in out.chosen) <= 3
     assert sum(r.option.affix_type == "suffix" for r in out.chosen) <= 3
-    assert "Item Level:" in out.text, "ilvl 없으면 legality가 기본 1로 파싱해 전부 스폰 불가가 된다"
+    # 출력은 **명세**다 — 문구를 우리가 쓰지 않는다(#34 A). 값·티어·롤은 PoB가 만든다.
+    assert "Crafted: true" in out.spec_text, out.spec_text
+    assert "Prefix: {range:" in out.spec_text, out.spec_text
+    # ⚠ `Item Level:`은 더 이상 쓰지 않는다 — PoB 정본(`BuildRaw`)에 그 줄이 없고
+    # 검사기는 `LevelReq:`에서 역산한다(실측 2026-08-09). 옛 단서를 남겨 두면 다음
+    # 세션이 "왜 없지"로 되돌아온다.
+    assert "Item Level:" not in out.spec_text
     assert len(out.table) == len(enumerate_base_affixes("Sacred Focus")), (
         "단독 실측 전량 — 절단 없음"
     )
@@ -117,7 +130,14 @@ def test_corrupted_mod_capped_at_one_and_outside_legality() -> None:
             dps += 2.0
         return {"CombinedDPS": dps}
 
-    out = optimize_rare(SPEC, "Weapon 2", "Sacred Focus", {"CombinedDPS": 1.0}, compute=compute)
+    out = optimize_rare(
+        SPEC,
+        "Weapon 2",
+        "Sacred Focus",
+        {"CombinedDPS": 1.0},
+        compute=compute,
+        render_with_pob=False,
+    )
     corrupted = [r for r in out.chosen if r.option.affix_type == "corrupted"]
     assert len(corrupted) == 1, "바알 오브는 1회 — 훼손 모드 캡 1"
     assert out.text.splitlines()[-1] == "Corrupted"
@@ -148,6 +168,7 @@ def test_jewel_slot_without_socket_is_reported_invalid() -> None:
         "Diamond",
         {"CombinedDPS": 1.0},
         compute=lambda spec: {"CombinedDPS": 100.0},
+        render_with_pob=False,
     )
     assert any("소켓" in n for n in out.notes), "소켓 미지정을 말해야 한다"
     assert any("측정" in n and "무효" in n for n in out.notes), "전 델타 0은 측정 실패 신호"
@@ -162,6 +183,7 @@ def test_unallocated_socket_is_reported() -> None:
         "Diamond",
         {"CombinedDPS": 1.0},
         compute=lambda s: {"CombinedDPS": 100.0},
+        render_with_pob=False,
     )
     assert any("tree_nodes에 없다" in n for n in out.notes)
 
@@ -174,10 +196,16 @@ def test_base_implicit_is_written_into_template() -> None:
         "Gold Ring",
         {"CombinedDPS": 1.0},
         compute=lambda spec: {"CombinedDPS": 100.0},
+        render_with_pob=False,
     )
-    assert "Rarity of Items found" in out.text, "정본 implicit이 조립본에 들어가야 한다"
-    assert "Implicits: 1" in out.text
-    assert "(" not in out.text.splitlines()[5], "암시적 범위도 롤 정책으로 해소"
+    assert "Rarity of Items found" in out.spec_text, "정본 implicit이 명세에 들어가야 한다"
+    assert "Implicits: 1" in out.spec_text
+    # ⚠ 롤은 **우리가 풀지 않는다**(#34) — `{range:R}`를 붙여 PoB가 풀게 한다.
+    # 우리가 풀면 `+12.5 to Dexterity` 같은 인게임에 없는 값이 나온다(실측 2026-08-09).
+    # 사용자 정본도 `{tags:attribute}{range:1}+(10-15) to Intelligence` 꼴이다.
+    implicit = next(ln for ln in out.spec_text.splitlines() if "Rarity of Items" in ln)
+    assert implicit.startswith("{range:"), implicit
+    assert "(" in implicit, "범위를 그대로 둔다 — 해소는 PoB 몫"
 
 
 def test_unmeasurable_affixes_are_reported_not_silently_dropped() -> None:
@@ -198,7 +226,9 @@ def test_unmeasurable_affixes_are_reported_not_silently_dropped() -> None:
     flagged = [o for o in pool if o.pob_unmeasurable]
     assert flagged, "KB 표기를 풀이 읽어야 한다 — 안 읽으면 이 결함이 그대로다"
 
-    out = optimize_rare(SPEC, "Amulet", "Amber Amulet", {"CombinedDPS": 1.0}, compute=compute)
+    out = optimize_rare(
+        SPEC, "Amulet", "Amber Amulet", {"CombinedDPS": 1.0}, compute=compute, render_with_pob=False
+    )
     assert {o.label for o in out.unmeasurable} == {o.label for o in flagged}
     assert any("PoB가 문구를 못 읽는다" in n for n in out.notes), (
         "조용히 빠지면 안 된다 — 바닥값을 고점으로 읽게 된다"
@@ -234,7 +264,9 @@ def test_assembly_is_legal_by_construction() -> None:
         return {"CombinedDPS": 100.0 + len(text.splitlines())}
 
     for slot, base in (("Helmet", "Spiritbone Crown"), ("Amulet", "Amber Amulet")):
-        out = optimize_rare(SPEC, slot, base, {"CombinedDPS": 1.0}, compute=compute)
+        out = optimize_rare(
+            SPEC, slot, base, {"CombinedDPS": 1.0}, compute=compute, render_with_pob=False
+        )
         assert out.legal, f"{base}: {out.legality_errors}"
         assert out.chosen, f"{base}: 합법성을 지키느라 아무것도 못 고르면 그것도 결함이다"
 

@@ -93,15 +93,21 @@ def _redundant_copies(kdir: Path, paths: Iterable[Path]) -> dict[Path, Path]:
     untracked = _untracked(kdir)
     if not untracked:
         return {}
+    # ⚠ **미추적 파일이 이 목록 안에 있을 때만 해시한다.** 전량 해시는 로드마다
+    # 수천 파일을 읽어 KB 로드를 몇 배 느리게 만든다 — 실측 2026-08-09: 이걸 무조건
+    # 돌리자 `pytest tests/unit`이 10분을 넘겼다(그전엔 수십 초). 깨끗한 트리가
+    # 정상 상태이므로 그 경우 비용이 **0**이어야 한다.
+    suspect_paths = [p for p in paths if p in untracked]
+    if not suspect_paths:
+        return {}
     canonical: dict[str, Path] = {}
     suspects: list[tuple[Path, str]] = []
-    for p in paths:
-        digest = hashlib.sha256(p.read_bytes()).hexdigest()
-        if p in untracked:
-            suspects.append((p, digest))
+    for path in paths:
+        if path in untracked:
+            suspects.append((path, hashlib.sha256(path.read_bytes()).hexdigest()))
         else:
-            canonical.setdefault(digest, p)
-    return {p: canonical[d] for p, d in suspects if d in canonical}
+            canonical.setdefault(hashlib.sha256(path.read_bytes()).hexdigest(), path)
+    return {path: canonical[d] for path, d in suspects if d in canonical}
 
 
 def _duplicate_id_error(rel: Path, rid: str, current: Path, existing: Path, kdir: Path) -> str:

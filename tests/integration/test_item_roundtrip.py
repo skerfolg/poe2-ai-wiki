@@ -219,3 +219,33 @@ def test_the_checker_accepts_its_own_generated_item() -> None:
     custom = next(v for v in report.verdicts if "{custom}" in v.line)
     assert custom.status == "CONDITIONAL", "커스텀은 미수록(UNKNOWN)과 다르다"
     assert "실재한다" in custom.reason, "KB에 있는 모드면 그걸 쓰라고 말해야 한다"
+
+
+def test_optimize_rare_emits_spec_not_prose() -> None:
+    """`optimize_rare`가 **문구가 아니라 명세**를 낸다 (#34 A — 근본).
+
+    이 결함의 사고 전량(실오라기 204% · 룬 150% · 없는 베이스 `Silk Gloves` ·
+    티어 범위 밖)이 「텍스트를 손으로 쓴다」 하나에서 나왔다. 모드 id로 내면 값·티어·
+    롤·촉매를 **PoB가 자기 정의에서** 만들므로 수치를 지어낼 여지가 사라진다.
+    """
+    from pok.engine.rares import optimize_rare
+
+    spec = {"class_name": "Sorceress", "ascendancy": "Sorceress1", "items": []}
+    out = optimize_rare(spec, "Amulet", "Lapis Amulet", {"CombinedDPS": 1.0})
+
+    assert "Crafted: true" in out.spec_text, out.spec_text
+    assert any(
+        line.startswith(("Prefix: {range:", "Suffix: {range:"))
+        for line in out.spec_text.splitlines()
+    ), out.spec_text
+    # 명세엔 문구가 없다 — 있으면 우리가 값을 쓴 것이다
+    prose = [
+        line
+        for line in out.spec_text.splitlines()
+        if "increased" in line and not line.startswith("{custom}")
+    ]
+    assert not prose, f"명세에 문구가 섞였다: {prose}"
+
+    # 그리고 최종 텍스트는 **PoB가 만든 것**이고 검사기를 통과한다(수용 기준 1·3)
+    assert out.pob_rendered, out.notes
+    assert out.legal, (out.legality_errors, [v for v in out.chosen])
