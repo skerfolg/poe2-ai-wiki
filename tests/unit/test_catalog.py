@@ -193,3 +193,41 @@ def test_staged_skill_requires_explicit_stages() -> None:
     spec_from_dict({**base, "skills": [{"gems": [
         {"name": "Spark", "gem_id": "Metadata/Items/Gems/SkillGemSpark", "level": 20}
     ]}]})  # fmt: skip
+
+
+def test_short_explicit_is_matched_by_line_not_length() -> None:
+    """짧은 문구를 **길이로 걸러 내면 오거부**가 된다 (백로그 #24).
+
+    부분 문자열 비교의 12자 문턱은 짧은 조각이 남의 줄에 우연히 걸리는 오탐을
+    막으려던 것인데, 그 문턱 때문에 `Onslaught`(정규화 9자)가 **비교 대상에서 통째로
+    빠졌다.** 텍스트에 멀쩡히 있는데도 "옵션 줄이 하나도 없다"가 됐고, 그 유니크가
+    있는 **Helmet 슬롯 전체가 죽었다**(실측 2026-08-09 — 도구가 만든 자기 후보를
+    도구가 거부했다).
+
+    ⚠ 이 결함은 KB 전체에서 `item.thrillsteel` **1건**이 유발했다. 한 건이 슬롯
+    하나를 통째로 막는다 — 후보 하나의 예외가 최적화 루프 전체를 죽이기 때문이다.
+    """
+    import pytest
+
+    from pok.engine.items import enumerate_slot_uniques
+    from pok.pob.buildxml import spec_from_dict
+
+    base = {"class_name": "Witch", "ascendancy": "Witch1"}
+    thrill = next(c for c in enumerate_slot_uniques("Helmet") if c.label == "item.thrillsteel")
+    assert thrill.text.splitlines()[-1] == "Onslaught", "후보 생성기는 정상이다 — 문제는 검사기"
+    spec_from_dict({**base, "items": [{"slot": "Helmet", "text": thrill.text}]})
+
+    # 게이트는 살아 있어야 한다 — 옵션을 정말 안 적으면 여전히 거부
+    with pytest.raises(ValueError) as err:
+        spec_from_dict(
+            {
+                **base,
+                "items": [
+                    {
+                        "slot": "Helmet",
+                        "text": "Rarity: UNIQUE\nThrillsteel\nSpired Greathelm\nImplicits: 0",
+                    }
+                ],
+            }
+        )
+    assert "옵션 줄이 하나도 없다" in str(err.value)
