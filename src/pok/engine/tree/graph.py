@@ -50,6 +50,9 @@ class TreeNode:
     # PoB 계산기는 이걸 **검사하지 않아** 스탯을 그대로 더한다. 그래서 후보 단계에서
     # 걸러야 한다(실측 2026-08-06: 블러드 메이지 빌드에 오라클 전용 7개가 섞였다).
     unlock_constraint: dict[str, object] | None = None
+    # 트리 좌표 (PoB 반경 판정과 같은 공간). 밀집도 스캔·주얼 반경이 이걸 쓴다.
+    # KB 4,553개 중 4,540개 보유 — 없는 것(시작 노드 등)은 None이다.
+    position: tuple[float, float] | None = None
 
     @property
     def locked_to(self) -> str | None:
@@ -107,6 +110,11 @@ class TreeGraph:
                 stats_en=tuple(d.get("stats_en") or ()),
                 ascendancy=d.get("ascendancy"),
                 unlock_constraint=d.get("unlock_constraint") or None,
+                position=(
+                    (float(pos["x"]), float(pos["y"]))
+                    if isinstance(pos := d.get("position"), dict)
+                    else None
+                ),
             )
             raw_conn[nid] = [int(c) for c in d.get("connections", [])]
         self.adj: dict[int, set[int]] = collections.defaultdict(set)

@@ -39,6 +39,9 @@ def optimize_tree(
     max_candidates_per_round: int = 40,
     jewel_templates: list[str] | None = None,
     exclude_nodes: list[int] | None = None,
+    unconnected_regions: list[dict[str, Any]] | None = None,
+    cluster_include: list[list[Any]] | None = None,
+    cluster_exclude: list[str] | None = None,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
@@ -55,7 +58,18 @@ def optimize_tree(
     빼도 그냥 다시 뽑는다 — 실측 2026-08-09: 원소 집정관 축을 위해 「검은화염 계약」
     (화염 주문 100%를 카오스로 전환 — 집정관의 `Cannot deal Non-Elemental Damage with
     Spells`와 정면 충돌)을 뺐는데 재실행하자 **그것과 「피의 제물」을 그대로 재채택**했다.
-    PoB가 집정관을 모델링하지 않아(#3) 충돌이 점수에 안 보이기 때문이다."""
+    PoB가 집정관을 모델링하지 않아(#3) 충돌이 점수에 안 보이기 때문이다.
+
+    `cluster_include` = `[["ignite", 1.0], ["critical", 0.5]]` 꼴. 주면 **후보 반경 밖**의
+    관련 노터블 뭉치를 `far_clusters`로 함께 낸다 — 그리디는 반경 안만 보므로 먼 뭉치를
+    구조적으로 못 본다(실측: 예산 87에 43포인트 조기 종료, 병목을 푸는 노터블이 전부
+    반경 밖). 안 주면 스캔하지 않고 그 사실을 `notes`에 남긴다 — **관련성 필터 없는
+    밀집도는 쓰레기**라서다(실측: 반경 1000의 노터블 9개 중 3개가 도리깨 노드).
+
+    `unconnected_regions` = `[{"center": [-1682, -9147], "radius": 2520}]` 꼴.
+    비연결 할당 주얼(제어된 변형·허무의 산물)이 덮는 원 — 그 안의 노드는 통행 비용
+    없이 **자기 1포인트만** 든다. ⚠ 반경은 실측 목록에서: 실효 최대 **2,520**이고
+    Variable은 **도넛**이다. 임의의 큰 값은 "주얼 하나로 덮인다"는 틀린 결론을 만든다."""
     spec = spec_from_dict(build_spec)
     out = _optimize(
         spec,
@@ -66,8 +80,34 @@ def optimize_tree(
         max_candidates_per_round=max_candidates_per_round,
         jewel_templates=tuple(jewel_templates or ()),
         exclude_nodes=tuple(exclude_nodes or ()),
+        unconnected_regions=tuple(unconnected_regions or ()),
+        cluster_include=tuple((str(k), float(w)) for k, w in (cluster_include or ())),
+        cluster_exclude=tuple(cluster_exclude or ()),
     )
     return {
+        # 후보 반경 **밖**의 관련 뭉치 — 효과 문구째로 낸다. 점수만 내면 두 축을
+        # 동시에 봐야 보이는 조합(「힘 소진」 + 「지배」 성유)을 영원히 못 찾는다.
+        "far_clusters": [
+            {
+                "label": c.label,
+                "center": list(c.center),
+                "radius": c.radius,
+                "inner": c.inner,
+                "total_score": c.total_score,
+                "hits": [
+                    {
+                        "node_id": h.node_id,
+                        "name": h.name_ko or h.name_en,
+                        "score": h.score,
+                        "stats_en": list(h.stats_en),
+                        **({"locked_to": h.locked_to} if h.locked_to else {}),
+                    }
+                    for h in c.hits
+                ],
+            }
+            for c in out.far_clusters
+        ],
+        "notes": list(out.notes),
         "steps": [
             {
                 "node_id": s.node_delta.node_id,
@@ -414,4 +454,71 @@ def optimize_runes(
         "text": fill.text,
         "delta": fill.delta,
         "measured": [{"id": rid, "delta": d} for rid, d in fill.measured],
+    }
+
+
+def find_clusters(
+    include: list[list[Any]],
+    exclude: list[str] | None = None,
+    radii: list[float] | None = None,
+    min_score: float = 0.0,
+    top: int = 5,
+    centers_per_band: int = 3,
+    for_ascendancy: str | None = None,
+) -> dict[str, Any]:
+    """관련 노터블이 가장 촘촘한 트리 좌표를 찾는다 (백로그 제안 A).
+
+    `optimize_tree`는 현재 트리 **반경 안**만 보므로 먼 뭉치를 구조적으로 못 본다 —
+    실측: 예산 87로 돌려 43포인트에서 조기 종료했고, 손으로 밀집도를 보니 병목을 정면
+    으로 푸는 노터블(인화성 강도 80% 등)이 **전부 후보 반경 밖**이었다.
+
+    `include` = `[["ignite", 1.0], ["critical", 0.5]]` 꼴 (키워드·가중치).
+    ⚠ **필수다.** 관련성 필터 없는 밀집도는 쓰레기다 — 실측: 필터 없이 돌리니
+    "반경 1000에 노터블 9개"가 나왔고 그중 **3개가 도리깨 노드**였다.
+    `exclude`로 컨셉 밖 축(무기 계열·소환수 등)을 쳐낸다.
+
+    `radii`를 생략하면 **실측 주얼 반경**을 쓴다(실효 = 표기의 1.2배):
+    Small 1,200 · Medium 1,380 · Large 1,560 · Very Large 1,800 ·
+    Variable 2,160~2,520(**도넛** — inner 안쪽은 안 덮는다). 임의의 큰 값을 넣으면
+    "주얼 하나로 덮인다"는 틀린 결론이 난다(발의 세션이 3,800 가정으로 두 번 철회했다).
+
+    `for_ascendancy`를 주면 **다른 전직 전용 해금 노드를 뺀다** — 안 빼면 인게임에서
+    못 찍는 노드가 점수를 부풀린다(B-13에서 실제로 「힘 소진」이 설계 근거로 올라갔다).
+
+    노터블을 **효과 문구째로** 낸다 — 점수만 보면 두 축을 동시에 봐야 보이는 조합을
+    영원히 못 찾는다.
+    """
+    from pok.engine.tree.clusters import find_clusters as _find
+
+    clusters = _find(
+        _get_graph(),
+        include=[(str(k), float(w)) for k, w in include],
+        exclude=tuple(exclude or ()),
+        radii=tuple(radii) if radii else None,
+        min_score=min_score,
+        top=top,
+        centers_per_band=centers_per_band,
+        for_ascendancy=for_ascendancy,
+    )
+    return {
+        "clusters": [
+            {
+                "label": c.label,
+                "center": list(c.center),
+                "radius": c.radius,
+                "inner": c.inner,
+                "total_score": c.total_score,
+                "hits": [
+                    {
+                        "node_id": h.node_id,
+                        "name": h.name_ko or h.name_en,
+                        "score": h.score,
+                        "stats_en": list(h.stats_en),
+                        **({"locked_to": h.locked_to} if h.locked_to else {}),
+                    }
+                    for h in c.hits
+                ],
+            }
+            for c in clusters
+        ]
     }
