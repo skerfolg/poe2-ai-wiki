@@ -23,7 +23,7 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -259,6 +259,25 @@ def _resolve_jewel_slot(spec: Mapping[str, Any], slot: str) -> tuple[str, str]:
     )
 
 
+def _assemble_text(
+    naked: str, chosen: Sequence[AffixReading], *, include_corrupted: bool = True
+) -> str:
+    """벌거벗은 베이스 + 채택 접사 → 아이템 텍스트.
+
+    훼손 모드는 접사 칸 밖(바알 오브 1회)이라 맨 뒤에 `Corrupted` 표기와 함께 붙인다
+    (PoB 관례). 조립을 한 곳에 모은 이유: 그리디가 **조립하면서 검사**하려면 시험용
+    텍스트와 최종 텍스트가 같은 함수에서 나와야 한다(#23).
+    """
+    affixes = [r for r in chosen if r.option.affix_type != "corrupted"]
+    corrupted = (
+        [r for r in chosen if r.option.affix_type == "corrupted"] if include_corrupted else []
+    )
+    text = "\n".join([naked, *(r.option.text for r in affixes)])
+    if corrupted:
+        text = "\n".join([text, *(r.option.text for r in corrupted), "Corrupted"])
+    return text
+
+
 def optimize_rare(
     spec: dict[str, Any],
     slot: str,
@@ -326,21 +345,27 @@ def optimize_rare(
     chosen: list[AffixReading] = []
     counts = {"prefix": 0, "suffix": 0, "corrupted": 0}
     caps = {"prefix": cap_pre, "suffix": cap_suf, "corrupted": 1}
+    skipped_illegal: list[str] = []
     for reading in ranked:
         kind = reading.option.affix_type
         if reading.score(weights) <= 0 or counts[kind] >= caps[kind]:
             continue
+        # **조립하면서 검사한다** (백로그 #23). 사후 검사만 하면 반환 `text`를 그대로
+        # 못 쓰고 매번 손으로 재조립해야 한다 — 실측 2026-08-09(투구): `legal: false`로
+        # 접두 초과·group 중복이 나왔다.
+        #
+        # 왜 개수만 세면 안 되나: 그리디는 **후보 단위**로 세는데 검사기는 **매칭된
+        # 모드 id 단위**로 센다. 하이브리드 한 후보가 두 줄이면 검사기가 서로 다른
+        # 모드 둘로 매칭할 수 있어 3개를 골랐는데 5개로 세진다(실측). 그래서 개수
+        # 계산을 맞추는 대신 **검사기에게 직접 묻는다** — 판정 주체가 하나가 된다.
+        trial = _assemble_text(naked, [*chosen, reading], include_corrupted=False)
+        if not _checker(root).check(trial).is_legal:
+            skipped_illegal.append(reading.option.label)
+            continue
         chosen.append(reading)
         counts[kind] += 1
 
-    # 훼손 모드는 접사 칸 밖(바알 오브 1회) — 합법성 검사는 접사만으로 하고,
-    # 최종 텍스트에는 모드 + "Corrupted" 표기로 들어간다(PoB 관례).
-    affix_chosen = [r for r in chosen if r.option.affix_type != "corrupted"]
-    corrupt_chosen = [r for r in chosen if r.option.affix_type == "corrupted"]
-    affix_text = "\n".join([naked, *(r.option.text for r in affix_chosen)])
-    assembled = affix_text
-    if corrupt_chosen:
-        assembled = "\n".join([affix_text, *(r.option.text for r in corrupt_chosen), "Corrupted"])
+    assembled = _assemble_text(naked, chosen)
     base_stats = run(spec)
     measured = run(_replace_slot(spec, slot, assembled))
     delta = {k: round(measured.get(k, 0.0) - base_stats.get(k, 0.0), 4) for k in measure}
@@ -349,7 +374,7 @@ def optimize_rare(
         for k, v in (floors or {}).items()
         if measured.get(k, 0.0) < v
     )
-    report = _checker(root).check(affix_text)
+    report = _checker(root).check(_assemble_text(naked, chosen, include_corrupted=False))
 
     by_origin = {
         o: sum(r.option.origin == o for r in chosen) for o in ("desecrated", "corrupted", "essence")

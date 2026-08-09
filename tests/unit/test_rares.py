@@ -214,3 +214,40 @@ def test_measurable_pool_reports_nothing() -> None:
         label="mod.x", affix_type="prefix", text="+10 to maximum Life", group="g", ilvl=1
     )
     assert plain.pob_unmeasurable is False
+
+
+def test_assembly_is_legal_by_construction() -> None:
+    """조립 결과가 **그대로 쓸 수 있어야** 한다 (백로그 #23).
+
+    사후 검사만 하면 `legal: false`가 나와도 반환 `text`를 못 쓰고 매번 손으로
+    재조립해야 한다 — 실측 2026-08-09(투구 `Spiritbone Crown`): 접두 초과·group 중복.
+
+    ⚠ 개수를 맞추는 방식으로는 못 고친다: 그리디는 **후보 단위**로 세는데 검사기는
+    **매칭된 모드 id 단위**로 센다. 하이브리드 한 후보가 두 줄이면 검사기가 서로 다른
+    모드 둘로 매칭할 수 있어 3개를 골랐는데 5개로 세졌다(실측). 그래서 조립하면서
+    **검사기에게 직접 묻는다** — 판정 주체를 하나로 만든다.
+    """
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        # 줄이 많을수록 좋다고 말해 한도를 시험한다
+        text = "\n".join(str(i.get("text", "")) for i in spec.get("items") or [])
+        return {"CombinedDPS": 100.0 + len(text.splitlines())}
+
+    for slot, base in (("Helmet", "Spiritbone Crown"), ("Amulet", "Amber Amulet")):
+        out = optimize_rare(SPEC, slot, base, {"CombinedDPS": 1.0}, compute=compute)
+        assert out.legal, f"{base}: {out.legality_errors}"
+        assert out.chosen, f"{base}: 합법성을 지키느라 아무것도 못 고르면 그것도 결함이다"
+
+
+def test_trial_and_final_use_the_same_yardstick() -> None:
+    """시험 검사와 최종 판정이 다른 기준이면 "통과시켜 놓고 실격"이 난다.
+
+    훼손 모드는 접사 칸 밖(바알 오브 1회)이라 최종 판정에서 빠지는데, 시험에만
+    넣으면 멀쩡한 접사가 훼손 때문에 걸러진다.
+    """
+    import inspect
+
+    from pok.engine.rares import optimize_rare as fn
+
+    source = inspect.getsource(fn)
+    assert source.count("include_corrupted=False") == 2, "시험·최종이 같은 기준이어야 한다"
