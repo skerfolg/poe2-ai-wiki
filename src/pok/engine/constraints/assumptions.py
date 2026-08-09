@@ -368,38 +368,64 @@ def audit_config(
 
 
 def check_ascendancy_entry(tree_nodes: Sequence[int], *, root: Path | None = None) -> str:
-    """어센던시 노드를 찍었으면 **시작 노드**도 찍혀 있어야 한다.
+    """어센던시 노드는 **시작 노드에서 닿아야** 한다 (백로그 #26).
 
     실측 2026-08-06: 생성본이 혈액술·피 가시 등 어센던시 9개를 찍고 시작 노드
     (59822 블러드 메이지)를 빠뜨렸다. PoB는 예산을 `allocAscendancy=8`로 세어
     **합법 통과**시키고 효과까지 반영했지만(`LifePerSecondCost` 105.16 = 혈액술),
-    인게임에서는 시작 노드 없이 어센던시를 찍을 수 없다.
+    인게임에서는 시작 노드를 거치지 않으면 어센던시를 찍을 수 없다.
+
+    ⚠ **판정식이 처음엔 틀렸다.** "시작 노드가 `tree_nodes`에 있는가"로 대신 쟀는데,
+    PoB는 시작 노드를 **스스로 배정하고 포인트로 세지 않는다.** 그래서 목록에 넣으면
+    `pruned_nodes`에 잡혀 **비연결로 거부**되고, 빼면 이 검사가 거부했다 — 어느
+    쪽으로도 통과할 수 없어 **어센던시 빌드를 하나도 조립하지 못했다**(실측 2026-08-09,
+    Witch1: 빼면 이 검사가 거부 / 넣으면 `pruned=(32699,)`).
+
+    진짜 결함은 "목록에 없다"가 아니라 **"시작 노드에서 안 닿는다"**다. 그래서 어센던시
+    서브그래프에서 **할당된 노드만 밟아** 도달 가능한지로 본다. 시작 노드는 `tree_nodes`에
+    **요구하지 않는다** — PoB가 배정한다.
     """
+    import collections
+
     from pok.common.paths import knowledge_dir
     from pok.engine.tree.graph import TreeGraph
 
     graph = TreeGraph(knowledge_dir(root))
     allocated = {int(n) for n in tree_nodes}
-    used: dict[str, list[int]] = {}
     starts: dict[str, int] = {}
+    used: dict[str, set[int]] = {}
     for node_id, node in graph.nodes.items():
         if not node.ascendancy:
             continue
         if node.kind == "ascendancy-start":
             starts[node.ascendancy] = node_id
-        if node_id in allocated:
-            used.setdefault(node.ascendancy, []).append(node_id)
+        elif node_id in allocated:
+            used.setdefault(node.ascendancy, set()).add(node_id)
+
     for ascendancy, nodes in used.items():
         start = starts.get(ascendancy)
-        if start is None or start in allocated:
-            continue
-        if len(nodes) == 1 and nodes[0] == start:
-            continue
-        return (
-            f"어센던시 노드 {len(nodes)}개를 찍었는데 **시작 노드 {start}**"
-            f"({ascendancy})가 없다 — 인게임에서는 시작 노드를 거치지 않으면 어센던시를 "
-            f"찍을 수 없다. PoB는 예산만 세고 통과시키므로 이 측정은 실현 불가능한 트리다"
-        )
+        if start is None:
+            return (
+                f"어센던시 {ascendancy}의 시작 노드를 KB에서 못 찾았다 — "
+                f"수록 갭이므로 판정을 보류한다(이 트리를 통과시키지 않는다)"
+            )
+        # 시작 노드에서 **할당된 노드만 밟아** 닿는가. 경로가 되는 것은 실제로 찍은
+        # 노드뿐이다 — 안 찍은 노드를 지나 닿는 것은 인게임에서 성립하지 않는다.
+        reachable = {start}
+        queue = collections.deque([start])
+        walkable = nodes | {start}
+        while queue:
+            for neighbour in graph.adj[queue.popleft()]:
+                if neighbour in walkable and neighbour not in reachable:
+                    reachable.add(neighbour)
+                    queue.append(neighbour)
+        stranded = sorted(nodes - reachable)
+        if stranded:
+            return (
+                f"어센던시 노드 {stranded}가 **시작 노드 {start}**({ascendancy})에서 "
+                f"닿지 않는다 — 할당한 노드만 밟아서는 이어지지 않는 배치다. PoB는 "
+                f"예산만 세고 통과시키므로 이 측정은 실현 불가능한 트리다"
+            )
     return ""
 
 

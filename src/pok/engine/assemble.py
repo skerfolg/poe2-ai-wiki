@@ -77,7 +77,7 @@ def assemble(
 
     result = run_build(spec, use_cache=use_cache)
     if strict and not result.is_tree_legal:
-        raise IllegalBuildError(f"트리 비연결 노드: {result.pruned_nodes}")
+        raise IllegalBuildError(_pruned_reason(result.pruned_nodes))
 
     xml = to_xml(spec)
     build_code = codec.encode(xml)
@@ -156,3 +156,32 @@ def assemble(
         item_reports=item_reports,
         duplicates=dups,
     )
+
+
+def _pruned_reason(pruned: tuple[int, ...]) -> str:
+    """PoB가 잘라낸 노드 — **왜 잘렸는지**까지 말한다 (백로그 #26 요청안 3).
+
+    "비연결"과 "PoB가 자동 배정하는 노드라 목록에 못 넣는다"는 원인이 전혀 다른데
+    같은 문구로 나왔다. 어센던시 시작 노드는 PoB가 **스스로 배정하고 포인트로 세지
+    않으므로**(`points.py` 주석), `tree_nodes`에 적으면 항상 잘린다 — 그건 트리가
+    끊긴 게 아니라 **적을 필요가 없는 것을 적은 것**이다.
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.engine.tree.graph import TreeGraph
+
+    graph = TreeGraph(knowledge_dir())
+    auto = [
+        n
+        for n in pruned
+        if (node := graph.nodes.get(n)) is not None and node.kind == "ascendancy-start"
+    ]
+    rest = [n for n in pruned if n not in auto]
+    parts: list[str] = []
+    if auto:
+        parts.append(
+            f"어센던시 **시작 노드** {tuple(auto)}는 PoB가 자동 배정한다 — "
+            f"`tree_nodes`에서 빼면 된다(트리가 끊긴 게 아니다)"
+        )
+    if rest:
+        parts.append(f"트리 비연결 노드: {tuple(rest)}")
+    return " / ".join(parts) if parts else f"트리 비연결 노드: {pruned}"

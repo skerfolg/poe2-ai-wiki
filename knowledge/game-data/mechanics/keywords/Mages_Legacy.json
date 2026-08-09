@@ -46,7 +46,137 @@
       "• Legacy of Sulphur",
       "• Legacy of Topaz",
       "Only one instance of each Mage's Legacy can apply its bonus to you at a time."
-    ]
+    ],
+    "legacies": {
+      "Legacy of Amethyst": [
+        {
+          "stat": "ChaosResist",
+          "type": "BASE",
+          "value": 45
+        }
+      ],
+      "Legacy of Basalt": [
+        {
+          "stat": "Armour",
+          "type": "INC",
+          "value": 150
+        }
+      ],
+      "Legacy of Bismuth": [
+        {
+          "stat": "ElementalResist",
+          "type": "BASE",
+          "value": 45
+        }
+      ],
+      "Legacy of Diamond": [
+        {
+          "stat": "CritChance",
+          "type": "INC",
+          "value": 75
+        }
+      ],
+      "Legacy of Gold": [
+        {
+          "stat": "LootRarity",
+          "type": "INC",
+          "value": 45
+        }
+      ],
+      "Legacy of Granite": [
+        {
+          "stat": "Armour",
+          "type": "BASE",
+          "value": 2000
+        }
+      ],
+      "Legacy of Jade": [
+        {
+          "stat": "Evasion",
+          "type": "BASE",
+          "value": 2000
+        }
+      ],
+      "Legacy of Quicksilver": [
+        {
+          "stat": "MovementSpeed",
+          "type": "INC",
+          "value": 30
+        }
+      ],
+      "Legacy of Ruby": [
+        {
+          "stat": "FireResist",
+          "type": "BASE",
+          "value": 60
+        },
+        {
+          "stat": "FireResistMax",
+          "type": "BASE",
+          "value": 5
+        }
+      ],
+      "Legacy of Sapphire": [
+        {
+          "stat": "ColdResist",
+          "type": "BASE",
+          "value": 60
+        },
+        {
+          "stat": "ColdResistMax",
+          "type": "BASE",
+          "value": 5
+        }
+      ],
+      "Legacy of Silver": [
+        {
+          "stat": "Speed",
+          "type": "INC",
+          "value": 30
+        },
+        {
+          "stat": "WarcrySpeed",
+          "type": "INC",
+          "value": 30
+        },
+        {
+          "stat": "TotemPlacementSpeed",
+          "type": "INC",
+          "value": 30
+        }
+      ],
+      "Legacy of Stibnite": [
+        {
+          "stat": "Evasion",
+          "type": "INC",
+          "value": 150
+        }
+      ],
+      "Legacy of Sulphur": [
+        {
+          "stat": "Damage",
+          "type": "INC",
+          "value": 60
+        }
+      ],
+      "Legacy of Topaz": [
+        {
+          "stat": "LightningResist",
+          "type": "BASE",
+          "value": 60
+        },
+        {
+          "stat": "LightningResistMax",
+          "type": "BASE",
+          "value": 5
+        }
+      ]
+    },
+    "duplicate_rule": "totalDuplicates = Σ(각 유산 개수 - 1) · globalEffect = 1 + totalDuplicates * (MagesLegacyEffect/100) · 적용값 = floor(globalEffect * 원래값). 마법사의 피를 낀 상태(MagebloodEquipped)에서만 계산된다",
+    "_verification": {
+      "legacies": "POB_CODE",
+      "duplicate_rule": "POB_CODE"
+    }
   },
   "verification": "GAME_DATA",
   "sources": [

@@ -449,6 +449,7 @@ evaluate_bundles = tool(_tree.evaluate_bundles)
 evaluate_change_bundle = tool(_tree.evaluate_change_bundle)
 optimize_items = tool(_tree.optimize_items)
 optimize_rare = tool(_tree.optimize_rare)
+optimize_runes = tool(_tree.optimize_runes)
 
 # 능동 탐사 (P5) — tools/explore.py. 후보 생성만, 판정은 사람 게이트
 scan_synergies = tool(_explore.scan_synergies)

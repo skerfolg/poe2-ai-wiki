@@ -37,6 +37,7 @@ from pok.common.paths import knowledge_dir
 from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
+from pok.engine.items import req_shortfall
 from pok.engine.legality import ItemLegalityChecker
 from pok.pob.buildxml import spec_from_dict
 from pok.pob.runner import PobResult
@@ -68,14 +69,58 @@ def _get_checker() -> ItemLegalityChecker:
     return _checker
 
 
-def _pick(result: PobResult, stats: list[str] | None) -> dict[str, Any]:
+def _items_legal(build_spec: dict[str, Any]) -> dict[str, Any]:
+    """스펙의 장비를 KB 모드풀로 검사한 요약 — **매 반환에 싣는다** (백로그 #27).
+
+    검사기는 `assemble()`에만 걸려 있었는데 **설계 반복은 `compute_pob`으로 한다.**
+    즉 검사가 걸린 도구를 정작 설계 중에는 안 썼다. 실측 2026-08-09: 그렇게 20여 회
+    측정한 빌드가 `assemble()`을 통과시키자 **10슬롯 중 4개가 실격**이었다
+    (존재하지 않는 베이스 `Silk Gloves` · 실재하지 않는 문구 · 붙을 수 없는 접사).
+    그 위에서 나온 수치가 설계 판단의 근거로 쓰였다.
+
+    PoB를 돌리지 않으므로 비용은 KB 인덱스 조회뿐이다.
+    """
+    checker = _get_checker()
+    illegal: list[dict[str, Any]] = []
+    for item in build_spec.get("items") or []:
+        report = checker.check(str(item.get("text", "")))
+        if report.is_legal:
+            continue
+        illegal.append(
+            {
+                "slot": item.get("slot"),
+                "reasons": [
+                    *report.errors,
+                    *(
+                        f"{v.line} → {v.status}: {v.reason}"
+                        for v in report.verdicts
+                        if v.status in ("ILLEGAL", "UNKNOWN")
+                    ),
+                ],
+            }
+        )
+    return {"items_legal": not illegal, "illegal_items": illegal}
+
+
+def _pick(
+    result: PobResult, stats: list[str] | None, build_spec: dict[str, Any] | None = None
+) -> dict[str, Any]:
     keys = result.stats.keys() if stats == ["*"] else (stats or DEFAULT_STATS)
-    return {
+    out: dict[str, Any] = {
         "stats": {k: result.stats[k] for k in keys if k in result.stats},
-        "tree_legal": result.is_tree_legal,
+        # `tree_legal`에서 개명했다(#27 요청안 3) — 이름이 "이 빌드가 합법"으로
+        # 읽히는데 **장비는 안 본 값**이다. 옆의 `items_legal`과 축이 다르다.
+        "tree_connected": result.is_tree_legal,
         "pruned_nodes": list(result.pruned_nodes),
         "meta": result.meta,
     }
+    # 요구 속성 미달은 **매번** 싣는다 — 1회성 경고는 문서와 동급이다(#29).
+    shortfall = req_shortfall(result.stats)
+    if shortfall:
+        out["req_shortfall"] = shortfall
+    if build_spec is not None:
+        out.update(_items_legal(build_spec))
+    return out
 
 
 def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
@@ -118,11 +163,18 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     (생략=핵심 24종+곱연산 축, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
     비연결 노드가 있다는 뜻 — 그 노드는 계산에 반영되지 않았다.
 
+    ⚠ **`items_legal`을 매번 볼 것** — 이 도구는 빠른 개략치를 내지만 장비가 실재하는지는
+    이제 함께 검사한다(#27). 실측 2026-08-09: 그 검사가 없던 동안 **10슬롯 중 4개가
+    실재하지 않는 장비**인 채 20여 회 측정됐고 그 수치가 설계 근거로 쓰였다.
+    `tree_connected`는 **트리 연결만**의 판정이다(옛 이름 `tree_legal`이 "빌드가 합법"으로
+    읽혀 장비 실격을 가렸다). `req_shortfall`도 매 반환에 실린다 — 1회성 경고는
+    문서와 동급이라(#29) 사라진 전례가 있다.
+
     `unset_config`는 **이 빌드에 관련 있는데 안 켠 PoB 설정**이다. 미설정 config의
     기본값에서 나온 델타 0은 "효과 없음"이 아니라 "안 켰다"의 증거다 — 그걸로
     무엇을 빼기 전에 이 목록을 볼 것(BUILD_DESIGN §2-3 측정 무효의 판정 의무).
     켜지 않는 게 맞는 축도 있으니 판단은 호출자 몫이다(AD-3)."""
-    out = _pick(_compute(spec_from_dict(build_spec)), stats)
+    out = _pick(_compute(spec_from_dict(build_spec)), stats, build_spec)
     unset = _unset_config(build_spec)
     if unset:
         out["unset_config"] = unset
@@ -140,12 +192,15 @@ def evaluate_delta(
         stats=tuple(stats or DEFAULT_STATS),
     )
     return {
-        "base": _pick(base_result, stats),
+        "base": _pick(base_result, stats, base_spec),
         "deltas": [
             {
                 "label": d.label,
                 "delta": {k: d.diff(k) for k in (stats or DEFAULT_STATS) if d.diff(k) is not None},
-                "tree_legal": d.result.is_tree_legal,
+                "tree_connected": d.result.is_tree_legal,
+                # 변경안이 **장비를 바꿨다면** 그 장비가 실재하는지도 봐야 한다 —
+                # 기준만 검사하면 "바꾼 쪽이 가짜"인 델타를 그대로 믿게 된다(#27).
+                **_items_legal(variants[d.label]),
             }
             for d in deltas
         ],

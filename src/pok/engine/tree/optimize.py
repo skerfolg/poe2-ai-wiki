@@ -119,6 +119,7 @@ def optimize_tree(
     max_candidates_per_round: int = 40,
     stats: tuple[str, ...] | None = None,
     jewel_templates: tuple[str, ...] = (),
+    exclude_nodes: tuple[int, ...] = (),
 ) -> OptimizeResult:
     """포인트 예산 안에서 정책 점수가 양수인 최선 수를 반복 채택한다.
 
@@ -133,7 +134,8 @@ def optimize_tree(
     measure = tuple(stats or objective.weights.keys())
     steps: list[Step] = []
     pruned: list[Pruned] = []
-    banned: set[int] = set()  # 죽음이 실증된 끝단 — 재채택 금지 (종료 보장)
+    # 죽음이 실증된 끝단(재채택 금지 — 종료 보장) + 호출자가 설계 판단으로 뺀 노드
+    banned: set[int] = set(exclude_nodes)
     current = spec
     budget = point_budget
     rejected = 0

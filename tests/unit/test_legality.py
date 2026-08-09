@@ -36,10 +36,30 @@ def test_정규화_키() -> None:
 
 
 def test_파서_레어() -> None:
-    rarity, base, ilvl, mods = _parse_item(
+    # 반환에 소켓 수·룬 효과가 추가됐다 (#31 — 룬 값 검증의 분모)
+    rarity, base, ilvl, mods, sockets, rune_effect = _parse_item(
         "Rarity: RARE\n이름\nAltar Robe\nItem Level: 80\n+100 to maximum Life"
     )
     assert (rarity, base, ilvl, mods) == ("rare", "Altar Robe", 80, ["+100 to maximum Life"])
+    assert (sockets, rune_effect) == (0, 0.0), "선언이 없으면 0 — 판정 보류의 근거"
+
+
+def test_파서가_소켓과_룬효과를_읽는다() -> None:
+    _, _, _, mods, sockets, rune_effect = _parse_item(
+        "\n".join(
+            [
+                "Rarity: RARE",
+                "이름",
+                "Attuned Wand",
+                "Item Level: 80",
+                "Sockets: S S S",
+                "200% increased effect of Socketed Runes",
+            ]
+        )
+    )
+    assert sockets == 3
+    assert rune_effect == 200.0
+    assert "Sockets: S S S" not in mods, "스펙 줄은 모드가 아니다 (#30)"
 
 
 def test_실존_모드는_통과한다(checker: ItemLegalityChecker) -> None:
@@ -473,3 +493,75 @@ Implicits: 0
     assert any("{rune}" in e for e in plain.errors), "원인이 룬이라는 단서를 줘야 한다"
     tagged = checker.check(full + "\n{rune}+12% to Fire Resistance")
     assert tagged.is_legal, "룬 표기하면 접사 칸 밖 — 한도에 안 걸린다"
+
+
+def _wand(*mods: str, sockets: str = "S S S S S", extra: str = "") -> str:
+    lines = ["Rarity: RARE", "Probe", "Attuned Wand", "Item Level: 80"]
+    if sockets:
+        lines.append(f"Sockets: {sockets}")
+    if extra:
+        lines.append(extra)
+    return "\n".join([*lines, *mods])
+
+
+def test_pob_spec_lines_are_not_modifiers() -> None:
+    """`Sockets:`·`Rune:`·`Radius:`·`Corrupted`는 **스펙 줄·표식**이지 모드가 아니다 (#30).
+
+    모드로 판정하면 **정상 빌드가 비적법으로 찍히고**, 그러면 경고가 신호를 잃는다 —
+    실측 2026-08-09: 진짜 실격 4건과 이 오탐 6건이 한 목록에 섞여 나왔다.
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.engine.legality import ItemLegalityChecker
+
+    report = ItemLegalityChecker(knowledge_dir()).check(
+        "\n".join(
+            [
+                "Rarity: RARE",
+                "Probe",
+                "Attuned Wand",
+                "Item Level: 80",
+                "Sockets: S S S S S",
+                "Rune: Perfect Iron Rune",
+                "Radius: Large",
+                "Corrupted",
+            ]
+        )
+    )
+    assert report.is_legal, [v.reason for v in report.verdicts if v.status != "LEGAL"]
+
+
+def test_rune_value_must_be_explained_by_sockets_and_effect() -> None:
+    """룬 줄의 **수치**가 실제 룬 값으로 설명돼야 한다 (#31).
+
+    문구가 룬 풀에 있는지만 보고 통과시켜 왔다. 실측 2026-08-09:
+    `150% increased Spell Damage`(실제 룬 30%)가 **5배**인 채 통과했다 —
+    일반 접사엔 티어 범위 검사가 있는데 **룬에만 없었다**.
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.engine.legality import ItemLegalityChecker
+
+    chk = ItemLegalityChecker(knowledge_dir())
+    # 소켓 5칸이면 같은 룬 5개까지가 정상 운용 — 상한 안이면 통과
+    assert chk.check(_wand("{rune}150% increased Spell Damage")).is_legal
+    # 설명 불가능한 값은 사유와 함께 거부
+    bad = chk.check(_wand("{rune}900% increased Spell Damage"))
+    assert not bad.is_legal
+    assert any("설명되지 않는다" in v.reason for v in bad.verdicts if v.status == "ILLEGAL")
+    # 아이템이 룬 효과를 올리면 상한도 오른다(유니크 `Runeseeker's Call` 계열)
+    assert chk.check(
+        _wand(
+            "{rune}450% increased Spell Damage",
+            extra="200% increased effect of Socketed Runes",
+        )
+    ).is_legal
+
+
+def test_unknown_socket_count_withholds_judgement() -> None:
+    """모르는 것을 위반이라 말하지 않는다 — 소켓 선언이 없으면 판정을 보류한다."""
+    from pok.common.paths import knowledge_dir
+    from pok.engine.legality import ItemLegalityChecker
+
+    report = ItemLegalityChecker(knowledge_dir()).check(
+        _wand("{rune}900% increased Spell Damage", sockets="")
+    )
+    assert report.is_legal, "소켓 수를 모르면 상한을 계산할 수 없다"

@@ -363,6 +363,17 @@ def _with_probe_lines(spec: dict[str, Any], lines: Sequence[str]) -> dict[str, A
     return {**spec, "items": items}
 
 
+def req_shortfall(
+    measured: Mapping[str, float], base: Mapping[str, float] | None = None
+) -> dict[str, float]:
+    """`_req_shortfall`의 공개 이름 — 조회·계산 도구가 상시 부착에 쓴다 (#29).
+
+    경고가 **1회성**이라 20여 회 측정 동안 사라진 사고가 있었다. 한 번만 말하는
+    경고는 문서와 동급이다(철칙 5) — 그래서 매 반환에 싣는다.
+    """
+    return _req_shortfall(measured, base)
+
+
 def _req_shortfall(
     measured: Mapping[str, float], base: Mapping[str, float] | None = None
 ) -> dict[str, float]:
