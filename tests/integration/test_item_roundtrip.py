@@ -92,3 +92,41 @@ def test_invariants_catch_declaration_mismatch() -> None:
 
     good = "\n".join([*_WAND, "Sockets: S S", "Rune: A", "Rune: B", "Implicits: 0"])
     assert not invariants(good), "정상을 막으면 신호가 죽는다(§0 ⑤)"
+
+
+def test_spec_alone_reproduces_the_users_own_item() -> None:
+    """명세만 주면 **사용자가 손으로 쓴 것과 같은 값**이 나온다 (#34 근본 해결).
+
+    사용자 정본(`20260809-2.txt`)의 `Ancestral Tiara`에서 명세 줄만 떼어 넣었다.
+    문구·수치·방어값을 우리가 조립하지 않아도 PoB가 만든다 — 그게 이 결함의 해법이다.
+    """
+    from pok.pob.roundtrip import build_items
+
+    spec = "\n".join(
+        [
+            "Rarity: RARE",
+            "New Item",
+            "Ancestral Tiara",
+            "Crafted: true",
+            "Prefix: {range:1}LocalIncreasedEnergyShield8",
+            "Prefix: {range:1}IncreasedLife10",
+            "Suffix: {range:1}ColdResist8",
+            "Suffix: {range:1}CriticalStrikeChance5",
+            "Sockets: S S S",
+            "Rune: Perfect Iron Rune",
+            "LevelReq: 80",
+        ]
+    )
+    built = build_items({"tiara": spec})["tiara"].splitlines()
+    # 사용자 정본과 **값까지** 같아야 한다 (직접 쓴 파일에서 그대로 옮긴 문구들)
+    for line in (
+        "+73 to maximum Energy Shield",
+        "+174 to maximum Life",
+        "34% increased Critical Hit Chance",
+        "+45% to Cold Resistance",
+    ):
+        assert line in built, f"{line!r}가 없다 — 명세→문구 생성이 깨졌다"
+    # 우리가 안 쓴 것도 PoB가 채운다: 방어값·빈 칸·선언
+    assert any(ln.startswith("Energy Shield:") for ln in built), built
+    assert "Prefix: None" in built, "빈 접사 칸도 PoB가 쓴다"
+    assert "Rune: None" in built, "빈 소켓도 PoB가 쓴다"

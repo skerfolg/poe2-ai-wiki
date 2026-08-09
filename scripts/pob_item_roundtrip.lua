@@ -48,6 +48,16 @@ local function flush()
   else
     -- 룬은 `Sockets:`+`Rune:` 선언에서 PoB가 스스로 만든다(`UpdateRunes`, L1610) —
     -- 손으로 쓴 `{rune}` 줄이 있으면 여기서 **겹쳐 보인다**. 그게 #34의 D 사고다.
+    -- PoB 자신의 생성 순서를 그대로 탄다(#34 근본 해결): `Craft()`가 모드 id에서
+    -- 문구를 만들고 그때 `applyRange`·`getCatalystScalar`(촉매)를 적용한다(L1695~).
+    -- 우리가 문구를 조립하지 않는 이유가 여기 있다 — 값은 PoB가 자기 정의에서 낸다.
+    -- ⚠ `Craft()`는 `explicitModLines`를 **통째로 지우고** prefixes/suffixes에서 다시
+    -- 만든다(L1704). `{custom}` 표식이 없는 손기입 줄은 그때 **사라진다** — PoB 자신이
+    -- "크래프트 아이템의 정본은 모드 id"라고 말하는 것이다. 그래서 `Crafted: true`인
+    -- 명세에만 건다. 안 그러면 손기입 아이템의 문구를 우리가 날린다(§0 ⑤).
+    if item.Craft and raw:match("Crafted:%s*true") then
+      pcall(function() item:Craft() end)
+    end
     if item.UpdateRunes then pcall(function() item:UpdateRunes() end) end
     local okBuild, built = pcall(function() return item:BuildRaw() end)
     if not okBuild then

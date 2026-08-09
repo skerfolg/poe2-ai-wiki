@@ -169,3 +169,45 @@ def invariants(rebuilt: str) -> tuple[str, ...]:
 _SPEC_AFTER_IMPLICITS = re.compile(
     r"^(Corrupted|Twice Corrupted|Mirrored|Sanctified|Crafted:|Prefix:|Suffix:)", re.I
 )
+
+
+def build_items(
+    specs: dict[str, str],
+    *,
+    root: Path | None = None,
+    snapshot: PobSnapshot | None = None,
+    timeout: float = 300.0,
+) -> dict[str, str]:
+    """**명세 → PoB 정본 텍스트.** 아이템 문구를 우리가 조립하지 않는다 (#34 근본 해결).
+
+    사용자 지시 2026-08-09: *"내가 직접 만드는 아이템과 너가 만드는 아이템이 동일한 것"*
+    — 그러려면 우리가 쓸 것은 **명세뿐**이다. 문구·수치·방어값·빈 칸은 PoB가 만든다.
+
+    명세는 사용자 정본이 쓰는 그 형태다:
+
+        Rarity: RARE
+        New Item
+        Ancestral Tiara
+        Crafted: true
+        Prefix: {range:1}LocalIncreasedEnergyShield8      ← 모드 id
+        Suffix: {range:1}CriticalStrikeChance5
+        Sockets: S S S
+        Rune: Perfect Iron Rune                           ← 룬 이름
+
+    실측 2026-08-09: 이 명세만 주고 PoB의 `Craft()` → `BuildRaw()`를 태우니
+    `+73 to maximum Energy Shield` · `+174 to maximum Life` ·
+    `34% increased Critical Hit Chance` · `+45% to Cold Resistance`가
+    **사용자가 손으로 쓴 것과 값까지 동일**하게 나왔고 `Energy Shield: 218`도
+    PoB가 계산했다. 빈 접사 칸·빈 소켓·`Implicits:` 개수도 자동이다.
+
+    ⚠ **접사 group 배타만은 PoB가 안 봐 준다** — `Craft()`는 검사하지 않는다.
+    그건 `check_item_legality`가 계속 맡는다(#34 F).
+
+    실패한 명세는 결과에서 **빠진다** — 조용히 빈 텍스트를 돌려주면 그게 조용한 0이다.
+    무엇이 실패했는지는 `roundtrip()`을 직접 불러 `error`를 볼 것.
+    """
+    return {
+        r.label: r.rebuilt
+        for r in roundtrip(specs, root=root, snapshot=snapshot, timeout=timeout)
+        if not r.error and r.rebuilt
+    }
