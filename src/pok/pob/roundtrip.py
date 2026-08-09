@@ -26,11 +26,13 @@
 
 from __future__ import annotations
 
+import atexit
 import os
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from pok.common.paths import project_root, var_dir
 from pok.pob.runner import _LUA_PATH
@@ -205,9 +207,40 @@ def build_items(
 
     실패한 명세는 결과에서 **빠진다** — 조용히 빈 텍스트를 돌려주면 그게 조용한 0이다.
     무엇이 실패했는지는 `roundtrip()`을 직접 불러 `error`를 볼 것.
+
+    ⚡ **상주 데몬을 쓴다.** 호출마다 PoB를 띄우면 9.8초가 든다(실측 2026-08-09) —
+    `optimize_rare` 한 번의 시간이 전부 그 부팅이었다. 데몬은 부팅을 1회로 상각한다.
     """
+    daemon = _shared_daemon()
+    if daemon is not None:
+        out: dict[str, str] = {}
+        for label, spec in specs.items():
+            built = daemon.build_item(spec)
+            if built:
+                out[label] = built
+        return out
     return {
         r.label: r.rebuilt
         for r in roundtrip(specs, root=root, snapshot=snapshot, timeout=timeout)
         if not r.error and r.rebuilt
     }
+
+
+_DAEMON: object | None = None
+
+
+def _shared_daemon() -> Any:
+    """프로세스당 하나의 상주 PoB. 못 띄우면 `None` — 호출자가 1회성 경로로 되돌아간다."""
+    global _DAEMON
+    if _DAEMON is None:
+        from pok.pob.daemon import PobDaemon
+
+        try:
+            daemon = PobDaemon()
+            daemon.start()
+        except Exception:  # PoB 스냅샷 없음·기동 실패 — 조용히 죽지 않고 되돌아간다
+            _DAEMON = False
+        else:
+            _DAEMON = daemon
+            atexit.register(daemon.close)
+    return _DAEMON or None

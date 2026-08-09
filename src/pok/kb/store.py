@@ -289,8 +289,48 @@ def _translation_pair_errors(record: Record) -> list[str]:
     return out
 
 
+def _fingerprint(kdir: Path) -> tuple[int, int, int]:
+    """정본 디렉터리의 **싼 지문** — (파일 수, 최대 mtime_ns, 총 바이트).
+
+    로드 캐시의 키다. `stat`만 보므로 17,000건을 훑어도 밀리초대이고, 한 바이트라도
+    바뀌면 지문이 달라져 **반드시 다시 검증한다** — 캐시가 안전장치를 무력화하지
+    않는 것이 조건이다(`write_shard(validate=True)`가 이 `load`로 재검증한다).
+    mtime은 **나노초**를 쓴다: 초 단위면 같은 초 안의 연속 쓰기를 놓친다.
+    """
+    count = latest = total = 0
+    for path in (kdir / "game-data").rglob("*"):
+        if path.suffix not in (".json", ".ndjson"):
+            continue
+        st = path.stat()
+        count += 1
+        latest = max(latest, st.st_mtime_ns)
+        total += st.st_size
+    return count, latest, total
+
+
+_LOAD_CACHE: dict[Path, tuple[tuple[int, int, int], Store]] = {}
+
+
 def load(root: Path | None = None) -> Store:
-    """knowledge/ 전체를 로드하고 5층 검증을 수행한다. 위반 시 KBValidationError."""
+    """knowledge/ 전체를 로드하고 5층 검증을 수행한다. 위반 시 KBValidationError.
+
+    ⚡ 같은 내용이면 **캐시된 스냅샷**을 돌려준다. 로드 1회가 ~2초(스키마 검증이
+    대부분)라 한 프로세스에서 수십 번 부르면 그게 곧 체감 속도다 — 실측 2026-08-09:
+    `pytest`가 6분 42초였다. 지문이 다르면 캐시를 버리고 **전 검증을 다시 한다**.
+    """
+    kdir_key = root if root is not None and root.name == "knowledge" else knowledge_dir(root)
+    if (kdir_key / "game-data").is_dir():
+        mark = _fingerprint(kdir_key)
+        hit = _LOAD_CACHE.get(kdir_key)
+        if hit is not None and hit[0] == mark:
+            return hit[1]
+        store = _load_uncached(root)
+        _LOAD_CACHE[kdir_key] = (mark, store)
+        return store
+    return _load_uncached(root)
+
+
+def _load_uncached(root: Path | None = None) -> Store:
     kdir = root if root is not None and root.name == "knowledge" else knowledge_dir(root)
     sdir = kdir / "schema"
     if not sdir.is_dir():

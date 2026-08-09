@@ -78,6 +78,33 @@ class PobDaemon:
             stats=stats, meta=meta, allocated_nodes=alloc, pruned_nodes=pruned, cached=False
         )
 
+    def build_item(self, spec_text: str) -> str:
+        """아이템 **명세 → PoB 정본 텍스트** (#34). 실패하면 빈 문자열.
+
+        별도 프로세스로 띄우면 **호출마다 9.8초**가 든다(실측 2026-08-09: `optimize_rare`
+        전체 9.8초 중 9.8초가 부팅이었다). 데몬에 붙여 그 비용을 1회로 상각한다.
+        """
+        self.start()
+        assert self._proc is not None and self._proc.stdin is not None
+        path = self._xml_file(spec_text).with_suffix(".item")
+        path.write_text(spec_text, encoding="utf-8")
+        try:
+            self._proc.stdin.write(f"ITEM\t{path}\n")
+            self._proc.stdin.flush()
+            built = ""
+            while True:
+                line = self._readline()
+                if not line:
+                    raise PobRunError("데몬이 POK_DONE 전에 종료됨 (close 후 재기동 필요)")
+                stripped = line.rstrip("\n")
+                if stripped == "POK_DONE":
+                    break
+                if stripped.startswith("POK_RAW:"):
+                    built = stripped[len("POK_RAW:") :].replace("\\n", "\n").replace("\\\\", "\\")
+        finally:
+            path.unlink(missing_ok=True)
+        return built
+
     def compute_build(self, spec: BuildSpec) -> PobResult:
         return self.compute(to_xml(spec), requested_nodes=spec.tree_nodes)
 
