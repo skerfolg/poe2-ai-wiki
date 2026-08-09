@@ -44,6 +44,20 @@ _SUFFIX_EFFECT = re.compile(r"^(\d+(?:\.\d+)?)% increased Effect of Suffixes$", 
 
 
 _RUNE_PREFIX = re.compile(r"^\s*\{rune\}\s*", re.I)
+# PoB 아이템 텍스트의 **스펙 줄**(모드가 아니다). `Item.lua`가 specName으로 읽는다.
+_SPEC_LINE_PREFIXES = (
+    "quality:",
+    "sockets:",
+    "implicits:",
+    "rune:",
+    "radius:",
+    "requires:",
+    "--",
+)
+# 값 없이 서는 **표식**
+_SPEC_MARKERS = frozenset({"corrupted", "mirrored", "split", "unidentified"})
+# 아이템이 소켓 룬 효과를 올리는 줄 (유니크 `Runeseeker's Call` 등)
+_RUNE_EFFECT = re.compile(r"(\d+(?:\.\d+)?)%\s+increased effect of Socketed Runes", re.I)
 
 
 def _mod_texts(data: dict[str, Any]) -> list[str]:
@@ -156,7 +170,7 @@ class ItemLegalityChecker:
                 self._skills.add(r.name_en.lower())
 
     def check(self, item_text: str) -> LegalityReport:
-        rarity, base_name, ilvl, mod_lines = _parse_item(item_text)
+        rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(item_text)
         if rarity == "unique":
             return self._check_unique(item_text)
         base = self._bases.get(base_name.lower())
@@ -170,7 +184,14 @@ class ItemLegalityChecker:
             (float(m.group(1)) for ln in mod_lines if (m := _SUFFIX_EFFECT.match(ln))), 0.0
         )
         for line in mod_lines:
-            verdict = self._check_line(line, base, ilvl, suffix_effect=suffix_effect)
+            verdict = self._check_line(
+                line,
+                base,
+                ilvl,
+                suffix_effect=suffix_effect,
+                sockets=sockets,
+                rune_effect=rune_effect,
+            )
             verdicts.append(verdict)
             if verdict.modifier_id:
                 matched[verdict.modifier_id] = next(
@@ -495,8 +516,63 @@ class ItemLegalityChecker:
         scored.sort(key=lambda s: (-s[0], s[1]))
         return [key for score, key in scored[:limit] if score >= 0.34]
 
+    def _rune_value_verdict(
+        self,
+        line: str,
+        runes: list[dict[str, Any]],
+        sockets: int,
+        rune_effect: float,
+    ) -> LineVerdict:
+        """룬 줄의 **수치**가 실제 룬 값으로 설명되는가 (백로그 #31).
+
+        문구가 룬 풀에 있는지만 보고 통과시켜 왔다 — 값 범위를 안 봤다. 실측 2026-08-09:
+        `150% increased Spell Damage`(실제 룬 30%)가 **5배**인 채 통과했다. 일반 접사에는
+        티어 범위 검사가 있는데 **룬에만 없었다**.
+
+        상한 = 룬 1개 값 * 소켓 수 * (1 + `increased effect of Socketed Runes`/100).
+        같은 룬을 여러 칸에 박는 것이 정상 운용이라 소켓 수를 곱한다. 소켓 수를 모르면
+        (선언이 없으면) **판정하지 않는다** — 모르는 것을 위반이라 말하지 않는다.
+        """
+        written = [float(x) for x in _NUM.findall(line)]
+        pool = [
+            float(v)
+            for rune in runes
+            for lines in ((rune.get("data") or {}).get("per_slot") or {}).values()
+            for text in lines
+            if _norm(text) == _norm(line)
+            for v in _NUM.findall(text)
+        ]
+        base_verdict = LineVerdict(
+            line,
+            "LEGAL",
+            modifier_id=str(runes[0]["id"]),
+            reason="룬 부여 — 소켓 한도는 check_constraints(sockets)로 검사",
+        )
+        if not written or not pool or sockets <= 0:
+            return base_verdict
+        ceiling = max(pool) * sockets * (1.0 + rune_effect / 100.0)
+        if max(written) <= ceiling + 1e-6:
+            return base_verdict
+        return LineVerdict(
+            line,
+            "ILLEGAL",
+            modifier_id=str(runes[0]["id"]),
+            reason=(
+                f"룬 값이 설명되지 않는다 — 적힌 {max(written):g} > 상한 {ceiling:g} "
+                f"(룬 1개 {max(pool):g} * 소켓 {sockets} * 룬 효과 +{rune_effect:g}%). "
+                f"소켓 수나 `increased effect of Socketed Runes`를 아이템에 적었는지 확인할 것"
+            ),
+        )
+
     def _check_line(
-        self, line: str, base: dict[str, Any] | None, ilvl: int, *, suffix_effect: float = 0.0
+        self,
+        line: str,
+        base: dict[str, Any] | None,
+        ilvl: int,
+        *,
+        suffix_effect: float = 0.0,
+        sockets: int = 0,
+        rune_effect: float = 0.0,
     ) -> LineVerdict:
         # PoB는 룬 부여 줄을 `{rune}` 접두로 표기한다. 룬은 일반 접사와 **다른 풀**이라
         # 접두를 무시하면 동명 접사에 먼저 매칭돼 "티어 범위 밖"으로 오판한다
@@ -509,12 +585,7 @@ class ItemLegalityChecker:
             # 룬 줄은 룬 풀에서만 찾는다 — 티어 범위는 룬에 적용되지 않는다(고정값)
             runes = [c for c in candidates if "rune" in (c.get("data") or {}).get("origins", [])]
             if runes:
-                return LineVerdict(
-                    line,
-                    "LEGAL",
-                    modifier_id=str(runes[0]["id"]),
-                    reason="룬 부여 — 소켓 한도는 check_constraints(sockets)로 검사",
-                )
+                return self._rune_value_verdict(line, runes, sockets, rune_effect)
             return LineVerdict(
                 line, "UNKNOWN", reason="`{rune}` 표기지만 룬 풀에 일치 없음 — 표기 확인 필요"
             )
@@ -640,8 +711,11 @@ def _route_base_fit(d: dict[str, Any], base: dict[str, Any]) -> tuple[bool, str]
     return True, ""
 
 
-def _parse_item(text: str) -> tuple[str, str, int, list[str]]:
-    """buildxml.ItemSpec.text 형식 파서 (우리가 생성하는 형식 — 엄격)."""
+def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
+    """buildxml.ItemSpec.text 형식 파서 (우리가 생성하는 형식 — 엄격).
+
+    반환에 **소켓 수·룬 효과**가 포함된다 — 룬 값 검증(#31)의 분모다.
+    """
     lines = [ln.strip() for ln in text.strip().splitlines() if ln.strip()]
     if not lines or not lines[0].lower().startswith("rarity:"):
         raise ValueError("첫 줄이 'Rarity:' 가 아님")
@@ -653,19 +727,31 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str]]:
             raise ValueError("이름·베이스 줄 부족")
         base_name, rest = lines[2], lines[3:]
     ilvl = 1
+    sockets = 0
+    rune_effect = 0.0
     mod_lines: list[str] = []
     for ln in rest:
         low = ln.lower()
+        if low.startswith("sockets:"):
+            # `Sockets: S S S S S` — 칸 하나가 토큰 하나다
+            sockets = len(ln.split(":", 1)[1].split())
+        elif match := _RUNE_EFFECT.search(ln):
+            rune_effect = max(rune_effect, float(match.group(1)))
         if low.startswith("item level:"):
             ilvl = int(ln.split(":", 1)[1].strip())
-        elif low.startswith(("quality:", "sockets:", "implicits:", "--")):
-            # implicits: 헤더는 모드가 아니다 — render_unique가 내는 형식(PoB 허용)이
-            # UNKNOWN으로 판정돼 is_legal을 오염시켰다(실측 2026-08-06). 개수만 버리고
-            # 뒤따르는 암묵 모드 줄 자체는 여전히 모드로 검사한다.
+        elif low.startswith(_SPEC_LINE_PREFIXES) or low in _SPEC_MARKERS:
+            # PoB의 **스펙 줄·표식**이지 모드가 아니다. `Sockets:`·`Rune:`·`Radius:`는
+            # `Item.lua:570-580`이 읽는 선언이고 `Corrupted`는 표식이다. 모드로 판정하면
+            # **정상 빌드가 비적법으로 찍히고**, 그러면 경고가 신호를 잃는다 —
+            # 실측 2026-08-09: 진짜 실격 4건과 이 오탐 6건이 한 목록에 섞여 나왔다(#30).
+            #
+            # `implicits:` 헤더도 같다 — render_unique가 내는 형식(PoB 허용)이 UNKNOWN으로
+            # 판정돼 is_legal을 오염시켰다(실측 2026-08-06). 개수만 버리고 뒤따르는
+            # 암묵 모드 줄 자체는 여전히 모드로 검사한다.
             continue
         else:
             mod_lines.append(ln)
-    return rarity, base_name, ilvl, mod_lines
+    return rarity, base_name, ilvl, mod_lines, sockets, rune_effect
 
 
 def _values_in_range(line: str, texts: list[str], *, hi_scale: float = 1.0) -> tuple[bool, str]:
