@@ -178,3 +178,39 @@ def test_base_implicit_is_written_into_template() -> None:
     assert "Rarity of Items found" in out.text, "정본 implicit이 조립본에 들어가야 한다"
     assert "Implicits: 1" in out.text
     assert "(" not in out.text.splitlines()[5], "암시적 범위도 롤 정책으로 해소"
+
+
+def test_unmeasurable_affixes_are_reported_not_silently_dropped() -> None:
+    """PoB가 못 읽는 접사는 델타 0이라 **그리디가 절대 안 고른다** (백로그 #22).
+
+    그러면 조립 결과는 그 축을 뺀 **바닥값**인데, 말하지 않으면 "이 베이스의 고점"으로
+    읽힌다. 실측 2026-08-09: `Amber Amulet` 접사 풀 82건 중 **32건(39%)**이 여기 해당한다 —
+    사용자가 "이번 0.5 시즌 대표 크래프팅"이라 짚은 퀄리티 축이 그중 하나다.
+
+    표기는 이미 KB에 있었다(`pob_modeling.supported: false`, PR #48이 붙임) —
+    **`optimize_rare`가 그걸 안 읽은 것**이 이 결함의 알맹이다.
+    """
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        return {"CombinedDPS": 100.0}
+
+    pool = enumerate_base_affixes("Amber Amulet")
+    flagged = [o for o in pool if o.pob_unmeasurable]
+    assert flagged, "KB 표기를 풀이 읽어야 한다 — 안 읽으면 이 결함이 그대로다"
+
+    out = optimize_rare(SPEC, "Amulet", "Amber Amulet", {"CombinedDPS": 1.0}, compute=compute)
+    assert {o.label for o in out.unmeasurable} == {o.label for o in flagged}
+    assert any("PoB가 문구를 못 읽는다" in n for n in out.notes), (
+        "조용히 빠지면 안 된다 — 바닥값을 고점으로 읽게 된다"
+    )
+
+
+def test_measurable_pool_reports_nothing() -> None:
+    """표기가 없는 풀에서는 경고를 만들지 않는다 — 없는 근거를 지어내지 않는다."""
+
+    from pok.engine.rares import AffixOption
+
+    plain = AffixOption(
+        label="mod.x", affix_type="prefix", text="+10 to maximum Life", group="g", ilvl=1
+    )
+    assert plain.pob_unmeasurable is False
