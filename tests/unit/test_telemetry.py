@@ -71,7 +71,7 @@ def test_비어있는게_정상인_필드를_0건으로_보지_않는다() -> No
     유일한 목록이 `pruned_nodes`(비연결 노드)였고 그게 비어 있었기 때문이다.
     빈 목록을 세는 대신 **내용이 하나라도 채워졌는가**로 본다.
     """
-    computed = {"stats": {"CombinedDPS": 1200.0}, "tree_legal": True, "pruned_nodes": []}
+    computed = {"stats": {"CombinedDPS": 1200.0}, "tree_connected": True, "pruned_nodes": []}
     assert telemetry.classify(computed) == "ok"
     assert telemetry.classify({"legal": True, "errors": [], "lines": []}) == "ok"
     # 반대로 내용이 통째로 비면 여전히 0건이다
