@@ -351,8 +351,14 @@ def parse_detail(html: str) -> DetailPage:
         if m:
             page.tier = int(m.group(1))
         page.tags = _extract_tags(text)
-        for key, value in parse_stats_costs(text).items():
-            setattr(page, key, value)
+    # ⚠ 코스트는 **첫 블록에만 있지 않다.** 실측 2026-08-09: `Archon of Chayula`의
+    # `Cost: 0 Mana`는 블록 2에 있어 401건 중 **55건**이 통째로 미수록이었다 —
+    # "코스트 없음"과 구분되지 않아 마나 소모 0으로 단정한 오판이 났다(#5).
+    # 조건부 점유가 이미 전 블록을 훑고 있었으니 규약도 이미 있었다.
+    for block in player_blocks:
+        for key, value in parse_stats_costs(block.get_text(" ", strip=True)).items():
+            if value and not getattr(page, key):
+                setattr(page, key, value)
     # 조건부(서술형) 점유는 버프 팝업 블록에 있다 — 플레이어 `.Stats`를 합쳐서 스캔
     # (몬스터 카드는 뺀다: 소환수가 점유하는 게 아니다)
     all_stats = " ".join(b.get_text(" ", strip=True) for b in player_blocks)

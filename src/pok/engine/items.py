@@ -52,7 +52,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pok.engine.valuation import axis_gain
+from pok.engine.valuation import UnscoredAxis, axis_gain, unscored_axes
 
 # PoB 슬롯 → KB 유니크 `category`. 실측 0.5.4b: 유니크의 (class_group, category)
 # 조합 38종이 이 매핑으로 깨끗이 갈린다.
@@ -247,6 +247,10 @@ class ItemOptimizeResult:
     # 가중 축은 전부 0인데 **방어 축은 양수**인 후보 — 점수가 0이라 그리디가 절대
     # 채택하지 않는다. 채택하지 않되 **보이게는 한다**(백로그 #18, 자동 보고).
     defensive_only: tuple[CandidateResult, ...] = ()
+    # 후보가 **실제로 움직였는데** 가중치에 없는 축 — #18·#22·#25가 전부 이 형태였고
+    # 셋 다 사용자가 지적해줘야 발견됐다. 채택은 호출자가 정하되 **안 보이는 채로
+    # 배제되는 일은 없어진다**(AD-3). 압축 근거는 `engine.valuation.unscored_axes`.
+    unscored_axes: tuple[UnscoredAxis, ...] = ()
 
 
 def resolve_rolls(text: str, roll: str = "mid") -> str:
@@ -765,6 +769,15 @@ def optimize_items(
             f"— 절단됐다는 사실을 남긴다(조용한 절단 금지)"
         )
         ranked = ranked[:_DEFENSIVE_REPORT_LIMIT]
+    # 채택된 마지막 후보가 건드린 축 중 **점수에 안 들어간 것**을 낸다. 채택분이
+    # 없으면 라운드에서 가장 점수가 높았던 후보를 쓴다 — "이걸 골랐는데 저건 안 봤다"가
+    # 보여야 한다. 방어 축은 이미 `defensive_only`로 따로 보고하므로 중복하지 않는다.
+    probe = steps[-1].deltas if steps else (round_results[0].delta_now if round_results else None)
+    axes: tuple[UnscoredAxis, ...] = ()
+    if probe:
+        axes, truncated = unscored_axes(probe, base_now, weights, already_reported=_DEFENSIVE_AXES)
+        if truncated:
+            note(truncated)
     return ItemOptimizeResult(
         spec=current,
         steps=tuple(steps),
@@ -772,6 +785,7 @@ def optimize_items(
         notes=tuple(notes),
         chains=tuple(chains),
         defensive_only=tuple(ranked),
+        unscored_axes=axes,
     )
 
 

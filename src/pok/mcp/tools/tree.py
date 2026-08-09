@@ -318,6 +318,19 @@ def optimize_items(
             }
             for d in result.defensive_only
         ],
+        # 후보가 **움직였는데 가중치에 없는** 축 (10차 이관). #18·#22·#25가 전부
+        # 이 형태였고 셋 다 사용자가 지적해줘야 발견됐다 — 도구가 안 내면 안 보인다.
+        # 계열 대표만 낸다(실측 57축 → 20계열): 같은 사실이 9줄로 나오기 때문이다.
+        "unscored_axes": [
+            {
+                "axis": a.axis,
+                "family": a.family,
+                "delta": a.delta,
+                "relative": a.relative,
+                "siblings": list(a.siblings),
+            }
+            for a in result.unscored_axes
+        ],
         "notes": list(result.notes),
     }
 

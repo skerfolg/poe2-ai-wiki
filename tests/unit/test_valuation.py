@@ -80,3 +80,54 @@ def test_scoring_reads_the_baseline_when_given_one() -> None:
     bare = result.score(weights)
     assert bare < 0.20, "곡선은 baseline 없이도 걸린다"
     assert result.score(weights, {MOVEMENT_AXIS: 0.60}) < bare, "이미 빠르면 값이 더 준다"
+
+
+def test_unscored_axes_compress_by_family_not_by_size() -> None:
+    """압축 기준이 **크기가 아니다** — 실측에서 상대 변화율 1% 미만이 0개였다.
+
+    진짜 중복은 **같은 사실의 여러 표현**이다: 화염 저항 하나가 9줄로 나온다.
+    그래서 계열로 묶고 대표만 낸다(실측 57축 → 20계열).
+    """
+    from pok.engine.valuation import unscored_axes
+
+    delta = {
+        "FireResist": 30.0,
+        "FireResistTotal": 30.0,
+        "FireTakenHitMult": -0.3,
+        "FireMaximumHitTaken": 303.0,
+        "Life": 120.0,
+        "CombinedDPS": 5000.0,
+    }
+    base = {"FireResist": -50.0, "FireResistTotal": -50.0, "FireTakenHitMult": 1.5,
+            "FireMaximumHitTaken": 791.0, "Life": 800.0, "CombinedDPS": 10000.0}  # fmt: skip
+    axes, note = unscored_axes(delta, base, {"CombinedDPS": 1.0})
+
+    families = {a.family for a in axes}
+    assert families == {"Fire", "Life"}, families
+    assert "CombinedDPS" not in {a.axis for a in axes}, "이미 점수에 든 축은 빼야 한다"
+    fire = next(a for a in axes if a.family == "Fire")
+    assert fire.siblings, "묶은 나머지를 숨기지 않는다"
+    assert len(fire.siblings) == 3
+    assert not note
+
+
+def test_unscored_axes_never_truncate_silently() -> None:
+    """조용한 절단은 "전부 봤다"로 읽힌다 (§0의 규율)."""
+    from pok.engine.valuation import unscored_axes
+
+    delta = {f"Axis{i}": float(i + 1) for i in range(12)}
+    base = {f"Axis{i}": 100.0 for i in range(12)}
+    axes, note = unscored_axes(delta, base, {}, top=3)
+    assert len(axes) == 3
+    assert "9개" in note, note
+
+
+def test_already_reported_axes_are_not_repeated() -> None:
+    """방어 축은 `defensive_only`가 이미 낸다 — 두 번 말하면 신호가 묽어진다."""
+    from pok.engine.items import _DEFENSIVE_AXES
+    from pok.engine.valuation import unscored_axes
+
+    delta = {"TotalEHP": 100.0, "StunThreshold": 50.0}
+    base = {"TotalEHP": 800.0, "StunThreshold": 200.0}
+    axes, _ = unscored_axes(delta, base, {}, already_reported=_DEFENSIVE_AXES)
+    assert {a.axis for a in axes} == {"StunThreshold"}

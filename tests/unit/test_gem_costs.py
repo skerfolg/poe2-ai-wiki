@@ -174,3 +174,42 @@ def test_ward_is_a_known_cost_resource() -> None:
     costs = parse_stats_costs("Cost: (15—81) Ward Cast Time: 0.70 sec")["costs"]
     assert costs[0]["resource"] == "Ward"
     assert (costs[0]["min"], costs[0]["max"]) == (15.0, 81.0)
+
+
+def test_costless_and_unrecorded_are_told_apart() -> None:
+    """ "코스트 없음"과 "미수록"이 섞이면 **마나 0으로 단정**하게 된다 (#5).
+
+    쿨다운 선례를 그대로 적용했다 (사용자 지목 2026-08-09):
+
+        cost: [{...}]  읽은 값 (명시적 0 포함)
+        cost: []       명시적 무코스트 — 페이지를 읽었고 Cost 표기가 없다
+        필드 부재       미수록
+
+    근거는 쿨다운과 같다 — **스킬 페이지를 실제로 읽었다**는 것.
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.kb.store import load
+
+    skills = [r for r in load(knowledge_dir()).records.values() if r.type == "Skill"]
+    unrecorded = [r.id for r in skills if "cost" not in (r.raw.get("data") or {})]
+    assert not unrecorded, f"미수록 {len(unrecorded)}건 — 충전율 100%가 이 판정의 전제다"
+
+    kinds = {"수치": 0, "무코스트": 0}
+    for r in skills:
+        kinds["무코스트" if not r.raw["data"]["cost"] else "수치"] += 1
+    assert kinds["무코스트"] > 0 and kinds["수치"] > 0, kinds
+
+
+def test_cost_is_not_only_in_the_first_stats_block() -> None:
+    """`Cost:`가 첫 블록에 없는 페이지가 있다 — 27건이 통째로 미수록이었다.
+
+    실측 2026-08-09: `Archon of Chayula`의 `Cost: 0 Mana`는 **블록 2**에 있다.
+    조건부 점유는 이미 전 블록을 훑고 있었으니 규약도 이미 있었다.
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.kb.store import load
+
+    cost = load(knowledge_dir()).get("skill.archon-of-chayula").raw["data"]["cost"]
+    assert cost, "블록 2의 Cost를 못 읽으면 빈 목록이 된다"
+    assert cost[0]["resource"] == "Mana"
+    assert cost[0]["at_max_level"] == 0.0, "명시적 0 — '무코스트'와 다른 사실이다"
