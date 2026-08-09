@@ -48,6 +48,10 @@ class AffixOption:
     ilvl: int
     # item(표준 크래프트) | desecrated(뼈 무덤 제작) | corrupted(훼손) | essence(에센스 부여)
     origin: str = "item"
+    # PoB가 이 문구를 아이템 모드로 **읽지 못한다**(KB `pob_modeling.supported: false`).
+    # 그러면 단독 실측 델타가 0으로 나오고 그리디는 절대 안 고른다 — 조립된 희귀가
+    # **바닥값**이 되는데 그 사실이 어디에도 안 남는다(백로그 #22).
+    pob_unmeasurable: bool = False
 
 
 @dataclass(frozen=True)
@@ -70,6 +74,9 @@ class RareOptimizeResult:
     floor_violations: tuple[str, ...]
     req_shortfall: dict[str, float]
     notes: tuple[str, ...]
+    # PoB가 문구를 못 읽어 **점수를 매길 수 없는** 접사 (백로그 #22). 이것들이 있으면
+    # 조립된 희귀는 그 축을 뺀 **바닥값**이다 — 고점이 아니다.
+    unmeasurable: tuple[AffixOption, ...] = ()
 
 
 def base_record(base_type: str, root: Path | None = None) -> Mapping[str, Any] | None:
@@ -196,6 +203,7 @@ def enumerate_base_affixes(
                 group=str(data.get("group") or record_.id),
                 ilvl=ilvl,
                 origin=origin,
+                pob_unmeasurable=(data.get("pob_modeling") or {}).get("supported") is False,
             )
         )
     return sorted(out, key=lambda a: a.label)
@@ -346,6 +354,10 @@ def optimize_rare(
     by_origin = {
         o: sum(r.option.origin == o for r in chosen) for o in ("desecrated", "corrupted", "essence")
     }
+    # PoB가 못 읽는 접사는 단독 델타가 0이라 **그리디가 절대 안 고른다** — 조립 결과가
+    # 그 축을 뺀 바닥값이 되는데, 말하지 않으면 "이 베이스의 고점"으로 읽힌다(#22).
+    # 실측 2026-08-09: `Amber Amulet` 접사 풀 82건 중 **32건(39%)**이 여기 해당한다.
+    unmeasurable = tuple(o for o in pool if o.pob_unmeasurable)
     notes = [
         *notes_pre,
         f"접사 풀 {len(pool)}건(출처·그룹별 최고 티어) 전량 단독 실측 — 롤 {roll} 고정",
@@ -376,6 +388,14 @@ def optimize_rare(
         )
     if not report.is_legal:
         notes.append("⚠ 합법성 위반 — 이 조합은 실제로 만들 수 없다. errors 확인")
+    if unmeasurable:
+        sample = ", ".join(o.label for o in unmeasurable[:3])
+        notes.append(
+            f"⚠ 접사 {len(pool)}건 중 **{len(unmeasurable)}건은 PoB가 문구를 못 읽는다** — "
+            f"단독 델타가 0이라 그리디가 절대 고르지 않는다. 이 조립은 그 축을 뺀 "
+            f"**바닥값**이지 고점이 아니다. 전량은 `unmeasurable`에 있다 (예: {sample}). "
+            f"등가 문구로 바꿔 `ItemSpec.substitutes`에 넣으면 **추산**으로는 잴 수 있다"
+        )
     return RareOptimizeResult(
         text=assembled,
         delta=delta,
@@ -386,4 +406,5 @@ def optimize_rare(
         floor_violations=violations,
         req_shortfall=_req_shortfall(measured, base_stats),
         notes=tuple(notes),
+        unmeasurable=unmeasurable,
     )

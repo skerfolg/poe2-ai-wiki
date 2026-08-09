@@ -295,6 +295,12 @@ def optimize_rare(
     ⚠ 완벽 에센스 전용 모드 82건은 부위 매핑이 KB 미수록이라 열거 불가(ingest 갭
     보고됨, 2026-08-06) — 일반 에센스는 표준 풀 보장이라 item에 포함돼 있다.
 
+    ⚠ **`unmeasurable`을 반드시 읽을 것** — PoB가 문구를 못 읽는 접사는 단독 델타가
+    0이라 그리디가 **절대 고르지 않는다.** 그러면 조립 결과는 그 축을 뺀 **바닥값**인데
+    말하지 않으면 "이 베이스의 고점"으로 읽힌다. 실측 2026-08-09: `Amber Amulet` 접사
+    풀 82건 중 **32건(39%)**이 여기 해당한다. 등가 문구로 바꿔 `ItemSpec.substitutes`에
+    넣으면 **추산**으로는 잴 수 있다(`skills/build-generation` §대리 측정).
+
     **주얼은 `slot="Jewel@<소켓 node_id>"`로 부른다** — 그 소켓이 build_spec의
     tree_nodes에 할당돼 있어야 PoB가 반영한다. 아니면 델타가 전부 0으로 나오고,
     엔진이 그것을 notes에 '측정 무효' 신호로 낸다(실측 2026-08-06: 0을 '효과 없음'
@@ -322,6 +328,12 @@ def optimize_rare(
         "legality_errors": list(result.legality_errors),
         "floor_violations": list(result.floor_violations),
         "req_shortfall": result.req_shortfall,
+        # PoB가 문구를 못 읽어 **점수를 못 매기는** 접사 (#22). 있으면 이 조립은
+        # 그 축을 뺀 **바닥값**이지 고점이 아니다 — 말하지 않으면 고점으로 읽힌다.
+        "unmeasurable": [
+            {"id": o.label, "type": o.affix_type, "origin": o.origin, "text": o.text}
+            for o in result.unmeasurable
+        ],
         "chosen": [
             {
                 "id": r.option.label,
