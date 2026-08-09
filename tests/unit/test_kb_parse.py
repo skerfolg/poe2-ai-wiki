@@ -30,16 +30,27 @@ def test_engine_internal_phrases_are_not_effect_text() -> None:
         assert not _INTERNAL_PHRASE.fullmatch(line), line
 
 
-def test_no_engine_internal_phrases_left_in_the_kb() -> None:
-    """정본에 남아 있으면 안 된다 — 삭제와 파서 차단이 **둘 다** 걸려야 한다."""
+def test_engine_phrases_are_moved_not_deleted() -> None:
+    """효과 문구에서는 빠지되 **사라지지는 않는다** (사용자 우려 2026-08-09).
+
+    처음엔 지웠는데 재 보니 921종 중 **609종(66%)이 값 1이 아니었다** — 실수치가
+    섞여 있다(`bell shockwave cooldown ms [100]` · `toxic domain mana cost +% [25]`).
+    문제는 **효과 문구인 척** `stats`에 있었던 것이지 존재 자체가 아니었다.
+    """
     from pok.common.paths import knowledge_dir
     from pok.kb.ingest.parse import _INTERNAL_PHRASE
     from pok.kb.store import load
 
+    store = load(knowledge_dir())
     leftovers = [
         (rid, text)
-        for rid, rec in load(knowledge_dir()).records.items()
+        for rid, rec in store.records.items()
         for text in (rec.raw.get("data") or {}).get("stats") or []
         if isinstance(text, str) and _INTERNAL_PHRASE.fullmatch(text.strip())
     ]
-    assert not leftovers, leftovers[:5]
+    assert not leftovers, f"효과 문구에 남아 있다: {leftovers[:5]}"
+
+    moved = sum(
+        len((rec.raw.get("data") or {}).get("engine_stats") or []) for rec in store.records.values()
+    )
+    assert moved > 3000, f"옮긴 줄이 {moved}건 — 지워졌다면 복구할 것"

@@ -43,6 +43,7 @@ _MACHINE_DATA_KEYS = frozenset(
         "implicit_stats",
         "quality_stats",
         "minion_stats",
+        "engine_stats",
         # 부여 스킬 판정 (#4) — 기계 산출이므로 재수집이 갱신해야 한다
         "source",
         "granted_by",
@@ -154,7 +155,7 @@ def _to_record(
     if item.get("description"):
         data["description"] = item["description"]
     # 효과 문구 — 배율·확률이 여기 있다. `description`(산문)만으로는 젬을 고를 수 없다
-    for key in ("stats", "implicit_stats", "quality_stats", "minion_stats"):
+    for key in ("stats", "implicit_stats", "quality_stats", "minion_stats", "engine_stats"):
         if item.get(key):
             data[key] = item[key]
     if item.get("tier") is not None:

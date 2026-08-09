@@ -43,7 +43,21 @@
       "(0 — 30)% chance for Lightning Damage with Hits to be Lucky"
     ],
     "cooldown_s": 0.0,
-    "source": "gem"
+    "source": "gem",
+    "engine_stats": [
+      "base is projectile [1]",
+      "can perform skill while moving [1]",
+      "check for targets between initiator and projectile source [1]",
+      "has modular projectiles enabled [1]",
+      "movement speed +% final while performing action [-70]",
+      "movement speed acceleration +% per second while performing action [160]",
+      "movement speed while performing action locked duration% [50]",
+      "precise cursor targeting uses contact point height offset [1]",
+      "projectile uses contact direction [1]",
+      "projectile uses contact position [1]",
+      "should use additive aiming animation [1]",
+      "skill lightning rod burst delay ms override on damaging lightning rod [100]"
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

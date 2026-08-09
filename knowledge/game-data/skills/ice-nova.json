@@ -45,7 +45,22 @@
       "(0 — 40)% chance to not remove an Infusion but still count as consuming them"
     ],
     "cooldown_s": 0.0,
-    "source": "gem"
+    "source": "gem",
+    "engine_stats": [
+      "active skill consumes a cold infusion [1]",
+      "base skill effect duration [8000]",
+      "can perform skill while moving [1]",
+      "generic knockback +% final at max distance [-90]",
+      "generic knockback +% final at min distance [50]",
+      "generic knockback distance limit [20]",
+      "ice nova number of frost bolts to cast on [1]",
+      "is area damage [1]",
+      "movement speed +% final while performing action [-70]",
+      "movement speed acceleration +% per second while performing action [160]",
+      "movement speed while performing action locked duration% [50]",
+      "base skill show average damage instead of dps [1]",
+      "display statset hide usage stats [1]"
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

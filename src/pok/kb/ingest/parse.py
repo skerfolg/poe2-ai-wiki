@@ -57,6 +57,13 @@ class DetailPage:
     # 있는 값**이 있다. 대신 **누구의 줄인지 실체 이름과 함께** 싣는다:
     # `[{"entity": "Skeletal Frost Mage", "stats": [...]}]`
     minion_stats: list[dict[str, Any]] = field(default_factory=list)
+    # 엔진 내부 문구 — **버리지 않고 옮긴다** (#8-c, 사용자 우려 2026-08-09).
+    # 처음엔 지웠는데 재 보니 921종 중 **609종(66%)이 값 1이 아니었다**: 실수치가
+    # 섞여 있다(`bell shockwave cooldown ms [100]` · `toxic domain mana cost +% [25]` ·
+    # `movement speed +% final while performing action [-70]`). "엔진 내부값"이라
+    # 부르기엔 기전 수치다. 문제는 이것이 **효과 문구인 척** `stats`에 있었던 것이지
+    # 존재 자체가 아니었다 — #8-b가 소환수 스탯에 쓴 방식(버리지 않고 분리)과 같다.
+    engine_stats: list[str] = field(default_factory=list)
 
 
 def _title_name(soup: BeautifulSoup) -> str:
@@ -203,12 +210,8 @@ _MOD_SELECTORS = (
 )
 
 
-def _mod_lines(node: Tag, *, drop_internal_phrases: bool = False) -> list[str]:
-    """모드 div 하나 → 문구 줄들.
-
-    `drop_internal_phrases`는 **플레이어 문구에만** 건다(#8-c). 소환수 카드에 걸면
-    실측상 좀비처럼 **줄이 전부 내부 문구인 실체**가 통째로 사라져 "이 스킬이 무엇을
-    소환하는가"라는 사실까지 잃는다 — 그건 #8-b가 일부러 남긴 것이다.
+def _mod_lines(node: Tag) -> list[str]:
+    """모드 div 하나 → 문구 줄들. **아무것도 버리지 않는다** — 가르는 것은 호출자다.
 
     구분자는 `<br>`다. `get_text("\n")`을 그냥 쓰면 인라인 태그(`<a>`·`<span
     class=mod-value>`)마다 줄이 갈려 `"Supported Skills have / 80 / % more…"`처럼
@@ -222,11 +225,9 @@ def _mod_lines(node: Tag, *, drop_internal_phrases: bool = False) -> list[str]:
         line = " ".join(chunk.split())
         # 수치가 <span>으로 분리돼 "50 %"·"Bleeding , up to" 처럼 벌어진다 — 표기만 정리
         line = re.sub(r"\s+([%,.])", r"\1", line)
-        # 내부 식별자(`receive_bleeding_chance_%_when_hit`)는 어느 쪽이든 문구가 아니다
-        internal = _INTERNAL_ID.fullmatch(line) or (
-            drop_internal_phrases and _INTERNAL_PHRASE.fullmatch(line)
-        )
-        if line and not internal:
+        # 내부 **식별자**(`receive_bleeding_chance_%_when_hit`)만 여기서 버린다 —
+        # 그건 문구도 수치도 아닌 이름뿐이다. 내부 **문구**는 호출자가 갈라 담는다.
+        if line and not _INTERNAL_ID.fullmatch(line):
             out.append(line)
     return out
 
@@ -267,15 +268,21 @@ def _collect_mods(soup: BeautifulSoup, page: DetailPage) -> None:
     블록이 여러 벌 실리는 페이지가 있어(같은 내용 반복) 순서를 지키며 dedup한다.
     """
     blocks = _player_blocks(soup)
+    engine: list[str] = []
     for attr, selector in _MOD_SELECTORS:
         seen: list[str] = []
         for block in blocks:
             for node in block.select(selector):
-                for line in _mod_lines(node, drop_internal_phrases=True):
-                    if line not in seen:
+                for line in _mod_lines(node):
+                    if _INTERNAL_PHRASE.fullmatch(line):
+                        if line not in engine:
+                            engine.append(line)
+                    elif line not in seen:
                         seen.append(line)
         if seen:
             setattr(page, attr, seen)
+    if engine:
+        page.engine_stats = engine
 
 
 def _collect_minion_stats(soup: BeautifulSoup, page: DetailPage) -> None:

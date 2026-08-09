@@ -45,7 +45,24 @@
       "+(0 — 0.4) metres to cloud radius"
     ],
     "cooldown_s": 0.0,
-    "source": "gem"
+    "source": "gem",
+    "engine_stats": [
+      "base is projectile [1]",
+      "can perform skill while moving [1]",
+      "check for targets between initiator and projectile source [1]",
+      "disable visual hit effect [1]",
+      "has modular projectiles enabled [1]",
+      "is area damage [1]",
+      "movement speed +% final while performing action [-70]",
+      "movement speed acceleration +% per second while performing action [160]",
+      "projectile uses contact direction [1]",
+      "projectile uses contact position [1]",
+      "projectiles fire at ground [1]",
+      "should use additive aiming animation [1]",
+      "display skill poisons without hit [1]",
+      "display statset hide usage stats [1]",
+      "display statset no hit damage [1]"
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

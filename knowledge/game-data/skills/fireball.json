@@ -41,7 +41,22 @@
       "+ (0 — 10)% chance to fire 8 additional Projectiles in a circle"
     ],
     "cooldown_s": 0.0,
-    "source": "gem"
+    "source": "gem",
+    "engine_stats": [
+      "active skill consumes a fire infusion [1]",
+      "base is projectile [1]",
+      "can perform skill while moving [1]",
+      "maintain projectile direction when using contact position [1]",
+      "movement speed +% final while performing action [-70]",
+      "movement speed acceleration +% per second while performing action [160]",
+      "movement speed while performing action locked duration% [50]",
+      "precise cursor targeting uses contact point height offset [1]",
+      "projectile maximum range override [120]",
+      "projectile uses contact position [1]",
+      "should use additive aiming animation [1]",
+      "is area damage [1]",
+      "projectile maximum range override [60]"
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

@@ -40,7 +40,19 @@
       "Break Armour equal to (0 — 40)% of Physical damage dealt"
     ],
     "cooldown_s": 0.0,
-    "source": "gem"
+    "source": "gem",
+    "engine_stats": [
+      "attack maximum action distance + [20]",
+      "base deal no damage [1]",
+      "base skill show average damage instead of dps [1]",
+      "cascade aftershock additional offset distance [10]",
+      "console do not cancel from turn angle [1]",
+      "dps display statset index [1]",
+      "is area damage [1]",
+      "melee conditional step distance [15]",
+      "totemified rolling slam attack maximum action distance + [36]",
+      "display statset hide usage stats [1]"
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [
