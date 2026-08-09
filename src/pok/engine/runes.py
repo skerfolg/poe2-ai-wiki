@@ -128,6 +128,34 @@ def render_runed(item_text: str, runes: Sequence[RuneOption]) -> str:
     return "\n".join([*lines, *body])
 
 
+def needs_rune_declaration(item_text: str) -> tuple[str, ...]:
+    """`{rune}` 줄이 있는데 선언이 빠졌는가 — **조용한 과소 계상**의 조건.
+
+    `render_runed`를 쓰라는 규율은 문서에만 있어서 강제력이 없었다(철칙 5). 손으로 적은
+    텍스트는 여기서 잡는다 — PoB는 `Sockets:`/`Rune:`이 있어야 `augmentType == "Rune"`을
+    붙이고, 그때만 `socketedRuneEffectModifier`를 곱한다. 없으면 오류 없이 **3.00배**
+    적게 계산된다(실측 2026-08-09: Δ+26.5 vs +79.4).
+
+    반경 주얼(`jewels.needs_radius_declaration`)과 **같은 계열**이라 같은 자리에서 낸다.
+    """
+    lines = item_text.splitlines()
+    seeds = [ln for ln in lines if ln.lstrip().lower().startswith("{rune}")]
+    if not seeds:
+        return ()
+    missing = [
+        label
+        for label, prefix in (("`Sockets:`", "sockets:"), ("`Rune:`", "rune:"))
+        if not any(ln.lstrip().lower().startswith(prefix) for ln in lines)
+    ]
+    if not missing:
+        return ()
+    return (
+        f"`{{rune}}` 줄 {len(seeds)}건이 있는데 {' · '.join(missing)} 선언이 없다 — PoB가 "
+        "룬으로 인식하지 못해 **증폭이 조용히 빠진다**(실측 3.00배). 손으로 적지 말고 "
+        "`engine.runes.render_runed`로 조립할 것",
+    )
+
+
 def check_rune_rules(runes: Sequence[RuneOption]) -> tuple[str, ...]:
     """장착 조합이 규칙을 지키는가 (사용자 확인 2026-08-09).
 

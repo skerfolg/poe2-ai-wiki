@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from pok.engine.jewels import RADIUS_LABELS, needs_radius_declaration
+from pok.engine.runes import needs_rune_declaration
 from pok.kb.store import load as store_load
 
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
@@ -235,6 +236,8 @@ class ItemLegalityChecker:
                 f"**아무 노드도 안 걸리고 델타가 0이 된다**. {list(RADIUS_LABELS)} 중 그 "
                 "주얼의 실제 반경을 적을 것(engine.jewels.render_radius_jewel)"
             )
+        # 룬도 같은 계열이다 — 선언이 없으면 모드는 들어가고 **증폭만** 빠진다(3.00배).
+        errors.extend(needs_rune_declaration(item_text))
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
 
     def _rune_hint(self, mod_lines: list[str]) -> list[str]:

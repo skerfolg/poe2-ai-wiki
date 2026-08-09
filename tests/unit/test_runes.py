@@ -13,6 +13,7 @@ from pok.engine.runes import (
     RuneOption,
     check_rune_rules,
     enumerate_slot_runes,
+    needs_rune_declaration,
     optimize_runes,
     render_runed,
 )
@@ -39,6 +40,29 @@ def test_render_emits_declaration_form_not_bare_rune_lines() -> None:
     assert "Sockets: S S" in lines, "소켓 선언이 없으면 augmentType이 안 붙는다"
     assert lines.count("Rune: Greater Iron Rune") == 2, "칸마다 선언이 있어야 한다"
     assert "{rune}30% increased Spell Damage" in lines, "시드 줄이 없으면 델타가 0이다"
+
+
+def test_hand_written_rune_lines_are_flagged() -> None:
+    """「`render_runed`를 쓰라」는 **문서 규율이라 안 지켜졌다** — 검사기가 잡는다(철칙 5).
+
+    선언이 없으면 모드는 들어가고 증폭만 빠져 **오류 없이 3.00배** 적게 계산된다.
+    """
+    hand = f"{_BASE}\n{{rune}}30% increased Spell Damage"
+    assert needs_rune_declaration(hand), "손기입이 통과하면 규율에 강제가 없는 것이다"
+    assert "3.00배" in needs_rune_declaration(hand)[0]
+    assert needs_rune_declaration(f"{_BASE}\nRune: Greater Iron Rune\n{{rune}}30% x"), (
+        "`Sockets:` 없이 `Rune:`만으로는 augmentType이 안 붙는다"
+    )
+
+
+def test_declared_and_runeless_items_pass() -> None:
+    """게이트는 **양방향**으로 잠근다 — 정상을 막으면 신호가 죽는다(§0 ⑤).
+
+    `render_runed` 산출물과 룬이 없는 아이템은 아무 말도 하지 않아야 한다.
+    """
+    rune = RuneOption("modifier.x", "Greater Iron Rune", ("30% increased Spell Damage",))
+    assert needs_rune_declaration(render_runed(_BASE, [rune, rune])) == ()
+    assert needs_rune_declaration(_BASE) == ()
 
 
 def test_render_replaces_existing_socket_line() -> None:

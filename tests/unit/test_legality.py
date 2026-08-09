@@ -491,12 +491,24 @@ Implicits: 0
     plain = checker.check(full + "\n+12% to Fire Resistance")
     assert not plain.is_legal
     assert any("{rune}" in e for e in plain.errors), "원인이 룬이라는 단서를 줘야 한다"
-    tagged = checker.check(full + "\n{rune}+12% to Fire Resistance")
+    tagged = checker.check(
+        full + "\nSockets: S\nRune: Greater Body Rune\n{rune}+12% to Fire Resistance"
+    )
     assert tagged.is_legal, "룬 표기하면 접사 칸 밖 — 한도에 안 걸린다"
 
 
-def _wand(*mods: str, sockets: str = "S S S S S", extra: str = "") -> str:
+def _wand(
+    *mods: str, sockets: str = "S S S S S", extra: str = "", declare_runes: bool = True
+) -> str:
+    """완드 하나. `{rune}` 줄이 있으면 **선언도 함께** 낸다(그게 정상 표기다).
+
+    실측 2026-08-09(`Greater Body Rune` 2개 · 룬 효과 +200%): `Sockets:`+`Rune:`+시드가
+    **ES +300**, `Rune:`이 빠지면 +100(**3배 과소**), `Sockets:`가 빠지면 **+0**이다.
+    `declare_runes=False`는 그 결함 자체를 시험할 때만 쓴다.
+    """
     lines = ["Rarity: RARE", "Probe", "Attuned Wand", "Item Level: 80"]
+    if declare_runes and any(m.lstrip().startswith("{rune}") for m in mods):
+        lines += ["Rune: Greater Iron Rune"]
     if sockets:
         lines.append(f"Sockets: {sockets}")
     if extra:
@@ -557,11 +569,18 @@ def test_rune_value_must_be_explained_by_sockets_and_effect() -> None:
 
 
 def test_unknown_socket_count_withholds_judgement() -> None:
-    """모르는 것을 위반이라 말하지 않는다 — 소켓 선언이 없으면 판정을 보류한다."""
+    """모르는 것을 위반이라 말하지 않는다 — 소켓 선언이 없으면 **값 판정을** 보류한다.
+
+    ⚠ 보류하는 것은 값이지 **선언 누락 자체가 아니다.** 실측 2026-08-09: `Sockets:`가
+    없으면 룬 줄이 통째로 빠져 Δ가 **0**이 된다 — 그건 모르는 게 아니라 아는 결함이다.
+    """
     from pok.common.paths import knowledge_dir
     from pok.engine.legality import ItemLegalityChecker
 
     report = ItemLegalityChecker(knowledge_dir()).check(
         _wand("{rune}900% increased Spell Damage", sockets="")
     )
-    assert report.is_legal, "소켓 수를 모르면 상한을 계산할 수 없다"
+    assert not [v for v in report.verdicts if v.status == "ILLEGAL"], (
+        "소켓 수를 모르면 상한을 계산할 수 없다"
+    )
+    assert any("Sockets:" in e for e in report.errors), "선언 누락은 구조 오류로 낸다"
