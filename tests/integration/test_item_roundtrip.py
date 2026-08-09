@@ -130,3 +130,92 @@ def test_spec_alone_reproduces_the_users_own_item() -> None:
     assert any(ln.startswith("Energy Shield:") for ln in built), built
     assert "Prefix: None" in built, "빈 접사 칸도 PoB가 쓴다"
     assert "Rune: None" in built, "빈 소켓도 PoB가 쓴다"
+
+
+def test_custom_mods_survive_and_are_told_apart() -> None:
+    """커스텀 데이터가 **커스텀으로** 들어가는가 (사용자 요청 2026-08-09).
+
+    사용자 정본 목걸이에 `{custom}+7% to Fire Spell Critical Hit Chance`가 있다.
+    `Craft()`는 `explicitModLines`를 통째로 지우지만 **`custom` 표식은 보존한다**
+    (L1698) — 그래서 명세만 줘도 살아남는다.
+    """
+    from pok.pob.roundtrip import build_items
+
+    spec = "\n".join(
+        [
+            "Rarity: RARE",
+            "New Item",
+            "Lapis Amulet",
+            "Crafted: true",
+            "Prefix: {range:1}SpellDamage6",
+            "Catalyst: Sibilant",
+            "CatalystQuality: 40",
+            "LevelReq: 61",
+            "{custom}+7% to Fire Spell Critical Hit Chance",
+        ]
+    )
+    built = build_items({"목걸이": spec})["목걸이"]
+    assert "{custom}+7% to Fire Spell Critical Hit Chance" in built, built
+
+
+def test_catalyst_scales_exactly_like_the_users_file() -> None:
+    """촉매가 접사 수치를 올린다 — `Craft()`의 `getCatalystScalar`(#34 C).
+
+    사용자 정본에 같은 목걸이가 촉매 20/40 두 벌 있어 대조가 된다:
+    20 → `36% increased Spell Damage`·`+3 to Level` / 40 → `42%`·`+4`.
+    """
+    from pok.pob.roundtrip import build_items
+
+    base = [
+        "Rarity: RARE",
+        "New Item",
+        "Lapis Amulet",
+        "Crafted: true",
+        "Prefix: {range:1}SpellDamage6",
+        "Suffix: {range:1}GlobalSpellGemsLevel3",
+        "Catalyst: Sibilant",
+        "LevelReq: 61",
+    ]
+    built = build_items({str(q): "\n".join([*base, f"CatalystQuality: {q}"]) for q in (20, 40)})
+    assert "36% increased Spell Damage" in built["20"], built["20"]
+    assert "+3 to Level of all Spell Skills" in built["20"]
+    assert "42% increased Spell Damage" in built["40"], built["40"]
+    assert "+4 to Level of all Spell Skills" in built["40"]
+
+
+def test_the_checker_accepts_its_own_generated_item() -> None:
+    """수용 기준 3 — 검사기가 **자기 도구의 출력**을 통과시킨다 (#34).
+
+    처음엔 못 했다. 실측 2026-08-09에 셋이 걸렸다:
+    ① `BuildRaw`의 스펙 줄 10종이 모드로 오독됨(#30 계열, 목록이 부족했다)
+    ② 촉매로 오른 수치를 "티어 범위 밖"으로 거부 — 검사기가 촉매를 몰랐다
+    ③ PoB 정본에는 `Item Level:`이 **없어서**(`LevelReq:`만 있다) ilvl을 1로 보고
+      고티어 접사를 전부 거부
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.engine.legality import ItemLegalityChecker
+    from pok.pob.roundtrip import build_items
+
+    spec = "\n".join(
+        [
+            "Rarity: RARE",
+            "New Item",
+            "Lapis Amulet",
+            "Crafted: true",
+            "Prefix: {range:1}IncreasedEvasionRatingPercent7",
+            "Prefix: {range:1}SpellDamage6",
+            "Suffix: {range:1}GlobalSpellGemsLevel3",
+            "Suffix: {range:1}CriticalMultiplier6",
+            "Catalyst: Sibilant",
+            "CatalystQuality: 40",
+            "LevelReq: 61",
+            "{custom}+7% to Fire Spell Critical Hit Chance",
+        ]
+    )
+    report = ItemLegalityChecker(knowledge_dir()).check(build_items({"a": spec})["a"])
+    assert report.is_legal, [
+        (v.status, v.line, v.reason[:120]) for v in report.verdicts if v.status != "LEGAL"
+    ] + list(report.errors)
+    custom = next(v for v in report.verdicts if "{custom}" in v.line)
+    assert custom.status == "CONDITIONAL", "커스텀은 미수록(UNKNOWN)과 다르다"
+    assert "실재한다" in custom.reason, "KB에 있는 모드면 그걸 쓰라고 말해야 한다"
