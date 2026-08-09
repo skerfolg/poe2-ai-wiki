@@ -38,11 +38,40 @@ def test_locked_nodes_pass_for_the_owning_ascendancy() -> None:
     assert check_locked_nodes(ORACLE_ONLY, "Oracle") == ()
 
 
-def test_ascendancy_entry_requires_start_node() -> None:
-    """어센던시 노드를 찍었으면 시작 노드도 있어야 한다."""
-    assert check_ascendancy_entry([SANGUIMANCY]) != ""
+def test_ascendancy_entry_is_reachability_not_list_membership() -> None:
+    """어센던시 노드는 **시작 노드에서 닿으면** 된다 — 목록에 있을 필요는 없다 (#26).
+
+    옛 판정식("시작 노드가 `tree_nodes`에 있는가")은 PoB 모델과 어긋나 **어느 쪽으로도
+    통과할 수 없었다**: PoB는 시작 노드를 스스로 배정하고 포인트로 세지 않으므로
+    목록에 넣으면 `pruned_nodes`에 잡혀 **비연결로 거부**되고, 빼면 이 검사가 거부했다.
+    실측 2026-08-09(Witch1): 빼면 이 검사가 거부 / 넣으면 `pruned=(32699,)`.
+    **어센던시 빌드를 하나도 조립할 수 없었다.**
+
+    아래 첫 줄이 그 교착의 회귀다 — 옛 코드에서는 이것이 거부였다.
+    """
+    # 시작 노드를 안 적어도 통과해야 한다 (혈액술은 시작 노드에 인접)
+    assert check_ascendancy_entry([SANGUIMANCY]) == ""
+    # 적어도 통과한다 — 적는 것이 틀린 건 아니다(PoB가 무시할 뿐)
     assert check_ascendancy_entry([SANGUIMANCY, BLOOD_MAGE_START]) == ""
     assert check_ascendancy_entry([]) == ""
+
+
+def test_ascendancy_node_unreachable_from_start_is_rejected() -> None:
+    """게이트는 살아 있어야 한다 — **할당한 노드만 밟아** 못 닿으면 거부."""
+    from pok.common.paths import knowledge_dir
+    from pok.engine.tree.graph import TreeGraph
+
+    graph = TreeGraph(knowledge_dir())
+    start_adjacent = graph.adj[BLOOD_MAGE_START]
+    stranded = next(
+        node_id
+        for node_id, node in graph.nodes.items()
+        if node.ascendancy == graph.nodes[BLOOD_MAGE_START].ascendancy
+        and node.kind != "ascendancy-start"
+        and node_id not in start_adjacent
+    )
+    reason = check_ascendancy_entry([stranded])
+    assert "닿지 않는다" in reason, reason
 
 
 def test_ungrounded_config_is_flagged_grounded_is_not() -> None:
@@ -79,7 +108,9 @@ def test_report_blocks_only_on_real_impossibilities() -> None:
             "config": {"multiplierWitheredStackCountSelf": 15},
         }
     )
-    assert len(bad.blocking) == 3, "해금 불가 + 어센던시 진입 + 근거 없는 config"
+    # #26 전에는 3건이었다 — 「어센던시 진입」이 함께 걸렸기 때문이다. 그런데 혈액술은
+    # 시작 노드에 **인접**해 실제로 찍을 수 있는 배치라, 그 차단이 오거부였다.
+    assert len(bad.blocking) == 2, "해금 불가 + 근거 없는 config (어센던시 진입은 정상 배치)"
     clean = check_assumptions(
         {
             "class_name": "Witch",
