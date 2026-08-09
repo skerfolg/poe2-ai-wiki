@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
+from pok.engine.jewels import RADIUS_LABELS, needs_radius_declaration
 from pok.kb.store import load as store_load
 
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
@@ -225,6 +226,15 @@ class ItemLegalityChecker:
             cap_errors = True
         if cap_errors:
             errors.extend(self._rune_hint(mod_lines))
+        # 반경 부여 줄이 있는데 `Radius:` 선언이 없으면 **조용히 0**이 된다(제안 B).
+        # 실측 2026-08-09: 선언 없이는 반경 내 노터블 6개에도 Δ0, `Radius: Very Large`면
+        # CritChance 10.44 → 15.84. 오류가 아니라 과소 계상이라 아무도 모른다.
+        if needs_radius_declaration(item_text):
+            errors.append(
+                "반경 부여 줄이 있는데 `Radius:` 선언이 없다 — PoB가 반경을 정하지 못해 "
+                f"**아무 노드도 안 걸리고 델타가 0이 된다**. {list(RADIUS_LABELS)} 중 그 "
+                "주얼의 실제 반경을 적을 것(engine.jewels.render_radius_jewel)"
+            )
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
 
     def _rune_hint(self, mod_lines: list[str]) -> list[str]:

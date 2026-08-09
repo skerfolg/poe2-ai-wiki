@@ -13,8 +13,12 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+import math
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
+from pok.engine.tree.clusters import Cluster, find_clusters
 from pok.engine.tree.deltas import NodeDelta, evaluate_node_deltas
 from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import BuildSpec, JewelSpec
@@ -79,6 +83,10 @@ class OptimizeResult:
     steps: tuple[Step, ...]  # 채택 순서대로 (각각 델타 근거)
     pruned: tuple[Pruned, ...]  # 가지치기로 회수된 죽은 노드들
     rejected_rounds: int  # 양의 점수 후보가 없어 중단됐으면 1
+    # 후보 반경 **밖**의 관련 노터블 뭉치 — 그리디는 구조적으로 못 본다(제안 A).
+    # `cluster_include`를 줘야 채워진다(관련성 필터 없는 밀집도는 쓰레기라서).
+    far_clusters: tuple[Cluster, ...] = ()
+    notes: tuple[str, ...] = ()
 
     @property
     def wasted_points(self) -> int:
@@ -109,6 +117,13 @@ class OptimizeResult:
         return tuple(out)
 
 
+def _with_free_zones(
+    candidates: Iterable[tuple[int, Any, int]], cost: Callable[[int, int], int]
+) -> list[tuple[int, Any, int]]:
+    """후보의 거리(=포인트 비용)를 비연결 영역 규칙으로 다시 매긴다 (제안 A)."""
+    return [(nid, meta, cost(nid, dist)) for nid, meta, dist in candidates]
+
+
 def optimize_tree(
     spec: BuildSpec,
     graph: TreeGraph,
@@ -120,6 +135,9 @@ def optimize_tree(
     stats: tuple[str, ...] | None = None,
     jewel_templates: tuple[str, ...] = (),
     exclude_nodes: tuple[int, ...] = (),
+    unconnected_regions: tuple[Mapping[str, Any], ...] = (),
+    cluster_include: tuple[tuple[str, float], ...] = (),
+    cluster_exclude: tuple[str, ...] = (),
 ) -> OptimizeResult:
     """포인트 예산 안에서 정책 점수가 양수인 최선 수를 반복 채택한다.
 
@@ -136,6 +154,21 @@ def optimize_tree(
     pruned: list[Pruned] = []
     # 죽음이 실증된 끝단(재채택 금지 — 종료 보장) + 호출자가 설계 판단으로 뺀 노드
     banned: set[int] = set(exclude_nodes)
+    free_zones = [
+        ((float(r["center"][0]), float(r["center"][1])), float(r["radius"]))
+        for r in unconnected_regions
+    ]
+
+    def reachable_cost(node_id: int, walked: int) -> int:
+        """비연결 주얼이 덮는 원 안이면 통행 비용이 없다 — 자기 1포인트만."""
+        node = graph.nodes.get(node_id)
+        if node is None or node.position is None or not free_zones:
+            return walked
+        for center, radius in free_zones:
+            if math.dist(center, node.position) <= radius:
+                return 1
+        return walked
+
     current = spec
     budget = point_budget
     rejected = 0
@@ -148,13 +181,16 @@ def optimize_tree(
                 tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
                 cands = [
                     nid
-                    for nid, _, d in graph.candidates(
-                        tree_now,
-                        max_dist=candidate_radius,
-                        # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
-                        # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
-                        # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
-                        ascendancy_name=current.ascendancy,
+                    for nid, _, d in _with_free_zones(
+                        graph.candidates(
+                            tree_now,
+                            max_dist=candidate_radius,
+                            # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
+                            # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
+                            # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
+                            ascendancy_name=current.ascendancy,
+                        ),
+                        reachable_cost,
                     )
                     if d <= budget and nid not in banned
                 ][:max_candidates_per_round]
@@ -209,7 +245,54 @@ def optimize_tree(
         best_solution = _better(objective, best_solution, (current, final))
         assert best_solution is not None
         current, final = best_solution
-    return OptimizeResult(current, final, tuple(steps), tuple(pruned), rejected_rounds=rejected)
+    # 후보 반경 **밖**의 뭉치를 함께 낸다 — 그리디가 구조적으로 못 보는 것이다(제안 A).
+    far, notes = _scan_far_clusters(
+        graph, current, cluster_include, cluster_exclude, candidate_radius
+    )
+    return OptimizeResult(
+        current,
+        final,
+        tuple(steps),
+        tuple(pruned),
+        rejected_rounds=rejected,
+        far_clusters=far,
+        notes=notes,
+    )
+
+
+def _scan_far_clusters(
+    graph: TreeGraph,
+    spec: BuildSpec,
+    include: tuple[tuple[str, float], ...],
+    exclude: tuple[str, ...],
+    candidate_radius: int,
+) -> tuple[tuple[Cluster, ...], tuple[str, ...]]:
+    """지금 트리에서 **닿지 않는** 관련 뭉치만 남긴다.
+
+    반경 안의 것은 그리디가 이미 봤다 — 그걸 또 실으면 신호가 묽어진다.
+    `include`가 없으면 **스캔하지 않고 그 사실을 말한다**: 관련성 필터 없는 밀집도는
+    쓰레기라서(실측: 반경 1000의 노터블 9개 중 3개가 도리깨 노드) 기본값을 지어내면
+    안 된다.
+    """
+    if not include:
+        return (), (
+            "밀집도 스캔 안 함 — `cluster_include`를 주면 **후보 반경 밖**의 관련 노터블 "
+            "뭉치를 `far_clusters`로 함께 낸다. 그리디는 반경 안만 보므로 먼 뭉치는 "
+            "구조적으로 못 본다(실측: 예산 87에 43포인트 조기 종료, 병목을 푸는 노터블이 "
+            "전부 반경 밖이었다)",
+        )
+    tree_now = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
+    near = {nid for nid, _, _ in graph.candidates(tree_now, max_dist=candidate_radius)}
+    clusters = find_clusters(
+        graph,
+        include=include,
+        exclude=exclude,
+        for_ascendancy=spec.ascendancy,
+    )
+    far = tuple(c for c in clusters if not all(h.node_id in near for h in c.hits))
+    if not far:
+        return (), ("밀집도 스캔: 후보 반경 밖에 관련 뭉치 없음 — 그리디가 이미 다 보고 있다",)
+    return far, ()
 
 
 _PRUNE_EPS = 1e-6  # PoB는 결정적 — 죽은 노드의 제거 델타는 정확히 0
