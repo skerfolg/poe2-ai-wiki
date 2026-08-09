@@ -356,3 +356,54 @@ def optimize_rare(
         "table_size": len(result.table),
         "notes": list(result.notes),
     }
+
+
+def optimize_runes(
+    build_spec: dict[str, Any],
+    slot: str,
+    weights: dict[str, float],
+    sockets: int,
+    exclude_legacy: bool = False,
+) -> dict[str, Any]:
+    """슬롯의 **룬 칸을 실측 그리디로 채운다** (백로그 #33).
+
+    룬은 이 프로젝트에서 **두 번** 통째로 빠졌다 — 16칸 0% 사용으로 검사 5종을 통과했고
+    (나중에 채우자 DPS +37~47%), 21칸을 채우자 **IgniteDPS +69.6%**였다.
+    `check_constraints(exhaustion.sockets)`는 미사용을 **보고만** 하고 채워 주지 않는다.
+
+    ⚠ **반환 `text`를 그대로 쓸 것.** 룬을 손으로 `{rune}` 줄만 적으면 모드는 들어가고
+    **증폭이 조용히 빠진다** — PoB는 `Sockets:`/`Rune:` 선언을 읽어야
+    `socketedRuneEffectModifier`를 곱한다(`Item.lua:2192-2209`). 실측 2026-08-09
+    (룬 효과 +200% 완드): 손기입 Δ+26.5 vs 선언 형식 Δ+79.4 — **3.00배**.
+
+    규칙(사용자 확인): 유산은 **전 장비 통틀어 1개**(다른 슬롯이 이미 썼으면
+    `exclude_legacy=True`) · 고유명은 같은 이름 1개 · 일반(Lesser/Greater/Perfect)은 중복 가능.
+
+    `measured`는 룬별 단독 델타 **전량**이다(절단 없음) — 0인 것들이 대부분이라
+    "이 부위엔 쓸 룬이 없다"도 근거로 남는다.
+    """
+    from pok.engine.runes import optimize_runes as _optimize
+
+    fill = _optimize(
+        build_spec,
+        slot,
+        weights,
+        sockets=sockets,
+        exclude_legacy=exclude_legacy,
+    )
+    if fill is None:
+        return {
+            "filled": False,
+            "why": (
+                f"{slot}: 룬 후보가 없거나 소켓이 0이다 — 슬롯에 아이템이 있는지, "
+                f"sockets를 줬는지 확인할 것"
+            ),
+        }
+    return {
+        "filled": True,
+        "slot": fill.slot,
+        "chosen": [{"id": r.label, "name": r.name, "lines": list(r.lines)} for r in fill.chosen],
+        "text": fill.text,
+        "delta": fill.delta,
+        "measured": [{"id": rid, "delta": d} for rid, d in fill.measured],
+    }
