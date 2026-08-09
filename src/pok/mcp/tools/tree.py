@@ -537,3 +537,48 @@ def find_clusters(
             for c in clusters
         ]
     }
+
+
+def list_implicits(base_type: str, root_dir: str | None = None) -> dict[str, Any]:
+    """베이스가 가질 수 있는 **임플리싯 경로** 전량 (백로그 #22).
+
+    `optimize_rare`는 접사 풀만 열거하므로 임플리싯 축이 **구조적으로 안 보인다** —
+    사용자가 짚은 「에센스로 최대 퀄리티 +20% → 기폭제로 40% → 옵션 교체」의 부품이
+    전부 임플리싯이라 후보에 오르지 못했다.
+
+    ⚠ **값을 재 주지 않는다.** 실측 2026-08-09: `+20% to Maximum Quality`는 PoB가
+    문구 자체를 못 읽는다(`pob_measurable: false`). 그런 후보의 델타 0은 "값어치
+    없음"이 아니라 **"측정 안 됨"**이다 — 대리 측정은 `ItemSpec.substitutes`로.
+
+    ⚠ `slot_certain: false`는 **이 슬롯 것인지 확실하지 않다**는 뜻이다(임플리싯
+    Modifier 264건 전부 `applicable_pages`가 비어 있어 `pob_key` 이름이 유일한
+    신호다). 빼지 않고 뒤로 미뤄 둔다 — 빼면 조용한 누락이 된다.
+    """
+    from pathlib import Path
+
+    from pok.engine.implicits import (
+        enumerate_implicits,
+        load_records,
+        uncertain_note,
+        unmeasurable_note,
+    )
+
+    root = Path(root_dir) if root_dir else None
+    options = enumerate_implicits(base_type, load_records(root))
+    notes = [n for n in (uncertain_note(options), unmeasurable_note(options)) if n]
+    return {
+        "base_type": base_type,
+        "options": [
+            {
+                "source": o.source,
+                "label": o.label,
+                "lines": list(o.lines),
+                "slot_certain": o.slot_certain,
+                "pob_measurable": o.pob_measurable,
+                **({"pob_gap": o.pob_gap} if o.pob_gap else {}),
+            }
+            for o in options
+        ],
+        "certain_count": sum(1 for o in options if o.slot_certain),
+        "notes": notes,
+    }

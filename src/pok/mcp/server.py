@@ -457,6 +457,7 @@ evaluate_bundles = tool(_tree.evaluate_bundles)
 evaluate_change_bundle = tool(_tree.evaluate_change_bundle)
 optimize_items = tool(_tree.optimize_items)
 optimize_rare = tool(_tree.optimize_rare)
+list_implicits = tool(_tree.list_implicits)
 optimize_runes = tool(_tree.optimize_runes)
 find_clusters = tool(_tree.find_clusters)
 
