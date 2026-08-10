@@ -664,3 +664,36 @@ def test_base_implicit_is_not_judged_as_an_affix(checker: ItemLegalityChecker) -
     inflated = checker.check(head + "40% increased Cast Speed\nHas 1 Charm Slot\n")
     assert not inflated.is_legal
     assert any("임플리싯 범위 밖" in v.reason for v in inflated.verdicts)
+
+
+def test_range_notation_does_not_crash_the_checker(checker: ItemLegalityChecker) -> None:
+    """범위 표기 `(5-7)`이 검사기를 통째로 죽였다 (백로그 #56 수정의 회귀, 2026-08-10).
+
+    `_NUM`이 `(a-b)`를 토큰 하나로 잡는데 그대로 `float()`에 넘겼다. 유니크·임플리싯
+    텍스트에선 범위 표기가 **정상 형태**라 흔하고, 경로가
+    `compute_pob → _items_legal → check`이라 **모든 측정이 같이 죽었다.**
+    """
+    text = "Rarity: RARE\nX\nStellar Amulet\nItem Level: 80\n{range:0.5}+(5-7) to all Attributes\n"
+    report = checker.check(text)  # 터지지 않는 것 자체가 이 테스트의 핵심
+    assert report.is_legal
+
+
+def test_a_broken_note_never_kills_the_verdict() -> None:
+    """사유에 덧붙이는 **참고 문구**의 실패는 참고 문구만 잃어야 한다 (§0 ⑤).
+
+    원인(범위 표기)은 고쳤지만 구조가 틀렸다 — 부가 정보가 판정을 죽이면 안 된다.
+    """
+    from pok.engine.legality import _rune_value_note
+
+    assert _rune_value_note("+(a-b) to X", {"data": {"per_slot": None}}) == ""
+    assert _rune_value_note("+40 to Intelligence", {"data": None}) == ""
+
+
+def test_decorated_rune_line_matches_on_uniques(checker: ItemLegalityChecker) -> None:
+    """`{rune}`만 벗기고 `{range:…}`는 안 벗겨 유니크에서 여전히 UNKNOWN이 났다."""
+    text = (
+        "Rarity: UNIQUE\nThe Unborn Lich\nStellar Amulet\nItem Level: 82\n"
+        "{range:0.5}+(10-15) to Intelligence\n70% increased Desecrated Modifier magnitudes\n"
+    )
+    report = checker.check(text)
+    assert report.is_legal, [(v.status, v.line) for v in report.verdicts]

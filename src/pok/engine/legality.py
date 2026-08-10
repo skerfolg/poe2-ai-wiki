@@ -232,6 +232,17 @@ def _rune_value_note(line: str, rune: dict[str, Any]) -> str:
     운용이라 소켓 수를 알아야 상한이 정해진다(그 판정은 `_rune_value_verdict`가
     `{rune}` 표기 경로에서 한다). 여기선 **사실을 보이고 필요한 칸 수를 준다.**
     """
+    try:
+        return _rune_value_note_inner(line, rune)
+    except (ValueError, TypeError, ArithmeticError):
+        # ⛔ **주석 하나가 검사 전체를 죽이면 안 된다** — 이 함수는 사유에 덧붙이는
+        # 참고 문구일 뿐인데, 파싱이 터지자 `compute_pob`이 통째로 죽어 한 세션의
+        # 측정이 막혔다(실측 2026-08-10: `(5-7)` 범위 표기). 원인은 고쳤지만
+        # **구조가 틀렸다**: 부가 정보의 실패는 부가 정보만 잃어야 한다(§0 ⑤).
+        return ""
+
+
+def _rune_value_note_inner(line: str, rune: dict[str, Any]) -> str:
     written = _magnitudes(line)
     per_slot = (rune.get("data") or {}).get("per_slot") or {}
     values: dict[str, float] = {}
@@ -522,7 +533,7 @@ class ItemLegalityChecker:
         쪽이 거부당한 것이다. 그래서 한 회차가 **룬 4칸을 비워 뒀다**(#33이 그 축을
         DPS +69.6%로 재 뒀는데도). 금지하려면 대안 경로가 통해야 한다(철칙 5 따름정리).
         """
-        line = _RUNE_PREFIX.sub("", line, count=1).strip()
+        line = _MOD_DECORATION.sub("", _RUNE_PREFIX.sub("", line, count=1)).strip()
         for cand in self._mods.get(_norm(line), []):
             if "rune" in (cand.get("data") or {}).get("origins", []):
                 return LineVerdict(
