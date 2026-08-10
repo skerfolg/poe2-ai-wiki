@@ -462,11 +462,25 @@ ComputeFn = Callable[[dict[str, Any]], dict[str, float]]
 
 
 def _default_compute() -> ComputeFn:
-    from pok.engine.compute import compute_pob as _compute
+    """측정 함수 — **상주 데몬 우선**, 없으면 1회성 경로 (백로그 #61, 2026-08-11).
+
+    1회성 경로는 호출마다 luajit을 새로 띄워 **1.82초**가 든다. `optimize_items`는
+    8슬롯 2라운드에 유니크만 606회를 재므로 그것만으로 **18.4분**이고, 탐침 2판과
+    연쇄까지 더하면 30분을 넘는다. 부모 프로세스는 자식을 기다리며 CPU 0%로 보이고
+    출력도 없어서 — 실제로 한 세션이 29분 46초 만에 **정지로 판단해 강제 종료**했다.
+    데몬은 같은 계산이 **0.173초**다(실측 20회 평균, 10.5배).
+    """
     from pok.pob.buildxml import spec_from_dict
+    from pok.pob.daemon import shared_daemon
 
     def run(spec: dict[str, Any]) -> dict[str, float]:
-        return dict(_compute(spec_from_dict(spec)).stats)
+        parsed = spec_from_dict(spec)
+        daemon = shared_daemon()
+        if daemon is not None:
+            return dict(daemon.compute_build(parsed).stats)
+        from pok.engine.compute import compute_pob as _compute
+
+        return dict(_compute(parsed).stats)
 
     return run
 
@@ -577,6 +591,7 @@ def optimize_items(
     max_chain_measures_per_round: int = 10,
     root: Path | None = None,
     compute: ComputeFn | None = None,
+    progress: Callable[[int], None] | None = None,
 ) -> ItemOptimizeResult:
     """슬롯들을 그리디로 개선한다 — `optimize_tree`의 아이템판.
 
@@ -603,7 +618,20 @@ def optimize_items(
     # 주므로 축을 더 담는 비용은 0이고, 안 담으면 "딜 0 · 방어 양수"를 판정할 근거
     # 자체가 없다(#18: 딜 위주 weights에서 방어 유니크가 통째로 안 보인 원인).
     measure = tuple(dict.fromkeys((*(stats or tuple(weights)), *_DEFENSIVE_AXES)))
-    run = compute or _default_compute()
+    # 실측 횟수를 센다 — **규모가 안 보이면 느린 것과 죽은 것을 구분할 수 없다**
+    # (백로그 #61). 실측 2026-08-11: 8슬롯 2라운드가 606회 이상인데 출력이 하나도
+    # 없어 한 세션이 29분 46초 만에 정지로 판단하고 강제 종료했다. `progress`를 주면
+    # 매 측정마다 부르고, 안 줘도 총 횟수는 노트로 나간다.
+    _inner = compute or _default_compute()
+    measured_count = 0
+
+    def run(spec_now: dict[str, Any]) -> dict[str, float]:
+        nonlocal measured_count
+        measured_count += 1
+        if progress is not None:
+            progress(measured_count)
+        return _inner(spec_now)
+
     current = dict(spec)
     steps: list[ItemStep] = []
     peaks: dict[str, CandidateResult] = {}
@@ -793,6 +821,12 @@ def optimize_items(
         axes, truncated = unscored_axes(probe, base_now, weights, already_reported=_DEFENSIVE_AXES)
         if truncated:
             note(truncated)
+    # 규모를 **결과에 남긴다** — 다음 호출자가 "얼마나 걸릴 일인지"를 알아야
+    # 30분을 기다리다 죽었다고 판단하지 않는다(#61).
+    note(
+        f"PoB 실측 {measured_count}회 — 상주 데몬이면 1회 ~0.17초, 없으면 ~1.82초다"
+        f"(10.5배). 슬롯·라운드를 늘리면 선형으로 는다"
+    )
     return ItemOptimizeResult(
         spec=current,
         steps=tuple(steps),

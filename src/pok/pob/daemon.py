@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import os
 import subprocess
@@ -145,3 +146,28 @@ class PobDaemon:
         tb: TracebackType | None,
     ) -> None:
         self.close()
+
+
+_SHARED: PobDaemon | bool | None = None
+
+
+def shared_daemon() -> PobDaemon | None:
+    """프로세스당 하나의 상주 PoB. 못 띄우면 `None` — 호출자가 1회성 경로로 되돌아간다.
+
+    ⚠ **상주 여부가 곧 쓸 수 있느냐를 가른다.** 1회성 경로는 호출마다 luajit을
+    새로 띄워 **1.82초**가 들고, 데몬은 **0.173초**다(실측 2026-08-11, 동일 스펙
+    20회 평균 — 10.5배). `optimize_items`는 8슬롯 2라운드에 606회를 재므로
+    18.4분 대 1.75분이 된다. 실제로 한 세션이 29분 46초를 기다리다 **정지로 판단해
+    강제 종료**했다(백로그 #61) — 느린 것과 죽은 것을 구분할 수 없었다.
+    """
+    global _SHARED
+    if _SHARED is None:
+        try:
+            daemon = PobDaemon()
+            daemon.start()
+        except Exception:  # 스냅샷 없음·기동 실패 — 조용히 죽지 않고 되돌아간다
+            _SHARED = False
+        else:
+            _SHARED = daemon
+            atexit.register(daemon.close)
+    return _SHARED if isinstance(_SHARED, PobDaemon) else None
