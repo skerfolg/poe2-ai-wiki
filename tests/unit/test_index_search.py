@@ -109,10 +109,13 @@ def test_제약_없는_히트는_칸이_비어_나온다() -> None:
 
     (hit,) = search(query="Behemoth", type_="Passive", limit=1, for_ascendancy="Witch1")
     assert (hit.locked_to, hit.requires_nodes, hit.excluded_by_unlock) == (None, (), None)
+    # 비어 있는 경고 칸은 전부 빠진다 — 새 경고를 더할 때마다 여기 늘어난다.
+    # (`pob_gap`은 이 레코드에 실제 값이 있어 남는다)
     assert set(asdict(hit)) - set(server._hit_dict(hit)) == {
         "locked_to",
         "requires_nodes",
         "excluded_by_unlock",
+        "carrier_unknown",
     }
 
     fn = getattr(server.search_kb, "fn", server.search_kb)
