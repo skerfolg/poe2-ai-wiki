@@ -125,17 +125,24 @@ def skill_source(
     """
     if not acquisition:
         return {}
-    if any(route.lower() in _GEM_ROUTES for route in acquisition):
-        return {"source": "gem"}
-    names = sorted(acquisition)
-    out: dict[str, Any] = {"granted_by": names}
+    # 젬 경로와 아이템 부여는 **배타가 아니다** — 둘 다 있는 스킬이 8종 있다(Herald
+    # 3종·Spark·Unleash·Blink…). 젬으로 켤 수 있으면 `gem`이지만 부여원은 지우지
+    # 않는다: `item-granted` 게이트(#47)는 `source`만 보고 판단하므로 여기서 배타로
+    # 접으면 정상 젬이 막힌다.
+    gem = any(route.lower() in _GEM_ROUTES for route in acquisition)
+    names = sorted(n for n in acquisition if n.lower() not in _GEM_ROUTES)
     known = item_ids or {}
     resolved = sorted({known[n.lower()] for n in names if n.lower() in known})
-    if resolved:
-        out["source"] = "item-granted"
-        out["granted_by_ids"] = resolved
+    if gem:
+        out: dict[str, Any] = {"source": "gem"}
+    elif not names:
+        return {}
     else:
-        out["source"] = "other-granted"
+        out = {"source": "item-granted" if resolved else "other-granted"}
+    if names:
+        out["granted_by"] = names
+    if resolved:
+        out["granted_by_ids"] = resolved
     return out
 
 

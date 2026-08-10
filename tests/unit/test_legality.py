@@ -584,3 +584,26 @@ def test_unknown_socket_count_withholds_judgement() -> None:
         "소켓 수를 모르면 상한을 계산할 수 없다"
     )
     assert any("Sockets:" in e for e in report.errors), "선언 누락은 구조 오류로 낸다"
+
+
+def test_variant_lines_do_not_make_a_unique_illegal(checker: ItemLegalityChecker) -> None:
+    """변형 선언은 **스펙 줄**이지 모드가 아니다 (백로그 #45, 2026-08-10).
+
+    `_check_unique`가 자기만의 5개짜리 스펙 줄 목록을 들고 있어서 `_SPEC_LINE_PREFIXES`에
+    `variant:`를 넣어 둔 것이 유니크 경로엔 적용되지 않았다 — 판정 주체가 둘이면
+    어긋난다(§0 ④). `item.the-unborn-lich`는 변형 12종이라 **변형을 적어야** 어느 스킬을
+    부여받는지 정해지는데, 적으면 비적법이 됐다(§0 ⑤).
+    """
+    head = "Rarity: UNIQUE\nThe Unborn Lich\nStellar Amulet\n"
+    mod = "70% increased Desecrated Modifier magnitudes\n"
+    plain = checker.check(head + "Item Level: 82\n" + mod)
+    with_variant = checker.check(
+        head + "Variant: His Winnowing Flame\nSelected Variant: 1\nItem Level: 82\n" + mod
+    )
+    assert plain.is_legal and with_variant.is_legal
+    assert [(v.status, v.line) for v in plain.verdicts] == [
+        (v.status, v.line) for v in with_variant.verdicts
+    ], "변형 줄을 적었다고 판정이 달라지면 안 된다"
+    # 반대 방향 — 스펙 줄을 건너뛴다고 진짜 모드까지 통과시키면 안 된다
+    fake = checker.check(head + "Item Level: 82\n999% increased Nonsense\n")
+    assert not fake.is_legal

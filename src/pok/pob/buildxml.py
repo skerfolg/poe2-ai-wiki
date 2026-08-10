@@ -388,6 +388,25 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
                     f"skills[{gi}].gems[{i}]: gem_id {gid!r}가 PoB에 없다"
                     + (f" — 후보: {hints}" if hints else " (근접 후보도 없다)")
                 )
+    # `source: item-granted` 스킬은 **젬으로 못 켠다** (백로그 #47). 젬 획득 경로가
+    # 없는데 PoB에는 `Metadata/…/SkillGem…`이 있어 **조용히 계산된다** — 실측
+    # 2026-08-10: 소켓한 Firebolt가 `TotalDPS 217.5`를 냈다. 그 수치 위에서 한 세션이
+    # 전 회차를 조립했고, 인게임에선 그 무기가 Firebolt를 주지 않아 점화 소스가 아예
+    # 없었다. 판정 근거는 이미 KB에 있다(#4의 `source`) — 여기선 읽기만 한다.
+    #
+    # ⚠ 젬 경로와 아이템 부여는 배타가 아니다(Herald 3종·Spark·Unleash…). 그 8종은
+    # `source = gem`이라 걸리지 않는다 — 정상 젬을 막으면 게이트 자체가 죽는다(§0 ⑤).
+    for gi, group in enumerate(spec_data.get("skills", [])):
+        for i, gem in enumerate(group.get("gems", [])):
+            granted = _item_granted_skill(str(gem.get("name", "")))
+            if granted:
+                problems.append(
+                    f"skills[{gi}].gems[{i}]: {gem.get('name')!r}는 **아이템 부여 스킬**이라 "
+                    f"젬으로 못 켠다(KB `source: item-granted`, 부여원: {list(granted)}). "
+                    f"쓰려면 부여 아이템을 `items`에 장착할 것 — 그러면 PoB가 아이템에서 "
+                    f"스킬을 만들므로 이 젬 줄은 **빼야 한다**(넣으면 두 번 센다)"
+                )
+
     valid_config = config_vars()
     for key in dict(spec_data.get("config", {})):
         if str(key) not in valid_config:
@@ -592,3 +611,26 @@ def to_xml(spec: BuildSpec) -> str:
   </Config>
 </PathOfBuilding2>
 """
+
+
+@functools.lru_cache(maxsize=1)
+def _item_granted_index() -> dict[str, tuple[str, ...]]:
+    """스킬 표시명(소문자) → 부여원. 젬으로 못 켜는 스킬만 담는다 (#47).
+
+    판정 근거는 #4에서 KB에 넣은 `data.source`다 — 새로 추론하지 않는다.
+    """
+    from pok.kb.store import load as store_load
+
+    out: dict[str, tuple[str, ...]] = {}
+    for record in store_load().records.values():
+        data = record.raw.get("data") or {}
+        if record.type != "Skill" or data.get("source") != "item-granted":
+            continue
+        givers = tuple(str(x) for x in (data.get("granted_by") or []))[:3]
+        out[record.name_en.lower()] = givers or ("(부여원 미수록)",)
+    return out
+
+
+def _item_granted_skill(name: str) -> tuple[str, ...] | None:
+    """이 이름이 아이템 부여 스킬인가 — 아니면 `None`."""
+    return _item_granted_index().get(name.strip().lower())

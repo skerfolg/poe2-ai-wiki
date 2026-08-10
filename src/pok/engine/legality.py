@@ -363,8 +363,16 @@ class ItemLegalityChecker:
         rec = self._uniques.get(name.lower())
         if rec is None:
             return LegalityReport(verdicts=(), errors=(f"KB에 없는 유니크: {name!r}",))
-        meta = ("item level:", "quality:", "sockets:", "implicits:", "--")
-        mod_lines = [ln for ln in lines[3:] if not ln.lower().startswith(meta)]
+        # ⚠ 여기 **자기만의 5개짜리 목록**이 있었다 — 같은 규칙이 두 벌이면 어긋난다
+        # (§0 ④ 판정 주체가 둘이면 어긋난다). 실측 2026-08-10: `_SPEC_LINE_PREFIXES`에
+        # `variant:`를 넣어 뒀는데도 유니크 경로가 그걸 안 타서 `Variant:` 두 줄이
+        # UNKNOWN으로 찍혔다. `item.the-unborn-lich`는 **변형 12종**이고 변형을 적어야
+        # 어느 스킬을 부여받는지 정해지는데, 적으면 비적법이 됐다(§0 ⑤).
+        mod_lines = [
+            ln
+            for ln in lines[3:]
+            if not ln.lower().startswith(_SPEC_LINE_PREFIXES) and ln.lower() not in _SPEC_MARKERS
+        ]
         special = {
             "prism of belief": self._check_prism,
             "megalomaniac": self._check_megalomaniac,

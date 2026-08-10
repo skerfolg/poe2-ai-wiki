@@ -598,6 +598,17 @@ def patch_records(
     if unknown:
         raise KBWriteError(f"KB에 없는 id {len(unknown)}건 — 패치 거부 (예: {unknown[:3]})")
 
+    # 패치는 `data`에 **직접** 병합된다. 레코드 모양을 그대로 흉내 내 `{"data": {...}}`로
+    # 감싸면 병합이 성공해 버리고 `data.data`가 생긴다 — 조용히 통과하므로 호출자는
+    # 갱신됐다고 믿는다(실측 2026-08-10: 56건이 그렇게 들어갔고, 읽는 쪽은 옛 값을
+    # 계속 봤다). 감지되는 실수는 문서가 아니라 여기서 막는다(철칙 5).
+    wrapped = sorted(rid for rid, patch in updates.items() if "data" in patch)
+    if wrapped:
+        raise KBWriteError(
+            f"패치에 `data` 키가 있다 {len(wrapped)}건 (예: {wrapped[:3]}) — 패치는 이미 "
+            "레코드의 `data`에 병합된다. 한 겹 벗겨 `{'source': ...}` 꼴로 줄 것"
+        )
+
     by_path: dict[Path, list[str]] = {}
     for rid in updates:
         by_path.setdefault(store.records[rid].path, []).append(rid)
