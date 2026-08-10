@@ -92,3 +92,31 @@ def test_mechanic_layer_is_no_longer_empty() -> None:
     from pok.index.describe import describe_type
 
     assert describe_type("Mechanic").total > 200
+
+
+def test_parallel_scan_falls_back_and_matches_serial() -> None:
+    """병렬이 못 뜨면 **직렬로 되돌아간다** — 수집이 막히면 안 된다.
+
+    실측 2026-08-09(1,079장·8코어): 직렬 28.8초 → 병렬 7.0초. 프로세스 풀은
+    플랫폼(Windows spawn)·실행 문맥(`<stdin>` 실행·중첩 풀)에 따라 못 뜨므로
+    되돌림 경로를 **문서가 아니라 시험으로** 확인한다(철칙 5).
+    """
+    import pok.kb.ingest.keywords as mod
+
+    pages = sorted((RAW / "poe2db" / "us").glob("*.html"))[:250]
+    parallel = [pairs for pairs in mod._scan_all(pages)]
+
+    broken = mod.ProcessPoolExecutor
+
+    class _Broken:
+        def __init__(self, *a: object, **k: object) -> None:
+            raise OSError("프로세스 풀 못 띄움 (시험)")
+
+    mod.ProcessPoolExecutor = _Broken  # type: ignore[misc,assignment]
+    try:
+        serial = [pairs for pairs in mod._scan_all(pages)]
+    finally:
+        mod.ProcessPoolExecutor = broken  # type: ignore[misc]
+
+    assert serial == parallel, "되돌림 결과가 다르면 되돌림이 아니라 다른 동작이다"
+    assert any(pairs for pairs in serial), "둘 다 비었으면 시험이 아무것도 안 봤다"

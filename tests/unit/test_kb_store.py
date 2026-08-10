@@ -118,3 +118,29 @@ def test_envelope_violation_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(KBValidationError, match="envelope"):
         load(tmp_path)
+
+
+def test_load_cache_never_skips_validation_after_a_write() -> None:
+    """캐시가 **안전장치를 무력화하면 안 된다** — 쓰기 후엔 반드시 다시 검증한다.
+
+    `write_shard(validate=True)`가 이 `load`로 재검증하므로, 캐시가 낡은 스냅샷을
+    돌려주면 깨진 정본이 조용히 통과한다. 지문은 mtime을 **나노초**로 본다 — 초
+    단위면 같은 초 안의 연속 쓰기를 놓친다.
+    """
+    import json
+
+    from pok.common.paths import knowledge_dir
+    from pok.kb.store import _fingerprint, load
+
+    kdir = knowledge_dir()
+    first = load(kdir)
+    assert load(kdir) is first, "내용이 같으면 같은 스냅샷 — 그래야 빠르다"
+
+    before = _fingerprint(kdir)
+    probe = kdir / "game-data" / "mechanics" / "_cache-probe.json"
+    probe.write_text(json.dumps({"probe": True}), encoding="utf-8")
+    try:
+        assert _fingerprint(kdir) != before, "파일이 늘었는데 지문이 같으면 캐시가 위험하다"
+    finally:
+        probe.unlink(missing_ok=True)
+    assert _fingerprint(kdir) == before, "되돌리면 지문도 돌아온다"

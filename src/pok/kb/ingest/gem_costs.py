@@ -100,6 +100,17 @@ def apply_gem_costs(raw_dir: Path, knowledge: Path) -> dict[str, Any]:
         # 보조 젬은 자체 쿨다운 개념이 없어 대상에서 뺀다.
         if r.type == "Skill" and "cooldown_s" not in updates:
             updates["cooldown_s"] = 0.0
+        # 코스트도 **같은 규약**으로 (#5, 사용자 선례 지목 2026-08-09). 필드 부재로
+        # 두면 "코스트 없음"과 "미수록"이 구분되지 않는다 — 실제로 부재를 보고
+        # "마나 소모 0"으로 단정했다가 철회한 오판이 있었다.
+        #
+        #     cost: [{...}]  읽은 값 (명시적 0 포함)
+        #     cost: []       **명시적 무코스트** — 페이지를 읽었고 Cost 표기가 없다
+        #     필드 부재       미수록 — 페이지가 없거나 못 읽었다
+        #
+        # 근거는 쿨다운과 같다: **스킬 페이지를 실제로 읽었다**는 것.
+        if r.type == "Skill" and "cost" not in updates:
+            updates["cost"] = []
         if not updates:
             no_cost_fields += 1
             continue

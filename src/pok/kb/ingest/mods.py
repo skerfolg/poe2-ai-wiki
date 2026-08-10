@@ -350,8 +350,32 @@ def process_mods(raw_dir: Path, out_dir: Path) -> dict[str, Any]:
 _ALWAYS_INCLUDE = frozenset({"item-exclusive", "corrupted", "rune", "flask", "charm", "jewel"})
 
 
-def is_included(mod: dict[str, Any]) -> bool:
-    """A·B 수록 판정. item 전용 풀만 획득 경로를 요구한다 (KI-8의 신호 A)."""
+def poe1_remnant_keys(knowledge: Path | None = None) -> frozenset[str]:
+    """제외 원장이 **PoE1 잔재로 판정한** 모드의 pob_key (사람 승인분, KI-8).
+
+    `item-exclusive`는 스폰 가중치가 없는 게 정상이라 `_ALWAYS_INCLUDE`로 무조건
+    수록된다 — 그 지름길 때문에 PoE1 잔재 7건이 **아무 증거 없이** 들어와 있었다
+    (백로그 #17). 원장에 이름을 적어 지름길보다 먼저 걸리게 한다.
+    """
+    from pok.common.paths import knowledge_dir
+
+    path = (knowledge or knowledge_dir()) / "ingest" / "exclusions.json"
+    if not path.exists():
+        return frozenset()
+    ledger = json.loads(path.read_text(encoding="utf-8"))
+    return frozenset(
+        key for entry in ledger.get("poe1_remnant_mods", []) for key in entry.get("pob_keys", [])
+    )
+
+
+def is_included(mod: dict[str, Any], *, remnants: frozenset[str] | None = None) -> bool:
+    """A·B 수록 판정. item 전용 풀만 획득 경로를 요구한다 (KI-8의 신호 A).
+
+    ⚠ 잔재 판정은 **`_ALWAYS_INCLUDE`보다 먼저** 본다 — 안 그러면 지름길이 삼킨다.
+    """
+    excluded = poe1_remnant_keys() if remnants is None else remnants
+    if mod.get("pob_key") in excluded:
+        return False
     if set(mod["origins"]) & _ALWAYS_INCLUDE:
         return True
     return bool(mod.get("acquisition"))

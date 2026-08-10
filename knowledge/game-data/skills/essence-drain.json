@@ -33,7 +33,15 @@
       "Deals (5 — 138) to (9 — 257) Chaos Damage",
       "Deals (9.2 — 443.5) Chaos damage per second",
       "Modifiers to Spell Damage apply to Debuff 's Damage over Time",
-      "Debuff duration is 4 seconds",
+      "Debuff duration is 4 seconds"
+    ],
+    "quality_stats": [
+      "+(0 — 1) second to Debuff duration",
+      "Chains +(0 — 4) times"
+    ],
+    "cooldown_s": 0.0,
+    "source": "gem",
+    "engine_stats": [
       "base is projectile [1]",
       "can perform skill while moving [1]",
       "check for targets between initiator and projectile source [1]",
@@ -47,12 +55,7 @@
       "pvp skill dot attack time override ms [10000]",
       "should use additive aiming animation [1]",
       "display statset hide usage stats [1]"
-    ],
-    "quality_stats": [
-      "+(0 — 1) second to Debuff duration",
-      "Chains +(0 — 4) times"
-    ],
-    "cooldown_s": 0.0
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

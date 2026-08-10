@@ -96,10 +96,33 @@ for path in bp:lines() do
   local chunk, err = loadfile(path)
   if chunk then
     local file_key = path:match("([^/]+)%.lua$")
-    local sink = {}
+    -- ⚠ 같은 이름에 **여러 번 대입**하는 베이스가 있다 (백로그 #32). 평범한 테이블에
+    -- 받으면 나중 것이 앞의 것을 덮는데, 셋은 인게임에서 **다른 아이템**이다:
+    -- `Runemastered Runic Fork`는 추가 발사체 / 마나 재생 / 룬 수호로 갈린다.
+    -- 실측 0.5.4b: 31종이 총 96개 정의를 갖는데 덤프엔 31개만 남아 65개가 사라졌다.
+    -- 중복은 **한 파일 안**에서 나므로 대입 자체를 가로채야 한다.
+    --
+    -- ⚠ `__newindex`는 **키가 없을 때만** 불린다 — 평범한 테이블에 걸면 두 번째
+    -- 대입이 그냥 덮어써서 아무것도 못 잡는다(실측: 변종 0건). 그래서 sink는 늘
+    -- 비워 두는 **프록시**로 두고 실제 값은 `store`에 담는다. 이 형태로 luajit에
+    -- 돌려 31종 — PoB 원본과 일치를 확인했다.
+    local store = {}
+    local sink = setmetatable({}, {
+      __index = store,
+      __newindex = function(_, key, value)
+        local prev = store[key]
+        if prev then
+          local seen = prev._variants
+            or { { implicit = prev.implicit, implicitModTypes = prev.implicitModTypes } }
+          seen[#seen + 1] = { implicit = value.implicit, implicitModTypes = value.implicitModTypes }
+          value._variants = seen
+        end
+        store[key] = value
+      end,
+    })
     local ok, e = pcall(chunk, sink)
     if ok then
-      for name, base in pairs(sink) do
+      for name, base in pairs(store) do
         base._base_file = file_key
         bases_out[name] = base
       end

@@ -1022,5 +1022,21 @@
     "Stormchain"
    ]
   }
+ ],
+ "poe1_remnant_mods": [
+  {
+   "patch": "0.5.4b",
+   "approved": "2026-08-09 user",
+   "evidence": "PoE2 아이템 어디에도 이 문구가 없다(KB Item 전체에 'Supported' 토큰 0건) ∧ acquisition 없음 ∧ verification=POB_CODE(PoB 모드 DB 단독) ∧ pob_key가 PoE1 유니크 명명. 얹으면 new(\"Item\", raw)가 예외를 던져 **조립 자체가 실패**한다 — 다른 갭(조용한 0)과 성질이 다르다 (백로그 #17)",
+   "pob_keys": [
+    "ControlledDestructionSupportUnique__1",
+    "ControlledDestructionSupportUnique__1New_",
+    "DisplaySupportedByColdPenetrationUnique__1",
+    "DisplaySupportedByKnockbackUniqueGlovesStr5",
+    "DisplaySupportedByManaLeechUnique__1",
+    "SupportedByInnervateUnique__1",
+    "SupportedByInnervateUnique__2"
+   ]
+  }
  ]
 }

@@ -52,6 +52,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pok.engine.valuation import UnscoredAxis, axis_gain, unscored_axes
+
 # PoB 슬롯 → KB 유니크 `category`. 실측 0.5.4b: 유니크의 (class_group, category)
 # 조합 38종이 이 매핑으로 깨끗이 갈린다.
 SLOT_CATEGORIES: dict[str, frozenset[str]] = {
@@ -126,13 +128,28 @@ class CandidateResult:
     # 낙관이다. 미달 후보는 채택 금지, 2판(속성 탐침)으로 "지불 시 이득"만 낸다.
     req_shortfall: dict[str, float] = field(default_factory=dict)
 
-    def score(self, weights: Mapping[str, float]) -> float:
-        return sum(w * self.delta_now.get(k, 0.0) for k, w in weights.items())
+    def score(self, weights: Mapping[str, float], base: Mapping[str, float] | None = None) -> float:
+        """정책 점수. `base`(현재 스펙의 실측)를 주면 **비선형 축에 곡선을 건다**.
 
-    def probed_score(self, weights: Mapping[str, float]) -> float:
+        이동속도가 그 축이다 — 0 → 20%p와 60 → 80%p는 같은 20이 아니다(#25).
+        `base`를 안 주면 **0에서 더하는 것으로 친다** — 곡선은 그대로 걸리되 이미
+        가진 이동속도를 모르므로 값이 낙관적으로 나온다. 실제 값을 원하면 기준 실측을
+        넘길 것(`optimize_items`는 넘긴다).
+        """
+        return sum(
+            w * axis_gain(k, self.delta_now.get(k, 0.0), (base or {}).get(k, 0.0))
+            for k, w in weights.items()
+        )
+
+    def probed_score(
+        self, weights: Mapping[str, float], base: Mapping[str, float] | None = None
+    ) -> float:
         if self.delta_probed is None:
-            return self.score(weights)
-        return sum(w * self.delta_probed.get(k, 0.0) for k, w in weights.items())
+            return self.score(weights, base)
+        return sum(
+            w * axis_gain(k, self.delta_probed.get(k, 0.0), (base or {}).get(k, 0.0))
+            for k, w in weights.items()
+        )
 
     @property
     def blocked(self) -> bool:
@@ -191,8 +208,11 @@ class ChainResult:
     floor_violations: tuple[str, ...]
     req_shortfall: dict[str, float]
 
-    def score(self, weights: Mapping[str, float]) -> float:
-        return sum(w * self.delta_chain.get(k, 0.0) for k, w in weights.items())
+    def score(self, weights: Mapping[str, float], base: Mapping[str, float] | None = None) -> float:
+        return sum(
+            w * axis_gain(k, self.delta_chain.get(k, 0.0), (base or {}).get(k, 0.0))
+            for k, w in weights.items()
+        )
 
     @property
     def synergy(self) -> dict[str, float]:
@@ -227,6 +247,10 @@ class ItemOptimizeResult:
     # 가중 축은 전부 0인데 **방어 축은 양수**인 후보 — 점수가 0이라 그리디가 절대
     # 채택하지 않는다. 채택하지 않되 **보이게는 한다**(백로그 #18, 자동 보고).
     defensive_only: tuple[CandidateResult, ...] = ()
+    # 후보가 **실제로 움직였는데** 가중치에 없는 축 — #18·#22·#25가 전부 이 형태였고
+    # 셋 다 사용자가 지적해줘야 발견됐다. 채택은 호출자가 정하되 **안 보이는 채로
+    # 배제되는 일은 없어진다**(AD-3). 압축 근거는 `engine.valuation.unscored_axes`.
+    unscored_axes: tuple[UnscoredAxis, ...] = ()
 
 
 def resolve_rolls(text: str, roll: str = "mid") -> str:
@@ -245,9 +269,24 @@ def resolve_rolls(text: str, roll: str = "mid") -> str:
 
 
 def render_unique(record: Mapping[str, Any], roll: str = "mid") -> str:
-    """KB 유니크 레코드 → PoB 파스 가능한 아이템 텍스트."""
+    """유니크 → PoB 아이템 텍스트. **PoB 원문이 있으면 그것을 쓴다** (#34 B).
+
+    KB에서 조립하면 두 가지가 깨진다 — 실측 2026-08-09:
+    - `data.explicits`에 `[3 Random Socket Modifiers]` 같은 **플레이스홀더**가 섞여
+      있어 그대로 쓰면 PoB가 오류를 낸다(모리오르 사고)
+    - KB `variants`는 **이름 목록뿐**이라 어느 모드가 어느 변형인지 모른다.
+      PoB 원문에는 `{variant:3}+(10-14) to Spirit per Socket filled`처럼 묶여 있다
+
+    변형 선택은 `pok.pob.uniques.render_unique(name, variant)`로 한다 — 실측:
+    같은 아이템이 Spirit 100→148 / Life 1187→1409 / Mana 441→672로 갈린다.
+    """
     data = record.get("data") or {}
     name = (record.get("name") or {}).get("en") or record.get("id", "?")
+    from pok.pob.uniques import unique_raw
+
+    source = unique_raw(str(name))
+    if source is not None:
+        return "\n".join(["Rarity: UNIQUE", *source.splitlines()])
     implicits = [resolve_rolls(str(t), roll) for t in data.get("implicits") or []]
     explicits = [resolve_rolls(str(t), roll) for t in data.get("explicits") or []]
     lines = [
@@ -629,7 +668,7 @@ def optimize_items(
                 stats=measure, floors=floors, compute=run, base_stats=base_now,
             ):  # fmt: skip
                 round_results.append(result)
-                score = result.score(weights)
+                score = result.score(weights, base_now)
                 if not result.blocked and score > 0 and (best is None or score > best[0]):
                     best = (score, eval_slot, result)
                 # 점수로는 절대 못 올라오는 방어 개선분을 따로 붙잡는다 (#18).
@@ -640,7 +679,7 @@ def optimize_items(
                         defensive[result.candidate.label] = result
                 if (
                     result.conditional_peak
-                    and result.probed_score(weights) > max(score, 0.0)
+                    and result.probed_score(weights, base_now) > max(score, 0.0)
                     and result.candidate.label not in peaks
                 ):
                     peaks[result.candidate.label] = result
@@ -651,7 +690,7 @@ def optimize_items(
         best_chain: tuple[float, ChainResult, list[CandidateResult]] | None = None
         demand = sorted(
             (r for r in round_results if r.conditional_peak),
-            key=lambda r: r.probed_score(weights),
+            key=lambda r: r.probed_score(weights, base_now),
             reverse=True,
         )[:3]
         budget = max_chain_measures_per_round
@@ -659,7 +698,7 @@ def optimize_items(
             members = [seed]
             axis_path: list[str] = []
             used_slots = {seed.candidate.slot}
-            cur_score = seed.score(weights)
+            cur_score = seed.score(weights, base_now)
             axis = seed.scaling_axes[0] if seed.scaling_axes else next(iter(seed.req_shortfall), "")
             while axis and len(members) < max_chain and budget > 0:
                 suppliers = sorted(
@@ -682,7 +721,7 @@ def optimize_items(
                         stats=measure, floors=floors, run=run,
                     )  # fmt: skip
                     chains.append(chain)
-                    c_score = chain.score(weights)
+                    c_score = chain.score(weights, base_now)
                     if (
                         not chain.blocked
                         and c_score > 0
@@ -745,6 +784,15 @@ def optimize_items(
             f"— 절단됐다는 사실을 남긴다(조용한 절단 금지)"
         )
         ranked = ranked[:_DEFENSIVE_REPORT_LIMIT]
+    # 채택된 마지막 후보가 건드린 축 중 **점수에 안 들어간 것**을 낸다. 채택분이
+    # 없으면 라운드에서 가장 점수가 높았던 후보를 쓴다 — "이걸 골랐는데 저건 안 봤다"가
+    # 보여야 한다. 방어 축은 이미 `defensive_only`로 따로 보고하므로 중복하지 않는다.
+    probe = steps[-1].deltas if steps else (round_results[0].delta_now if round_results else None)
+    axes: tuple[UnscoredAxis, ...] = ()
+    if probe:
+        axes, truncated = unscored_axes(probe, base_now, weights, already_reported=_DEFENSIVE_AXES)
+        if truncated:
+            note(truncated)
     return ItemOptimizeResult(
         spec=current,
         steps=tuple(steps),
@@ -752,6 +800,7 @@ def optimize_items(
         notes=tuple(notes),
         chains=tuple(chains),
         defensive_only=tuple(ranked),
+        unscored_axes=axes,
     )
 
 

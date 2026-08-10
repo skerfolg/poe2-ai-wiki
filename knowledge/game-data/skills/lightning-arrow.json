@@ -36,7 +36,15 @@
       "Fires beams at up to (2 — 4) additional Enemies near the target",
       "Converts 100% of Physical damage to Lightning damage",
       "Chains 2 times",
-      "Fires beams at up to additional Enemies near the target",
+      "Fires beams at up to additional Enemies near the target"
+    ],
+    "quality_stats": [
+      "(0 — 40)% more chance to Shock",
+      "(0 — 30)% chance for Lightning Damage with Hits to be Lucky"
+    ],
+    "cooldown_s": 0.0,
+    "source": "gem",
+    "engine_stats": [
       "base is projectile [1]",
       "can perform skill while moving [1]",
       "check for targets between initiator and projectile source [1]",
@@ -49,12 +57,7 @@
       "projectile uses contact position [1]",
       "should use additive aiming animation [1]",
       "skill lightning rod burst delay ms override on damaging lightning rod [100]"
-    ],
-    "quality_stats": [
-      "(0 — 40)% more chance to Shock",
-      "(0 — 30)% chance for Lightning Damage with Hits to be Lucky"
-    ],
-    "cooldown_s": 0.0
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

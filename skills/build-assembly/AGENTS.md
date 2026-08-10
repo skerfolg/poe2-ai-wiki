@@ -72,9 +72,21 @@ assemble_pob(build_spec=..., slug="<빌드 이름>")
 parse_pob(code_path="artifacts/builds/<id>/build.pob")
 ```
 
-⛔ 스펙 편집본을 둘 새 디렉터리를 만들지 말 것 — 저장 위치 신설은 **철칙 1(구조 합의)**
-사안이다. `artifacts/`는 gitignore 파생물이고 scratchpad는 세션과 함께 사라지므로,
-**직전 조립 결과가 곧 재개점**이다.
+⛔ 스펙 편집본을 둘 새 디렉터리를 만들지 말 것. **사용자 판정 2026-08-09(제안 E):
+스펙 파일도 `artifacts/builds/<id>/`에서 관리한다** — 빌드별 폴더가 이미 있으니
+거기가 자리다. 저장 위치 신설은 없다(철칙 1 해소).
+
+그래서 한 빌드의 모든 것이 한 폴더에 모인다:
+
+```
+artifacts/builds/<id>/
+  build.pob          조립 산출물 (재개점)
+  validation.json    실측 스탯·적법성·트리 판정
+  spec.json          편집 중인 스펙 — 다음 회차의 입력
+```
+
+`artifacts/`는 gitignore 파생물이라 git에 남지 않는다. **정본으로 남길 것은 커밋
+가능한 자리에 따로 둔다** — 폴더가 지워져도 잃으면 안 되는 결정은 `docs/`에.
 
 ## 금지 사항
 

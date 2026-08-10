@@ -19,7 +19,7 @@ import pytest
 from bs4 import BeautifulSoup
 
 from pok.common.paths import knowledge_dir
-from pok.kb.ingest.parse import _mod_lines, _monster_owner, parse_detail
+from pok.kb.ingest.parse import _MONSTER_CARD, _mod_lines, _monster_owner, parse_detail
 from pok.kb.store import load as store_load
 
 RAW = pathlib.Path("artifacts/ingest-raw/0.5.4b/poe2db/us")
@@ -35,10 +35,17 @@ def _page(slug: str) -> object:
 
 
 def _monster_only_lines(slug: str) -> set[str]:
-    """원시 페이지에서 **몬스터 카드에만** 있는 줄 — 플레이어 `stats`에 있으면 오염이다."""
-    soup = BeautifulSoup(
-        (RAW / f"{slug}.html").read_text(encoding="utf-8", errors="replace"), "html.parser"
-    )
+    """원시 페이지에서 **몬스터 카드에만** 있는 줄 — 플레이어 `stats`에 있으면 오염이다.
+
+    ⚡ 몬스터 카드 표식이 없으면 **파싱하지 않는다.** 파싱은 페이지당 29ms이고 이
+    전수 대조는 ~900장을 훑어 50초를 썼는데, 실측 2026-08-09: 1,079장 중 카드가 있는
+    것은 **44장(4%)**뿐이다. 표식 문자열이 원문에 없으면 `_monster_owner`가 부모를
+    찾을 수 없으므로 결과가 **정확히 같다**(빈 집합).
+    """
+    html = (RAW / f"{slug}.html").read_text(encoding="utf-8", errors="replace")
+    if _MONSTER_CARD not in html and "monsterNormalPopup" not in html:
+        return set()
+    soup = BeautifulSoup(html, "html.parser")
     player: set[str] = set()
     monster: set[str] = set()
     for block in soup.select(".Stats"):
@@ -137,3 +144,17 @@ def test_minion_stats_is_registered_as_machine_generated() -> None:
     from pok.kb.ingest.merge import _MACHINE_DATA_KEYS
 
     assert "minion_stats" in _MACHINE_DATA_KEYS
+
+
+def test_internal_phrase_filter_does_not_erase_the_minion() -> None:
+    """표기 정리(#8-c)가 **분류를 바꾸면 안 된다** — 실측으로 한 번 무너졌다.
+
+    좀비의 소환 선언 근거는 `is resummoning minion [1]` 한 줄뿐이었다. 그 줄을
+    플레이어 `stats`에서 빼자 판정 haystack에서도 사라져 `Raised Zombie` 실체가
+    통째로 없어졌다. 판정은 **거르기 전 원문**으로 한다.
+    """
+    page = _page("Raise_Zombie")
+    entities = [m["entity"] for m in page.minion_stats]  # type: ignore[attr-defined]
+    assert "Raised Zombie" in entities, entities
+    # 그리고 플레이어 줄에는 내부 문구가 남지 않는다 (양방향)
+    assert not [s for s in page.stats if s.endswith("[1]")]  # type: ignore[attr-defined]

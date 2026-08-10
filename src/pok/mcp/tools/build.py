@@ -29,7 +29,9 @@ explicits가 플레이스홀더라 PoB가 텍스트로 못 읽는다. 부여 노
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
+import functools
 from pathlib import Path
 from typing import Any
 
@@ -123,6 +125,15 @@ def _pick(
     return out
 
 
+@functools.lru_cache(maxsize=1)
+def _tree_graph():  # type: ignore[no-untyped-def]
+    """트리 그래프 1회 로드 — 조건 수집이 호출마다 KB를 다시 읽지 않게."""
+    from pok.common.paths import knowledge_dir
+    from pok.engine.tree.graph import TreeGraph
+
+    return TreeGraph(knowledge_dir())
+
+
 def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
     """이 빌드에 **관련 있는데 미설정인** PoB config.
 
@@ -130,8 +141,20 @@ def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
     `multiplierIncisionStackCount`가 0이라 절개가 무가치해 보였고 필수 젬을 뺄
     뻔했다. 관련성은 PoB `ConfigOptions.lua`의 `ifFlag`·`ifMod` 조건을 젬 효과
     문구(KB `stats`)와 대조해 판정한다 — 추측이 아니라 양쪽 다 게임 데이터다.
+
+    ⚠ **젬만 보면 안 된다** (백로그 #36). 조건은 **할당 노드와 장착 아이템**도
+    요구한다. 실측 2026-08-09(점화 빌드): `conditionEnemyIgnited`가 미설정인데
+    언급조차 없었고, 그래서 두 노드가 **조용한 0**으로 찍혀 하나는 트리에서
+    걷어내졌다:
+
+        24630 노호(1포인트)        Δ0  →  config 켜면 **+4,282**
+        51868 녹아내린 갑각(2포인트) Δ0  →  config 켜면 **+4,608** · EHP +1,417
+
+    `from` 칸에 **누가 그 조건을 요구하는지**가 남는다(`passive.…`·슬롯명) —
+    젬만 나오면 노드가 원인일 때 추적이 끊긴다.
     """
     from pok.engine.constraints.config_relevance import find_unset_options
+    from pok.engine.legality import _parse_item
     from pok.index.search import get_entry
 
     texts: dict[str, list[str]] = {}
@@ -149,6 +172,20 @@ def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
                 if lines:
                     texts[rid] = list(lines)
                     break
+    # 할당된 트리 노드 — 조건부 노드가 요구하는 config가 여기서 나온다
+    for node_id in build_spec.get("tree_nodes") or ():
+        node = _tree_graph().nodes.get(int(node_id))
+        if node is not None and node.stats_en:
+            texts[f"passive.{node_id}"] = list(node.stats_en)
+    # 장착 아이템의 모드 줄 — 스펙 줄(`Prefix:`·`Sockets:` 등)은 모드가 아니다
+    for item in build_spec.get("items") or ():
+        text = str(item.get("text") or "")
+        if not text.strip():
+            continue
+        with contextlib.suppress(ValueError):
+            lines = _parse_item(text)[3]
+            if lines:
+                texts[f"item:{item.get('slot', '?')}"] = lines
     if not texts:
         return []
     unset = find_unset_options(texts, configured=dict(build_spec.get("config", {})))

@@ -36,18 +36,21 @@
       "Can't be Evaded",
       "While Dual Wielding, both weapons hit with 30% less damage",
       "Impact radius is 2.4 metres",
-      "Hammerfall duration is 2.5 seconds",
-      "can perform skill while moving [1]",
-      "is area damage [1]",
-      "movement speed +% final while performing action [-70]",
-      "movement speed acceleration +% per second while performing action [160]",
-      "movement speed while performing action locked duration% [50]"
+      "Hammerfall duration is 2.5 seconds"
     ],
     "quality_stats": [
       "+(0 — 0.4) metres to impact radius",
       "(0 — 50)% chance to not consume Glory"
     ],
-    "cooldown_s": 0.0
+    "cooldown_s": 0.0,
+    "source": "gem",
+    "engine_stats": [
+      "can perform skill while moving [1]",
+      "is area damage [1]",
+      "movement speed +% final while performing action [-70]",
+      "movement speed acceleration +% per second while performing action [160]",
+      "movement speed while performing action locked duration% [50]"
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

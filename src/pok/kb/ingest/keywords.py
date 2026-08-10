@@ -27,13 +27,18 @@ CDN은 `Referer` 없이는 403을 준다. poe2db 페이지에서 온 요청임�
 from __future__ import annotations
 
 import html as html_mod
+import os
+import pathlib
 import re
 import time
+from collections.abc import Iterator
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from pathlib import Path
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, SoupStrainer
 
 from pok.common.paths import knowledge_dir
 from pok.kb.ingest.sources import DEFAULT_RATE_SECONDS, POE2DB_BASE, USER_AGENT
@@ -45,6 +50,9 @@ _SLUG_SAFE = re.compile(r"[^A-Za-z0-9_.-]")
 _NOT_A_MECHANIC = re.compile(r"^(Support_Gem_|Item_Class|.*_Categories$)")
 # poe2db 슬러그와 기존 레코드 id가 어긋나는 것 — 새 레코드를 만들지 않고 합친다
 _ALIAS = {"Bleeding": "mechanic.bleed"}
+
+
+_ANCHOR_ONLY = SoupStrainer("a")
 
 
 def collect_links(raw_dir: Path) -> dict[str, str]:
@@ -62,17 +70,58 @@ def collect_links(raw_dir: Path) -> dict[str, str]:
     그래서 http 후보를 **우선**한다.
     """
     pages = raw_dir / "poe2db" / "us"
+    paths = sorted(pages.glob("*.html"))
     out: dict[str, str] = {}
-    for path in sorted(pages.glob("*.html")):
-        soup = BeautifulSoup(path.read_text(encoding="utf-8", errors="replace"), "html.parser")
-        for anchor in soup.select(f"a.KeywordPopups[{_HOVER_ATTR}]"):
-            slug = str(anchor.get("href") or "").strip()
-            hover = str(anchor.get(_HOVER_ATTR) or "").strip()
-            if not slug or not hover or _NOT_A_MECHANIC.match(slug):
+    for anchors in _scan_all(paths):
+        for slug, hover in anchors:
+            if _NOT_A_MECHANIC.match(slug):
                 continue
             if slug not in out or (_usable(hover) and not _usable(out[slug])):
                 out[slug] = hover
     return out
+
+
+def _scan_page(path_str: str) -> list[tuple[str, str]]:
+    """페이지 1장 → [(슬러그, hover)]. **프로세스 풀에 넘기므로 최상위 함수여야 한다.**
+
+    ⚡ 트리를 `<a>`만 만든다(`SoupStrainer`). 문서 전량 파싱은 페이지당 29ms라
+    1,079장이면 31초다.
+
+    ⚠ 정규식으로 `<a …>`를 떼어내는 방법을 먼저 시도했다가 **틀렸다**:
+    `data-hover` 값 안에 `>`가 있어 `[^>]*`가 태그를 자른다. 파싱은 파서에게 맡긴다.
+    """
+    soup = BeautifulSoup(
+        pathlib.Path(path_str).read_text(encoding="utf-8", errors="replace"),
+        "html.parser",
+        parse_only=_ANCHOR_ONLY,
+    )
+    found: list[tuple[str, str]] = []
+    for anchor in soup.select(f"a.KeywordPopups[{_HOVER_ATTR}]"):
+        slug = str(anchor.get("href") or "").strip()
+        hover = str(anchor.get(_HOVER_ATTR) or "").strip()
+        if slug and hover:
+            found.append((slug, hover))
+    return found
+
+
+def _scan_all(paths: list[Path]) -> Iterator[list[tuple[str, str]]]:
+    """페이지 전량 스캔 — **코어를 쓴다**, 못 쓰면 직렬로 되돌아간다.
+
+    실측 2026-08-09(1,079장·8코어): 직렬 28.8초 → 병렬 **7.0초**(출력 전량 동일).
+    이 함수는 패치마다 도는 수집 경로이자 전수 대조 테스트의 병목이었다.
+
+    ⚠ 되돌림 경로를 남긴다 — 프로세스 풀은 플랫폼(Windows spawn)·실행 문맥(`<stdin>`
+    실행, 중첩 풀)에 따라 못 뜬다. 여기서 죽으면 **수집 자체가 막히므로** 조용히
+    직렬로 간다(느릴 뿐 결과는 같다).
+    """
+    if len(paths) < 200:
+        yield from (_scan_page(str(p)) for p in paths)
+        return
+    try:
+        with ProcessPoolExecutor(max_workers=min(8, os.cpu_count() or 1)) as pool:
+            yield from pool.map(_scan_page, [str(p) for p in paths], chunksize=24)
+    except (OSError, RuntimeError, BrokenProcessPool, ImportError):
+        yield from (_scan_page(str(p)) for p in paths)
 
 
 def _usable(url: str) -> bool:

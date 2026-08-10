@@ -35,18 +35,21 @@
       "Debuff deals 100% more Damage for each",
       "time it has spread, up to 300%",
       "Spread radius is 1.7 metres",
-      "Debuff duration is 5 seconds",
-      "can perform skill while moving [1]",
-      "movement speed +% final while performing action [-70]",
-      "movement speed acceleration +% per second while performing action [160]",
-      "movement speed while performing action locked duration% [50]",
-      "pvp skill dot attack time override ms [10000]"
+      "Debuff duration is 5 seconds"
     ],
     "quality_stats": [
       "Contagion targets (0 — 2) additional Enemies when Cast",
       "(0 — 50)% more Area of Effect"
     ],
-    "cooldown_s": 0.0
+    "cooldown_s": 0.0,
+    "source": "gem",
+    "engine_stats": [
+      "can perform skill while moving [1]",
+      "movement speed +% final while performing action [-70]",
+      "movement speed acceleration +% per second while performing action [160]",
+      "movement speed while performing action locked duration% [50]",
+      "pvp skill dot attack time override ms [10000]"
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

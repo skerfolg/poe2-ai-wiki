@@ -58,18 +58,44 @@ local function respond(xmlText)
   print("POK_JSON:{" .. table.concat(parts, ",") .. "}")
 end
 
+-- 아이템 명세 → PoB 정본 텍스트 (#34). **부팅을 상각하려고** 데몬에 붙였다 —
+-- 별도 프로세스로 띄우면 호출마다 9.8초가 든다(실측 2026-08-09).
+-- 순서는 PoB 자신의 것이다: ParseRaw → Craft(문구·촉매) → UpdateRunes(룬) → BuildRaw.
+local function respond_item(raw)
+  local ok, item = pcall(function() return new("Item", raw) end)
+  if not ok or not item then
+    print("POK_ERR:" .. jesc(tostring(item)))
+    return
+  end
+  -- `Craft()`는 explicitModLines를 통째로 지우고 모드 id에서 다시 만든다(L1704) —
+  -- `{custom}` 없는 손기입 줄은 사라지므로 `Crafted: true`인 명세에만 건다.
+  if item.Craft and raw:match("Crafted:%s*true") then
+    pcall(function() item:Craft() end)
+  end
+  if item.UpdateRunes then pcall(function() item:UpdateRunes() end) end
+  local okBuild, built = pcall(function() return item:BuildRaw() end)
+  if not okBuild then
+    print("POK_ERR:" .. jesc(tostring(built)))
+    return
+  end
+  print("POK_RAW:" .. (tostring(built):gsub("\\", "\\\\"):gsub("\n", "\\n"):gsub("\r", "")))
+end
+
 print("POK_READY")
 io.stdout:flush()
 
 for line in io.lines() do
   if line == "QUIT" then break end
-  local f = io.open(line, "rb")
+  -- `ITEM<TAB><경로>` = 아이템 명세 렌더, 그 외 = 빌드 XML 경로(기존 규약 유지)
+  local itemPath = line:match("^ITEM\t(.*)$")
+  local path = itemPath or line
+  local f = io.open(path, "rb")
   if not f then
-    print("POK_ERR:XML 파일 열기 실패: " .. line)
+    print("POK_ERR:파일 열기 실패: " .. path)
   else
-    local xmlText = f:read("*a")
+    local text = f:read("*a")
     f:close()
-    local ok, err = pcall(respond, xmlText)
+    local ok, err = pcall(itemPath and respond_item or respond, text)
     if not ok then
       print("POK_ERR:" .. jesc(err))
     end

@@ -20,13 +20,17 @@ applicable_pages·scope)로 함께 판정한다. poe2db:normal은 일반 모드 
 
 from __future__ import annotations
 
+import contextlib
 import json
+import math
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
 from pok.engine.jewels import RADIUS_LABELS, needs_radius_declaration
+from pok.engine.runes import needs_rune_declaration
 from pok.kb.store import load as store_load
 
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
@@ -54,7 +58,64 @@ _SPEC_LINE_PREFIXES = (
     "radius:",
     "requires:",
     "--",
+    # `BuildRaw()`가 쓰는 나머지 스펙 줄 (#34). 이게 없어서 **검사기가 자기 도구의
+    # 출력을 거부했다** — 실측 2026-08-09: 명세로 생성한 목걸이에서 스펙 줄 10개가
+    # 전부 UNKNOWN으로 찍혔다. #30(스펙 줄 오독)과 같은 계열이고, 그때 목록이
+    # 부족했던 것이다. 근거는 `Item.lua::BuildRaw` L1396~1601의 기록 순서.
+    "crafted:",
+    "prefix:",
+    "suffix:",
+    "catalyst:",
+    "catalystquality:",
+    "levelreq:",
+    "league:",
+    "unique id:",
+    "variant:",
+    "selected variant:",
+    "has alt variant",
+    "selected alt variant",
+    "allow duplicate variants",
+    "limited to:",
+    "charm slots:",
+    "spirit:",
+    "armour:",
+    "evasion:",
+    "energy shield:",
+    "ward:",
+    "unreleased:",
+    "item level:",
 )
+# 사용자가 **의도적으로** 넣은 줄. PoB가 `{custom}`으로 표시하고 `Craft()`도 이것만
+# 보존한다(L1698). "KB에 없다"가 아니라 "규격 밖인 걸 알고 넣었다"이므로 UNKNOWN과
+# 구분한다 — 실측 2026-08-09: 사용자 목걸이의 `+7% to Fire Spell Critical Hit Chance`.
+_CUSTOM_PREFIX = re.compile(r"^\s*\{custom\}", re.I)
+# PoB `writeModLine`(L1461~1503)이 모드 줄 앞에 붙이는 **장식 접두** 전부.
+# `{range:0.5}`·`{tags:attribute}`·`{enchant}` 같은 것으로, 문구가 아니라 표기다.
+# 벗기지 않으면 KB 매칭이 통째로 실패한다 — 실측 2026-08-09: 명세 형식으로 바꾸자
+# 베이스 임플리싯 `{range:0.5}+(10-15) to Intelligence`가 UNKNOWN이 되면서 조립
+# 시도가 전부 실격 판정을 받아 **접사를 하나도 못 골랐다**.
+_MOD_DECORATION = re.compile(
+    r"^\s*(?:\{(?:range|corruptedRange|variant|tags):[^}]*\}|"
+    r"\{(?:enchant|fractured|desecrated|mutated|crafted|unscalable)\})+",
+    re.I,
+)
+# 촉매 — `Item.lua:14`의 목록 순서가 곧 `catalystTags`(L20~)의 인덱스다.
+# 배율은 `(100 + quality)/100`이고 **모드 태그가 촉매 태그와 겹칠 때만** 걸린다(L32~57).
+_CATALYST_TAGS: dict[str, frozenset[str]] = {
+    "flesh": frozenset({"life"}),
+    "neural": frozenset({"mana"}),
+    "carapace": frozenset({"defences", "armour", "evasion", "energyshield"}),
+    "uul-netol's": frozenset({"physical"}),
+    "xoph's": frozenset({"fire"}),
+    "tul's": frozenset({"cold"}),
+    "esh's": frozenset({"lightning"}),
+    "chayula's": frozenset({"chaos"}),
+    "reaver": frozenset({"attack"}),
+    "sibilant": frozenset({"caster"}),
+    "skittering": frozenset({"speed"}),
+    "adaptive": frozenset({"attribute"}),
+    "necrotic": frozenset({"minion"}),
+}
 # 값 없이 서는 **표식**
 _SPEC_MARKERS = frozenset({"corrupted", "mirrored", "split", "unidentified"})
 # 아이템이 소켓 룬 효과를 올리는 줄 (유니크 `Runeseeker's Call` 등)
@@ -184,6 +245,7 @@ class ItemLegalityChecker:
         suffix_effect = next(
             (float(m.group(1)) for ln in mod_lines if (m := _SUFFIX_EFFECT.match(ln))), 0.0
         )
+        catalyst, catalyst_quality = parse_catalyst(item_text)
         for line in mod_lines:
             verdict = self._check_line(
                 line,
@@ -192,6 +254,8 @@ class ItemLegalityChecker:
                 suffix_effect=suffix_effect,
                 sockets=sockets,
                 rune_effect=rune_effect,
+                catalyst=catalyst,
+                catalyst_quality=catalyst_quality,
             )
             verdicts.append(verdict)
             if verdict.modifier_id:
@@ -235,6 +299,8 @@ class ItemLegalityChecker:
                 f"**아무 노드도 안 걸리고 델타가 0이 된다**. {list(RADIUS_LABELS)} 중 그 "
                 "주얼의 실제 반경을 적을 것(engine.jewels.render_radius_jewel)"
             )
+        # 룬도 같은 계열이다 — 선언이 없으면 모드는 들어가고 **증폭만** 빠진다(3.00배).
+        errors.extend(needs_rune_declaration(item_text))
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
 
     def _rune_hint(self, mod_lines: list[str]) -> list[str]:
@@ -434,7 +500,7 @@ class ItemLegalityChecker:
                         ln, "ILLEGAL", notable["id"], "어센던시 노터블 — Megalomaniac 풀 밖"
                     )
                 )
-            elif notable["data"].get("acquisition") != "liquid-emotion":
+            elif notable["data"].get("acquisition") != "anointable":
                 verdicts.append(
                     LineVerdict(
                         ln,
@@ -583,10 +649,28 @@ class ItemLegalityChecker:
         suffix_effect: float = 0.0,
         sockets: int = 0,
         rune_effect: float = 0.0,
+        catalyst: str = "",
+        catalyst_quality: float = 0.0,
     ) -> LineVerdict:
+        # `{custom}`은 사용자가 **규격 밖인 걸 알고** 넣은 줄이다(PoB `Craft()`도 이것만
+        # 보존한다, L1698). "KB에 없다"와 섞으면 진짜 미수록 신호가 묽어진다.
+        if "{custom}" in line.lower():
+            body = _MOD_DECORATION.sub("", _CUSTOM_PREFIX.sub("", line, count=1), count=1).strip()
+            return LineVerdict(
+                line,
+                "CONDITIONAL",
+                reason=(
+                    "사용자가 **의도적으로 넣은** 커스텀 줄 — 규격 밖임을 알고 넣은 것이라 "
+                    "미수록(UNKNOWN)과 구분한다. 수치는 검증되지 않는다"
+                    + _custom_hint(self._mods, body)
+                ),
+            )
         # PoB는 룬 부여 줄을 `{rune}` 접두로 표기한다. 룬은 일반 접사와 **다른 풀**이라
         # 접두를 무시하면 동명 접사에 먼저 매칭돼 "티어 범위 밖"으로 오판한다
         # (실측 2026-08-05: 룬 16줄이 전부 UNKNOWN·오판이었다).
+        # 장식 접두를 먼저 벗긴다 — `{rune}`·`{custom}`은 **의미**가 있어 위에서 이미
+        # 갈랐고, 나머지는 표기라 매칭 전에 떼어야 한다.
+        line = _MOD_DECORATION.sub("", line, count=1).strip()
         rune_line = bool(_RUNE_PREFIX.match(line))
         if rune_line:
             line = _RUNE_PREFIX.sub("", line, count=1).strip()
@@ -629,6 +713,16 @@ class ItemLegalityChecker:
                 )
                 if ok:
                     note = f"접미어 효과 {suffix_effect:g}% 반영 상한"
+            if not ok and catalyst:
+                # 촉매는 접사 수치를 **실제로** 올린다 — `Craft()`가 `getCatalystScalar`를
+                # `applyRange`에 태운다(L1723). 검사기가 이걸 모르면 **정상 아이템을
+                # 티어 범위 밖으로 찍는다** — 실측 2026-08-09: 사용자 정본 목걸이의
+                # `50% increased Evasion Rating`(Sibilant 40)이 그렇게 ILLEGAL이 됐다.
+                scalar = catalyst_scalar(catalyst, catalyst_quality, d.get("mod_tags") or [])
+                if scalar > 1.0:
+                    ok, why = _values_in_range(line, d.get("texts", []), hi_scale=scalar)
+                    if ok:
+                        note = f"촉매 {catalyst} {catalyst_quality:g}% 반영 상한"
             if not ok:
                 reasons.append(f"{rec['id']}: {why}")
                 continue
@@ -721,6 +815,35 @@ def _route_base_fit(d: dict[str, Any], base: dict[str, Any]) -> tuple[bool, str]
     return True, ""
 
 
+def parse_catalyst(text: str) -> tuple[str, float]:
+    """`Catalyst:` + `CatalystQuality:` → (촉매 이름 소문자, 퀄리티). 없으면 ("", 0.0).
+
+    촉매는 **접사 수치를 실제로 올린다** — `Item.lua::Craft`가 `getCatalystScalar`를
+    태워 `applyRange`에 넘긴다(L1723). 실측 2026-08-09(사용자 정본 목걸이, Sibilant):
+    퀄리티 0 → 주문 피해 30% · 20 → **36%** · 40 → **42%**. 검사기가 이걸 모르면
+    정상 아이템을 "티어 범위 밖"으로 찍는다.
+    """
+    name, quality = "", 0.0
+    for line in text.splitlines():
+        low = line.strip().lower()
+        if low.startswith("catalyst:"):
+            name = line.split(":", 1)[1].strip().lower()
+        elif low.startswith("catalystquality:"):
+            with contextlib.suppress(ValueError):
+                quality = float(line.split(":", 1)[1].strip())
+    return name, quality
+
+
+def catalyst_scalar(catalyst: str, quality: float, mod_tags: Sequence[str]) -> float:
+    """모드 태그가 촉매 태그와 겹치면 `(100 + quality)/100`, 아니면 1.0 (`Item.lua:32~57`)."""
+    tags = _CATALYST_TAGS.get(catalyst)
+    if not tags or not mod_tags:
+        return 1.0
+    if tags & {str(tag).lower() for tag in mod_tags}:
+        return (100.0 + quality) / 100.0
+    return 1.0
+
+
 def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
     """buildxml.ItemSpec.text 형식 파서 (우리가 생성하는 형식 — 엄격).
 
@@ -736,7 +859,14 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
         if len(lines) < 3:
             raise ValueError("이름·베이스 줄 부족")
         base_name, rest = lines[2], lines[3:]
+    # ⚠ PoB 정본(`BuildRaw`)에는 `Item Level:` 줄이 **없다** — `LevelReq:`만 쓴다.
+    # 1로 두면 고티어 접사가 전부 "요구 ilvl 초과"로 찍힌다: 실측 2026-08-09, 명세로
+    # 생성한 목걸이에서 `IncreasedEvasionRatingPercent7`((45-50)%, 실제 50%)이 그렇게
+    # ILLEGAL이 됐다. `LevelReq:`가 있으면 거기서 유도한다 — PoB 자신의 관계식이
+    # `LevelReq = max(base.req.level, floor(mod.level * 0.8))`(`Craft` L1722)이므로
+    # **모드 레벨 상한 ≈ LevelReq / 0.8**이다. 둘 다 없으면 예전대로 1(보수적).
     ilvl = 1
+    level_req = 0
     sockets = 0
     rune_effect = 0.0
     mod_lines: list[str] = []
@@ -749,6 +879,9 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
             rune_effect = max(rune_effect, float(match.group(1)))
         if low.startswith("item level:"):
             ilvl = int(ln.split(":", 1)[1].strip())
+        elif low.startswith("levelreq:"):
+            with contextlib.suppress(ValueError):
+                level_req = int(float(ln.split(":", 1)[1].strip()))
         elif low.startswith(_SPEC_LINE_PREFIXES) or low in _SPEC_MARKERS:
             # PoB의 **스펙 줄·표식**이지 모드가 아니다. `Sockets:`·`Rune:`·`Radius:`는
             # `Item.lua:570-580`이 읽는 선언이고 `Corrupted`는 표식이다. 모드로 판정하면
@@ -761,6 +894,12 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
             continue
         else:
             mod_lines.append(ln)
+    if ilvl == 1 and level_req:
+        # `LevelReq = floor(mod.level * 0.8)`의 역산 — **올림**이다. 실측 2026-08-09:
+        # `IncreasedEvasionRatingPercent7`은 level 77이고 floor(77*0.8) = **61**이라
+        # 사용자 정본의 `LevelReq: 61`과 맞는다. 내림을 쓰면 76이 나와 그 접사를
+        # 1 차이로 거부한다(만들다 실제로 걸렸다).
+        ilvl = math.ceil(level_req / 0.8)
     return rarity, base_name, ilvl, mod_lines, sockets, rune_effect
 
 
@@ -792,3 +931,22 @@ def _values_in_range(line: str, texts: list[str], *, hi_scale: float = 1.0) -> t
             return True, ""
     scaled = " (접미어 효과 확장 포함)" if hi_scale > 1 else ""
     return False, f"수치 {line_nums} 가 티어 범위 밖{scaled}"
+
+
+def _custom_hint(mods: dict[str, list[dict[str, Any]]], line: str) -> str:
+    """이 커스텀 문구가 **KB에 실재하는 모드**인가 — 있으면 그걸 쓰라고 말한다.
+
+    실측 2026-08-09: 사용자가 *"PoB에 없어서 커스텀으로 넣었다"*고 한
+    `+7% to Fire Spell Critical Hit Chance`는 실은
+    `modifier.genesistreefirespellbasecriticalchancecrafted`(「조프」, +(4-5)%)이고,
+    7%는 **최대롤 5% x Sibilant 촉매 40%**다. 커스텀 대신 모드 id로 넣을 수 있었다.
+    """
+    for cand in mods.get(_norm(line), []):
+        data = cand.get("data") or {}
+        key = data.get("pob_key")
+        if key:
+            return (
+                f" — 이 문구는 KB에 **실재한다**: `{cand['id']}` (`{key}`). "
+                f"커스텀 대신 `Suffix: {{range:1}}{key}`로 넣으면 수치·촉매를 PoB가 만든다"
+            )
+    return ""

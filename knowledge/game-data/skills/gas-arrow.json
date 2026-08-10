@@ -37,7 +37,16 @@
       "Gains +20% more Radius per second, up to a maximum of +80%",
       "Cloud radius is 1.8 metres",
       "Cloud duration is 4 seconds",
-      "Converts 100% of Physical damage to Fire damage",
+      "Converts 100% of Physical damage to Fire damage"
+    ],
+    "quality_stats": [
+      "+(0 — 0.4) metres to impact radius",
+      "Deals (0 — 20)% more Fire Damage",
+      "+(0 — 0.4) metres to cloud radius"
+    ],
+    "cooldown_s": 0.0,
+    "source": "gem",
+    "engine_stats": [
       "base is projectile [1]",
       "can perform skill while moving [1]",
       "check for targets between initiator and projectile source [1]",
@@ -53,13 +62,7 @@
       "display skill poisons without hit [1]",
       "display statset hide usage stats [1]",
       "display statset no hit damage [1]"
-    ],
-    "quality_stats": [
-      "+(0 — 0.4) metres to impact radius",
-      "Deals (0 — 20)% more Fire Damage",
-      "+(0 — 0.4) metres to cloud radius"
-    ],
-    "cooldown_s": 0.0
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

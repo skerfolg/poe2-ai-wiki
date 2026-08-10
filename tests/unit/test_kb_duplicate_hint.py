@@ -56,11 +56,33 @@ def _write(root: Path, name: str, record: dict[str, object]) -> Path:
     return path
 
 
-def test_미추적_사본을_지목한다(kb_repo: Path) -> None:
-    """추적본과 사본이 함께 있으면 **사본 쪽**을 미추적으로 짚어야 한다."""
+def test_바이트_동일한_미추적_사본은_빼고_로드한다(kb_repo: Path) -> None:
+    """사본이 조회 전체를 막지 않는다 — **부분 로드**(사용자 판정 2026-08-09, #21).
+
+    사본이므로 빼도 잃는 정보가 0이다. 다만 **조용히** 빼지는 않는다.
+    """
     _write(kb_repo, "probe.json", _RECORD)
     subprocess.run(["git", "-C", str(kb_repo), "add", "-A"], check=True)
     _write(kb_repo, "probe 2.json", _RECORD)  # 사본은 커밋하지 않는다 = 미추적
+    _untracked.cache_clear()
+
+    store = load(kb_repo)
+    assert "mechanic.dup-probe" in store.records, "정본은 살아 있어야 한다"
+    assert store.records["mechanic.dup-probe"].path.name == "probe.json"
+    assert len(store.skipped_copies) == 1
+    warning = store.skip_warnings[0]
+    assert "probe 2.json" in warning and "지우거나" in warning, warning
+
+
+def test_내용이_다르면_여전히_거부한다(kb_repo: Path) -> None:
+    """방어선은 **내용 동일**이다 — 새 레코드를 만드는 세션은 정상적으로 미추적이다.
+
+    미추적만으로 빼면 방금 만든 레코드가 조용히 사라진다. 그래서 내용이 다르면
+    예전처럼 검증 실패로 남기고, **어느 쪽이 미추적인지** 짚어 준다.
+    """
+    _write(kb_repo, "probe.json", _RECORD)
+    subprocess.run(["git", "-C", str(kb_repo), "add", "-A"], check=True)
+    _write(kb_repo, "probe 2.json", {**_RECORD, "tags": ["differs"]})
     _untracked.cache_clear()
 
     with pytest.raises(KBValidationError) as excinfo:

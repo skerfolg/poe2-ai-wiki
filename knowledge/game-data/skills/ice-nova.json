@@ -38,7 +38,15 @@
       "Nova radius is 3.2 metres",
       "Deals (15 — 448) to (22 — 672) Cold Damage",
       "Explosion and Chilled Ground radius are 4.8 metres",
-      "Chilled Ground duration is 8 seconds",
+      "Chilled Ground duration is 8 seconds"
+    ],
+    "quality_stats": [
+      "(0 — 20)% more Damage with Hits against Enemies that are Chilled",
+      "(0 — 40)% chance to not remove an Infusion but still count as consuming them"
+    ],
+    "cooldown_s": 0.0,
+    "source": "gem",
+    "engine_stats": [
       "active skill consumes a cold infusion [1]",
       "base skill effect duration [8000]",
       "can perform skill while moving [1]",
@@ -52,12 +60,7 @@
       "movement speed while performing action locked duration% [50]",
       "base skill show average damage instead of dps [1]",
       "display statset hide usage stats [1]"
-    ],
-    "quality_stats": [
-      "(0 — 20)% more Damage with Hits against Enemies that are Chilled",
-      "(0 — 40)% chance to not remove an Infusion but still count as consuming them"
-    ],
-    "cooldown_s": 0.0
+    ]
   },
   "verification": "GAME_DATA",
   "sources": [

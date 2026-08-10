@@ -57,6 +57,13 @@ class DetailPage:
     # 있는 값**이 있다. 대신 **누구의 줄인지 실체 이름과 함께** 싣는다:
     # `[{"entity": "Skeletal Frost Mage", "stats": [...]}]`
     minion_stats: list[dict[str, Any]] = field(default_factory=list)
+    # 엔진 내부 문구 — **버리지 않고 옮긴다** (#8-c, 사용자 우려 2026-08-09).
+    # 처음엔 지웠는데 재 보니 921종 중 **609종(66%)이 값 1이 아니었다**: 실수치가
+    # 섞여 있다(`bell shockwave cooldown ms [100]` · `toxic domain mana cost +% [25]` ·
+    # `movement speed +% final while performing action [-70]`). "엔진 내부값"이라
+    # 부르기엔 기전 수치다. 문제는 이것이 **효과 문구인 척** `stats`에 있었던 것이지
+    # 존재 자체가 아니었다 — #8-b가 소환수 스탯에 쓴 방식(버리지 않고 분리)과 같다.
+    engine_stats: list[str] = field(default_factory=list)
 
 
 def _title_name(soup: BeautifulSoup) -> str:
@@ -185,6 +192,17 @@ def parse_stats_costs(stats_text: str) -> dict[str, Any]:
 
 
 _INTERNAL_ID = re.compile(r"[a-z0-9%]+(?:_[a-z0-9%]+)+")
+# 띄어 쓴 엔진 내부 문구 + 원값 꼬리 — `is area damage [1]` · `base deal no damage [1]`
+# (백로그 #8-c, 사용자 판정 2026-08-09: 삭제. 필요해지면 그때 다시 넣는다)
+#
+# ⚠ `_INTERNAL_ID`가 **공백 없는** 식별자만 걸러서 이 형태가 통과했다 — Skill 3,526줄 ·
+# Support 208줄이 효과 문구인 척 들어와 있었다(`skill.wild-protector`는 남은 2줄이
+# 전부 이 부류였다). 판정 근거는 꼬리 `[N]`이다: poe2db가 내부 stat의 **원값**을
+# 그렇게 표기하고, 플레이어용 문구에는 이 꼬리가 붙지 않는다.
+#
+# 트리(Passive)는 **대상이 아니다** — 내부 stat id 32줄 보존이 이미 판정돼 있고
+# (KB_INGEST 4-2), 실측상 이 형태에 걸리는 Passive는 0건이다.
+_INTERNAL_PHRASE = re.compile(r"[a-z0-9_%+\-/' ]+ \[-?\d+\]")
 _MOD_SELECTORS = (
     ("stats", ".explicitMod"),
     ("implicit_stats", ".implicitMod"),
@@ -193,7 +211,7 @@ _MOD_SELECTORS = (
 
 
 def _mod_lines(node: Tag) -> list[str]:
-    """모드 div 하나 → 문구 줄들.
+    """모드 div 하나 → 문구 줄들. **아무것도 버리지 않는다** — 가르는 것은 호출자다.
 
     구분자는 `<br>`다. `get_text("\n")`을 그냥 쓰면 인라인 태그(`<a>`·`<span
     class=mod-value>`)마다 줄이 갈려 `"Supported Skills have / 80 / % more…"`처럼
@@ -207,7 +225,8 @@ def _mod_lines(node: Tag) -> list[str]:
         line = " ".join(chunk.split())
         # 수치가 <span>으로 분리돼 "50 %"·"Bleeding , up to" 처럼 벌어진다 — 표기만 정리
         line = re.sub(r"\s+([%,.])", r"\1", line)
-        # 내부 식별자(`receive_bleeding_chance_%_when_hit`)는 문구가 아니다
+        # 내부 **식별자**(`receive_bleeding_chance_%_when_hit`)만 여기서 버린다 —
+        # 그건 문구도 수치도 아닌 이름뿐이다. 내부 **문구**는 호출자가 갈라 담는다.
         if line and not _INTERNAL_ID.fullmatch(line):
             out.append(line)
     return out
@@ -249,15 +268,21 @@ def _collect_mods(soup: BeautifulSoup, page: DetailPage) -> None:
     블록이 여러 벌 실리는 페이지가 있어(같은 내용 반복) 순서를 지키며 dedup한다.
     """
     blocks = _player_blocks(soup)
+    engine: list[str] = []
     for attr, selector in _MOD_SELECTORS:
         seen: list[str] = []
         for block in blocks:
             for node in block.select(selector):
                 for line in _mod_lines(node):
-                    if line not in seen:
+                    if _INTERNAL_PHRASE.fullmatch(line):
+                        if line not in engine:
+                            engine.append(line)
+                    elif line not in seen:
                         seen.append(line)
         if seen:
             setattr(page, attr, seen)
+    if engine:
+        page.engine_stats = engine
 
 
 def _collect_minion_stats(soup: BeautifulSoup, page: DetailPage) -> None:
@@ -267,7 +292,18 @@ def _collect_minion_stats(soup: BeautifulSoup, page: DetailPage) -> None:
     카드는 poe2db가 이름이 같아서 얹은 무관한 몬스터이므로 **버린다**(사용자 판정
     2026-08-07). 플레이어 블록에 이미 있는 줄은 중복이므로 싣지 않는다.
     """
-    haystack = " ".join([page.description or "", *page.stats, *page.implicit_stats])
+    # ⚠ 판정은 **거르기 전 원문**으로 한다. `page.stats`는 내부 문구가 빠진 뒤인데,
+    # 소환 선언이 바로 그 내부 문구에 실려 있는 페이지가 있다 — 실측 2026-08-09:
+    # 좀비의 근거가 `is resummoning minion [1]` 한 줄뿐이라, #8-c 필터를 켜자
+    # `Raised Zombie` 실체가 통째로 사라졌다. 표기 정리가 분류를 바꾸면 안 된다.
+    raw_lines = [
+        line
+        for block in _player_blocks(soup)
+        for _, selector in _MOD_SELECTORS
+        for node in block.select(selector)
+        for line in _mod_lines(node)
+    ]
+    haystack = " ".join([page.description or "", *raw_lines])
     if not _DECLARES_MINION.search(haystack):
         return
 
@@ -315,8 +351,14 @@ def parse_detail(html: str) -> DetailPage:
         if m:
             page.tier = int(m.group(1))
         page.tags = _extract_tags(text)
-        for key, value in parse_stats_costs(text).items():
-            setattr(page, key, value)
+    # ⚠ 코스트는 **첫 블록에만 있지 않다.** 실측 2026-08-09: `Archon of Chayula`의
+    # `Cost: 0 Mana`는 블록 2에 있어 401건 중 **55건**이 통째로 미수록이었다 —
+    # "코스트 없음"과 구분되지 않아 마나 소모 0으로 단정한 오판이 났다(#5).
+    # 조건부 점유가 이미 전 블록을 훑고 있었으니 규약도 이미 있었다.
+    for block in player_blocks:
+        for key, value in parse_stats_costs(block.get_text(" ", strip=True)).items():
+            if value and not getattr(page, key):
+                setattr(page, key, value)
     # 조건부(서술형) 점유는 버프 팝업 블록에 있다 — 플레이어 `.Stats`를 합쳐서 스캔
     # (몬스터 카드는 뺀다: 소환수가 점유하는 게 아니다)
     all_stats = " ".join(b.get_text(" ", strip=True) for b in player_blocks)

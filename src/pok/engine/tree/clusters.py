@@ -118,7 +118,24 @@ def find_clusters(
     for node in graph.nodes.values():
         if node.kind != "notable" or node.position is None:
             continue
+        # 두 축을 **둘 다** 봐야 한다 (백로그 #35):
+        #   `locked_to`  = 「다른 전직 **전용 해금**」 — 조건을 만족하면 찍을 수 있다
+        #   `ascendancy` = 「다른 어센던시 **트리 소속**」 — **애초에 못 들어간다**
+        # 후자가 더 명백한 배제 대상인데 안 걸러졌다. 실측 2026-08-09:
+        # `26383 살점 가르기`(`ascendancy: "Witch2"`, `unlock_constraint: None`)가
+        # 인퍼널리스트 호출에 나와 **치명타 병목의 해법으로 채택 직전까지** 갔다.
+        # 기계가 못 잡은 것을 사용자가 잡았다("살점 가르기는 블러드메이지 전용이잖아").
+        #
+        # `for_ascendancy`를 안 주면 어센던시 노드를 **전부** 뺀다 — 어느 전직인지
+        # 모르면서 그 트리 노드를 후보로 내면 못 찍는 것을 권하는 셈이다(B-13).
         if node.locked_to and node.locked_to != wanted:
+            continue
+        # ⚠ **두 이름 공간이다.** `node.ascendancy`는 **코드**("Witch2")이고
+        # `wanted`(=`resolve_ascendancy`)는 **표시명**("Blood Mage")이다. 그대로
+        # 비교하면 항상 불일치라 **자기 어센던시 노드까지 전부 막힌다** — 만들다 실제로
+        # 그랬다(§0 ⑤ 게이트가 정상을 막으면 신호가 죽는다). 노드 쪽도 해소해서 잰다.
+        node_ascendancy = graph.resolve_ascendancy(node.ascendancy)
+        if node_ascendancy and node_ascendancy != wanted:
             continue
         score = relevance(node.stats_en, include, exclude)
         if score > 0:

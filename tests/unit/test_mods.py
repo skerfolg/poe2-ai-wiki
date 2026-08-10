@@ -620,3 +620,35 @@ def test_unique_category_inherits_from_base() -> None:
     # 베이스를 모르면 파일명이 폴백 — 계열을 통째로 잃는 것보다 낫다
     unknown = {"base_type": "Nonexistent Base", "category": "amulet"}
     assert _unique_category(unknown, base_cats) == "amulet"
+
+
+def test_poe1_remnant_mods_stay_out_of_the_kb() -> None:
+    """PoE1 잔재 7건은 **재수집해도 안 돌아온다** (백로그 #17, 사용자 판정 2026-08-09).
+
+    이 7건은 얹으면 `new("Item", raw)`가 **예외를 던져 조립 자체가 실패**한다 —
+    다른 파싱 갭(조용한 0)과 성질이 다르다. 레코드만 지우면 다음 ingest가 되살린다:
+    `item-exclusive`는 스폰 가중치가 없는 게 정상이라 `_ALWAYS_INCLUDE` 지름길로
+    **무증거 수록**되기 때문이다. 그래서 원장 기재 + `is_included` 양쪽을 잠근다.
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.kb.ingest.mods import is_included, poe1_remnant_keys
+    from pok.kb.store import load
+
+    remnants = poe1_remnant_keys()
+    assert len(remnants) == 7, remnants
+
+    # ① 수집이 다시 넣지 않는다 — item-exclusive 지름길보다 먼저 걸려야 한다
+    mod = {"pob_key": "SupportedByInnervateUnique__1", "origins": ["item-exclusive"]}
+    assert not is_included(mod), "지름길이 잔재를 삼키면 다음 패치에 되살아난다"
+    assert is_included({"pob_key": "Strength1", "origins": ["item-exclusive"]}), (
+        "잔재가 아닌 item-exclusive는 그대로 수록된다 (게이트는 양방향)"
+    )
+
+    # ② 지금 정본에 없다
+    store = load(knowledge_dir())
+    present = [
+        rid
+        for rid, rec in store.records.items()
+        if (rec.raw.get("data") or {}).get("pob_key") in remnants
+    ]
+    assert not present, f"정본에 남아 있다: {present}"

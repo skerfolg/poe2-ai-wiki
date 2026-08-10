@@ -181,3 +181,34 @@ def test_deletion_needs_a_ruling(tmp_path: Path) -> None:
     # 이번 수록분에 없던 skill 샤드도 근거가 없으므로 그대로 남는다
     skills = (knowledge / "game-data/gems/skills.ndjson").read_text(encoding="utf-8")
     assert len(skills.splitlines()) == 2, "부분 merge가 다른 샤드를 깎지 않는다"
+
+
+def test_granted_skills_are_told_apart_from_gems() -> None:
+    """젬 스킬과 아이템 부여 스킬은 **다른 것**이다 (#4, 사용자 판정 2026-08-09).
+
+    구분이 없어 `skill.purity-of-fire`·`skill.malice`를 젬 오라로 오인해 정신력
+    배분표에 넣었다 — 실제로는 셉터 부여라 젬으로 못 켜고 셉터당 하나만 고른다.
+    판정 근거는 **poe2db 획득 출처**에 이미 있었다(사용자 지적).
+    """
+    from pok.kb.ingest.merge import skill_source
+
+    assert skill_source(["Uncut Skill Gem"]) == {"source": "gem"}
+    granted = skill_source(["Shrine Sceptre"], {"shrine sceptre": "item.shrine-sceptre"})
+    assert granted["source"] == "item-granted"
+    assert granted["granted_by_ids"] == ["item.shrine-sceptre"]
+
+    # 아이템으로 해석되지 않는 출처(전직 노드·다른 스킬)를 `item-granted`라 부르지 않는다
+    assert skill_source(["Archon of Chayula"], {})["source"] == "other-granted"
+    # 출처가 없으면 **모른다** — `gem`으로 넘겨짚으면 같은 오인이 재발한다
+    assert skill_source([]) == {}
+
+
+def test_kb_actually_carries_the_source() -> None:
+    """수록돼 있어야 도구가 쓴다 — 실측 사례 2건이 실제로 갈리는지 본다."""
+    from pok.common.paths import knowledge_dir
+    from pok.kb.store import load
+
+    store = load(knowledge_dir())
+    assert store.get("skill.purity-of-fire").raw["data"]["source"] != "gem"
+    assert store.get("skill.malice").raw["data"]["source"] != "gem"
+    assert store.get("skill.fireball").raw["data"]["source"] == "gem"

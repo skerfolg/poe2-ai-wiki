@@ -318,6 +318,19 @@ def optimize_items(
             }
             for d in result.defensive_only
         ],
+        # 후보가 **움직였는데 가중치에 없는** 축 (10차 이관). #18·#22·#25가 전부
+        # 이 형태였고 셋 다 사용자가 지적해줘야 발견됐다 — 도구가 안 내면 안 보인다.
+        # 계열 대표만 낸다(실측 57축 → 20계열): 같은 사실이 9줄로 나오기 때문이다.
+        "unscored_axes": [
+            {
+                "axis": a.axis,
+                "family": a.family,
+                "delta": a.delta,
+                "relative": a.relative,
+                "siblings": list(a.siblings),
+            }
+            for a in result.unscored_axes
+        ],
         "notes": list(result.notes),
     }
 
@@ -331,6 +344,7 @@ def optimize_rare(
     prefix_count: int | None = None,
     suffix_count: int | None = None,
     top_table: int = 15,
+    radius: str | None = None,
 ) -> dict[str, Any]:
     """이 빌드의 최선 희귀를 결정적으로 생성 (사용자 승인 2026-08-06 — 사고 4·5).
 
@@ -359,6 +373,9 @@ def optimize_rare(
     한계도 반환에 있다: 단독 점수 그리디(접사 상호작용은 조립 실측에만 반영),
     롤 mid 고정. 소요: 접사 풀 크기 x ~1.4초 — 슬롯당 1~2분.
     """
+    # ⚠ **반경 주얼(Time-Lost 계열)은 `radius`를 줘야 한다** — 선언이 없으면 PoB가
+    # 반경을 정하지 못해 반경 부여 접사의 델타가 **전부 0**이 된다(제안 B 실측:
+    # 10.44 → 15.84). 안 주면 결과 `notes`가 그 사실을 말한다.
     from pok.engine.rares import optimize_rare as _optimize
 
     result = _optimize(
@@ -369,9 +386,14 @@ def optimize_rare(
         floors=floors,
         prefix_count=prefix_count,
         suffix_count=suffix_count,
+        radius=radius,
     )
     return {
         "text": result.text,
+        # **PoB 명세**(모드 id) — 문구가 아니다(#34 A). `text`는 이 명세를 PoB에
+        # 태워 되받은 정본이고, `pob_rendered: false`면 아직 우리가 쓴 문구다.
+        "spec_text": result.spec_text,
+        "pob_rendered": result.pob_rendered,
         "delta": result.delta,
         "legal": result.legal,
         "legality_errors": list(result.legality_errors),
@@ -523,4 +545,49 @@ def find_clusters(
             }
             for c in clusters
         ]
+    }
+
+
+def list_implicits(base_type: str, root_dir: str | None = None) -> dict[str, Any]:
+    """베이스가 가질 수 있는 **임플리싯 경로** 전량 (백로그 #22).
+
+    `optimize_rare`는 접사 풀만 열거하므로 임플리싯 축이 **구조적으로 안 보인다** —
+    사용자가 짚은 「에센스로 최대 퀄리티 +20% → 기폭제로 40% → 옵션 교체」의 부품이
+    전부 임플리싯이라 후보에 오르지 못했다.
+
+    ⚠ **값을 재 주지 않는다.** 실측 2026-08-09: `+20% to Maximum Quality`는 PoB가
+    문구 자체를 못 읽는다(`pob_measurable: false`). 그런 후보의 델타 0은 "값어치
+    없음"이 아니라 **"측정 안 됨"**이다 — 대리 측정은 `ItemSpec.substitutes`로.
+
+    ⚠ `slot_certain: false`는 **이 슬롯 것인지 확실하지 않다**는 뜻이다(임플리싯
+    Modifier 264건 전부 `applicable_pages`가 비어 있어 `pob_key` 이름이 유일한
+    신호다). 빼지 않고 뒤로 미뤄 둔다 — 빼면 조용한 누락이 된다.
+    """
+    from pathlib import Path
+
+    from pok.engine.implicits import (
+        enumerate_implicits,
+        load_records,
+        uncertain_note,
+        unmeasurable_note,
+    )
+
+    root = Path(root_dir) if root_dir else None
+    options = enumerate_implicits(base_type, load_records(root))
+    notes = [n for n in (uncertain_note(options), unmeasurable_note(options)) if n]
+    return {
+        "base_type": base_type,
+        "options": [
+            {
+                "source": o.source,
+                "label": o.label,
+                "lines": list(o.lines),
+                "slot_certain": o.slot_certain,
+                "pob_measurable": o.pob_measurable,
+                **({"pob_gap": o.pob_gap} if o.pob_gap else {}),
+            }
+            for o in options
+        ],
+        "certain_count": sum(1 for o in options if o.slot_certain),
+        "notes": notes,
     }
