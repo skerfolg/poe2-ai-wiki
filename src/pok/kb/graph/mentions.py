@@ -104,6 +104,10 @@ def scan_mechanic_mentions(
     """
     records = _records(root)
     lexicon = _mechanic_lexicon(records)
+    # ⚡ 패턴을 **한 번만** 컴파일한다. 전에는 (레코드 x 어휘)마다 `re.search`에 f-string을
+    # 넘겨 매번 컴파일했는데, 어휘가 `re` 내부 캐시(512개)보다 많으면 캐시가 계속 밀려
+    # 사실상 전량 재컴파일이 된다 — 실측 2026-08-09: 이 스캔 3회가 46초였다.
+    patterns = {name: re.compile(rf"\b{re.escape(name)}", re.I) for name in lexicon}
     concept_terms = [c.strip().lower() for c in concepts if c.strip()]
     edges: list[SuspectedEdge] = []
     total = 0
@@ -118,7 +122,8 @@ def scan_mechanic_mentions(
         for name, mechanic_id in lexicon.items():
             if mechanic_id == record_id or name == self_name:
                 continue
-            quote = next((t for t in texts if re.search(rf"\b{re.escape(name)}", t, re.I)), None)
+            pattern = patterns[name]
+            quote = next((t for t in texts if pattern.search(t)), None)
             if quote is None:
                 continue
             total += 1

@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, SoupStrainer
 
 from pok.common.paths import knowledge_dir
 from pok.kb.ingest.sources import DEFAULT_RATE_SECONDS, POE2DB_BASE, USER_AGENT
@@ -45,6 +45,9 @@ _SLUG_SAFE = re.compile(r"[^A-Za-z0-9_.-]")
 _NOT_A_MECHANIC = re.compile(r"^(Support_Gem_|Item_Class|.*_Categories$)")
 # poe2db 슬러그와 기존 레코드 id가 어긋나는 것 — 새 레코드를 만들지 않고 합친다
 _ALIAS = {"Bleeding": "mechanic.bleed"}
+
+
+_ANCHOR_ONLY = SoupStrainer("a")
 
 
 def collect_links(raw_dir: Path) -> dict[str, str]:
@@ -64,7 +67,17 @@ def collect_links(raw_dir: Path) -> dict[str, str]:
     pages = raw_dir / "poe2db" / "us"
     out: dict[str, str] = {}
     for path in sorted(pages.glob("*.html")):
-        soup = BeautifulSoup(path.read_text(encoding="utf-8", errors="replace"), "html.parser")
+        # ⚡ 트리를 **`<a>`만** 만든다(`SoupStrainer`). 문서 전량 파싱은 페이지당 29ms라
+        # 1,079장이면 31초이고, 그게 이 함수를 쓰는 테스트의 55초짜리 병목이었다.
+        # 파싱 자체는 파서가 온전히 하므로 결과가 같다 — 전량 대조로 확인했다.
+        #
+        # ⚠ 정규식으로 `<a …>`를 떼어내는 방법을 먼저 시도했다가 **틀렸다**:
+        # `data-hover` 값 안에 `>`가 있어 `[^>]*`가 태그를 자른다. 파싱은 파서에게.
+        soup = BeautifulSoup(
+            path.read_text(encoding="utf-8", errors="replace"),
+            "html.parser",
+            parse_only=_ANCHOR_ONLY,
+        )
         for anchor in soup.select(f"a.KeywordPopups[{_HOVER_ATTR}]"):
             slug = str(anchor.get("href") or "").strip()
             hover = str(anchor.get(_HOVER_ATTR) or "").strip()
