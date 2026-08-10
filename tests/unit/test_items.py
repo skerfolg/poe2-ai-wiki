@@ -21,6 +21,23 @@ from pok.engine.items import (
     scaling_axes,
 )
 
+
+def _pob_snapshot_ready() -> bool:
+    """CI엔 `external/pob` 스냅샷이 없다 — PoB 소스를 읽는 시험은 건너뛴다."""
+    from pok.pob.versions import resolve_snapshot
+
+    try:
+        resolve_snapshot()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    return True
+
+
+needs_pob_snapshot = pytest.mark.skipif(
+    not _pob_snapshot_ready(), reason="external/pob 스냅샷 없음 (유니크 원문 = PoB 소스)"
+)
+
+
 SPEC = {"class_name": "Sorceress", "ascendancy": "Sorceress1", "items": []}
 
 
@@ -47,6 +64,7 @@ def test_slot_enumeration_covers_rathpith() -> None:
     assert all(not c.label.endswith("-cultivated") for c in focus), "재배판 중복 제외"
 
 
+@needs_pob_snapshot
 def test_render_uses_pob_source_not_our_assembly() -> None:
     """유니크 원문은 **PoB가 갖고 있다** — 우리가 조립하지 않는다 (#34 B).
 
@@ -64,6 +82,30 @@ def test_render_uses_pob_source_not_our_assembly() -> None:
     assert any("{range:" in ln or "(" in ln for ln in lines), "범위는 PoB가 푼다"
 
 
+def test_render_falls_back_to_kb_without_the_pob_snapshot() -> None:
+    """스냅샷이 없어도 **아이템은 나와야 한다** — 없으면 CI에서 조립이 통째로 막힌다.
+
+    ⚠ 이 폴백이 없는 줄 알고 시험을 스냅샷 전제로 썼다가 **CI 두 판이 다 깨졌다**
+    (실측 2026-08-10). 스냅샷 의존은 `needs_pob_snapshot`으로 표시하고, 폴백은
+    폴백대로 시험한다 — 둘 다 실제 경로다.
+    """
+    import pok.pob.uniques as uniques_mod
+    from pok.index.search import get_entry
+
+    original = uniques_mod.unique_raw
+    uniques_mod.unique_raw = lambda name, root=None: None  # type: ignore[assignment]
+    try:
+        text = render_unique(get_entry("item.rathpith-globe"))
+    finally:
+        uniques_mod.unique_raw = original  # type: ignore[assignment]
+
+    lines = text.splitlines()
+    assert lines[0] == "Rarity: UNIQUE" and lines[1] == "Rathpith Globe"
+    assert "Sacred Focus" in lines[2]
+    assert any(ln.startswith("Implicits:") for ln in lines), "KB 조립 경로의 선언"
+
+
+@needs_pob_snapshot
 def test_variant_uniques_carry_their_variant_lines() -> None:
     """변형 유니크는 `Variant:` 목록째로 온다 — 모드와 변형의 연결이 거기 있다.
 
