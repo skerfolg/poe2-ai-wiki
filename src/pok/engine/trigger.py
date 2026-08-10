@@ -31,6 +31,8 @@ Power 기반 젬만 계산한다. 에너지 획득 형태가 6종이라(고정 `
 
 from __future__ import annotations
 
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 # poe2db 실측 (KB mechanic.monster-power와 같은 값 — 엔진은 KB를 import하지 않는다)
@@ -63,6 +65,53 @@ class MetaGem:
     max_energy_per_100ms: float = 10.0
     max_energy_flat: float | None = None  # 최대 에너지가 고정인 젬 (Feral Invocation 500)
     energy_gain_increase_pct: float = 0.0  # 품질·Impetus 등 "increased Energy gained"
+    # 한계치 비례 항이 붙는 트리거들 (백로그 #43). 젬 원문의
+    # *"modified by the percentage of the enemy's Ailment Threshold the Hit will deal"* —
+    # **이 절이 지배 항이다.** 한계치는 대략 대상 생명력의 절반이라 약한 몬스터일수록
+    # 한 방이 한계치의 몇 배가 되어 에너지가 폭증한다.
+    #
+    # ⚠ 같은 젬 안에서도 트리거마다 다르다: CoEA는 **Ignite에만** 붙고 Freeze·Shock엔
+    # 없다. 그래서 젬 단위가 아니라 **트리거 단위**로 들고 있어야 한다.
+    threshold_scaled: frozenset[str] = frozenset()
+
+
+_THRESHOLD_CLAUSE = re.compile(
+    r"modified by the percentage of the enemy'?s Ailment Threshold", re.I
+)
+# 「Gains N Energy per Power of enemies you **<트리거>** …」 — 절이 어느 트리거 줄에
+# 붙었는지 읽는다. 젬 단위로 뭉뚱그리면 CoEA에서 Freeze까지 못 재게 된다.
+_ENERGY_LINE = re.compile(r"Gains\s+[\d.]+\s+Energy per Power of enemies you\s+(\w+)", re.I)
+
+
+def threshold_scaled_triggers(stats: Sequence[str]) -> frozenset[str]:
+    """KB 젬 원문에서 **한계치 비례 항이 붙은 트리거**를 읽는다 (#43).
+
+    판정을 손으로 적지 않는다 — 젬 원문이 정본이고, 패치로 절이 붙거나 빠지면
+    수집만 다시 하면 따라온다. 실측 2026-08-10: CoC는 `Critically`에, CoEA는
+    **`Ignite`에만** 붙고 Freeze·Shock엔 없다.
+
+    ⚠ 원문이 줄바꿈으로 잘려 들어온 레코드가 있다("…enemies you Freeze with" /
+    "Hits from Skills"). 그래서 **줄을 이어 붙여** 훑는다 — 줄 단위로 보면 절이
+    다음 줄에 있는 경우를 놓친다.
+    """
+    joined = " ".join(" ".join(str(s).split()) for s in stats)
+    out: set[str] = set()
+    for match in _ENERGY_LINE.finditer(joined):
+        tail = joined[match.end() : match.end() + 200]
+        # 다음 에너지 줄 전까지가 이 트리거의 서술이다
+        nxt = _ENERGY_LINE.search(tail)
+        segment = tail[: nxt.start()] if nxt else tail
+        if _THRESHOLD_CLAUSE.search(segment):
+            out.add(match.group(1))
+    return frozenset(out)
+
+
+class UnmeasurableTriggerError(ValueError):
+    """이 트리거는 **우리가 못 잰다** — 틀린 수를 내는 대신 사유를 낸다 (#43).
+
+    `ValueError`를 상속해 기존 호출자의 예외 처리가 그대로 듣는다(조용히 통과하지
+    않는다). 다만 타입으로 갈 수 있어야 "못 잼"과 "잘못 부름"을 구분한다.
+    """
 
 
 @dataclass(frozen=True)
@@ -115,6 +164,22 @@ def compute_trigger_rate(
     if hits_per_second <= 0 or socketed_cast_time_s <= 0:
         raise ValueError("hits_per_second와 socketed_cast_time_s는 0보다 커야 한다")
 
+    # ⛔ 한계치 비례 항이 붙는 트리거는 **재지 않는다** (#43). 그 항이 지배적이라
+    # 빼고 계산한 값은 틀린 정도가 아니라 **방향이 반대**다 — 실측 보고 2026-08-10:
+    # 현재 모델이 normal(Power 1)에서 33.3초/발동을 냈는데, 약한 몬스터는 한 방이
+    # 한계치의 몇 배라 실제로는 훨씬 **빠르다**. 그 표를 읽으면 설계가 뒤집힌다.
+    #
+    # 한계치는 우리가 모르는 값이다(대상 생명력의 함수). 모르는 것을 지어내는 대신
+    # **못 잰다고 말한다** — 조용한 0의 반대 실수(조용한 오답)를 막는 자리다.
+    if trigger in gem.threshold_scaled:
+        raise UnmeasurableTriggerError(
+            f"{gem.name}의 '{trigger}'는 **상태 이상 한계치 비례 항**이 붙는다 — "
+            f'젬 원문: "modified by the percentage of the enemy\'s Ailment Threshold". '
+            f"한계치는 대상 생명력의 함수라 우리가 모르고, 이 항이 **지배적**이라 "
+            f"빼고 계산하면 방향이 반대로 나온다(실측: 약한 몬스터일수록 빨라지는데 "
+            f"모델은 느려진다고 냈다). 인게임 실측이나 PoB 모델이 생기기 전에는 "
+            f"이 트리거의 발동률을 근거로 쓰지 말 것"
+        )
     energy_per_hit = target.power * per_power * (1 + gem.energy_gain_increase_pct / 100.0)
     cap = max_energy(gem, socketed_cast_time_s)
     hits = cap / energy_per_hit

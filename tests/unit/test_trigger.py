@@ -74,3 +74,46 @@ def test_estimate_assumption_is_carried_into_the_result() -> None:
         socketed_cast_time_s=0.6,
     )
     assert not any("예상치" in a for a in unique.assumptions)
+
+
+def test_threshold_scaled_triggers_are_read_from_the_gem_text() -> None:
+    """한계치 비례 항은 **원문에서 읽는다** — 손으로 적으면 패치에 안 따라온다 (#43).
+
+    ⚠ 같은 젬 안에서도 트리거마다 다르다: CoEA는 **Ignite에만** 붙고 Freeze·Shock엔
+    없다. 젬 단위로 뭉뚱그리면 잴 수 있는 것까지 못 재게 된다(§0 ⑤).
+    """
+    from pok.engine.trigger import threshold_scaled_triggers
+
+    coea = [
+        "Gains 10 Energy per Power of enemies you Freeze with",
+        "Hits from Skills",
+        "Gains 1 Energy per Power of enemies you Ignite with Hits from Skills, modified by "
+        "the percentage of the enemy's Ailment Threshold the Ignite",
+        "Gains 1 Energy per Power of enemies you Shock with",
+    ]
+    assert threshold_scaled_triggers(coea) == frozenset({"Ignite"})
+    assert threshold_scaled_triggers(["Maximum Energy is 500"]) == frozenset()
+
+
+def test_threshold_scaled_trigger_refuses_instead_of_answering_wrong() -> None:
+    """지배 항을 빼고 계산하면 **방향이 반대**다 — 틀린 수 대신 사유를 낸다 (#43).
+
+    실측 보고 2026-08-10: 현재 모델이 normal(Power 1)에서 33.3초/발동을 냈는데,
+    한계치는 대략 대상 생명력의 절반이라 **약한 몬스터일수록 빠르다.** 그 표를
+    읽으면 설계가 뒤집힌다 — 실제로 뒤집혔다.
+    """
+    import pytest
+
+    from pok.engine.trigger import MetaGem, UnmeasurableTriggerError, compute_trigger_rate
+
+    gem = MetaGem(
+        name="CoEA",
+        energy_per_power={"Ignite": 1.0, "Freeze": 10.0},
+        threshold_scaled=frozenset({"Ignite"}),
+    )
+    with pytest.raises(UnmeasurableTriggerError, match="한계치"):
+        compute_trigger_rate(gem, "Ignite", hits_per_second=3.0, socketed_cast_time_s=1.0)
+
+    # 게이트는 양방향 — 절이 없는 트리거는 그대로 잰다
+    rate = compute_trigger_rate(gem, "Freeze", hits_per_second=3.0, socketed_cast_time_s=1.0)
+    assert rate.seconds_per_trigger > 0

@@ -388,7 +388,7 @@ def compute_trigger_rate(
     Power 기반이 아닌 젬(고정 25·이동거리·자원 등)은 계산하지 않고 사유를 낸다 —
     그 경우 젬 레코드의 `energy_stats` 원문을 읽을 것.
     """
-    from pok.engine.trigger import Enemy, MetaGem
+    from pok.engine.trigger import Enemy, MetaGem, threshold_scaled_triggers
     from pok.engine.trigger import compute_trigger_rate as _rate
     from pok.index.search import get_entry
 
@@ -409,6 +409,8 @@ def compute_trigger_rate(
         max_energy_per_100ms=float(data.get("max_energy_per_100ms", 10.0)),
         max_energy_flat=data.get("max_energy_flat"),
         energy_gain_increase_pct=energy_gain_increase_pct,
+        # 한계치 비례 항은 **원문에서 읽는다**(#43) — 손으로 적으면 패치에 안 따라온다
+        threshold_scaled=threshold_scaled_triggers(data.get("stats") or []),
     )
     enemy = Enemy(
         rarity=enemy_rarity,
