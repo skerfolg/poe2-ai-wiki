@@ -37,6 +37,7 @@ from pok.engine.items import (
     _req_shortfall,
     resolve_rolls,
 )
+from pok.engine.jewels import RADIUS_LABELS
 
 
 @dataclass(frozen=True)
@@ -231,8 +232,17 @@ def _checker(root: Path | None) -> Any:
     return ItemLegalityChecker(knowledge_dir(root))
 
 
-def _affix_caps(base_type: str, root: Path | None) -> tuple[int, int, str]:
-    """(접두 한도, 접미 한도, 라벨) — 정본 판 규칙에서. 주얼은 2/2로 장비와 다르다."""
+def _affix_caps(base_type: str, root: Path | None) -> tuple[int, int, int, str]:
+    """(접두 한도, 접미 한도, **총한도**, 라벨) — 정본 판 규칙에서.
+
+    ⚠ `season_override`를 **읽어야 한다**(백로그 #34 E). 0.5 주얼은 총 5모드
+    (3접미/2접두 또는 2접미/3접두)인데 생성기가 그걸 몰라 **2/2로 잘랐다** —
+    실측 2026-08-09: 실사용 주얼(`Maelstrom Shine`)이 5줄인데 도구는 4줄까지만 냈다.
+    검사기(`legality._affix_limits`)는 이미 알고 있었으므로 **둘이 어긋나 있었다**
+    (§0 ④ 판정 주체가 둘이면 어긋난다).
+
+    해석은 검사기와 같다: 각 한도 +1, 총합 +1 — 3/3(총 6)은 불허.
+    """
     import json
 
     category = (base_record(base_type, root) or {}).get("data", {}).get("category") or ""
@@ -245,9 +255,14 @@ def _affix_caps(base_type: str, root: Path | None) -> tuple[int, int, str]:
     section = caps.get(category) or caps.get("equipment") or {}
     rare = section.get("rare") if isinstance(section, dict) else None
     if not isinstance(rare, dict):
-        return 3, 3, "equipment(기본값)"
+        return 3, 3, 6, "equipment(기본값)"
     label = category if caps.get(category) else "equipment"
-    return int(rare.get("prefixes", 3)), int(rare.get("suffixes", 3)), label
+    pre, suf = int(rare.get("prefixes", 3)), int(rare.get("suffixes", 3))
+    total = pre + suf
+    if isinstance(section, dict) and section.get("season_override"):
+        pre, suf, total = pre + 1, suf + 1, total + 1
+        label += " (season_override)"
+    return pre, suf, total, label
 
 
 def _resolve_jewel_slot(spec: Mapping[str, Any], slot: str) -> tuple[str, str]:
@@ -342,6 +357,7 @@ def optimize_rare(
     roll: str = "mid",
     root: Path | None = None,
     render_with_pob: bool = True,
+    radius: str | None = None,
     compute: ComputeFn | None = None,
 ) -> RareOptimizeResult:
     """이 빌드 문맥에서 그 베이스로 만들 수 있는 최선 희귀를 조립·실측한다.
@@ -373,6 +389,22 @@ def optimize_rare(
     # +(10-15) to Intelligence` 꼴로 범위를 그대로 두고 PoB에게 맡긴다 — 우리가 풀면
     # `+12.5` 같은 인게임에 없는 값이 나온다(실측 2026-08-09).
     implicit_lines = [f"{{range:{_ROLL_RANGE.get(roll, '0.5')}}}{implicit}"] if implicit else []
+    # 반경 주얼(Time-Lost 계열, `sub_type: "Radius"`)은 **선언이 없으면 조용히 0**이다
+    # (제안 B 실측: 반경 내 노터블 6개에도 Δ0, `Radius: Very Large`면 10.44 → 15.84).
+    # ⛔ 반경은 아이템이 정하는 값이라 **엔진이 고르지 않는다** — 호출자가 준다.
+    base_data = (base_record(base_type, root) or {}).get("data") or {}
+    is_radius = str(base_data.get("sub_type") or "").lower() == "radius"
+    radius_lines: list[str] = []
+    if is_radius and radius:
+        if radius not in RADIUS_LABELS:
+            raise ValueError(f"모르는 반경 라벨 {radius!r} — 허용: {list(RADIUS_LABELS)}")
+        radius_lines = [f"Radius: {radius}"]
+    elif is_radius:
+        notes_pre.append(
+            f"⚠ **반경 주얼인데 `Radius:`가 없다**({base_type}) — PoB가 반경을 정하지 못해 "
+            f"반경 부여 접사의 델타가 **전부 0**으로 나온다. 0을 '값어치 없음'으로 읽지 "
+            f"말 것. `radius=` 인자로 그 주얼의 실제 반경을 줄 것 {list(RADIUS_LABELS)}"
+        )
     naked = "\n".join(
         [
             "Rarity: RARE",
@@ -381,6 +413,7 @@ def optimize_rare(
             f"Item Level: {item_level}",
             f"Implicits: {len(implicit_lines)}",
             *implicit_lines,
+            *radius_lines,
         ]
     )
     naked_stats = run(_replace_slot(spec, slot, naked))
@@ -391,7 +424,7 @@ def optimize_rare(
         delta = {k: round(measured.get(k, 0.0) - naked_stats.get(k, 0.0), 4) for k in measure}
         readings.append(AffixReading(option=option, delta=delta))
 
-    cap_pre, cap_suf, cap_label = _affix_caps(base_type, root)
+    cap_pre, cap_suf, cap_total, cap_label = _affix_caps(base_type, root)
     if prefix_count is not None:
         cap_pre = prefix_count
     if suffix_count is not None:
@@ -403,7 +436,11 @@ def optimize_rare(
     skipped_illegal: list[str] = []
     for reading in ranked:
         kind = reading.option.affix_type
+        affixes_so_far = counts["prefix"] + counts["suffix"]
         if reading.score(weights) <= 0 or counts[kind] >= caps[kind]:
+            continue
+        # 총한도는 **접두+접미 합**에만 건다(훼손은 접사 칸 밖이다).
+        if kind != "corrupted" and affixes_so_far >= cap_total:
             continue
         # **조립하면서 검사한다** (백로그 #23). 사후 검사만 하면 반환 `text`를 그대로
         # 못 쓰고 매번 손으로 재조립해야 한다 — 실측 2026-08-09(투구): `legal: false`로
@@ -447,7 +484,7 @@ def optimize_rare(
     notes = [
         *notes_pre,
         f"접사 풀 {len(pool)}건(출처·그룹별 최고 티어) 전량 단독 실측 — 롤 {roll} 고정",
-        f"접사 한도 {cap_pre}접두/{cap_suf}접미 — 정본 판 규칙({cap_label})",
+        f"접사 한도 {cap_pre}접두/{cap_suf}접미·총 {cap_total} — 정본 판 규칙({cap_label})",
         "단독 점수 그리디 조립 — 접사 간 상호작용은 조립 실측에만 반영된다",
     ]
     if implicit_lines:

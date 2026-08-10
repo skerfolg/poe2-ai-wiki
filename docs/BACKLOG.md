@@ -77,7 +77,6 @@
 | **#35** `find_clusters`가 타 어센던시 트리 노드를 안 거름 | 원인규명 완료 | `for_ascendancy` 필터에 `node.ascendancy` 축 추가 — 통과 방향 테스트도 함께 |
 | **#36** `unset_config`가 노드·아이템 조건을 안 봄 | 원인규명 완료 | 수집 범위를 할당 노드·장착 아이템까지 확장 (실측: 조용한 0 두 건, 합계 +8,890) |
 | **#37** 인게임 확인 2건 KB 수록 | 미착수 | 자기번제 확산 무효 · 인화성=확률 전용. `verification: IN_GAME` |
-| **#34** 아이템 생성 방식 | **A·B 완료** · E 남음 | 유니크도 PoB 원문을 쓴다. 남은 것: **E**(5줄 주얼 · Time-Lost 반경 주얼) |
 
 **판정 대기 0건** — 2026-08-09에 7건을 한꺼번에 받아 전부 반영했다(§4 참조).
 
@@ -283,166 +282,6 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
 **주의**: 둘 다 **사용자 인게임 확인**이며 PoB·poe2db로는 재현할 수 없다. 수록 시
 `verification: IN_GAME`으로 표기할 것
 
-### #34 아이템 생성 방식이 **틀렸다** — 텍스트를 우리가 쓰면 안 된다
-- **상태**: **원인규명 완료 · 해법 실증됨**(2026-08-09 엔진 세션). 구현 남음
-- **영향**: **차단성.** 생성기가 낸 10슬롯 중 **8슬롯이 인게임에서 못 만들거나 값이
-  틀렸다**. 그 위에서 낸 `IgniteDPS 168,115`는 전량 폐기됐다
-
-**사용자 지시 (2026-08-09)**: *"내가 직접 만드는 아이템과 너가 만드는 아이템이 동일한
-것."* 그리고 방향 지정: *"PoB 소스코드를 전면 분석해서 아이템 생성 부분을 분석한 후
-**그대로 사용**하는 것도 고려해야 한다. 지금 백로그는 근본 해결이 아니라 케이스 바이
-케이스로 되어 있다."*
-
-**맞다. 아래 A~F는 전부 증상이었다.** 병은 하나다 — **우리가 아이템 텍스트를 조립한다.**
-
-#### 사용자 정본(직접 작성한 PoB 데이터)이 말해 주는 것
-
-```
-Rarity: RARE
-New Item
-Ancestral Tiara
-Crafted: true
-Prefix: {range:1}LocalIncreasedEnergyShield8      ← **모드 id**
-Suffix: {range:1}CriticalStrikeChance5
-Sockets: S S S
-Rune: Perfect Iron Rune                            ← **룬 이름**
-```
-
-문구 줄(`+73 to maximum Energy Shield`)은 **사람이 쓴 게 아니라 PoB가 그 id에서 만든
-것**이다. 즉 정본 포맷은 **명세(id)이고 문구는 파생물**이다.
-
-#### 실증 — 명세만 주면 PoB가 같은 값을 낸다 (실측 2026-08-09)
-
-위 명세를 그대로 넣고 PoB에게 `Craft()` → `BuildRaw()`를 시켰다:
-
-| 사용자가 직접 쓴 것 | 명세만 주고 PoB가 만든 것 |
-|---|---|
-| `+73 to maximum Energy Shield` | **동일** |
-| `+174 to maximum Life` | **동일** |
-| `34% increased Critical Hit Chance` | **동일** |
-| `+45% to Cold Resistance` | **동일** |
-| `Energy Shield: 218` | **PoB가 계산** |
-
-빈 접사 칸(`Prefix: None`)·빈 소켓(`Rune: None`)·`Implicits:` 개수·룬 효과 줄도
-전부 PoB가 채웠다. **우리가 쓸 것은 명세뿐이다.**
-
-#### 그래서 해법은 A~F 개별 수정이 아니다
-
-PoB의 생성 경로를 **그대로 탄다**(AD-1의 아이템판):
-
-```
-명세 줄 작성 → new("Item", raw)  →  item:Craft()  →  item:UpdateRunes()  →  item:BuildRaw()
-   (우리)         ParseRaw            문구 생성          룬 줄 생성            정본 텍스트
-                  L540~710           L1695~            L1610~               L1396~1601
-```
-
-`Craft()`가 `applyRange`(롤 범위)와 **`getCatalystScalar`(촉매!)**를 적용한다(L1723).
-그래서 A~F가 이 한 경로에 흡수된다:
-
-| 옛 항목 | 어디서 해결되나 |
-|---|---|
-| **A** 모드 id 출력 | 그게 곧 명세다 — 값·티어·롤을 PoB가 자기 정의에서 만든다 |
-| **B** 유니크 `Variant:` | `ParseRaw`의 스펙 줄 분기 |
-| **C** 촉매·퀄리티 | `Craft()`의 `getCatalystScalar` |
-| **D** 룬 소켓·`{rune}` 줄 | `UpdateRunes()` — **`{rune}` 줄은 애초에 우리가 쓸 것이 아니다** |
-| **E** 반경 주얼 | `Radius:` 스펙 줄 |
-| **F** 접사 group 배타 | ⚠ **유일하게 PoB가 안 해 준다** — `Craft()`는 검사하지 않는다. 우리 `check_item_legality`가 계속 맡는다 |
-
-#### 커스텀 데이터도 그대로 간다 (사용자 요청 실측, 2026-08-09)
-
-사용자 목걸이의 `{custom}+7% to Fire Spell Critical Hit Chance`를 명세에 넣어 봤다 —
-**살아남는다.** `Craft()`는 `explicitModLines`를 지우지만 `custom` 표식만은 보존한다(L1698).
-
-⚠ **그런데 그 모드는 PoB에 있다.** `GenesisTreeFireSpellBaseCriticalChanceCrafted`
-(「조프」, `+(4-5)% to Fire Spell Critical Hit Chance`)이고, **최대롤 5% x Sibilant
-촉매 40% = 7%** — 손으로 넣은 값과 정확히 같다. 실측:
-
-    Suffix: {range:1}GenesisTreeFireSpellBaseCriticalChanceCrafted
-      촉매 0 → +5%   ·   20 → +6%   ·   40 → **+7%**
-
-즉 **커스텀으로 안 넣어도 된다.** 검사기가 이제 그렇게 안내한다(`{custom}` 줄에
-KB 후보를 붙여 CONDITIONAL로 낸다 — 미수록 UNKNOWN과 구분).
-
-#### 수용 기준 3을 통과시키며 나온 결함 3건 (해결)
-
-검사기가 **자기 도구의 출력을 거부**했다. 셋 다 실측으로 확인하고 고쳤다:
-
-| 결함 | 원인 | 조치 |
-|---|---|---|
-| 스펙 줄 10종이 UNKNOWN | `_SPEC_LINE_PREFIXES`에 `Crafted:`·`Prefix:`·`Catalyst:` 등이 없었다(#30과 같은 계열, 목록이 부족했다) | `BuildRaw` 기록 순서대로 보강 |
-| 촉매로 오른 수치를 "티어 범위 밖" | 검사기가 촉매를 몰랐다 | `catalyst_scalar` — `(100+quality)/100`, **모드 태그가 촉매 태그와 겹칠 때만**(L32~57) |
-| 고티어 접사 전부 거부 | PoB 정본에는 `Item Level:`이 **없다**(`LevelReq:`만) → ilvl을 1로 봄 | `LevelReq`에서 역산. `LevelReq = floor(mod.level*0.8)`이므로 **올림**이다 — 내림을 쓰면 77레벨 접사를 1 차이로 거부한다(실제로 걸렸다) |
-
-#### A 완료 (2026-08-09) — `optimize_rare`가 명세를 낸다
-
-`build_items()`(명세 → PoB 정본) + `assemble_spec()`. 실제 출력:
-
-```
-Implicits: 1
-{range:0.5}+(10-15) to Intelligence        ← 롤도 우리가 안 푼다
-Crafted: true
-Prefix: {range:0.5}IncreasedAccuracy8      ← 모드 id
-Suffix: {range:0.5}Dexterity8
-{custom}{range:0.5}+(10-15) to Dexterity   ← 훼손·모드 id 없는 것
-Corrupted
-```
-
-**우리가 쓴 수치가 한 개도 없다.** `text`는 이걸 PoB에 태워 되받은 정본이고
-`spec_text`·`pob_rendered`로 계보가 남는다.
-
-⚠ 만들다 걸린 것 넷 — 전부 「우리가 값을 쓰면 안 된다」의 다른 얼굴이었다:
-
-| 걸린 것 | 원인 |
-|---|---|
-| 훼손 접사가 `Suffix: None`으로 사라짐 | 훼손은 **접사 칸 밖**이다 — `{custom}`으로 보낸다 |
-| 접사를 **하나도** 못 고름 | 검사기가 `{range:0.5}` 장식 접두를 몰라 전부 실격시켰다 (`writeModLine` L1461~1503의 접두 전량을 반영) |
-| `+12.5 to Dexterity` (인게임에 없는 값) | 롤을 **우리가** 풀었다 → `{range:R}` + 원문으로 PoB에게 맡긴다 |
-| `pytest`가 10분 초과 | `optimize_rare`마다 PoB 부팅 → `render_with_pob` 인자로 분리 |
-
-#### B 완료 (2026-08-09) — 유니크 원문은 PoB가 갖고 있다
-
-발의는 *"KB `data.variants`를 활용해 `Variant:` 목록을 쓰자"*였는데, **KB로는 안 된다**:
-`variants`는 이름 목록뿐이라 **어느 모드가 어느 변형인지 모른다.** 게다가
-`data.explicits`엔 `[3 Random Socket Modifiers]` 같은 플레이스홀더가 섞여 있다
-(모리오르를 그대로 쓰면 PoB가 오류를 낸다 — 그게 원래 사고였다).
-
-PoB의 `Data/Uniques/*.lua`에 **원문 전체**가 있다(유니크 433종). 거기엔 연결이 있다:
-
-    {variant:3}{range:0.5}+(10-14) to Spirit per Socket filled
-
-`pok.pob.uniques` 신설 — 우리가 쓰는 것은 **`Selected Variant:` 한 줄뿐**이다.
-없는 변형 이름은 **예외**로 낸다(조용히 무시하면 "골랐는데 안 반영됨"이 된다).
-
-실측 — 변형이 계산을 실제로 바꾼다(모리오르, 룬 4칸 채움):
-
-| 변형 | Spirit | Life | Mana |
-|---|---|---|---|
-| Spirit | **148** | 1187 | 441 |
-| Life | 100 | **1409** | 441 |
-| Mana | 100 | 1187 | **672** |
-
-⚠ **소켓이 비어 있으면 셋 다 같다** — 변형 모드가 전부 「per Socket filled」다.
-그걸 모르고 재면 "변형이 무의미하다"는 틀린 결론이 나온다(만들다 그 결론을 봤다).
-
-#### 다음 한 걸음
-
-1. **E** — 5줄 주얼(접미어 효과 접두) · Time-Lost 반경 주얼
-3. 회귀 테스트: 사용자 정본 빌드의 아이템 11개를 명세로 환원해 **원문과 일치**할 것
-
-**수용 기준 (강제 지점 — 철칙 5)**
-1. 생성기 출력을 PoB에 넣어 `BuildRaw()` 왕복시켜 **입력과 출력이 일치**할 것
-2. 왕복 후 `Implicits:`·`Sockets:` 개수가 선언과 **일치**할 것
-3. `check_item_legality`가 **자기 도구의 출력**을 통과시킬 것 (#23·#30 계열 재발 방지)
-
-⚠ **PoB 자신이 이 판정을 확인해 준다**: `Craft()`는 `explicitModLines`를 **통째로
-지우고**(L1704) prefixes/suffixes에서 다시 만든다. `{custom}` 표식이 없는 손기입 줄은
-그때 **사라진다** — 크래프트 아이템의 정본은 모드 id라는 뜻이다. (그래서 `Craft()`는
-`Crafted: true`인 명세에만 걸어야 한다. 손기입 아이템에 걸면 우리가 문구를 날린다.)
-
-**근거 위치**: `external/pob/<pin>/src/Classes/Item.lua` — `BuildRaw` L1396~1601 ·
-`Craft` L1695~ · `getCatalystScalar` L1723 · `UpdateRunes` L1610~ · `ParseRaw` L540~710 ·
-사용자 정본 `/Users/skerfolg/Documents/share/20260809-2.txt`
-
 ## 2. 기능 제안
 
 (비어 있음 — 접수되면 여기에)
@@ -483,6 +322,7 @@ PoB의 `Data/Uniques/*.lua`에 **원문 전체**가 있다(유니크 433종). �
 
 | 결함 | 조치 | PR |
 |---|---|---|
+| 〔#34〕 아이템 **생성 방식**이 틀렸다 — 텍스트를 우리가 썼다. 10슬롯 중 8슬롯이 인게임에서 못 만들거나 값이 틀렸다 | **명세만 쓰고 PoB가 만든다**(`Craft`→`BuildRaw`). A 모드 id · B 유니크 원문+`Variant:` · C 촉매 · D 룬 · E 주얼 5줄·반경 · F group 배타(검사기). 수용 기준 1·2·3 전부 충족 | 대기 |
 | 〔#16〕 PoB 스냅샷 핀이 8곳에 흩어져 어긋났다 | `pok.kb.pob_pin` 단일 발원 + 어긋나면 어느 파일인지 대는 테스트. **3곳이 하한**(워크플로 YAML 2개는 파이썬을 못 읽고 manifest는 생성 시점이 다르다) — 사용자 판정으로 **종결** | #47·#48 |
 | 〔#3〕 주입 규약이 **트리에만** 있었다 — 아이템 접사 1,864건·룬·성유에도 같은 갭이 있다 | 대상별 주의를 규약에 추가. ⛔ **룬 증폭 함정**: 주입 줄은 룬으로 인식되지 않아 증폭이 안 곱해진다(실측 정본 +300 vs 주입 +100). 조립이 **자동 경고**로 붙인다 | 대기 |
 | 〔#22〕 **임플리싯 축이 접사 풀에 안 들어온다** — 「에센스 +20% → 기폭제 40% → 옵션 교체」의 부품이 전부 임플리싯이라 후보에 못 올랐다 | `engine/implicits.py` + MCP `list_implicits`. ⚠ **값은 못 잰다**: `+20% to Maximum Quality`를 PoB가 못 읽는다(`Maximum Quality is 40%`는 읽는다 — 대리 측정 후보) | 대기 |

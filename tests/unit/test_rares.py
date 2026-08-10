@@ -156,8 +156,11 @@ def test_jewel_pool_and_caps_come_from_canon() -> None:
     assert len(pool) > 100, f"훼손 모드뿐이면 안 된다 (실측 갭: 11건) — 지금 {len(pool)}건"
     from pok.engine.rares import _affix_caps
 
-    assert _affix_caps("Diamond", None)[:2] == (2, 2), "주얼 한도는 정본 기준 2/2"
-    assert _affix_caps("Sacred Focus", None)[:2] == (3, 3), "장비는 3/3"
+    # ⚠ 이 시험은 한때 (2, 2)를 강제했고 **그게 결함이었다**(#34 E): 정본의
+    # `season_override`(0.5 주얼 총 5모드)를 생성기가 안 읽어 4줄까지만 냈다.
+    # 검사기는 이미 알고 있었으니 둘이 어긋나 있었던 것이다(§0 ④).
+    assert _affix_caps("Diamond", None)[:3] == (3, 3, 5), "주얼 = 각 3, **총 5**"
+    assert _affix_caps("Sacred Focus", None)[:3] == (3, 3, 6), "장비는 3/3·총 6"
 
 
 def test_jewel_slot_without_socket_is_reported_invalid() -> None:
@@ -283,3 +286,67 @@ def test_trial_and_final_use_the_same_yardstick() -> None:
 
     source = inspect.getsource(fn)
     assert source.count("include_corrupted=False") == 2, "시험·최종이 같은 기준이어야 한다"
+
+
+def test_jewel_cap_follows_the_season_override() -> None:
+    """0.5 주얼은 **총 5모드**다 — 생성기가 2/2로 자르고 있었다 (#34 E).
+
+    검사기(`legality._affix_limits`)는 이미 알고 있었으므로 **둘이 어긋나 있었다**
+    (§0 ④ 판정 주체가 둘이면 어긋난다). 실사용 주얼(`Maelstrom Shine`)이 5줄인데
+    도구는 4줄까지만 냈다.
+    """
+    from pok.engine.rares import _affix_caps
+
+    pre, suf, total, label = _affix_caps("Emerald", None)
+    assert (pre, suf, total) == (3, 3, 5), (pre, suf, total)
+    assert "season_override" in label
+    # 장비는 그대로 3/3·총 6 — 시즌 규칙을 남에게 흘리지 않는다
+    assert _affix_caps("Lapis Amulet", None)[:3] == (3, 3, 6)
+
+
+def test_greedy_stops_at_the_total_not_at_each_cap() -> None:
+    """각 한도는 3인데 **총합은 5**다 — 3/3(총 6)은 인게임에서 못 만든다."""
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        text = "\n".join(str(i.get("text", "")) for i in spec.get("items") or [])
+        return {"CombinedDPS": 100.0 + len(text.splitlines())}
+
+    out = optimize_rare(
+        SPEC,
+        "Weapon 2",
+        "Sacred Focus",
+        {"CombinedDPS": 1.0},
+        compute=compute,
+        render_with_pob=False,
+    )
+    affixes = [r for r in out.chosen if r.option.affix_type != "corrupted"]
+    assert len(affixes) <= 6, "장비 총한도"
+
+
+def test_radius_jewel_declares_or_says_it_will_read_zero() -> None:
+    """반경 선언이 없으면 **조용히 0**이다 — 엔진이 고르지 않되 **말은 한다**(제안 B).
+
+    실측: 선언 없이는 반경 내 노터블 6개에도 Δ0, `Radius: Very Large`면 10.44 → 15.84.
+    """
+    import pytest
+
+    quiet = optimize_rare(
+        SPEC, "Jewel", "Time-Lost Sapphire", {"CombinedDPS": 1.0},
+        compute=lambda s: {"CombinedDPS": 100.0}, render_with_pob=False,
+    )  # fmt: skip
+    assert any("반경 주얼인데" in n for n in quiet.notes), quiet.notes
+    assert not any(ln.startswith("Radius:") for ln in quiet.spec_text.splitlines())
+
+    declared = optimize_rare(
+        SPEC, "Jewel", "Time-Lost Sapphire", {"CombinedDPS": 1.0},
+        compute=lambda s: {"CombinedDPS": 100.0}, render_with_pob=False, radius="Very Large",
+    )  # fmt: skip
+    assert "Radius: Very Large" in declared.spec_text
+    assert not any("반경 주얼인데" in n for n in declared.notes)
+
+    # 모르는 라벨은 **거부** — 지어내면 반경이 조용히 틀린다
+    with pytest.raises(ValueError, match="반경 라벨"):
+        optimize_rare(
+            SPEC, "Jewel", "Time-Lost Sapphire", {"CombinedDPS": 1.0},
+            compute=lambda s: {"CombinedDPS": 100.0}, render_with_pob=False, radius="아주 큼",
+        )  # fmt: skip

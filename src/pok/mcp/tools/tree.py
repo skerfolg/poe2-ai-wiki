@@ -344,6 +344,7 @@ def optimize_rare(
     prefix_count: int | None = None,
     suffix_count: int | None = None,
     top_table: int = 15,
+    radius: str | None = None,
 ) -> dict[str, Any]:
     """이 빌드의 최선 희귀를 결정적으로 생성 (사용자 승인 2026-08-06 — 사고 4·5).
 
@@ -372,6 +373,9 @@ def optimize_rare(
     한계도 반환에 있다: 단독 점수 그리디(접사 상호작용은 조립 실측에만 반영),
     롤 mid 고정. 소요: 접사 풀 크기 x ~1.4초 — 슬롯당 1~2분.
     """
+    # ⚠ **반경 주얼(Time-Lost 계열)은 `radius`를 줘야 한다** — 선언이 없으면 PoB가
+    # 반경을 정하지 못해 반경 부여 접사의 델타가 **전부 0**이 된다(제안 B 실측:
+    # 10.44 → 15.84). 안 주면 결과 `notes`가 그 사실을 말한다.
     from pok.engine.rares import optimize_rare as _optimize
 
     result = _optimize(
@@ -382,6 +386,7 @@ def optimize_rare(
         floors=floors,
         prefix_count=prefix_count,
         suffix_count=suffix_count,
+        radius=radius,
     )
     return {
         "text": result.text,
