@@ -241,7 +241,38 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
 
 ## 2. 기능 제안
 
-(비어 있음 — 접수되면 여기에)
+### 〔제안 F〕 「소모하지만 소모하지 않은 것으로 간주」가 **반복 축인데 조회 경로가 없다**
+
+- **상태**: 미착수 · 빌드 세션 2026-08-10 발의 · **근거는 실전 빌드 대조**
+- **실측**: 같은 형태의 품질 문구가 **한 세션에서 여섯 번** 조회됐는데, 매번 "그 스킬의
+  부수 옵션"으로만 읽히고 **축으로 인식되지 못했다**:
+
+  | 스킬 | 품질 문구 |
+  |---|---|
+  | `skill.ice-nova` | `(0—40)% chance to not remove an Infusion but still count as consuming them` ← 최댓값 |
+  | `skill.firestorm` | `(0—20)% chance to not remove an Infusion but still count as consuming them` |
+  | `skill.hollow-form` | `(0—10)% chance to not remove a Power Charge but still count as consuming it` |
+  | `skill.bonestorm` · `skill.glacial-lance` · `skill.explosive-spear` | `(0—20)% chance to not remove Charges on use` |
+
+- **왜 결함인가**: 자원이 병목일 때 세션은 **공급을 늘릴 궁리만 한다.** 실전 빌드
+  (젬링 무한격분 CoC/CoA 폭발창)는 같은 문제를 **소비를 0으로 만들어** 풀었다 —
+  *"충전 소모 X 대체퀄리티 + 충전 제거하지 않고 소모한 걸로 간주 = 99 이상"*.
+  우리 세션은 `skill.explosive-spear`의 20%를 **인용까지 하고도** "광포 충전 수급이
+  6~8초당 1개라 즉발 상시화 불가"로 결론냈다. 축이 있는 줄 몰라서 못 쌓았다.
+- **검증**: 위 여섯 건은 KB 레코드에서 **직접 확인**했다(품질 문구 원문). 실전 빌드의
+  "99 이상" 달성 경로(젬 품질 40 초과·보조·장비·패시브 합산)는 **미검증** — 외부 글의
+  주장이고 우리가 재현하지 않았다.
+- **요청안**: 문구 형태를 축으로 묶는 조회 경로. 예 — `scan_synergies`의 subject_key에
+  `self.resource.not_consumed` 류를 세우거나, `describe_kb`가 품질 문구의 반복 패턴을
+  집계하거나, `find_by_value`가 `quality_stats` 텍스트에도 닿게 하는 것
+- **성격**: §0 ②(「축이 측정에 없으면 점수 0」)의 **탐색판**이다. 그쪽은 PoB가 안 재서
+  0이었고, 이건 **조회 경로가 없어서 축이 안 보인** 것이다. 철칙 5대로면 문서 규율
+  ("자원 병목이면 소비 제거를 먼저 보라")로 남기지 말고 도구에 넣어야 한다
+- **근거 위치**: `artifacts/builds/20260810-인퍼널리스트-화염파-mom-섀시설계/design.md`
+  §1(주입 경제) · §7.3-a(격분 수급 원장) · §9.3(혜성 트리거 실측).
+  대조한 실전 빌드: dcinside poe2 갤러리 388193
+- **이관**: `[빌드] A분기` 세션에 적용 각도로 전달함(2026-08-10) — 얼음 폭발 40%가
+  주입 순환의 공급 병목을 바꿀 수 있다
 
 ## 3. 검증으로 뒤집힌 보고 (재발 방지 기록)
 
