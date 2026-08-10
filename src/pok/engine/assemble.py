@@ -20,6 +20,7 @@ from typing import Any
 
 from pok.artifacts.store import find_by_hash, new_build_id, record_build
 from pok.common.paths import knowledge_dir
+from pok.engine.integrity import spec_integrity
 from pok.engine.legality import ItemLegalityChecker, LegalityReport
 from pok.pob import codec
 from pok.pob.buildxml import BuildSpec, to_xml
@@ -114,6 +115,13 @@ def assemble(
         "level": spec.level,
         "legal": bool(result.is_tree_legal and all(r.is_legal for r in item_reports.values())),
     }
+    # 설계 무결성 경고는 **산출물에 각인한다** (#58 ①, 보고자 요청 2026-08-11).
+    # 반환값에만 실으면 그 자리에서만 보이고 사라진다 — 다음 세션은 `build.pob`만
+    # 받아 이어받으므로, 「주력기가 없는 채로 출고됐다」는 사실이 기록에 남아야 한다.
+    design = spec_integrity(dataclasses.asdict(spec))
+    if design:
+        manifest["design_warnings"] = list(design)
+
     # 대체 모델링 계보(B-3): 효과를 트리 노드로 재현한 주얼은 사실을 기록에 남긴다 —
     # 소켓 소모·조달 가정은 재현되지 않으므로 실측 해석 시 이 사실이 필요하다.
     substitutes = [

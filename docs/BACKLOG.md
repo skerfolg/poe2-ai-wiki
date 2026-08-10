@@ -256,7 +256,13 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
   매 호출 `items_legal: True`. 보고자는 이번에 "새로 발견"한 줄 알고 보고했다 —
   **결정과 스펙이 갈라진 정확한 증거**
 - **요청안 4가지**:
-  1. **스펙 자체 검사**(적법성과 별개 축): 주력기 부재(`CombinedDPS` 2,562 → 24,436,
+  1. ✅ **해결(2026-08-11)** — `engine/integrity.py::spec_integrity`. `compute_pob`·
+     `assemble_pob` 반환에 `design_warnings`로 **매번** 실리고 조립 manifest에도 각인된다
+     (다음 세션은 `build.pob`만 받아 이어받으므로). 거부하지 않는다 — 부분 구성 A/B가
+     정상 작업이다(보고자 요청). 잡는 것: 주력 그룹에 딜 스킬 없음 · `main_active_skill`이
+     메타 젬을 가리킴 · 트리거 젬만 든 그룹 · `main_socket_group` 범위 밖.
+     판정 근거는 KB 태그(`meta`/`trigger`)와 PoB gemId(`…Support`)다
+  1'. (원 요청) **스펙 자체 검사**: 주력기 부재(`CombinedDPS` 2,562 → 24,436,
      **10배가 조용히 빠져 있었다**) · 트리거 젬에 발동될 스킬 미연결.
      `check_constraints(skillset)`가 이미 「빈 역할 칸」으로 보고하는데 **너무 조용해서**
      읽고 넘어갔다 → 반환 최상단이나 `violations`로 올릴 것

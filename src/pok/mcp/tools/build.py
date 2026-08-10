@@ -44,6 +44,7 @@ from pok.common.paths import knowledge_dir
 from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
+from pok.engine.integrity import spec_integrity
 from pok.engine.items import req_shortfall
 from pok.engine.legality import ItemLegalityChecker
 from pok.pob.buildxml import spec_from_dict
@@ -127,6 +128,12 @@ def _pick(
         out["req_shortfall"] = shortfall
     if build_spec is not None:
         out.update(_items_legal(build_spec))
+        # 설계 무결성은 **적법성과 별개 축**이다 (#58 ①). 적법한데 애초에 빌드가
+        # 아닌 경우를 잡는다 — 주력기 부재·트리거 미연결. 거부하지 않고 **매번**
+        # 싣는다(1회성 경고는 문서와 동급이다 — #29).
+        design = spec_integrity(build_spec)
+        if design:
+            out["design_warnings"] = list(design)
     return out
 
 
@@ -413,7 +420,7 @@ def assemble_pob(
             ],
             "notes": list(assumptions.notes),
         },
-        **_pick(built.result, stats),
+        **_pick(built.result, stats, build_spec),
     }
 
 
