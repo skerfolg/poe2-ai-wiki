@@ -102,3 +102,54 @@ def test_hits_carry_positions(graph: TreeGraph) -> None:
     assert all(len(hit.position) == 2 for hit in hits)
     # 중심은 그대로 `unconnected_regions`에 넣을 수 있는 꼴이어야 한다
     assert all(len(cluster.center) == 2 for cluster in clusters)
+
+
+def test_other_ascendancy_tree_nodes_are_excluded(graph: TreeGraph) -> None:
+    """다른 어센던시 **트리에 속한** 노드는 애초에 못 찍는다 (백로그 #35).
+
+    필터가 `unlock_constraint`(= 「다른 전직 **전용 해금**」)만 보고 `data.ascendancy`
+    (= 「다른 어센던시 **트리 소속**」)를 안 봤다. 두 축은 다르다 — 후자가 더 명백한
+    배제 대상인데 그물을 통과했다.
+
+    실측 2026-08-09: `26383 살점 가르기`(`Witch2` = 블러드 메이지, `unlock_constraint`
+    없음)가 인퍼널리스트 호출에 나와 **치명타 병목의 해법으로 채택 직전까지** 갔다.
+    기계가 못 잡은 것을 사용자가 잡았다.
+    """
+    hits = [
+        h
+        for cluster in find_clusters(
+            graph, include=[("critical", 1.0), ("spell", 0.5)], for_ascendancy="Infernalist", top=60
+        )
+        for h in cluster.hits
+    ]
+    intruders = [
+        (h.node_id, h.name_ko)
+        for h in hits
+        if graph.nodes[h.node_id].ascendancy
+        and graph.resolve_ascendancy(graph.nodes[h.node_id].ascendancy) != "Infernalist"
+    ]
+    assert not intruders, f"다른 어센던시 트리 노드가 섞였다: {intruders}"
+
+
+def test_own_ascendancy_nodes_still_pass(graph: TreeGraph) -> None:
+    """⚠ **게이트가 정상을 막으면 신호가 죽는다**(§0 ⑤) — 자기 것은 남아야 한다.
+
+    만들다 실제로 전부 막혔다: `node.ascendancy`는 **코드**("Witch2")이고
+    `resolve_ascendancy`는 **표시명**("Blood Mage")을 내는데 그대로 비교했다.
+    두 이름 공간이라 항상 불일치였다 — 노드 쪽도 해소해야 한다.
+    """
+
+    def ascendancy_hits(for_ascendancy: str | None) -> list[str]:
+        return [
+            h.name_ko
+            for cluster in find_clusters(
+                graph, include=[("life cost", 1.0)], for_ascendancy=for_ascendancy, top=30
+            )
+            for h in cluster.hits
+            if graph.nodes[h.node_id].ascendancy
+        ]
+
+    assert "혈액술" in ascendancy_hits("Blood Mage"), "자기 어센던시 노드가 사라졌다"
+    assert "혈액술" not in ascendancy_hits("Infernalist"), "남의 것은 안 나온다"
+    # 전직을 안 밝히면 어센던시 노드를 **전부** 뺀다 — 못 찍는 것을 권하지 않는다(B-13)
+    assert not ascendancy_hits(None)
