@@ -19,7 +19,7 @@
 >
 > **번호 규칙 (v0.2에서 정함)**: 번호는 **이 파일이 발급한다.** `[빌드]` 세션의 보고
 > 안 번호(#1~#8 등)와 섞이면 참조가 깨진다 — 실제로 `#17`이 두 항목에 붙어 있었고
-> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#52**다.
+> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#55**다.
 >
 > **PR 번호를 「(이 PR)」로 적지 말 것** — 머지되면 무엇을 가리키는지 알 수 없다.
 > 올린 뒤 실제 번호로 되돌아와 적는다(v0.2에서 17곳을 정정했다).
@@ -74,6 +74,9 @@
 
 | 항목 | 상태 | 다음 한 걸음 |
 |---|---|---|
+| **#52** 다중 statSet 스킬이 **항상 파트 1**로 계산됨 | 미검증(보고 원문) | 조용한 **20배** 과소측정 — 구형 번개 2,387 vs 47,329 |
+| **#53** `optimize_rare`가 낸 text를 `assemble_pob`이 거부 | 미검증(보고 원문) | 롤 값의 티어 범위는 조립 중 검사 경로를 안 탄다 (옛 결함 재발) |
+| **#54** `optimize_rare`가 **PoB에 없는 베이스명**을 낸다 | 미검증(보고 원문) | `Chain Mitts`·`Chain Coif`·`Chain Boots` |
 | **#44** PoB가 못 재는 축이 **주력 딜**이면 조립이 정상으로 보인다 | 재현됨(보고자) | 3·4·5차가 소수점까지 동일했다(`3785.134737`) |
 | **#48** `support.fire-infusion` 레코드가 실물과 다름 | 재현됨(보고자) | P1a 시드 잔재 — 미교체 시드를 조회에 표시할 것 |
 | **#49** `mechanic.compounding-ignite` 담체 미연결 | 재현됨(보고자) | 메커니즘→담체 역방향 간선 (PoB엔 정확히 2건) |
@@ -202,6 +205,60 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
 ---
 
 ## 1. 열린 결함
+
+### #52 〔신규〕 다중 statSet 스킬이 **항상 파트 1**로 계산된다 — 조용한 20배 과소측정
+- **상태**: 미검증(보고 원문) · 3차 이관 2026-08-10 · **착수 시 재현부터**
+- **보고**: `skill.ball-lightning`은 PoB에 statSet 3종이 있는데(`Data/Skills/act_int.lua:408`
+  `BallLightningPlayer`: `[1] Ball Lightning` · `[2] Fire-Infused` · `[3] Ignited Ground`)
+  지금 파이프라인은 파트 1만 낸다. 동일 스펙(`spec_geared5.json`) 실측:
+
+  | 파트 | `WithIgniteDPS` | `IgniteFireMin/Max` |
+  |---|---|---|
+  | 1 (**현재 값**) | 2,387 | 0 / 0 |
+  | 2 Fire-Infused | 32,231 | 8,756 / 13,139 |
+  | 3 Ignited Ground (**설계상 딜 축**) | **47,329** | 12,662 / 18,998 |
+
+- **보고된 원인**: PoB는 statSet 선택을 `<Gem>`의 **자식 원소**로 읽는다
+  (`Classes/SkillsTab.lua:374-378` → `Modules/CalcActiveSkill.lua:166,171`):
+  `<StatSetIndex grantedEffect="BallLightningPlayer" index="3"/>` +
+  `<StatSetCalcsIndex .../>`. ⚠ **속성 형식(`<Gem statSetIndex="3">`)은 PoB 쪽 죽은
+  코드다** — `SkillsTab.lua:354-355`가 파싱하지만 370-371행이 즉시 `{}`로 덮어쓴다
+  (보고자 실측: 파트 1·2·3이 소수점까지 동일)
+- **요청안**: `GemSpec`에 stat set 선택 필드 + `to_xml`이 자식 원소를 낼 것.
+  강제 지점(철칙 5): `statSets`가 2개 이상인 젬을 **파트 지정 없이 조립하면 거부**.
+  탐지는 `skills[...].statSets` 길이로 — `Data/Gems.lua`의 `additionalStatSet1/2`는
+  exporter 전용이라 계산에 소비처가 없다
+- **근거 위치**: `artifacts/builds/20260810-인퍼널리스트-A-집정관-순환-순수주문/`
+  `measure_bl.py`·`measure_bl2.py` · `design.md` §11.10-e
+- **착수 시 검증할 것**: 자식 원소 주입이 정말 값을 바꾸는지 **직접 렌더해 재본다**.
+  그리고 이 갭이 구형 번개 하나인지 — `statSets` 길이 2 이상인 젬을 **전수로** 센다
+
+### #53 〔신규〕 `optimize_rare`의 `legal: True`가 **조립 통과를 뜻하지 않는다** (#23 재발)
+- **상태**: 미검증(보고 원문) · 3차 이관 2026-08-10 (⑪과 ②는 같은 건)
+- **보고**: `optimize_rare(slot="Helmet", base_type="Grinning Mask")`가 `legal=True`로 낸
+  text를 `assemble_pob`에 그대로 넣자 거부 —
+  `137% increased Evasion and Energy Shield → modifier.localevasionand…1/2/3: 수치 [137.0] 가 티어 범위 밖`
+- **보고된 원인**: #23을 「조립하면서 검사기에게 묻기」로 고쳤는데
+  (`engine/rares.py::_assemble_text`) **롤 값의 티어 범위 검사는 그 경로를 안 탄다** —
+  접사 **선택**은 물었지만 그 접사에 **얹은 수치**는 안 물었다는 뜻
+- **왜 값이 큰가**: `build-assembly` 스킬이 "희귀는 `optimize_rare`의 text를 그대로 쓸 것"을
+  규정하는데 그 text가 조립을 통과하지 못한다. 손으로 고치는 것은 같은 스킬이 금지한다
+  — **규율과 도구가 서로를 막는다**(§0 ⑤)
+- **실측 규모**: 7슬롯 중 `legal=True`인데 조립 거부 1건(투구) · `legal=False` 1건(벨트,
+  `unmeasurable=17`) → **2슬롯이 조립 불가**라 측정이 5슬롯 기준으로만 나왔다
+- **요청안**: `optimize_rare`가 조립기와 **같은 검사 경로**로 롤 값까지 보거나, 최소한
+  반환에 `assemble_ready: false` + 사유를 실을 것
+- **근거 위치**: 같은 빌드 폴더 `spec_geared3.json`·`spec_geared7.json` · `design.md` §11.8-a
+
+### #54 〔신규〕 `optimize_rare`가 **PoB에 없는 베이스명**을 낸다
+- **상태**: 미검증(보고 원문) · 3차 이관 2026-08-10
+- **보고**: `Chain Mitts`·`Chain Coif`·`Chain Boots`가 PoB에 실재하지 않는다. 조립기는
+  `베이스 미확인`으로 정확히 잡았다 — **게이트는 작동했고 생성기가 틀렸다**
+  (실재 회피/ES 하이브리드: 장갑 `Vaal Wraps` · 투구 `Grinning Mask` ·
+  부츠 `Quickslip Shoes` · 벨트 `Invoking Belt`)
+- **착수 시 검증할 것**: 보고자가 **지어낸 이름을 넣은 것인지**(그러면 결함이 아니라
+  게이트 성공 사례) 아니면 `optimize_rare`가 스스로 생성한 것인지부터 가른다 —
+  보고 문면이 두 갈래로 읽힌다(⑪ 부수 정보는 전자, ②는 후자로 적혀 있다)
 
 ### #44 〔신규〕 PoB가 못 재는 축이 **주력 딜**이면 조립이 정상으로 보인다
 - **상태**: 재현됨 · 2차 이관 2026-08-10
