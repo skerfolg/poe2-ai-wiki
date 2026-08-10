@@ -177,6 +177,23 @@ def _magnitudes(text: str) -> list[float]:
     return out
 
 
+_DECLARED_AFFIX = re.compile(r"^\s*(Prefix|Suffix)\s*:\s*(.+?)\s*$", re.I | re.M)
+
+
+def _declared_affixes(item_text: str) -> list[tuple[str, str]]:
+    """`Prefix:`/`Suffix:` 선언 줄 → (종류, PoB 모드 키) (백로그 #60).
+
+    빈 칸은 `Prefix: None`으로 적히므로 걸러낸다. 장식 접두(`{range:0.5}`)는
+    표기이지 키가 아니다.
+    """
+    out: list[tuple[str, str]] = []
+    for kind, body in _DECLARED_AFFIX.findall(item_text):
+        key = _MOD_DECORATION.sub("", body).strip()
+        if key and key.lower() != "none":
+            out.append((kind.capitalize(), key))
+    return out
+
+
 def _base_implicits(base: dict[str, Any] | None) -> dict[str, str]:
     """베이스가 달고 나오는 임플리싯 줄들 — 정규화 키 → 원문 (백로그 #57).
 
@@ -305,6 +322,9 @@ class ItemLegalityChecker:
         self._bases: dict[str, dict[str, Any]] = {}
         self._uniques: dict[str, dict[str, Any]] = {}  # 유니크 이름 → 레코드
         self._mods: dict[str, list[dict[str, Any]]] = {}  # 정규화 텍스트 → 후보 레코드들
+        # PoB 모드 키 → 레코드. **선언형 아이템 텍스트**(`Prefix: <key>`)를 되짚는다 —
+        # 그 형식이 검사에서 통째로 빠져 있었다(백로그 #60).
+        self._by_pob_key: dict[str, dict[str, Any]] = {}
         # 고유 주얼 전략 모듈용 색인 (2026-07-31, 사용자 확립 "주얼별 전략 모듈")
         self._heart: dict[str, list[dict[str, Any]]] = {}  # Heart of the Well 훼손 풀
         self._notables: dict[str, dict[str, Any]] = {}  # 본 트리+어센 노터블 (Megalomaniac)
@@ -323,6 +343,9 @@ class ItemLegalityChecker:
                 # 넣으면 색인이 비고, 실제로 룬 16줄이 전부 UNKNOWN이었다(2026-08-05).
                 for text in _mod_texts(r.raw["data"]):
                     self._mods.setdefault(_norm(text), []).append(r.raw)
+                key = str(r.raw["data"].get("pob_key") or "")
+                if key:
+                    self._by_pob_key.setdefault(key.lower(), r.raw)
             elif r.type == "Modifier" and "heart-of-the-well" in r.raw.get("data", {}).get(
                 "origins", []
             ):
@@ -355,6 +378,27 @@ class ItemLegalityChecker:
         # 것이라, 조립 중 적법성 검사가 **모든 시도에서** 실패해 접사를 하나도 못
         # 고르고 `legal: False`만 남았다. 정본은 베이스 레코드의 `implicit`이다.
         implicits = _base_implicits(base)
+        # **선언형은 검사에서 통째로 빠져 있었다** (백로그 #60, 2026-08-11).
+        # `Prefix: {range:0.5}IncreasedLife10` 꼴은 스펙 줄이라 모드 판정을 건너뛰는데,
+        # 그러면 매칭되는 모드가 하나도 없어 접사 수·group 배타·스폰 검사가 **전부
+        # 공회전**한다 — 실측: 같은 목걸이가 평문형에선 `접사 총 7개 — 총한도 6 초과`로
+        # 걸리고 선언형에선 판정 0건에 `legal: True`였다. #34 이후 `optimize_rare`가
+        # 내는 것이 바로 이 형식이라, 아이템 게이트가 자기 도구 출력에 대해 무력했다.
+        for kind, key in _declared_affixes(item_text):
+            record = self._by_pob_key.get(key.lower())
+            if record is None:
+                verdicts.append(
+                    LineVerdict(
+                        f"{kind}: {key}",
+                        "UNKNOWN",
+                        reason=f"PoB 모드 키 {key!r}를 KB에서 못 찾았다 — 표기를 확인할 것",
+                    )
+                )
+                continue
+            verdicts.append(
+                LineVerdict(f"{kind}: {key}", "LEGAL", str(record["id"]), reason="선언형 접사")
+            )
+            matched[str(record["id"])] = record
         for line in mod_lines:
             if (found := _match_implicit(line, implicits)) is not None:
                 verdicts.append(found)

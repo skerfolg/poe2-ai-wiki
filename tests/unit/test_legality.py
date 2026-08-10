@@ -697,3 +697,37 @@ def test_decorated_rune_line_matches_on_uniques(checker: ItemLegalityChecker) ->
     )
     report = checker.check(text)
     assert report.is_legal, [(v.status, v.line) for v in report.verdicts]
+
+
+def test_declaration_form_is_judged_like_plain_text(checker: ItemLegalityChecker) -> None:
+    """선언형이 **검사에서 통째로 빠져 있었다** (백로그 #60, 2026-08-11).
+
+    `Prefix: {range:0.5}IncreasedLife10` 꼴은 스펙 줄이라 모드 판정을 건너뛰는데,
+    그러면 매칭되는 모드가 하나도 없어 접사 수·group 배타가 **전부 공회전**한다.
+    같은 목걸이가 평문형에선 한도 초과로 걸리고 선언형에선 판정 0건에 `legal: True`
+    였다. #34 이후 `optimize_rare`가 내는 것이 이 형식이라, 아이템 게이트가
+    **자기 도구의 출력에 대해 무력**했다.
+    """
+    head = "Rarity: RARE\nX\nStellar Amulet\nCrafted: true\n"
+    over = checker.check(
+        head
+        + "Suffix: {range:0.5}GlobalSpellGemsLevel3\n"
+        + "Suffix: {range:0.5}GlobalProjectileSkillGemLevel3\n"
+        + "Suffix: {range:0.5}Intelligence9\nSuffix: {range:0.5}Dexterity9\n"
+        + "Prefix: {range:0.5}IncreasedLife10\nPrefix: None\nLevelReq: 80\n"
+    )
+    assert not over.is_legal
+    assert any("한도 3 초과" in e for e in over.errors), over.errors
+    assert len(over.verdicts) == 5, "빈 칸(`Prefix: None`)은 세지 않는다"
+
+    # 한도 안이면 통과한다 — 게이트가 정상을 막으면 안 된다(§0 ⑤)
+    ok = checker.check(
+        head
+        + "Suffix: {range:0.5}Intelligence9\n"
+        + "Prefix: {range:0.5}IncreasedLife10\nLevelReq: 80\n"
+    )
+    assert ok.is_legal, (ok.errors, [(v.status, v.line) for v in ok.verdicts])
+
+    # 모르는 키는 조용히 넘기지 않는다
+    unknown = checker.check(head + "Suffix: {range:0.5}NotARealModKey\n")
+    assert any(v.status == "UNKNOWN" for v in unknown.verdicts)
