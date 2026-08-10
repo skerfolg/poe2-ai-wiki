@@ -90,7 +90,16 @@ def test_queue_table_matches_the_open_entries(text: str) -> None:
     """
     # ⚠ 끝 표식을 `---`로 두면 **표 구분줄(`|---|`)에서 잘린다** — 만들다 걸린 함정이다
     queue = _section(text, "### 현재 열려 있는 것", "## 기재 규약")
-    listed = {f"#{n}" for n in re.findall(r"#(\d+(?:-[a-z])?)", queue)}
+    # ⚠ **표 행의 첫 칸만** 센다. 절 전체를 훑으면 산문의 참조("#59는 판정받아 반영했다")도
+    # 항목으로 오인해 실패한다 — 실제로 두 번 걸렸고 그때마다 문서 쪽을 비틀어 피했다.
+    # 검사가 부정확하면 우회를 부르고, 우회는 규율을 갉는다.
+    listed = {
+        f"#{m.group(1)}"
+        for line in queue.splitlines()
+        if line.startswith("|")
+        for cell in [line.split("|")[1] if len(line.split("|")) > 1 else ""]
+        if (m := re.search(r"#(\d+(?:-[a-z])?)", cell))
+    }
     entries = set(_entry_ids(_section(text, "## 1. 열린 결함", "## 2. ")))
     assert not (entries - listed), f"본문에 있는데 큐 표에 없다: {sorted(entries - listed)}"
     assert not (listed - entries), f"큐 표에 있는데 본문이 없다: {sorted(listed - entries)}"
