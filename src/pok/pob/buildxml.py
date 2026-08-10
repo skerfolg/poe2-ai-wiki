@@ -55,6 +55,12 @@ class GemSpec:
     # 실측으로 받아 설계 판단을 내렸다. 최대 단계는 스킬마다 다르므로 기본값을
     # 정하지 않고, 단계형인데 미지정이면 조립 단계에서 알린다.
     stages: int | None = None
+    # 어느 **모드(statSet)**로 계산할지 — 1부터. PoB는 한 스킬이 모드를 여럿 가질 때
+    # 안 주면 **조용히 1번**을 쓴다. 실측 2026-08-10(이관 ①): 구형 번개 `WithIgniteDPS`
+    # 파트1 2,387 / 파트2 32,231 / 파트3 **47,329** — 조립은 정상으로 보이고 수치만
+    # 20배 낮다. 어느 모드로 설계할지는 판단이라 기본값을 정하지 않고, 모드가 둘 이상인
+    # 젬에 미지정이면 조립 단계에서 거부한다(`stages`와 같은 취급).
+    stat_set_index: int | None = None
 
 
 @dataclass(frozen=True)
@@ -303,6 +309,7 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
     from pok.pob.catalog import (
         config_vars,
         gem_ids,
+        stat_sets,
         suggest_config_vars,
         suggest_gem_ids,
     )
@@ -359,6 +366,24 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
                 f"아무 효과도 안 붙인 채 계산한다. KB `data.explicits` {len(explicits)}줄을 "
                 f"텍스트에 적을 것 (예: {explicits[0][:48]!r})"
             )
+
+    # 한 스킬이 **모드(statSet)를 여럿** 가지면 안 줬을 때 조용히 1번이 쓰인다 —
+    # `stages`와 같은 형태의 조용한 기본값이고 격차는 더 크다. 실측 2026-08-10:
+    # 구형 번개 `TotalDPS` 151.2(1번) / 381.5(2번) / **497.6(3번)**, 보고자의 장비
+    # 갖춘 빌드에선 `WithIgniteDPS` 2,387 vs **47,329**(20배). 어느 모드로 설계할지는
+    # 판단이라 정해 주지 않고, **지정하지 않았다는 사실만** 막는다.
+    for gi, group in enumerate(spec_data.get("skills", [])):
+        for i, gem in enumerate(group.get("gems", [])):
+            if gem.get("stat_set_index") is not None:
+                continue
+            _, labels = stat_sets(str(gem.get("gem_id", "")))
+            if len(labels) > 1:
+                numbered = ", ".join(f"{n}={lb!r}" for n, lb in enumerate(labels, 1))
+                problems.append(
+                    f"skills[{gi}].gems[{i}]: {gem.get('name')!r}는 모드가 {len(labels)}개인데 "
+                    f"`stat_set_index`가 없다 — PoB는 **1번으로 계산**한다({numbered}). "
+                    f"어느 모드로 설계하는지 정해 줄 것"
+                )
 
     # 단계형 스킬인데 스테이지를 안 주면 PoB가 **조용히 1단계**로 잰다 — 실측
     # 2026-08-07: 화염파 1단계 288.6 vs 10단계 1402.4(**4.86배**). 어느 단계로 설계할지는
@@ -487,6 +512,39 @@ def _config_value_attrs(value: str | int | bool) -> str:
     return f"string={quoteattr(value)}"
 
 
+def _gem_xml(gem: GemSpec) -> str:
+    """젬 하나 → `<Gem>` 조각.
+
+    ⚠ statSet 선택은 **자식 원소로만 먹는다.** `SkillsTab.lua:354-355`가
+    `statSetIndex` 속성을 파싱하기는 하지만 **370-371행이 즉시 `{}`로 덮어쓴다** —
+    속성으로 주면 조용히 무시되고 파트 1·2·3이 소수점까지 같은 값으로 나온다
+    (보고자 실측 + 재현). 소비처는 `CalcSetup.lua:1888,1890`이며 키는 `grantedEffect.id`다.
+    """
+    head = (
+        f"        <Gem gemId={quoteattr(gem.gem_id)} variantId={quoteattr(gem.name)} "
+        f'level="{gem.level}" quality="{gem.quality}" '
+        + (
+            f'skillStageCount="{gem.stages}" skillStageCountCalcs="{gem.stages}" '
+            if gem.stages is not None
+            else ""
+        )
+        + f'enabled="{"true" if gem.enabled else "false"}" nameSpec={quoteattr(gem.name)}'
+    )
+    if gem.stat_set_index is None:
+        return head + "/>"
+
+    from pok.pob.catalog import granted_effects
+
+    effect = granted_effects().get(gem.gem_id, "")
+    index = gem.stat_set_index
+    return (
+        head + ">\n"
+        f'          <StatSetIndex grantedEffect={quoteattr(effect)} index="{index}"/>\n'
+        f'          <StatSetCalcsIndex grantedEffect={quoteattr(effect)} index="{index}"/>\n'
+        "        </Gem>"
+    )
+
+
 def to_xml(spec: BuildSpec) -> str:
     """BuildSpec → PoB가 그대로 로드하는 PathOfBuilding2 XML."""
     if spec.class_name not in CLASS_INTERNAL_ID:
@@ -498,17 +556,7 @@ def to_xml(spec: BuildSpec) -> str:
 
     skill_groups: list[str] = []
     for group in spec.skills:
-        gems = "\n".join(
-            f"        <Gem gemId={quoteattr(g.gem_id)} variantId={quoteattr(g.name)} "
-            f'level="{g.level}" quality="{g.quality}" '
-            + (
-                f'skillStageCount="{g.stages}" skillStageCountCalcs="{g.stages}" '
-                if g.stages is not None
-                else ""
-            )
-            + f'enabled="{"true" if g.enabled else "false"}" nameSpec={quoteattr(g.name)}/>'
-            for g in group.gems
-        )
+        gems = "\n".join(_gem_xml(g) for g in group.gems)
         skill_groups.append(
             f'      <Skill enabled="{"true" if group.enabled else "false"}" label="" '
             f'slot={quoteattr(group.slot)} mainActiveSkill="{group.main_active_skill}">\n'

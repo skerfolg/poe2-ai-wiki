@@ -19,7 +19,9 @@ BASE = {"class_name": "Sorceress", "ascendancy": "Sorceress1", "level": 90}
 
 
 def _spec(gem_id: str, name: str) -> dict[str, object]:
-    return {**BASE, "skills": [{"gems": [{"gem_id": gem_id, "name": name, "level": 20}]}]}
+    # `stat_set_index`는 여기 관심사가 아니지만 모드 2개인 젬은 선언을 요구한다(#52)
+    gem = {"gem_id": gem_id, "name": name, "level": 20, "stat_set_index": 1}
+    return {**BASE, "skills": [{"gems": [gem]}]}
 
 
 def test_item_granted_skill_socketed_as_a_gem_is_rejected() -> None:

@@ -23,6 +23,9 @@ class TestSpecFromDict:
                                 "gem_id": "Metadata/Items/Gems/SkillGemSpark",
                                 "name": "Spark",
                                 "level": 20,
+                                # 스파크는 모드가 둘("Base"/"Cold-Infused")이라
+                                # 선언이 필요하다 — 안 주면 조용히 1번(#52)
+                                "stat_set_index": 1,
                             }
                         ]
                     }

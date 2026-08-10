@@ -118,6 +118,7 @@ def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: igno
                     "gems": [
                         {
                             "gem_id": "Metadata/Items/Gems/SkillGemSpark",
+                            "stat_set_index": 1,  # 모드 2개 — 선언 필요(#52)
                             "name": "Spark",
                             "level": 20,
                         }

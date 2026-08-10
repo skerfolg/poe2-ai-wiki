@@ -74,7 +74,6 @@
 
 | 항목 | 상태 | 다음 한 걸음 |
 |---|---|---|
-| **#52** 다중 statSet 스킬이 **항상 파트 1**로 계산됨 | 미검증(보고 원문) | 조용한 **20배** 과소측정 — 구형 번개 2,387 vs 47,329 |
 | **#53** `optimize_rare`가 낸 text를 `assemble_pob`이 거부 | 미검증(보고 원문) | 롤 값의 티어 범위는 조립 중 검사 경로를 안 탄다 (옛 결함 재발) |
 | **#54** `optimize_rare`가 **PoB에 없는 베이스명**을 낸다 | 미검증(보고 원문) | `Chain Mitts`·`Chain Coif`·`Chain Boots` |
 | **#44** PoB가 못 재는 축이 **주력 딜**이면 조립이 정상으로 보인다 | 재현됨(보고자) | 3·4·5차가 소수점까지 동일했다(`3785.134737`) |
@@ -205,33 +204,6 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
 ---
 
 ## 1. 열린 결함
-
-### #52 〔신규〕 다중 statSet 스킬이 **항상 파트 1**로 계산된다 — 조용한 20배 과소측정
-- **상태**: 미검증(보고 원문) · 3차 이관 2026-08-10 · **착수 시 재현부터**
-- **보고**: `skill.ball-lightning`은 PoB에 statSet 3종이 있는데(`Data/Skills/act_int.lua:408`
-  `BallLightningPlayer`: `[1] Ball Lightning` · `[2] Fire-Infused` · `[3] Ignited Ground`)
-  지금 파이프라인은 파트 1만 낸다. 동일 스펙(`spec_geared5.json`) 실측:
-
-  | 파트 | `WithIgniteDPS` | `IgniteFireMin/Max` |
-  |---|---|---|
-  | 1 (**현재 값**) | 2,387 | 0 / 0 |
-  | 2 Fire-Infused | 32,231 | 8,756 / 13,139 |
-  | 3 Ignited Ground (**설계상 딜 축**) | **47,329** | 12,662 / 18,998 |
-
-- **보고된 원인**: PoB는 statSet 선택을 `<Gem>`의 **자식 원소**로 읽는다
-  (`Classes/SkillsTab.lua:374-378` → `Modules/CalcActiveSkill.lua:166,171`):
-  `<StatSetIndex grantedEffect="BallLightningPlayer" index="3"/>` +
-  `<StatSetCalcsIndex .../>`. ⚠ **속성 형식(`<Gem statSetIndex="3">`)은 PoB 쪽 죽은
-  코드다** — `SkillsTab.lua:354-355`가 파싱하지만 370-371행이 즉시 `{}`로 덮어쓴다
-  (보고자 실측: 파트 1·2·3이 소수점까지 동일)
-- **요청안**: `GemSpec`에 stat set 선택 필드 + `to_xml`이 자식 원소를 낼 것.
-  강제 지점(철칙 5): `statSets`가 2개 이상인 젬을 **파트 지정 없이 조립하면 거부**.
-  탐지는 `skills[...].statSets` 길이로 — `Data/Gems.lua`의 `additionalStatSet1/2`는
-  exporter 전용이라 계산에 소비처가 없다
-- **근거 위치**: `artifacts/builds/20260810-인퍼널리스트-A-집정관-순환-순수주문/`
-  `measure_bl.py`·`measure_bl2.py` · `design.md` §11.10-e
-- **착수 시 검증할 것**: 자식 원소 주입이 정말 값을 바꾸는지 **직접 렌더해 재본다**.
-  그리고 이 갭이 구형 번개 하나인지 — `statSets` 길이 2 이상인 젬을 **전수로** 센다
 
 ### #53 〔신규〕 `optimize_rare`의 `legal: True`가 **조립 통과를 뜻하지 않는다** (#23 재발)
 - **상태**: 미검증(보고 원문) · 3차 이관 2026-08-10 (⑪과 ②는 같은 건)
@@ -430,6 +402,7 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
 | **이 파일의 규율에 강제가 없었다**(철칙 5 자기 위반) — v0.3이 넣은 규칙이 전부 문서였다 | `tests/unit/test_backlog_hygiene.py`가 형식을 잠그고, §0의 각 형태가 **강제 지점을 명시**하게 했다. 룬 선언 누락은 검사기 오류로 승격 | 대기 |
 | 〔제안 C〕 좌표를 관련성으로 거를 경로가 없어 **파일 탐색을 강제**했다 | `find_clusters` + 히트에 `position` — 갭이 닫혔는지 확인해서 닫았다 | #55 |
 | 〔제안 B〕 반경 주얼이 **어느 소켓에서든 델타 0** | 원인은 파서가 아니라 **`Radius:` 선언 누락**(실측 10.44 → 15.84). 감지를 검사기 구조 오류로 | #55 |
+| 〔#52〕 다중 statSet 스킬이 **항상 파트 1**로 계산됨 — 조용한 20배 과소측정 | `GemSpec.stat_set_index` 신설 + `to_xml`이 **자식 원소**로 낸다(속성 형식은 PoB 죽은 코드라 무시된다). 재현 실측: 구형 번개 `TotalDPS` 151.2 / 381.5 / **497.6**. 미지정은 **거부**하고 모드 목록을 알려 준다 — 판정 기준은 PoB 자신의 것과 같다(`CompareEntry.lua:371` `#statSets > 1`), 해당 젬 **111종**. ⚠ `parse_pob`은 여전히 젬 **이름만** 돌려주므로 남의 빌드를 읽어올 때 모드 선택은 오지 않는다(원래 레벨·품질도 없다) | 대기 |
 | 〔#45〕 유니크 경로가 `Variant:`를 **모드로 오독** (#30 재발) — 변형 12종 아이템의 변형 선택을 못 적었다 | `_check_unique`가 들고 있던 **자기만의 5개짜리 스펙 줄 목록**을 지우고 `_SPEC_LINE_PREFIXES` 하나로 통일 (§0 ④ 판정 주체가 둘이면 어긋난다) | 대기 |
 | 〔#47〕 `item-granted` 스킬을 젬으로 소켓해도 통과 — 소켓한 Firebolt가 `TotalDPS 217.5`를 냈다 | `_validate_catalog`가 KB `source`를 읽어 거부(부여원까지 지목). **함께 드러난 KB 오분류 8건**: poe2db `From` 카드가 여러 장인데 파서가 덮어써서 젬 경로가 사라졌다(Herald 3종·Spark·Unleash·Blink…) — 고치지 않았으면 게이트가 정상 젬을 막았다 | 대기 |
 | 〔#47 파생〕 `patch_records`에 `{"data": {...}}`를 주면 **조용히 `data.data`가 생긴다** — 56건이 그렇게 들어갔고 읽는 쪽은 옛 값을 계속 봤다 | 패치 최상위에 `data` 키가 있으면 **거부**(철칙 5) | 대기 |
