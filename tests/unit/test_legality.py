@@ -731,3 +731,31 @@ def test_declaration_form_is_judged_like_plain_text(checker: ItemLegalityChecker
     # 모르는 키는 조용히 넘기지 않는다
     unknown = checker.check(head + "Suffix: {range:0.5}NotARealModKey\n")
     assert any(v.status == "UNKNOWN" for v in unknown.verdicts)
+
+
+def test_skill_level_suffixes_are_mutually_exclusive(checker: ItemLegalityChecker) -> None:
+    """group이 달라도 배타인 계열 (백로그 #59, 사용자 판정 2026-08-11).
+
+    「+N to Level of all … Skills」는 poe2db에서 대상별로 group이 나뉘어 있어
+    (`GlobalIncreaseSpellSkillGemLevel` vs `…ProjectileSkillGemLevel`) group 배타로는
+    안 잡혔다 — 37 group·188 모드짜리 계열이다. 규칙은 하드코딩이 아니라 판 규칙
+    정본(`board-rules.json::family_exclusion`)에 있다.
+    """
+    head = "Rarity: RARE\nX\nStellar Amulet\nItem Level: 80\n"
+    both = checker.check(
+        head + "+3 to Level of all Spell Skills\n+3 to Level of all Projectile Skills\n"
+    )
+    assert not both.is_legal
+    assert any("계열 배타" in e for e in both.errors), both.errors
+
+    # 선언형에서도 같이 잡혀야 한다 — 두 형식의 강도가 갈리면 그게 #60이었다
+    declared = checker.check(
+        "Rarity: RARE\nX\nStellar Amulet\nCrafted: true\n"
+        "Suffix: {range:0.5}GlobalSpellGemsLevel3\n"
+        "Suffix: {range:0.5}GlobalProjectileSkillGemLevel3\nLevelReq: 80\n"
+    )
+    assert any("계열 배타" in e for e in declared.errors), declared.errors
+
+    # 하나만이면 통과 · 무관한 접미와의 공존도 통과 (§0 ⑤)
+    assert checker.check(head + "+3 to Level of all Spell Skills\n").is_legal
+    assert checker.check(head + "+3 to Level of all Spell Skills\n+35 to Dexterity\n").is_legal

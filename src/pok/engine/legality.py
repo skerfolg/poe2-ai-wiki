@@ -312,11 +312,10 @@ class ItemLegalityChecker:
     def __init__(self, knowledge: Path) -> None:
         kdir = knowledge if knowledge.name == "knowledge" else knowledge / "knowledge"
         rules = kdir / "crafting-rules" / "board-rules.json"
-        self._affix_caps: dict[str, Any] = (
-            json.loads(rules.read_text(encoding="utf-8")).get("affix_caps", {})
-            if rules.exists()
-            else {}
+        self._rules: dict[str, Any] = (
+            json.loads(rules.read_text(encoding="utf-8")) if rules.exists() else {}
         )
+        self._affix_caps: dict[str, Any] = self._rules.get("affix_caps", {})
         kb = store_load(knowledge.parent if knowledge.name == "knowledge" else knowledge)
         self._root = knowledge.parent if knowledge.name == "knowledge" else knowledge
         self._bases: dict[str, dict[str, Any]] = {}
@@ -436,6 +435,12 @@ class ItemLegalityChecker:
                 if g in groups:
                     errors.append(f"group 중복: {g} ({groups[g]} vs {rec['id']})")
                 groups[g] = rec["id"]
+        # **group이 달라도 배타인 계열**이 있다 (백로그 #59, 사용자 판정 2026-08-11).
+        # 「+N to Level of all … Skills」는 poe2db에서 대상별로 group이 나뉘어 있어
+        # (`GlobalIncreaseSpellSkillGemLevel` vs `…ProjectileSkillGemLevel`) group 배타로는
+        # 안 잡힌다 — 실측: 한 목걸이에 스펠 +3과 투사체 +3이 동시에 LEGAL이었다.
+        # 규칙은 하드코딩하지 않고 판 규칙 정본에서 읽는다(범위 조정도 그 파일에서).
+        errors.extend(self._family_exclusion_errors(matched))
         cap_errors = False
         for affix, n in counts.items():
             if n > caps[affix]:
@@ -564,6 +569,25 @@ class ItemLegalityChecker:
                 else LineVerdict(ln, "ILLEGAL", rec["id"], f"롤 범위 밖: {why}")
             )
         return LegalityReport(verdicts=tuple(verdicts))
+
+    def _family_exclusion_errors(self, matched: dict[str, dict[str, Any]]) -> list[str]:
+        """group을 넘어 배타인 계열 검사 — 규칙은 `board-rules.json::family_exclusion`."""
+        rule = self._rules.get("family_exclusion") or {}
+        pattern = str(rule.get("match") or "")
+        if not pattern:
+            return []
+        wanted = {str(a) for a in (rule.get("scope") or {}).get("affix_types") or ()}
+        matcher = re.compile(pattern, re.I)
+        hits = [
+            rec
+            for rec in matched.values()
+            if (not wanted or rec["data"].get("affix_type") in wanted)
+            and any(matcher.search(text) for text in _mod_texts(rec["data"]))
+        ]
+        if len(hits) < 2:
+            return []
+        names = ", ".join(sorted(str(r["id"]) for r in hits))
+        return [f"계열 배타 위반 — {rule.get('rule', '')} ({len(hits)}개: {names})"]
 
     def _rune_line(self, line: str) -> LineVerdict | None:
         """이 문구가 **룬으로** 붙일 수 있는 것인가 (유니크·일반 공통 판정).
