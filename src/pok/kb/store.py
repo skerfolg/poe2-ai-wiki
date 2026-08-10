@@ -604,7 +604,17 @@ def patch_records(
 
     def _apply(data: Mapping[str, Any], patch: Mapping[str, Any]) -> dict[str, Any]:
         merged = _deep_merge(data, patch)
-        lost = sorted(_key_paths(data) - _key_paths(merged) - _dropped_paths(patch) - drop)
+        dropped = _dropped_paths(patch)
+        # ⚠ **부모를 지우면 자식도 지워진다.** 그 자식 경로까지 근거로 세지 않으면
+        # 「의도한 삭제」가 「근거 없는 소실」로 거부된다 — 실측 2026-08-10:
+        # `{"pob_modeling": None}`이 자식 5개(`detail`·`kind`·`snapshot`…) 때문에
+        # 막혀 파싱 갭 재감사가 통째로 못 돌았다. 근거는 부모 하나로 충분하다.
+        under_dropped = {
+            path
+            for path in _key_paths(data)
+            if any(path == d or path.startswith(f"{d}.") for d in dropped)
+        }
+        lost = sorted(_key_paths(data) - _key_paths(merged) - dropped - under_dropped - drop)
         if lost:
             raise KBWriteError(
                 f"패치가 기존 값 {len(lost)}건을 지운다 — 근거 없는 소실 거부: {lost[:5]}"
@@ -674,3 +684,18 @@ def patch_record_field(
     if validate:
         load(root)
     return WriteReport(path=path, updated=(entity_id,))
+
+
+def _apply_test_hook(data: Mapping[str, Any], patch: Mapping[str, Any]) -> dict[str, Any]:
+    """`patch_records`의 병합·소실 판정만 떼어 시험한다 (정본 파일을 건드리지 않는다)."""
+    merged = _deep_merge(data, patch)
+    dropped = _dropped_paths(patch)
+    under_dropped = {
+        path
+        for path in _key_paths(data)
+        if any(path == d or path.startswith(f"{d}.") for d in dropped)
+    }
+    lost = sorted(_key_paths(data) - _key_paths(merged) - dropped - under_dropped)
+    if lost:
+        raise KBWriteError(f"패치가 기존 값 {len(lost)}건을 지운다: {lost[:5]}")
+    return merged
