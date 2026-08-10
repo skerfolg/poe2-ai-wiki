@@ -164,6 +164,97 @@ def _expand_enum(text: str) -> list[str]:
     return out
 
 
+def _magnitudes(text: str) -> list[float]:
+    """문구의 수치들 — `(10-15)` 같은 **범위는 상단**을 쓴다.
+
+    `_NUM`은 범위 표기까지 한 토큰으로 잡으므로 그대로 `float()`에 넣으면 터진다
+    (실측 2026-08-10: 벨트 임플리싯 `(8-12)% increased Cast Speed`에서 조립이 죽었다).
+    """
+    out: list[float] = []
+    for token in _NUM.findall(text):
+        span = _RANGE.fullmatch(token)
+        out.append(float(span.group(2)) if span else float(token))
+    return out
+
+
+def _base_implicits(base: dict[str, Any] | None) -> dict[str, str]:
+    """베이스가 달고 나오는 임플리싯 줄들 — 정규화 키 → 원문 (백로그 #57).
+
+    KB `data.implicit`은 **여러 줄일 수 있다**(`Invoking Belt`은 시전 속도 + 부적
+    칸 둘). 줄 단위로 쪼개야 두 번째 줄이 미아가 되지 않는다.
+    """
+    raw = str(((base or {}).get("data") or {}).get("implicit") or "")
+    out: dict[str, str] = {}
+    for line in raw.splitlines():
+        stripped = _MOD_DECORATION.sub("", line).strip()
+        if stripped:
+            out[_norm(stripped)] = stripped
+    return out
+
+
+def _match_implicit(line: str, implicits: dict[str, str]) -> LineVerdict | None:
+    """이 줄이 베이스 임플리싯인가 — 맞으면 값이 베이스 범위 안인지까지 본다.
+
+    ⚠ 적힌 값이 **아직 롤되지 않은 범위**일 수 있다 — PoB 명세 형식은
+    `{range:0.5}(8-12)% increased Cast Speed`처럼 범위를 그대로 두고 비율만
+    장식으로 얹는다. 그래서 접사용 롤 대조를 그대로 쓰면 자기 출력이 실격난다.
+    적힌 수치 전부가 베이스 범위의 봉투 안이면 통과다.
+    """
+    stripped = _MOD_DECORATION.sub("", line).strip()
+    source = implicits.get(_norm(stripped))
+    if source is None:
+        return None
+    bounds = [(float(lo), float(hi)) for lo, hi in _RANGE.findall(source)] or [
+        (v, v) for v in _magnitudes(source)
+    ]
+    low, high = min(b[0] for b in bounds), max(b[1] for b in bounds)
+    written = _magnitudes(stripped) + [float(lo) for lo, _ in _RANGE.findall(stripped)]
+    outside = [v for v in written if v < low - 1e-6 or v > high + 1e-6]
+    if not outside:
+        return LineVerdict(line, "LEGAL", reason="베이스 임플리싯 — 접사 칸을 쓰지 않는다")
+    return LineVerdict(
+        line,
+        "ILLEGAL",
+        reason=f"베이스 임플리싯 범위 밖: {outside} ∉ [{low:g}, {high:g}] (베이스: {source!r})",
+    )
+
+
+def _rune_value_note(line: str, rune: dict[str, Any]) -> str:
+    """ "룬으로는 가능"에 **그 룬의 실제 값**을 붙인다 (백로그 #56, 2026-08-10).
+
+    매칭 키는 숫자를 `#`로 죽인 정규화 텍스트라 `+40 to Intelligence`가
+    `+12` 룬에 붙는다 — 그래도 CONDITIONAL이 나오니 호출자는 **그 수치로 가능**
+    하다고 읽는다. 실측: `+40 to Intelligence` → `greater-resolve-rune`(실제 +12,
+    3.3배) · `+25 to all Attributes` → `legacy-of-erians-cobble`(실제 +5, 5배).
+    보고자는 레코드를 따로 열어 보고서야 알았다 — §0 ①의 값 판본이다.
+
+    ⛔ 여기서 위반이라고 단정하지 않는다: 같은 룬을 여러 칸에 박는 것이 정상
+    운용이라 소켓 수를 알아야 상한이 정해진다(그 판정은 `_rune_value_verdict`가
+    `{rune}` 표기 경로에서 한다). 여기선 **사실을 보이고 필요한 칸 수를 준다.**
+    """
+    written = _magnitudes(line)
+    per_slot = (rune.get("data") or {}).get("per_slot") or {}
+    values: dict[str, float] = {}
+    for slot, texts in per_slot.items():
+        for text in texts:
+            if _norm(text) == _norm(line):
+                nums = _magnitudes(str(text))
+                if nums:
+                    values[str(slot)] = max(nums)
+    if not written or not values:
+        return ""
+    want, best = max(written), max(values.values())
+    shown = " · ".join(f"{v:g} ({s})" for s, v in sorted(values.items()))
+    if abs(want - best) < 1e-6:
+        return f". 이 룬 1개 값 = {shown} — 선언값과 같다"
+    needed = math.ceil(want / best) if best > 0 else 0
+    return (
+        f". ⚠ **이 룬 1개 값은 {shown}이고 선언값 {want:g}과 다르다** — "
+        f"그 수치를 내려면 소켓 {needed}칸이 필요하다(룬 효과 증폭 없을 때). "
+        f"칸 수는 `Sockets:` 선언으로 적어야 값 판정이 돈다"
+    )
+
+
 @dataclass(frozen=True)
 class LineVerdict:
     line: str
@@ -246,7 +337,17 @@ class ItemLegalityChecker:
             (float(m.group(1)) for ln in mod_lines if (m := _SUFFIX_EFFECT.match(ln))), 0.0
         )
         catalyst, catalyst_quality = parse_catalyst(item_text)
+        # **베이스 임플리싯은 접사가 아니다** (백로그 #57, 2026-08-10). 고르는 것이
+        # 아니라 베이스가 달고 나오는 줄이라 접사 풀에서 찾으면 안 나온다 — 실측:
+        # `Invoking Belt`의 `Has 1 Charm Slot`이 UNKNOWN으로 찍혔다(KB 접사 표기는
+        # `+1 charm slot`). 그런데 그 줄은 `optimize_rare`가 **자기가 자동 기재**한
+        # 것이라, 조립 중 적법성 검사가 **모든 시도에서** 실패해 접사를 하나도 못
+        # 고르고 `legal: False`만 남았다. 정본은 베이스 레코드의 `implicit`이다.
+        implicits = _base_implicits(base)
         for line in mod_lines:
+            if (found := _match_implicit(line, implicits)) is not None:
+                verdicts.append(found)
+                continue
             verdict = self._check_line(
                 line,
                 base,
@@ -413,7 +514,15 @@ class ItemLegalityChecker:
         """이 문구가 **룬으로** 붙일 수 있는 것인가 (유니크·일반 공통 판정).
 
         룬은 접사와 별개 축이라 아이템 희귀도와 무관하게 소켓에 들어간다.
+
+        ⚠ `{rune}` 접두를 **여기서 벗긴다** (백로그 #56). 일반 아이템 경로는
+        `_check_line`이 미리 벗기지만 유니크 경로는 원문 그대로 넘겨서, 규약대로
+        `{rune}+12 to Intelligence`라고 적으면 정규화 키가 어긋나
+        `UNKNOWN: 유니크 고정 모드에도 룬 풀에도 없음`이 났다 — 표기법을 지킨
+        쪽이 거부당한 것이다. 그래서 한 회차가 **룬 4칸을 비워 뒀다**(#33이 그 축을
+        DPS +69.6%로 재 뒀는데도). 금지하려면 대안 경로가 통해야 한다(철칙 5 따름정리).
         """
+        line = _RUNE_PREFIX.sub("", line, count=1).strip()
         for cand in self._mods.get(_norm(line), []):
             if "rune" in (cand.get("data") or {}).get("origins", []):
                 return LineVerdict(
@@ -421,7 +530,8 @@ class ItemLegalityChecker:
                     "CONDITIONAL",
                     str(cand["id"]),
                     "고정 모드는 아니지만 **룬으로는 가능** — 유니크에도 룬 소켓이 있다. "
-                    "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라",
+                    "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라"
+                    + _rune_value_note(line, cand),
                 )
         return None
 
@@ -773,7 +883,8 @@ class ItemLegalityChecker:
                 "CONDITIONAL",
                 str(runes[0]["id"]),
                 "접사로는 불가하나 **룬으로는 가능** — PoB 표기는 `{rune}` 접두다. "
-                "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라",
+                "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라"
+                + _rune_value_note(line, runes[0]),
             )
         return LineVerdict(line, "ILLEGAL", reason=" / ".join(reasons))
 

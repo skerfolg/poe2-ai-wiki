@@ -543,7 +543,16 @@ def optimize_rare(
         chosen=tuple(chosen),
         table=tuple(ranked),
         legal=report.is_legal,
-        legality_errors=tuple(report.errors),
+        # ⚠ `errors`만 실으면 **사유 없는 `legal: False`**가 나간다 (백로그 #57).
+        # 적법성은 구조 오류(errors)뿐 아니라 **줄 판정**으로도 깨진다 —
+        # 실측 2026-08-10: 벨트가 `legal: False` · `errors: ()` · 접사 0건으로
+        # 나와 호출자가 원인을 알 방법이 없었다(진짜 원인은 임플리싯 줄 하나였다).
+        legality_errors=tuple(report.errors)
+        + tuple(
+            f"[{v.status}] {v.line} — {v.reason}"
+            for v in report.verdicts
+            if v.status not in ("LEGAL", "CONDITIONAL")
+        ),
         floor_violations=violations,
         req_shortfall=_req_shortfall(measured, base_stats),
         notes=tuple(notes),

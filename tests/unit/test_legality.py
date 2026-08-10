@@ -607,3 +607,60 @@ def test_variant_lines_do_not_make_a_unique_illegal(checker: ItemLegalityChecker
     # 반대 방향 — 스펙 줄을 건너뛴다고 진짜 모드까지 통과시키면 안 된다
     fake = checker.check(head + "Item Level: 82\n999% increased Nonsense\n")
     assert not fake.is_legal
+
+
+def test_rune_conditional_shows_the_actual_rune_value(checker: ItemLegalityChecker) -> None:
+    """ "룬으로는 가능"이 **「그 수치로 가능」**으로 읽혔다 (백로그 #56, 2026-08-10).
+
+    매칭 키가 숫자를 죽인 정규화 텍스트라 `+40 to Intelligence`가 실제 `+12`인
+    룬에 붙는다(3.3배). 보고자는 레코드를 따로 열어 보고서야 알았다 — §0 ①의 값 판본.
+    """
+    head = "Rarity: RARE\nX\nAttuned Wand\nItem Level: 80\n"
+    over = checker.check(head + "+40 to Intelligence\n").verdicts[0]
+    assert over.status == "CONDITIONAL" and over.modifier_id == "modifier.greater-resolve-rune"
+    assert "12" in over.reason and "40" in over.reason, "실제 값과 선언값을 나란히 보여야 한다"
+    assert "소켓 4칸" in over.reason, "몇 칸이 필요한지까지 줘야 고칠 수 있다"
+
+    # 값이 맞으면 다르다고 말하지 않는다 — 경고가 소음이 되면 안 읽힌다
+    same = checker.check(head + "+25 to all Attributes\n".replace("25", "5")).verdicts[0]
+    assert "선언값과 같다" in same.reason
+
+
+def test_rune_notation_is_accepted_on_uniques(checker: ItemLegalityChecker) -> None:
+    """규약대로 `{rune}`을 적었더니 **유니크에서만** 거부됐다 (백로그 #56).
+
+    일반 아이템 경로는 접두를 미리 벗기는데 유니크 경로는 원문을 넘겨서 키가
+    어긋났다. 그 때문에 한 회차가 룬 4칸을 비워 뒀다 — #33이 그 축을 DPS +69.6%로
+    재 뒀는데도. 금지하려면 대안 경로가 통해야 한다(철칙 5 따름정리).
+    """
+    text = (
+        "Rarity: UNIQUE\nThe Unborn Lich\nStellar Amulet\nItem Level: 82\n"
+        "Sockets: R\nRune: Greater Resolve Rune\n"
+        "{rune}+12 to Intelligence\n70% increased Desecrated Modifier magnitudes\n"
+    )
+    report = checker.check(text)
+    assert report.is_legal, [(v.status, v.line, v.reason) for v in report.verdicts]
+    assert any(v.status == "CONDITIONAL" and "룬" in v.reason for v in report.verdicts)
+
+
+def test_base_implicit_is_not_judged_as_an_affix(checker: ItemLegalityChecker) -> None:
+    """베이스 임플리싯을 접사 풀에서 찾아 **자기 도구의 출력을 거부했다** (백로그 #57).
+
+    `Invoking Belt`의 `Has 1 Charm Slot`은 KB 접사 표기(`+1 charm slot`)와 문구가
+    달라 UNKNOWN으로 찍혔다. 그런데 그 줄은 `optimize_rare`가 자동 기재한 것이라
+    조립의 **모든 시도**가 실격났고, 접사 0건 · `legal: False` · 사유 없음이 나왔다.
+    정본은 베이스 레코드의 `data.implicit`이다.
+    """
+    head = "Rarity: RARE\nEngineered Belt\nInvoking Belt\nCharm Slots: 1\nImplicits: 1\n"
+    # 명세 형식(범위 그대로)도, 롤된 값도 통과해야 한다
+    for body in (
+        "{range:0.5}(8-12)% increased Cast Speed\nHas 1 Charm Slot\n",
+        "10% increased Cast Speed\nHas 1 Charm Slot\n",
+    ):
+        report = checker.check(head + body)
+        assert report.is_legal, [(v.status, v.line, v.reason) for v in report.verdicts]
+        assert all("임플리싯" in v.reason for v in report.verdicts)
+    # 반대 방향 — 부풀린 임플리싯은 여전히 거부한다
+    inflated = checker.check(head + "40% increased Cast Speed\nHas 1 Charm Slot\n")
+    assert not inflated.is_legal
+    assert any("임플리싯 범위 밖" in v.reason for v in inflated.verdicts)
