@@ -269,9 +269,24 @@ def resolve_rolls(text: str, roll: str = "mid") -> str:
 
 
 def render_unique(record: Mapping[str, Any], roll: str = "mid") -> str:
-    """KB 유니크 레코드 → PoB 파스 가능한 아이템 텍스트."""
+    """유니크 → PoB 아이템 텍스트. **PoB 원문이 있으면 그것을 쓴다** (#34 B).
+
+    KB에서 조립하면 두 가지가 깨진다 — 실측 2026-08-09:
+    - `data.explicits`에 `[3 Random Socket Modifiers]` 같은 **플레이스홀더**가 섞여
+      있어 그대로 쓰면 PoB가 오류를 낸다(모리오르 사고)
+    - KB `variants`는 **이름 목록뿐**이라 어느 모드가 어느 변형인지 모른다.
+      PoB 원문에는 `{variant:3}+(10-14) to Spirit per Socket filled`처럼 묶여 있다
+
+    변형 선택은 `pok.pob.uniques.render_unique(name, variant)`로 한다 — 실측:
+    같은 아이템이 Spirit 100→148 / Life 1187→1409 / Mana 441→672로 갈린다.
+    """
     data = record.get("data") or {}
     name = (record.get("name") or {}).get("en") or record.get("id", "?")
+    from pok.pob.uniques import unique_raw
+
+    source = unique_raw(str(name))
+    if source is not None:
+        return "\n".join(["Rarity: UNIQUE", *source.splitlines()])
     implicits = [resolve_rolls(str(t), roll) for t in data.get("implicits") or []]
     explicits = [resolve_rolls(str(t), roll) for t in data.get("explicits") or []]
     lines = [

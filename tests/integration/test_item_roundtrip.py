@@ -249,3 +249,40 @@ def test_optimize_rare_emits_spec_not_prose() -> None:
     # 그리고 최종 텍스트는 **PoB가 만든 것**이고 검사기를 통과한다(수용 기준 1·3)
     assert out.pob_rendered, out.notes
     assert out.legal, (out.legality_errors, [v for v in out.chosen])
+
+
+def test_selected_variant_changes_the_calculation() -> None:
+    """변형 선택이 **계산을 바꾼다** — 그게 아니면 고른 의미가 없다 (#34 B).
+
+    실측 2026-08-09(`Morior Invictus`, 룬 4칸 채움): 같은 아이템이
+    Spirit 100 → **148** / Life 1187 → **1409** / Mana 441 → **672**로 갈린다.
+
+    ⚠ 소켓이 비어 있으면 셋 다 **동일하게** 나온다 — 변형 모드가 전부
+    「per Socket filled」이기 때문이다. 그걸 모르고 재면 "변형이 무의미하다"는
+    틀린 결론이 나온다(만들다 실제로 그 결론을 봤다).
+    """
+    from pok.pob.buildxml import BuildSpec, ItemSpec
+    from pok.pob.daemon import PobDaemon
+    from pok.pob.uniques import render_unique as render_variant
+
+    daemon = PobDaemon()
+
+    def measure(text: str) -> tuple[float, float, float]:
+        spec = BuildSpec(
+            class_name="Sorceress",
+            ascendancy="Sorceress1",
+            items=(ItemSpec(slot="Body Armour", text=text),),
+        )
+        stats = daemon.compute_build(spec).stats
+        return stats.get("Spirit", 0.0), stats.get("Life", 0.0), stats.get("Mana", 0.0)
+
+    runes = "\n".join(["Rune: Greater Body Rune"] * 4)
+    got: dict[str, tuple[float, float, float]] = {}
+    for variant in ("Spirit", "Life", "Mana"):
+        text = render_variant("Morior Invictus", variant)
+        assert text is not None
+        got[variant] = measure(text.replace("\nSelected Variant:", f"\n{runes}\nSelected Variant:"))
+
+    assert got["Spirit"][0] > got["Life"][0], got
+    assert got["Life"][1] > got["Spirit"][1], got
+    assert got["Mana"][2] > got["Spirit"][2], got

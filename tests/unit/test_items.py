@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from pok.engine.items import (
     ItemCandidate,
     enumerate_slot_uniques,
@@ -45,14 +47,42 @@ def test_slot_enumeration_covers_rathpith() -> None:
     assert all(not c.label.endswith("-cultivated") for c in focus), "재배판 중복 제외"
 
 
-def test_render_produces_pob_parsable_text() -> None:
+def test_render_uses_pob_source_not_our_assembly() -> None:
+    """유니크 원문은 **PoB가 갖고 있다** — 우리가 조립하지 않는다 (#34 B).
+
+    ⚠ 옛 판은 롤 범위를 **우리가 해소**했고 이 시험이 그걸 강제했다. #34로 방향이
+    뒤집혔다: 범위는 `{range:R}`로 두고 **PoB가 푼다**. 우리가 풀면 인게임에 없는
+    값이 나온다(실측 2026-08-09: `+12.5 to Dexterity`).
+    """
     from pok.index.search import get_entry
 
     text = render_unique(get_entry("item.rathpith-globe"))
     lines = text.splitlines()
     assert lines[0] == "Rarity: UNIQUE" and lines[1] == "Rathpith Globe"
     assert "Sacred Focus" in lines[2]
-    assert not any("(" in ln and "-" in ln and ")" in ln for ln in lines[4:]), "범위 미해소 금지"
+    # PoB 원문의 표식 — 우리가 만든 텍스트에는 없던 것들이다
+    assert any("{range:" in ln or "(" in ln for ln in lines), "범위는 PoB가 푼다"
+
+
+def test_variant_uniques_carry_their_variant_lines() -> None:
+    """변형 유니크는 `Variant:` 목록째로 온다 — 모드와 변형의 연결이 거기 있다.
+
+    KB `variants`는 **이름 목록뿐**이라 어느 모드가 어느 변형인지 모른다. 그래서
+    손으로 조립하면 PoB가 오류를 냈다(모리오르 사고, #34 B).
+    """
+    from pok.pob.uniques import UnknownVariantError, variants
+    from pok.pob.uniques import render_unique as render_variant
+
+    names = variants("Morior Invictus")
+    assert len(names) > 20, names
+    text = render_variant("Morior Invictus", "Spirit")
+    assert text is not None
+    assert f"Selected Variant: {names.index('Spirit') + 1}" in text
+    assert sum(1 for ln in text.splitlines() if ln.startswith("Selected Variant:")) == 1
+
+    # 없는 변형은 **예외** — 조용히 무시하면 "골랐는데 안 반영됨"이 된다(§0 ①)
+    with pytest.raises(UnknownVariantError):
+        render_variant("Morior Invictus", "그런 변형 없음")
 
 
 def _fake_compute(table: dict[str, dict[str, float]]):  # type: ignore[no-untyped-def]
