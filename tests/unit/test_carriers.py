@@ -77,3 +77,31 @@ def test_search_hits_carry_the_warning() -> None:
     target = next(h for h in hits if h.id == "modifier.uniquestatlifereservation1")
     assert target.carrier_unknown and "확인 못 함" in target.carrier_unknown
     assert "획득 불가" in target.carrier_unknown, "「모른다」와 「없다」를 섞지 않는다"
+
+
+def test_vaal_mutated_affixes_are_not_carrier_unknown() -> None:
+    """바알 함양 변이 접사는 **구조적 오탐**이었다 (`[빌드]` 이관 D2, 2026-08-11).
+
+    이 계열은 어느 정적 유니크 정의에도 안 붙어 있다 — 함양 오브가 **사후에** 붙이기
+    때문이다. 그래서 "유니크 원문 대조"로는 영영 못 찾고, 계열 전량이 `carrier_unknown`이
+    되어 규율상 설계 근거로 쓰이지 못했다. PoB 데이터가 실재를 뒷받침한다:
+    `affix=""`·`weightKey={}`(정상 롤 불가)인데 `tradeHashes`는 있다(=거래되는 모드).
+    """
+    from pok.pob.carriers import carrier_kind
+
+    vaal = {
+        "pob_key": "UniqueMutatedVaalSpellDamagePerMana",
+        "texts": ["x"],
+        "mod_tags": ["mutatedunique_vaal"],
+    }
+    assert carrier_kind(vaal, set()) == "vaal-mutated"
+    # 태그만 있고 접두가 달라도 잡는다 (둘 중 하나면 충분)
+    assert (
+        carrier_kind({"texts": ["x"], "mod_tags": ["mutatedunique_vaal"]}, set()) == "vaal-mutated"
+    )
+    # 정적 유니크에 실린 문구면 그쪽이 우선이다 — 담체가 이미 확인된 것이다
+    assert (
+        carrier_kind({**vaal, "texts": ["+50 to maximum Life"]}, {"+# to maximum life"}) == "static"
+    )
+    # 무관한 모드는 여전히 unknown
+    assert carrier_kind({"pob_key": "SomethingElse", "texts": ["x"]}, set()) == "unknown"

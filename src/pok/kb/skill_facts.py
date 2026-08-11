@@ -48,6 +48,30 @@ class SkillGate:
     name_ko: str = ""
     gem_id: str = ""
     stat_sets: tuple[str, ...] = ()
+    # poe2db가 말하는 획득 경로(`data.source`) — 소켓 가부의 **권위**다 (D8, 아래 참조)
+    catalog_source: str = ""
+
+    @property
+    def socketable(self) -> bool:
+        """젬으로 소켓할 수 있는 활성 스킬인가.
+
+        ⚠ **`from_item`으로 판정하지 말 것.** PoB의 정적 `fromItem`은 "아이템이 부여하는
+        스킬"이라는 표시일 뿐 젬의 부재를 뜻하지 않는다 — 둘은 배타가 아니다. PoB 자신도
+        이 자리에서 `fromItem`이 아니라 **`activeSkill.activeEffect.gemData` 유무**를 본다
+        (`CalcTools.canGrantedEffectSupportActiveSkill`).
+
+        실측 2026-08-11(`[빌드]` 이관 D1): `fromItem`을 "소켓 불가"의 대리로 쓴 탓에
+        **살아있는 폭탄**이 차단됐다 — poe2db 원시가 `Uncut Skill Gem`이라 말하는
+        tier 3 젬인데도. 컨셉 하나가 그 경고로 폐기될 뻔했다.
+
+        판정은 D8 그대로다 — **기본·카탈로그 사실은 poe2db가 권위**이고 PoB는 파생 계산의
+        권위다. "이 스킬을 젬으로 얻을 수 있나"는 카탈로그 질문이다.
+        """
+        if self.is_support:
+            return False
+        if self.catalog_source == "gem":
+            return True  # poe2db가 젬이라 말하면 젬이다 (from_item보다 우선)
+        return not self.from_item
 
 
 def _gate(record_raw: dict[str, Any], effect: dict[str, Any]) -> SkillGate:
@@ -69,6 +93,7 @@ def _gate(record_raw: dict[str, Any], effect: dict[str, Any]) -> SkillGate:
         name_ko=str(name.get("ko", "")),
         gem_id=str(record_raw.get("data", {}).get("pob", {}).get("gem_id", "")),
         stat_sets=tuple(effect.get("stat_sets", ())),
+        catalog_source=str(record_raw.get("data", {}).get("source") or ""),
     )
 
 
