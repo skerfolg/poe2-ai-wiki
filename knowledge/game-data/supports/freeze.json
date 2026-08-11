@@ -18,7 +18,24 @@
     "cost_multiplier_pct": 120.0,
     "stats": [
       "Supported Skills cause 50% more Freeze Buildup"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemFreezeSupport",
+      "effects": [
+        {
+          "id": "SupportFreezePlayer",
+          "support": true,
+          "require": [
+            "Damage",
+            "Attack",
+            "CrossbowAmmoSkill"
+          ],
+          "stat_sets": [
+            "Freeze"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -30,6 +47,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemFreezeSupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

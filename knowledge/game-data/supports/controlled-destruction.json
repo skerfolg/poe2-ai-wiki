@@ -21,7 +21,24 @@
     "stats": [
       "Supported Spells deal 25% more Hit Damage",
       "Supported Skills cannot deal Critical Hits"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemControlledDestructionSupport",
+      "effects": [
+        {
+          "id": "SupportControlledDestructionPlayer",
+          "support": true,
+          "require": [
+            "Damage",
+            "Spell",
+            "AND"
+          ],
+          "stat_sets": [
+            "Controlled Destruction"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -33,6 +50,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemControlledDestructionSupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

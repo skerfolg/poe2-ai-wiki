@@ -50,7 +50,28 @@
       "movement speed +% final while performing action [-70]",
       "movement speed acceleration +% per second while performing action [160]",
       "movement speed while performing action locked duration% [50]"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemHammerOfTheGods",
+      "effects": [
+        {
+          "id": "HammerOfTheGodsPlayer",
+          "types": [
+            "Area",
+            "Attack",
+            "Duration",
+            "HasUsageCondition",
+            "Melee",
+            "Slam",
+            "Totemable",
+            "UsableWhileMoving"
+          ],
+          "stat_sets": [
+            "Hammer of the Gods"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -62,6 +83,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemHammerOfTheGods",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

@@ -15,7 +15,42 @@
     "color": "blue",
     "color_requirements": [
       "reqInt"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemUnleashSupport",
+      "effects": [
+        {
+          "id": "SupportUnleashPlayer",
+          "ignore_minion_types": true,
+          "support": true,
+          "require": [
+            "Unleashable",
+            "Spell",
+            "AND"
+          ],
+          "exclude": [
+            "UsedByProxy",
+            "Triggered",
+            "Persistent",
+            "Instant",
+            "Channel",
+            "Cooldown",
+            "ComboStacking",
+            "HasSeals",
+            "SupportedByUnleash",
+            "NOT",
+            "AND"
+          ],
+          "adds": [
+            "HasSeals",
+            "SupportedByUnleash"
+          ],
+          "stat_sets": [
+            "Unleash"
+          ]
+        }
+      ]
+    }
   },
   "verification": "UNVERIFIED",
   "sources": [
@@ -24,6 +59,12 @@
       "ref": "seed:hand-authored",
       "patch": "0.5.0",
       "note": "P1a 시드 — 스키마 실증용 수작성. 값은 P1b ingest로 대체 예정"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
   ]
 }

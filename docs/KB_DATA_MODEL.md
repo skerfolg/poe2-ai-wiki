@@ -42,6 +42,36 @@ item.astramentis · modifier.fire-damage-pct · content.pinnacle-boss · build.s
 
 각 엔티티의 타입별 `data` 필드 구조는 `knowledge/schema/<type>.schema.json`에 정의한다(공통 envelope는 `record.schema.json`).
 
+### 2-1. Skill·Support `data.pob` — PoB 구조화 사실 (#63 P1, 2026-08-11)
+
+담체 판정·모드 선택은 **어느 레코드 문구에도 없고** PoB 데이터에만 있어, 엔진이
+런타임에 gitignore된 파생물(`external/pob`)을 직독하는 결함이 있었다(철칙 2 위반).
+`kb/ingest/skill_types.py`가 `Data/Skills/*.lua`를 수집해 레코드에 넣는다 —
+스키마는 `knowledge/schema/pob-gate.schema.json`.
+
+```jsonc
+"data": { "pob": {
+  "gem_id": "Metadata/Items/Gems/SkillGemMetaSpellTotem",  // 젬이면 — PoB 정본 id
+  "effects": [                       // 메타 젬은 반쪽이 둘: 소환 스킬 + 보조 판정 스킬
+    { "id": "SummonMetaTotemSpellTotemPlayer",             // grantedEffectId
+      "types": ["Meta", "SummonsTotem", "..."],            // skillTypes (정렬)
+      "stat_sets": ["Spell Totem"] },                      // 모드 라벨, 1번부터 순서대로 (#52)
+    { "id": "SupportMetaTotemSpellTotemPlayer",
+      "support": true,
+      "require": ["Spell", "Totemable", "AND"],  // ⚠ 후위(RPN) 식 — 순서가 의미, 정렬 금지
+      "exclude": ["Meta", "..."],
+      "adds": ["UsedByTotem", "..."],            // 이 보조가 페이로드에 더하는 타입
+      "ignore_minion_types": true }              // 요구 판정에서 소환수 타입 무시
+  ]
+} }
+```
+
+- 거짓 플래그·빈 배열은 **생략**한다(938건 지면 비용). `from_item`(아이템 부여라 젬
+  소켓 불가)·`cannot_be_supported`·`support_gems_only`도 같은 규약.
+- KD-5 적합성: 후위 식 평가·타입 축은 텍스트로 유도할 수 없다(주문 토템에 무엇이
+  들어가는지는 어느 문구에도 없다 — #62 실증). 소비처는 `engine/hosting.py`·statSet 게이트.
+- 출처: `sources[]`에 `{"src":"pob", "ref":"Data/Skills (…)", "pob":"<commit>"}` 필수.
+
 ## 3. 레코드 공통 envelope
 
 ```jsonc

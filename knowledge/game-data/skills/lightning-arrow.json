@@ -57,7 +57,37 @@
       "projectile uses contact position [1]",
       "should use additive aiming animation [1]",
       "skill lightning rod burst delay ms override on damaging lightning rod [100]"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemLightningArrow",
+      "effects": [
+        {
+          "id": "LightningArrowPlayer",
+          "types": [
+            "Area",
+            "Attack",
+            "Barrageable",
+            "Bow",
+            "CanBecomeArrowRain",
+            "Chains",
+            "Lightning",
+            "Mineable",
+            "MirageArcherCanUse",
+            "Projectile",
+            "ProjectilesFromUser",
+            "RangedAttack",
+            "Totemable",
+            "Trappable",
+            "Triggerable",
+            "UsableWhileMoving"
+          ],
+          "stat_sets": [
+            "Projectile",
+            "Beam"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -69,6 +99,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemLightningArrow",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

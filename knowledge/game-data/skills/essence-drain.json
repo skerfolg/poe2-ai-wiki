@@ -55,7 +55,35 @@
       "pvp skill dot attack time override ms [10000]",
       "should use additive aiming animation [1]",
       "display statset hide usage stats [1]"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemEssenceDrain",
+      "effects": [
+        {
+          "id": "EssenceDrainPlayer",
+          "types": [
+            "Chaos",
+            "Damage",
+            "DamageOverTime",
+            "Duration",
+            "Mineable",
+            "Multicastable",
+            "Projectile",
+            "ProjectilesFromUser",
+            "Spell",
+            "Totemable",
+            "Trappable",
+            "Triggerable",
+            "Unleashable",
+            "UsableWhileMoving"
+          ],
+          "stat_sets": [
+            "Projectile",
+            "Damage over Time"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -67,6 +95,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemEssenceDrain",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

@@ -103,6 +103,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_gcol.add_argument("--patch", required=True)
 
+    p_st = sub.add_parser(
+        "skill-types", help="스킬 타입·모드(statSets)·담체 판정식 수록 (오프라인, PoB Data/Skills)"
+    )
+    p_st.add_argument("--patch", required=True)
+
     p_nar = sub.add_parser(
         "narrative", help="⑤ 서술: fetch(poe2wiki 원문)|check(wiki 산출물 게이트)"
     )
@@ -299,6 +304,10 @@ def main(argv: list[str] | None = None) -> int:
         from pok.kb.ingest.gem_colors import apply_gem_colors
 
         print(json.dumps(apply_gem_colors(raw_dir, knowledge_dir()), ensure_ascii=False, indent=1))
+    elif args.cmd == "skill-types":
+        from pok.kb.ingest.skill_types import apply_skill_types
+
+        print(json.dumps(apply_skill_types(patch=args.patch), ensure_ascii=False, indent=1))
     elif args.cmd == "narrative":
         from pok.common.paths import knowledge_dir
         from pok.kb.ingest import narrative
