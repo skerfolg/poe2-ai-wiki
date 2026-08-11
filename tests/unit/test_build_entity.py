@@ -58,6 +58,27 @@ def test_every_build_declares_its_coupling(builds: list) -> None:
     }
 
 
+def test_no_build_claims_a_tier(builds: list) -> None:
+    """⛔ **티어·메타 순위는 담지 않는다** (`[빌드]` 정정 통보 2026-08-11).
+
+    처음 8종은 웹 가이드의 티어를 그대로 실었는데, 그 소스가 **0.4 시절 빌드를 재탕한
+    SEO 기사**였다. poe.ninja 실측(Runes of Aldur 124,254 캐릭터)과 대조하니 뒤집혔다:
+    Invoker는 "S티어"인데 래더 **0.5%**, Amazon은 "메타 1위"인데 **1.0%**였다.
+    실제 상위는 Martial Artist 20.7% · Gemling 15.7% · Spirit Walker 11.5%다.
+
+    `COMMUNITY` 라벨의 신뢰 범위는 **「구성」까지**다 — 어떤 축을 어떻게 엮었는지는
+    가이드가 실제로 돌려 본 것이라 믿을 수 있지만, **순위 주장은 근거가 없다**.
+    순위가 필요하면 poe.ninja 사용률 실측으로만 채운다.
+
+    문서에만 적으면 다음 세션이 가이드를 읽고 또 넣는다 — 그래서 시험으로 막는다(철칙 5).
+    """
+    offenders = [r.id for r in builds if "tier" in (r.raw.get("facets") or {})]
+    assert not offenders, (
+        f"티어를 주장하는 Build 레코드: {offenders} — 웹 가이드의 티어는 오염된 적이 있다. "
+        "순위는 poe.ninja 사용률 실측으로만 담을 것"
+    )
+
+
 def test_transfer_axis_is_recorded(builds: list) -> None:
     """③ 전달 장치가 이 모델의 핵심이다 — 스택과 딜 사이의 다리.
 

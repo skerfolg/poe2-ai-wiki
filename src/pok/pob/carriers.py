@@ -36,6 +36,7 @@ KB에는 **그 유니크가 무엇인지 적혀 있지 않다.** 그래서 모�
 from __future__ import annotations
 
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,14 @@ GENERATED_PREFIXES: tuple[str, ...] = (
 # 구체 함양본). 담체는 "바알 함양 오브를 쓴 유니크"이고, 그건 아는 사실이지 미확인이 아니다.
 VAAL_MUTATED_TAG = "mutatedunique_vaal"
 VAAL_MUTATED_PREFIX = "UniqueMutatedVaal"
+
+# 0.5 베리시움 각인 — 제작이 **특정 유니크에** 붙이는 전용 암시(`[빌드]` 이관 D5).
+# 바알 변이(위)와 같은 계열이지만 결정적으로 다른 점: **담체 이름이 키에 박혀 있다**
+# (`BloodThornVerisiumImplicitBleedMagnitude1` → Blood Thorn). 그래서 "모른다"가 아니라
+# **누구인지 말할 수 있다** — 그 이름을 `carrier_item`으로 낸다(제안 G의 역참조를
+# 이 계열에서 먼저 실현하는 셈이다).
+VERISIUM_MARKER = "VerisiumImplicit"
+_NON_ALNUM = re.compile(r"[^a-z0-9]")
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
 _DECORATION = re.compile(r"^(?:\{[a-z]+(?::[^}]*)?\})+", re.I)
 
@@ -77,6 +86,44 @@ def carrier_index(root: Path | None = None) -> set[str]:
             keys.add(_norm(line))
             keys.add(_norm(_DECORATION.sub("", line)))
     return keys
+
+
+def _fold_name(name: str) -> str:
+    """아이템 이름 매칭 키 — 발음 구별 기호·공백·아포스트로피를 뭉갠다.
+
+    ⚠ 이걸 빼면 `Mjölner`가 `mjolner`와 안 맞아 **실존 담체를 놓친다**(실측).
+    """
+    decomposed = unicodedata.normalize("NFKD", name)
+    ascii_only = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return _NON_ALNUM.sub("", ascii_only.lower())
+
+
+def unique_name_index(root: Path | None = None) -> dict[str, str]:
+    """유니크 이름(접힌 꼴) → KB 아이템 id. 관사 `the`를 뗀 형태도 함께 넣는다.
+
+    PoB 키가 관사를 빼는 경우가 있다 — `SentryFaster…`의 담체는 `The Sentry`다.
+    """
+    from pok.kb.store import load as store_load
+
+    out: dict[str, str] = {}
+    for record in store_load(root).records.values():
+        if record.type != "Item":
+            continue
+        key = _fold_name(str(record.raw.get("name", {}).get("en") or ""))
+        if not key:
+            continue
+        out.setdefault(key, record.id)
+        if key.startswith("the"):
+            out.setdefault(key.removeprefix("the"), record.id)
+    return out
+
+
+def verisium_carrier(data: dict[str, Any], uniques: dict[str, str]) -> str | None:
+    """베리시움 각인의 담체 아이템 id — 키 접두를 유니크 이름과 맞춘다. 못 찾으면 None."""
+    key = str(data.get("pob_key") or "")
+    if VERISIUM_MARKER not in key:
+        return None
+    return uniques.get(_fold_name(key.split(VERISIUM_MARKER)[0]))
 
 
 def carrier_kind(data: dict[str, Any], carriers: set[str]) -> str:
@@ -101,9 +148,11 @@ def apply_carrier_flags(root: Path | None = None, *, write: bool = True) -> dict
     from pok.kb.store import patch_records
 
     carriers = carrier_index(root)
+    uniques = unique_name_index(root)
     store = store_load(root)
     updates: dict[str, dict[str, Any]] = {}
     counts = {"static": 0, "generated": 0, "vaal-mutated": 0, "unknown": 0}
+    verisium_resolved = 0
     for record_id, record in store.records.items():
         data = record.raw.get("data") or {}
         if record.type != "Modifier" or "item-exclusive" not in (data.get("origins") or []):
@@ -111,6 +160,11 @@ def apply_carrier_flags(root: Path | None = None, *, write: bool = True) -> dict
         if not data.get("texts"):
             continue
         kind = carrier_kind(data, carriers)
+        # 베리시움 각인은 담체를 **이름까지** 안다 — 그러면 미확인이 아니다
+        carrier_item = verisium_carrier(data, uniques)
+        if carrier_item:
+            kind = "static"
+            verisium_resolved += 1
         counts[kind] += 1
         flagged = bool(data.get("carrier_unknown"))
         patch: dict[str, Any] = {}
@@ -118,6 +172,8 @@ def apply_carrier_flags(root: Path | None = None, *, write: bool = True) -> dict
             patch["carrier_unknown"] = True
         elif kind != "unknown" and flagged:
             patch["carrier_unknown"] = None  # 담체가 확인됐다
+        if data.get("carrier_item") != carrier_item:
+            patch["carrier_item"] = carrier_item
         # 「모른다」가 아니라 **어떻게 얻는지 안다**는 것을 적는다 — 담체가 특수 경로인
         # 계열은 그 경로를 이름으로 남겨야 설계가 근거로 쓸 수 있다(도박성은 별개 판단).
         want = "vaal-orb-mutated-unique" if kind == "vaal-mutated" else None
@@ -127,4 +183,9 @@ def apply_carrier_flags(root: Path | None = None, *, write: bool = True) -> dict
             updates[record_id] = patch
     if write and updates:
         patch_records(updates, root=root)
-    return {**counts, "changed": len(updates), "wrote": bool(write)}
+    return {
+        **counts,
+        "verisium_resolved": verisium_resolved,
+        "changed": len(updates),
+        "wrote": bool(write),
+    }

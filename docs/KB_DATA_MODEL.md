@@ -62,6 +62,12 @@ item.astramentis · modifier.fire-damage-pct · content.pinnacle-boss · build.s
 - **`COMMUNITY` 라벨**: 커뮤니티 가이드에서 **실플레이가 관찰된** 것. `IN_GAME`(우리가
   확인)과 `UNVERIFIED`(아무도 안 돌려본 추측) 사이의 빈 칸이었다. 사용자 인게임 확인 시
   `IN_GAME` 승격.
+- ⛔ **`COMMUNITY`의 신뢰 범위는 「구성」까지다 — 순위·티어 주장은 담지 않는다.**
+  가이드가 어떤 축을 어떻게 엮었는지는 실제로 돌려 본 것이라 믿을 수 있지만, 티어는
+  근거가 없다. 실측 2026-08-11: 첫 8종에 실은 티어의 출처가 **0.4 빌드를 재탕한 SEO
+  기사**였고 poe.ninja 래더(124,254 캐릭터)와 정반대였다 — Invoker "S티어" ↔ 실제
+  **0.5%**, Amazon "메타 1위" ↔ **1.0%**. 순위가 필요하면 **poe.ninja 사용률 실측**으로만
+  채운다. 강제 지점: `tests/unit/test_build_entity.py::test_no_build_claims_a_tier`.
 
 ### 2-1. Skill·Support `data.pob` — PoB 구조화 사실 (#63 P1, 2026-08-11)
 

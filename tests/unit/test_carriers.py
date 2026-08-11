@@ -105,3 +105,31 @@ def test_vaal_mutated_affixes_are_not_carrier_unknown() -> None:
     )
     # 무관한 모드는 여전히 unknown
     assert carrier_kind({"pob_key": "SomethingElse", "texts": ["x"]}, set()) == "unknown"
+
+
+def test_verisium_implicit_names_its_carrier() -> None:
+    """베리시움 각인은 **담체를 이름까지 안다** (`[빌드]` 이관 D5, 2026-08-11).
+
+    바알 변이(위)와 같은 계열이지만 결정적 차이가 있다: 담체가 키에 박혀 있다
+    (`BloodThornVerisiumImplicit…` → Blood Thorn). 「모른다」로 두면 그 정보를
+    **버리는** 것이다 — 실측 31/32가 특정 유니크로 해석된다.
+
+    ⚠ 이름 접기가 없으면 실존 담체를 놓친다: `Mjölner`(발음 구별 기호)와
+    `The Sentry`(관사)가 그래서 안 맞았다.
+    """
+    from pok.pob.carriers import _fold_name, verisium_carrier
+
+    uniques = {"bloodthorn": "item.blood-thorn", "mjolner": "item.mjolner"}
+    assert (
+        verisium_carrier({"pob_key": "BloodThornVerisiumImplicitBleedMagnitude1"}, uniques)
+        == "item.blood-thorn"
+    )
+    assert (
+        verisium_carrier({"pob_key": "MjolnerVerisiumImplicitLightningSkills1"}, uniques)
+        == "item.mjolner"
+    )
+    # 베리시움 각인이 아니면 관여하지 않는다
+    assert verisium_carrier({"pob_key": "UniqueMutatedVaalThing"}, uniques) is None
+    # 담체를 못 찾으면 **지어내지 않는다** — 미확인으로 남는 게 옳다
+    assert verisium_carrier({"pob_key": "NoSuchUniqueVerisiumImplicitX"}, uniques) is None
+    assert _fold_name("Mjölner") == "mjolner"
