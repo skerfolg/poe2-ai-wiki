@@ -1,0 +1,107 @@
+{
+  "id": "build.0-5-wild-protector-companion-spirit-walker",
+  "type": "Build",
+  "name": {
+    "ko": "야생 수호자 동료 스피릿 워커",
+    "en": "Wild Protector Companion Spirit Walker"
+  },
+  "tags": [
+    "companion",
+    "minion",
+    "spear"
+  ],
+  "data": {
+    "class_name": "Druid",
+    "ascendancy": "Spirit Walker",
+    "offense": {
+      "carrier": [
+        "skill.wild-protector",
+        "skill.twister"
+      ],
+      "stack_source": [
+        "동료 피해",
+        "분노(Rage)"
+      ],
+      "transfer": [
+        "support.rage-iii",
+        "support.hulking-minions"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [],
+        "gain": []
+      },
+      "clear_engine": [
+        "skill.herald-of-ice (29%)"
+      ],
+      "loop": []
+    },
+    "defense": {
+      "ehp_form": [
+        "hybrid"
+      ],
+      "mitigation": [
+        "동료가 어그로를 나눈다"
+      ],
+      "recovery": [
+        "skill.ghost-dance (40%)"
+      ],
+      "caps_immunities": [],
+      "weakness_accepted": [
+        "자동화 포기 — Triggered 1%"
+      ]
+    },
+    "coupling": {
+      "kind": "offense-feeds-defense",
+      "note": "동료가 딜과 탱킹을 겸한다 — 공격 자원이 곧 생존 장치"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "usage": {
+      "ascendancy_pct": 11.5,
+      "dominance": "Wild Protector 95% · Rage III 90% · Hulking Minions 68%",
+      "basis": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "note": "어센던시 점유율이다 — **이 빌드 자체의 점유가 아니다**. 아키타입이 그 어센던시 안에서 얼마나 지배적인지는 dominance를 볼 것"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.wild-protector"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.twister"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    },
+    {
+      "rel": "uses",
+      "target": "support.rage-iii"
+    },
+    {
+      "rel": "uses",
+      "target": "support.hulking-minions"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 가이드가 아니라 **실제 캐릭터 집계**다"
+    }
+  ]
+}

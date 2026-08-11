@@ -68,6 +68,12 @@ item.astramentis · modifier.fire-damage-pct · content.pinnacle-boss · build.s
   기사**였고 poe.ninja 래더(124,254 캐릭터)와 정반대였다 — Invoker "S티어" ↔ 실제
   **0.5%**, Amazon "메타 1위" ↔ **1.0%**. 순위가 필요하면 **poe.ninja 사용률 실측**으로만
   채운다. 강제 지점: `tests/unit/test_build_entity.py::test_no_build_claims_a_tier`.
+- **`facets.usage`** — 순위를 담는 **유일한 합법 경로**. 티어를 금지한 것은 순위가
+  나빠서가 아니라 근거가 SEO였기 때문이고, poe.ninja 래더 집계는 실제 캐릭터를 센
+  것이라 담아도 된다. 단 둘을 지킨다: ① `basis`(출처) 필수 — 없으면 다시 "누가
+  그랬다더라"가 된다 ② 값은 **어센던시 점유율**이지 그 빌드의 점유가 아니다(뭉치면
+  "이 빌드가 래더의 20.7%"라는 틀린 읽기가 나온다). 아키타입 지배력은 `dominance`에
+  따로 적는다. 강제 지점: `test_usage_is_measured_not_claimed`.
 
 ### 2-1. Skill·Support `data.pob` — PoB 구조화 사실 (#63 P1, 2026-08-11)
 

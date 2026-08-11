@@ -1,0 +1,88 @@
+{
+  "id": "build.0-5-djinn-army-varashta",
+  "type": "Build",
+  "name": {
+    "ko": "정령 군단 바라쉬타",
+    "en": "Djinn Army Disciple of Varashta"
+  },
+  "tags": [
+    "minion",
+    "summoner",
+    "hardcore"
+  ],
+  "data": {
+    "class_name": "Witch",
+    "ascendancy": "Disciple of Varashta",
+    "offense": {
+      "carrier": [
+        "정령 3종(Kelari 79%·Navira 48%·Ruzhan 38%)",
+        "해골 7종 군단"
+      ],
+      "stack_source": [
+        "소환수 수"
+      ],
+      "transfer": [
+        "support.kurgals-leash (66%) — 소환수 불경한 힘"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [],
+        "gain": []
+      },
+      "clear_engine": [
+        "소환수 군단 자체"
+      ],
+      "loop": []
+    },
+    "defense": {
+      "ehp_form": [
+        "es"
+      ],
+      "mitigation": [
+        "소환수 탱킹 — HC 점유 13.2%의 이유"
+      ],
+      "recovery": [],
+      "caps_immunities": [
+        "passive.chaos-inoculation (79%)"
+      ],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "offense-feeds-defense",
+      "note": "소환수가 딜과 탱킹을 겸한다 — HC에서 점유가 4배로 뛰는 근거"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss",
+      "hardcore"
+    ],
+    "usage": {
+      "ascendancy_pct": 3.3,
+      "dominance": "Kelari 79% · CI 79% · Kurgal's Leash 66% (HC 13.2%)",
+      "basis": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "note": "어센던시 점유율이다 — **이 빌드 자체의 점유가 아니다**. 아키타입이 그 어센던시 안에서 얼마나 지배적인지는 dominance를 볼 것"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "support.kurgals-leash"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.chaos-inoculation"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 가이드가 아니라 **실제 캐릭터 집계**다"
+    }
+  ]
+}

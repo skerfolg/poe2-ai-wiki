@@ -1,0 +1,136 @@
+{
+  "id": "build.0-5-hollow-focus-bell-martial-artist",
+  "type": "Build",
+  "name": {
+    "ko": "할로우 포커스 종 무예가",
+    "en": "Hollow Focus Bell Martial Artist"
+  },
+  "tags": [
+    "quarterstaff",
+    "combo",
+    "bell"
+  ],
+  "data": {
+    "class_name": "Monk",
+    "ascendancy": "Martial Artist",
+    "offense": {
+      "carrier": [
+        "skill.hollow-focus",
+        "skill.tempest-bell",
+        "skill.charged-staff"
+      ],
+      "stack_source": [
+        "연계(Combo)",
+        "충전"
+      ],
+      "transfer": [
+        "passive.way-of-the-stonefist-39595",
+        "passive.runic-meridians-39552"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [
+          "Blazing Critical 74%"
+        ],
+        "gain": []
+      },
+      "clear_engine": [
+        "skill.herald-of-ice"
+      ],
+      "loop": [
+        "skill.hollow-form → 변신 진입(49%) → Rend·Pounce·Devour 계열"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "es"
+      ],
+      "mitigation": [
+        "skill.wind-dancer"
+      ],
+      "recovery": [
+        "skill.ghost-dance"
+      ],
+      "caps_immunities": [
+        "passive.chaos-inoculation (47%)"
+      ],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "offense-feeds-defense",
+      "note": "연계가 ES 회복으로 소비되는 무예가 공통 기전"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "usage": {
+      "ascendancy_pct": 20.7,
+      "dominance": "Hollow Focus 76% · Way of the Stonefist 99% · Runic Meridians 84%",
+      "basis": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "note": "어센던시 점유율이다 — **이 빌드 자체의 점유가 아니다**. 아키타입이 그 어센던시 안에서 얼마나 지배적인지는 dominance를 볼 것"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.hollow-focus"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.tempest-bell"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.charged-staff"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.hollow-form"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.wind-dancer"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.way-of-the-stonefist-39595"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.runic-meridians-39552"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.chaos-inoculation"
+    },
+    {
+      "rel": "uses",
+      "target": "item.heart-of-the-well"
+    },
+    {
+      "rel": "uses",
+      "target": "item.nascent-hope"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 가이드가 아니라 **실제 캐릭터 집계**다"
+    }
+  ]
+}

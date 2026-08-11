@@ -611,6 +611,39 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
   수집 경로는 확보됐다(SPA라 WebFetch 불가 → 브라우저 패널 + `?class=<이름>` 필터 +
   사이드바 추출, 과거 시즌은 Time machine으로 소급).
 
+#### 3차 이관 — 래더 실측 코퍼스 (2026-08-11, 처리 완료)
+
+원시는 `artifacts/sessions/20260811-빌드사냥-탐사원장.md`(poe.ninja 드릴다운 절).
+
+- **신규 8종 수록** — 래더 실제 지배 아키타입: hollow-focus-bell-martial-artist(MA 20.7%) ·
+  arc-spark-trigger-gemling(15.7%) · wild-protector-companion-spirit-walker(11.5%) ·
+  ice-shot-herald-deadeye(8.6%) · vine-dot-oracle(5.5%) · djinn-army-varashta(3.3%) ·
+  lowlife-caster-abyssal-lich(1.8%) · ring-stack-ritualist(1.8%). **코퍼스 8→16종.**
+- **기존 8종에 `facets.usage` 부기** — 삭제가 아니라 실측 부기다(구성 자체는 유효).
+  주변부임이 기록됐다: Invoker 0.5% · Amazon 1.0% · Chayula 탑10 밖.
+  Gemling·MA는 어센던시는 크지만 **그 아키타입이 내부 소수파**라는 것까지 적었다
+  (Whirling Slash 17% · Charged Staff 39% vs 주류 Hollow Focus 76%).
+- **`facets.usage` 규약 신설**: 순위를 담는 유일한 합법 경로 — `basis`(출처) 필수 +
+  어센던시 점유임을 명시. 강제 지점 `test_usage_is_measured_not_claimed`.
+- **효과 실측**: `related("skill.ghost-dance")` → **7건** · `herald-of-ice` → 5건 ·
+  `pain-attunement` → **3건**. 마지막 것이 중요하다 — **「로우라이프는 미탐사」가
+  아니라는 것이 이제 질의로 반박된다**(durable 후보 ⑤의 뉘앙스 수정 근거).
+
+##### 0.4 코퍼스는 Build 레코드로 만들지 않는다 (판단 위임분)
+
+원장의 0.4 데이터는 **클래스 점유·스킬 채택률 집계**이지 개별 빌드의 구성이 아니다.
+그것으로 Build 레코드를 만들면 8축 중 ①②③이 **지어낸 값**이 된다 — 이 엔티티가
+막으려던 바로 그것이다. 대신 **시즌 단층 관찰**을 season 인사이트 재료로 남긴다:
+
+- 신설 2종(MA·SW)이 즉시 **32%** 점유 · Gemling 리워크 0.8→15.7%
+- 구 상위 전멸: BM 17→3.5 · Oracle 16→5.5 · PF 12→2 · Invoker 5→0.5 · Amazon 4→1
+  → **SEO 기사들이 0.4 메타의 화석이었음이 데이터로 확정**된다
+- **생명력 축의 역사**: 0.4 키스톤 2위가 Sanguimancy **17%**(=BM 17%의 반영).
+  0.5에서 BM 붕괴로 **비워진 것**이지 원래 공석이 아니었다 — 사인 미상(너프? 신설에
+  밀림?). ⚠ `[빌드]`의 후보 C(생명력 스택) 생사 판정에 **0.5 패치노트 BM 항목 확인이 선행**
+- 자동화 너프 실증: Triggered 40%(0.4) → 28%(0.5)
+- 존속·성장: HoI 20→24% · Heart of the Well 49→62% / 약화: Comet 27→15 · Headhunter 48%→탑12 밖
+
 #### 인사이트 승격 후보 — `[엔진]` 검증 결과 (2026-08-11)
 
 | 후보 | 판정 |

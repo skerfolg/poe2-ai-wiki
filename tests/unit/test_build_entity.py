@@ -79,6 +79,26 @@ def test_no_build_claims_a_tier(builds: list) -> None:
     )
 
 
+def test_usage_is_measured_not_claimed(builds: list) -> None:
+    """점유는 **실측 출처를 달고** 들어온다 — 티어와 갈리는 지점이 이것이다.
+
+    `tier`를 금지한 것은 순위 자체가 나빠서가 아니라 **근거가 SEO 기사**였기 때문이다.
+    poe.ninja 래더 집계는 실제 캐릭터를 센 것이라 담아도 된다. 다만 두 가지를 지킨다:
+
+    1. `basis`(출처)가 반드시 붙는다 — 없으면 다시 "누가 그랬다더라"가 된다.
+    2. 값은 **어센던시 점유율**이지 이 빌드의 점유가 아니다. 뭉치면 "이 빌드가 래더의
+       20.7%"라는 틀린 읽기가 나온다 — 그래서 `note`로 못박고 아키타입 지배력은
+       `dominance`에 따로 적는다.
+    """
+    for record in builds:
+        usage = (record.raw.get("facets") or {}).get("usage")
+        if usage is None:
+            continue
+        assert usage.get("basis"), f"{record.id}의 usage에 출처(basis)가 없다"
+        assert isinstance(usage.get("ascendancy_pct"), int | float)
+        assert usage.get("note"), f"{record.id}: 어센던시 점유임을 밝히지 않으면 오독된다"
+
+
 def test_transfer_axis_is_recorded(builds: list) -> None:
     """③ 전달 장치가 이 모델의 핵심이다 — 스택과 딜 사이의 다리.
 

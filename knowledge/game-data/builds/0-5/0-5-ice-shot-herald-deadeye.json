@@ -1,0 +1,123 @@
+{
+  "id": "build.0-5-ice-shot-herald-deadeye",
+  "type": "Build",
+  "name": {
+    "ko": "얼음 화살 전령 데드아이",
+    "en": "Ice Shot Herald Deadeye"
+  },
+  "tags": [
+    "cold",
+    "bow",
+    "herald"
+  ],
+  "data": {
+    "class_name": "Ranger",
+    "ascendancy": "Deadeye",
+    "offense": {
+      "carrier": [
+        "skill.ice-shot",
+        "skill.tornado-shot",
+        "skill.snipe"
+      ],
+      "stack_source": [
+        "동결(Freeze) 누적"
+      ],
+      "transfer": [
+        "skill.herald-of-ice — 동결→산산조각 연쇄"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [
+          "skill.barrage"
+        ],
+        "gain": []
+      },
+      "clear_engine": [
+        "skill.herald-of-ice — 0.5의 지배 클리어 엔진(전역 24%)"
+      ],
+      "loop": [
+        "동결 → 산산조각 → 전령 폭발 → 추가 동결"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "evasion"
+      ],
+      "mitigation": [
+        "skill.mirage-deadeye",
+        "skill.mirage-archer"
+      ],
+      "recovery": [
+        "skill.ghost-dance"
+      ],
+      "caps_immunities": [],
+      "weakness_accepted": [
+        "자동화 포기 — Triggered 1%"
+      ]
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": ""
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "usage": {
+      "ascendancy_pct": 8.6,
+      "dominance": "Ice Shot 85% · Herald of Ice 86% · Mirage Deadeye 86%",
+      "basis": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "note": "어센던시 점유율이다 — **이 빌드 자체의 점유가 아니다**. 아키타입이 그 어센던시 안에서 얼마나 지배적인지는 dominance를 볼 것"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.ice-shot"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.tornado-shot"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.snipe"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.barrage"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.mirage-deadeye"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.mirage-archer"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    },
+    {
+      "rel": "uses",
+      "target": "item.heart-of-the-well"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 가이드가 아니라 **실제 캐릭터 집계**다"
+    }
+  ]
+}
