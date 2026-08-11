@@ -306,10 +306,12 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
     정본 후보를 함께 낸다. 특히 표시 이름을 id 자리에 넣은 흔한 실수는 정확히 잡힌다
     ("Heavy Swing" → `SkillGemMeleePhysicalDamageSupport`).
     """
+    # statSet 게이트의 재료는 KB다(#63 P2) — `gem_ids`·`config_vars`는 "PoB에
+    # 실재하는가"라는 계산기 계약 검증이라 PoB 카탈로그에 남는다.
+    from pok.kb.skill_facts import stat_sets
     from pok.pob.catalog import (
         config_vars,
         gem_ids,
-        stat_sets,
         suggest_config_vars,
         suggest_gem_ids,
     )
@@ -446,12 +448,18 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
         )
 
 
+# 스펙 파일에는 있지만 **PoB에는 안 가는** 키 (백로그 #58 ③). 계산에 쓰지 않으므로
+# `BuildSpec` 필드가 아니지만, 스펙 파일을 그대로 넘기는 것이 정상 사용이라 거부하면
+# 안 된다 — 산출 출처 표기는 세션을 건너가는 것이 목적이고, 그러려면 파일에 남아야 한다.
+_SPEC_ONLY_KEYS = frozenset({"derived_from"})
+
+
 def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> BuildSpec:
     """JSON 친화 dict → BuildSpec (MCP 도구 입력 경로). 모르는 키는 즉시 거부.
 
     `validate_catalog`는 `gem_id`·`config` 키가 PoB에 실재하는지도 본다(기본 켬).
     """
-    allowed = {f.name for f in fields(BuildSpec)}
+    allowed = {f.name for f in fields(BuildSpec)} | _SPEC_ONLY_KEYS
     unknown = set(data) - allowed
     if unknown:
         raise ValueError(f"모르는 키: {sorted(unknown)} (허용: {sorted(allowed)})")
@@ -533,9 +541,9 @@ def _gem_xml(gem: GemSpec) -> str:
     if gem.stat_set_index is None:
         return head + "/>"
 
-    from pok.pob.catalog import granted_effects
+    from pok.kb.skill_facts import primary_effect
 
-    effect = granted_effects().get(gem.gem_id, "")
+    effect = primary_effect(gem.gem_id)
     index = gem.stat_set_index
     return (
         head + ">\n"

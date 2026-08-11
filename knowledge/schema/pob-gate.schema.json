@@ -1,0 +1,84 @@
+{
+ "$id": "pob-gate.schema.json",
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "data.pob — PoB 구조화 사실 (#63 P1: statSets·skillTypes·담체 판정식). require/exclude는 후위(RPN) 식이라 순서가 의미다 — 정렬 금지",
+ "type": "object",
+ "properties": {
+  "gem_id": {
+   "type": "string",
+   "pattern": "^Metadata/Items/Gem"
+  },
+  "effects": {
+   "type": "array",
+   "minItems": 1,
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string",
+      "minLength": 1
+     },
+     "support": {
+      "const": true
+     },
+     "types": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "minion_types": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "require": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "exclude": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "adds": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "ignore_minion_types": {
+      "const": true
+     },
+     "from_item": {
+      "const": true
+     },
+     "cannot_be_supported": {
+      "const": true
+     },
+     "support_gems_only": {
+      "const": true
+     },
+     "stat_sets": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     }
+    },
+    "required": [
+     "id"
+    ],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": [
+  "effects"
+ ],
+ "additionalProperties": false
+}

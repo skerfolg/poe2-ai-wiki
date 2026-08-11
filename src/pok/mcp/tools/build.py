@@ -47,6 +47,7 @@ from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.integrity import spec_integrity
 from pok.engine.items import req_shortfall
 from pok.engine.legality import ItemLegalityChecker
+from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob.buildxml import spec_from_dict
 from pok.pob.runner import PobResult
 
@@ -134,6 +135,12 @@ def _pick(
         design = spec_integrity(build_spec)
         if design:
             out["design_warnings"] = list(design)
+        # 낡음도 **매번** 싣는다 (#58 ③). 거부하지 않는다 — 낡은 트리로 A/B를 재는
+        # 것이 정상 작업이다. 다만 「무효」를 읽고도 계승한 전례가 있으므로
+        # **무엇이 달라서 낡았는지**를 문장으로 낸다.
+        stale = stale_components(build_spec)
+        if stale:
+            out["stale"] = stale
     return out
 
 
@@ -218,6 +225,23 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     `tree_connected`는 **트리 연결만**의 판정이다(옛 이름 `tree_legal`이 "빌드가 합법"으로
     읽혀 장비 실격을 가렸다). `req_shortfall`도 매 반환에 실린다 — 1회성 경고는
     문서와 동급이라(#29) 사라진 전례가 있다.
+
+    `stale`은 **이 스펙의 어느 산출물이 낡았나**이다(#58 ③). `optimize_*`가 결과에
+    `derived_from` 도장을 자동으로 박고, 그것을 스펙에 옮겨 두면 이후 config·주력
+    스킬·장비가 바뀔 때 **무엇이 달라서 낡았는지 문장으로** 나온다 —
+    `config.conditionLowLife: False → True` 꼴. 거부하지 않는다(낡은 것으로 A/B를
+    재는 것도 정상 작업이다). 실측 사고: 선행 문서가 「트리 전부 무효」라고 적었는데
+    다음 세션이 그 트리 위에 25포인트를 더 얹었다 — **무엇이 달라서 무효인지**를
+    몰랐기 때문이다.
+
+    `skipped_procedures`는 **출고 반환에만** 실린다(#58 ④) — 돌렸어야 하는데 흔적이
+    없는 절차다. 지금은 `optimize_items`(유니크 전수) 하나이며 판정 근거는
+    `derived_from`에 그 도장이 있느냐다. 규율은 이미 스킬 문서에 있었고 **감지 수단만**
+    없었다 — 실측: 한 회차가 끝까지 안 돌려 유니크가 후보에 오른 적이 없었다.
+
+    `design_warnings`는 **적법한데 애초에 빌드가 아닌 것**이다(#58 ①) — 주력 그룹에
+    딜 스킬이 없거나 트리거 젬에 발동될 스킬이 없는 경우. 실측: 그 상태로 3회차가
+    돌았고 `CombinedDPS` 2,562 vs 주력기 투입 시 24,436.
 
     `unset_config`는 **이 빌드에 관련 있는데 안 켠 PoB 설정**이다. 미설정 config의
     기본값에서 나온 델타 0은 "효과 없음"이 아니라 "안 켰다"의 증거다 — 그걸로
@@ -387,7 +411,9 @@ def assemble_pob(
             ],
         }
     try:
-        built = assemble(spec_from_dict(build_spec), slug, checker=_get_checker())
+        built = assemble(
+            spec_from_dict(build_spec), slug, checker=_get_checker(), spec_data=build_spec
+        )
     except (IllegalBuildError, ValueError) as e:
         # 스펙 오류(ValueError)도 사유로 돌려준다 — 예외로 터지면 호출자는
         # "어느 젬의 어느 키"인지 못 보고 추측으로 재시도한다
@@ -413,6 +439,12 @@ def assemble_pob(
         },
         # 차단은 안 되지만 **상시 참으로 가정한 config** — 공급원은 있으나 항상 켜져
         # 있지는 않다. 유지율을 적지 않으면 평시에 안 나오는 수치를 출고하는 것이다.
+        # 필수 절차 미이행 — **출고 반환에만** 싣는다 (#58 ④). manifest에도 각인된다.
+        **(
+            {"skipped_procedures": missing_procedures(build_spec)}
+            if missing_procedures(build_spec)
+            else {}
+        ),
         "assumptions": {
             "always_on_config": [
                 {"var": v.var, "value": v.value, "source": v.matched_in}

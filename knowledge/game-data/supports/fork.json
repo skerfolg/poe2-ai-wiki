@@ -9,9 +9,6 @@
     "projectile"
   ],
   "data": {
-    "applies_to_tags": [
-      "projectile"
-    ],
     "description": "Supports Projectile skills, making their Projectiles Fork.",
     "tier": 3,
     "color": "green",
@@ -26,7 +23,25 @@
     ],
     "engine_stats": [
       "terrain arrow attachment chance reduction +% [100]"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemForkSupport",
+      "effects": [
+        {
+          "id": "SupportForkPlayer",
+          "support": true,
+          "require": [
+            "Projectile"
+          ],
+          "exclude": [
+            "ProjectileNoCollision"
+          ],
+          "stat_sets": [
+            "Fork"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -38,6 +53,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemForkSupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

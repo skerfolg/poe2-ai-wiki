@@ -114,3 +114,35 @@ def discover_mechanics(
         "lexicon_size": scan.lexicon_size,
         "notes": list(scan.notes),
     }
+
+
+def find_carriers(skill: str, include_blocked: bool = False) -> dict[str, Any]:
+    """이 스킬을 **담을 수 있는** 보조·메타 젬·토템·트리거 전량 (사용자 요청 2026-08-11).
+
+    `discover_mechanics`는 사전 매칭이라 **문구에 없는 것을 못 찾는다.** 그런데
+    「주문 토템에 무엇을 넣을 수 있나」는 어느 레코드 문구에도 없고 PoB의
+    `requireSkillTypes`/`excludeSkillTypes`에만 있다 — 그래서 구조적으로 안 나왔다.
+    실측 2026-08-11: 구형 번개를 점화 소스로 채택하고도 **주문 토템이 후보에 오른
+    적이 없었다**(사용자 지적: "주문 토템쪽 기재는 한 번도 추천받지 못했다").
+
+    `include_blocked=True`면 막힌 것도 **사유와 함께** 낸다 — 「왜 안 되는가」가
+    설계 정보다. 아이템 부여 스킬(`fromItem`)은 젬 소켓 자체가 안 되므로 경고가 붙는다.
+
+    ⚠ **부착 여부를 PoB 델타로 시험하지 말 것** — 효과가 PoB 미모델링이면 붙어도
+    수치가 안 변해 거부로 오독한다(원소 집정관·잔류물 귀속에서 두 번 겪었다).
+    """
+    from pok.engine.hosting import find_carriers as _carriers
+
+    return _carriers(skill, include_blocked=include_blocked)
+
+
+def find_payloads(carrier: str, limit: int = 200) -> dict[str, Any]:
+    """이 담체(메타 젬·토템·보조)에 **넣을 수 있는** 활성 스킬 전량.
+
+    `find_carriers`의 반대 방향이다. 컨셉을 정하기 전에 "이 담체로 무엇을 할 수
+    있나"를 훑는 발산용 — 판정은 PoB 타입 시스템이라 전수이고 정확하다.
+    아이템 부여 스킬은 담을 수 없으므로 제외된다.
+    """
+    from pok.engine.hosting import find_payloads as _payloads
+
+    return _payloads(carrier, limit=limit)

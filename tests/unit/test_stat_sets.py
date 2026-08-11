@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pytest
 
+from pok.kb.skill_facts import stat_sets
 from pok.pob.buildxml import spec_from_dict, to_xml
-from pok.pob.catalog import stat_sets
 from pok.pob.versions import resolve_snapshot
 
 BALL_LIGHTNING = "Metadata/Items/Gems/SkillGemBallLightning"
@@ -32,14 +32,13 @@ def _pob_ready() -> bool:
 needs_pob_snapshot = pytest.mark.skipif(not _pob_ready(), reason="external/pob 스냅샷 없음")
 
 
-@needs_pob_snapshot
-def test_stat_sets_are_read_from_pob_source() -> None:
+def test_stat_sets_are_read_from_kb() -> None:
+    """재료는 KB `data.pob`다(#63 P2) — PoB 스냅샷이 없어도 게이트가 돈다."""
     effect, labels = stat_sets(BALL_LIGHTNING)
     assert effect == "BallLightningPlayer", "선택 XML의 키는 grantedEffectId다"
     assert labels == ("Ball Lightning", "Fire-Infused", "Ignited Ground")
 
 
-@needs_pob_snapshot
 def test_single_mode_skill_has_one_label() -> None:
     """모드가 하나면 게이트가 걸리면 안 된다 — 111개 젬만 해당한다(§0 ⑤)."""
     _, labels = stat_sets("Metadata/Items/Gems/SkillGemFlameblast")

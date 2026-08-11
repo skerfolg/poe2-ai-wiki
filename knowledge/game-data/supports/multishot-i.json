@@ -22,7 +22,26 @@
     ],
     "engine_stats": [
       "terrain arrow attachment chance reduction +% [200]"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemMultishotSupport",
+      "effects": [
+        {
+          "id": "SupportMultishotPlayer",
+          "support": true,
+          "require": [
+            "Projectile",
+            "ProjectileNumber"
+          ],
+          "exclude": [
+            "ProjectilesNumberModifiersNotApplied"
+          ],
+          "stat_sets": [
+            "Multishot I"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -34,6 +53,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemMultishotSupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

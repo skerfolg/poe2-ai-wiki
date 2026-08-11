@@ -56,7 +56,37 @@
       "should use additive aiming animation [1]",
       "is area damage [1]",
       "projectile maximum range override [60]"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemFireball",
+      "effects": [
+        {
+          "id": "FireballPlayer",
+          "types": [
+            "Area",
+            "AreaSpell",
+            "Damage",
+            "Fire",
+            "Invokable",
+            "Mineable",
+            "Multicastable",
+            "Projectile",
+            "ProjectilesFromUser",
+            "Spell",
+            "Totemable",
+            "Trappable",
+            "Triggerable",
+            "Unleashable",
+            "UsableWhileMoving"
+          ],
+          "stat_sets": [
+            "Projectile",
+            "Explosion",
+            "Firebolts"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -68,6 +98,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemFireball",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

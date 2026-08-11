@@ -27,6 +27,7 @@ from pok.engine.constraints import (
     check_sustain,
     kb_defaults,
 )
+from pok.engine.decisions import rejection_record_gap
 from pok.engine.objective import Target, evaluate_targets
 
 _defaults: KbDefaults | None = None
@@ -349,14 +350,19 @@ def parse_design_doc(build_id: str, full: bool = False) -> dict[str, Any]:
     path = artifacts_dir() / "builds" / build_id / "design.md"
     if not path.exists():
         return {"ok": False, "reason": f"설계 문서 없음: {path}"}
-    d = parse_design(path.read_text(encoding="utf-8"))
+    text = path.read_text(encoding="utf-8")
+    d = parse_design(text)
+    # 기각을 **말만 하고 규약 형식으로 안 적으면** 기계가 못 읽는다 (#58 ②).
+    # 실측 2026-08-11: 문서 14개 중 규약대로 적은 것은 4개뿐이고, 복점관 기각이
+    # 계승된 것도 안 적은 쪽에서였다 — 문서에 있어도 못 읽으면 없는 것과 같다.
+    record_gap = rejection_record_gap(text)
     out: dict[str, Any] = {
         "ok": True,
         "version": d.version,
         "updated": d.updated,
         "status": d.status,
         "goal": d.goal,
-        "warnings": list(d.warnings),
+        "warnings": list(d.warnings) + ([record_gap] if record_gap else []),
         "has_constraints": d.has_constraints,
         "queue": list(d.queue),
         "gates": list(d.gates),

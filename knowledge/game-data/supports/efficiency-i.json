@@ -15,7 +15,22 @@
     ],
     "stats": [
       "Supported Skills have 30% less Cost"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemEfficiencySupport",
+      "effects": [
+        {
+          "id": "SupportEfficiencyPlayer",
+          "support": true,
+          "exclude": [
+            "Persistent"
+          ],
+          "stat_sets": [
+            "Efficiency I"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -27,6 +42,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemEfficiencySupport",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

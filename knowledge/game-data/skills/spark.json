@@ -66,7 +66,35 @@
       "spark pathing width bounds [20]",
       "projectiles nova [1]",
       "triggered on killing shocked enemy% with enemy location as origin [100]"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemSpark",
+      "effects": [
+        {
+          "id": "SparkPlayer",
+          "types": [
+            "Damage",
+            "Duration",
+            "Invokable",
+            "Lightning",
+            "Mineable",
+            "Multicastable",
+            "Projectile",
+            "ProjectilesFromUser",
+            "Spell",
+            "Totemable",
+            "Trappable",
+            "Triggerable",
+            "Unleashable",
+            "UsableWhileMoving"
+          ],
+          "stat_sets": [
+            "Base",
+            "Cold-Infused"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -78,6 +106,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemSpark",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }

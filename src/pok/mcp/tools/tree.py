@@ -31,6 +31,32 @@ def connect_anchors(class_name: str, targets: list[int]) -> dict[str, Any]:
     }
 
 
+def _with_item(spec: dict[str, Any], slot: str, text: str) -> dict[str, Any]:
+    """슬롯 텍스트를 갈아 끼운 스펙 사본 — 도장을 **적용 후** 문맥에 찍기 위해서다."""
+    items = [dict(i) for i in (spec.get("items") or []) if str(i.get("slot")) != slot]
+    items.append({"slot": slot, "text": text})
+    return {**spec, "items": items}
+
+
+def _stamp(
+    spec_after: dict[str, Any],
+    component: str,
+    *,
+    tool: str,
+    weights: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """`derived_from` 한 칸 — 생산자가 **자동으로** 박는다 (#58 ③).
+
+    수동이면 안 지켜진다(보고자: "제가 이번에 증명했습니다"). 기존 도장은 보존하고
+    이 축만 덮어쓴다 — 트리를 다시 돌렸다고 장비 출처가 사라지면 안 된다.
+    """
+    from pok.engine.provenance import stamp
+
+    existing = dict(spec_after.get("derived_from") or {})
+    existing[component] = stamp(spec_after, component, tool=tool, weights=weights)
+    return existing
+
+
 def optimize_tree(
     build_spec: dict[str, Any],
     weights: dict[str, float],
@@ -123,6 +149,14 @@ def optimize_tree(
             for s in out.steps
         ],
         "jewels": [{"socket_node_id": j.socket_node_id, "text": j.text} for j in out.spec.jewels],
+        # 이 트리가 **어느 문맥에서 나왔나** — 스펙에 그대로 옮겨 두면 다음 세션의
+        # `compute_pob`이 낡음을 문장으로 알려 준다(#58 ③)
+        "derived_from": _stamp(
+            {**build_spec, "tree_nodes": list(out.spec.tree_nodes)},
+            "tree",
+            tool="optimize_tree",
+            weights=dict(weights),
+        ),
         "pruned_branches": [
             {
                 "endpoint": p.endpoint_id,
@@ -286,7 +320,12 @@ def optimize_items(
         max_chain=max_chain,
     )
     return {
-        "spec": result.spec,
+        "spec": {
+            **result.spec,
+            "derived_from": _stamp(
+                result.spec, "items", tool="optimize_items", weights=dict(weights)
+            ),
+        },
         "steps": [
             {"slot": s.slot, "adopted": s.adopted, "deltas": s.deltas, "replaced": s.replaced}
             for s in result.steps
@@ -396,6 +435,12 @@ def optimize_rare(
     )
     return {
         "text": result.text,
+        "derived_from": _stamp(
+            _with_item(build_spec, slot, result.text),
+            "rares",
+            tool="optimize_rare",
+            weights=dict(weights),
+        ),
         # **PoB 명세**(모드 id) — 문구가 아니다(#34 A). `text`는 이 명세를 PoB에
         # 태워 되받은 정본이고, `pob_rendered: false`면 아직 우리가 쓴 문구다.
         "spec_text": result.spec_text,
@@ -479,6 +524,12 @@ def optimize_runes(
     return {
         "filled": True,
         "slot": fill.slot,
+        "derived_from": _stamp(
+            _with_item(build_spec, fill.slot, fill.text),
+            "runes",
+            tool="optimize_runes",
+            weights=dict(weights),
+        ),
         "chosen": [{"id": r.label, "name": r.name, "lines": list(r.lines)} for r in fill.chosen],
         "text": fill.text,
         "delta": fill.delta,

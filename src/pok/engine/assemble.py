@@ -20,8 +20,14 @@ from typing import Any
 
 from pok.artifacts.store import find_by_hash, new_build_id, record_build
 from pok.common.paths import knowledge_dir
+from pok.engine.decisions import (
+    find_design_doc,
+    rejected_but_present,
+    rejection_record_gap,
+)
 from pok.engine.integrity import spec_integrity
 from pok.engine.legality import ItemLegalityChecker, LegalityReport
+from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob import codec
 from pok.pob.buildxml import BuildSpec, to_xml
 from pok.pob.runner import PobResult, run_build
@@ -55,11 +61,15 @@ def assemble(
     checker: ItemLegalityChecker | None = None,
     strict: bool = True,
     use_cache: bool = True,
+    spec_data: dict[str, Any] | None = None,
 ) -> AssembledBuild:
     """조립→검증→계산→기록. strict=True(기본)면 비합법 아이템에서 즉시 거부.
 
     strict=False는 진단 목적(비합법을 알면서 스탯을 보고 싶을 때)만 —
     기록물 validation.json에 비합법 사실이 그대로 남는다.
+
+    `spec_data`는 **PoB에 안 가는 스펙 칸**(`derived_from`)을 읽으려는 것이다 —
+    `BuildSpec`엔 없지만 산출 출처는 기록물에 남아야 다음 세션이 안다(#58 ③).
     """
     chk = checker or ItemLegalityChecker(knowledge_dir())
     item_reports: dict[str, LegalityReport] = {}
@@ -121,6 +131,34 @@ def assemble(
     design = spec_integrity(dataclasses.asdict(spec))
     if design:
         manifest["design_warnings"] = list(design)
+    # 낡음도 각인한다 — 정본 출고물만 받은 다음 세션이 "이 트리가 어느 문맥에서
+    # 나왔는지"를 알 수 있어야 한다(#58 ③). `derived_from`은 스펙에만 있고 PoB로는
+    # 안 가므로 조립이 옮겨 주지 않으면 사라진다.
+    if spec_data is not None:
+        stamps = spec_data.get("derived_from")
+        if stamps:
+            manifest["derived_from"] = stamps
+        stale = stale_components(spec_data)
+        if stale:
+            manifest["stale"] = stale
+        # **출고 시점에만** 묻는다 (#58 ④) — 탐색 중에는 안 돌린 게 정상이라 매번
+        # 물으면 소음이 된다(§0 ⑤). 규율은 이미 `skills/`에 있었고 **감지 수단만**
+        # 없었다: 실측 2026-08-11, 한 회차가 유니크 전수를 끝까지 안 돌렸고 그래서
+        # 검은화염을 포함한 유니크가 후보에 오른 적이 없었다.
+        skipped = missing_procedures(spec_data)
+        if skipped:
+            manifest["skipped_procedures"] = skipped
+        # **문서의 기각 결정과 대조한다** (#58 ②). 적법성은 「기각했었나」를 모른다 —
+        # 실측: 문서가 기각한 복점관이 스펙에 남아 5슬롯 실측 전체가 그 위에서 나왔다.
+        # 문서는 슬러그로 자동 탐색한다(인자를 새로 만들면 안 넘기면 그만이다).
+        design_text = find_design_doc(slug)
+        if design_text:
+            revived = rejected_but_present(spec_data, design_text)
+            if revived:
+                manifest["rejected_but_present"] = revived
+            gap = rejection_record_gap(design_text)
+            if gap:
+                manifest["design_record_gap"] = gap
 
     # 대체 모델링 계보(B-3): 효과를 트리 노드로 재현한 주얼은 사실을 기록에 남긴다 —
     # 소켓 소모·조달 가정은 재현되지 않으므로 실측 해석 시 이 사실이 필요하다.

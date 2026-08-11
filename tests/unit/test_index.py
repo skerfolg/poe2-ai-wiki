@@ -86,7 +86,8 @@ def test_search_roundtrip(kb_env: tuple[Path, Path]) -> None:
 def test_get_entry_fields(kb_env: tuple[Path, Path]) -> None:
     root, db = kb_env
     full = get_entry("skill.gas-arrow", root=root, db_path=db)
-    assert full["conditions"][1]["satisfiable_by"] == ["skill.fireball", "support.fire-infusion"]
+    # fire-infusion은 0.5 개명(Fire Attunement)으로 삭제·교체됐다 (#63 잔재 정리)
+    assert full["conditions"][1]["satisfiable_by"] == ["skill.fireball", "support.fire-attunement"]
 
     partial = get_entry("skill.gas-arrow", fields=["name"], root=root, db_path=db)
     assert set(partial) == {"id", "type", "name"}, "D14: 선별 상세"

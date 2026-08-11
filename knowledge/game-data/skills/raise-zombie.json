@@ -57,7 +57,37 @@
       "movement speed while performing action locked duration% [50]",
       "zombie base decay rate permyriad [0]",
       "zombie decay rate increase +% final [25]"
-    ]
+    ],
+    "pob": {
+      "gem_id": "Metadata/Items/Gems/SkillGemRaiseZombie",
+      "effects": [
+        {
+          "id": "RaiseZombiePlayer",
+          "types": [
+            "ConsumesCharges",
+            "CreatesMinion",
+            "Duration",
+            "Limit",
+            "Minion",
+            "MinionsCanExplode",
+            "Physical",
+            "SkillConsumesPowerChargesOnUse",
+            "TargetsDestructibleCorpses",
+            "Totemable",
+            "UsableWhileMoving"
+          ],
+          "minion_types": [
+            "Area",
+            "Attack",
+            "Melee",
+            "MeleeSingleTarget"
+          ],
+          "stat_sets": [
+            "Minion Info"
+          ]
+        }
+      ]
+    }
   },
   "verification": "GAME_DATA",
   "sources": [
@@ -69,6 +99,12 @@
     {
       "src": "pob",
       "ref": "Metadata/Items/Gems/SkillGemRaiseZombie",
+      "patch": "0.5.4b",
+      "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
+    },
+    {
+      "src": "pob",
+      "ref": "Data/Skills (skillTypes·statSets·require/exclude·fromItem)",
       "patch": "0.5.4b",
       "pob": "5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6"
     }
