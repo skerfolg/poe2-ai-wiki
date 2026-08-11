@@ -19,7 +19,7 @@
 >
 > **번호 규칙 (v0.2에서 정함)**: 번호는 **이 파일이 발급한다.** `[빌드]` 세션의 보고
 > 안 번호(#1~#8 등)와 섞이면 참조가 깨진다 — 실제로 `#17`이 두 항목에 붙어 있었고
-> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#67**다.
+> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#68**다.
 >
 > **PR 번호를 「(이 PR)」로 적지 말 것** — 머지되면 무엇을 가리키는지 알 수 없다.
 > 올린 뒤 실제 번호로 되돌아와 적는다(v0.2에서 17곳을 정정했다).
@@ -538,6 +538,63 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
   철칙 5대로면 **도구가 감지할 수 있는지부터** 물어야 한다
 
 ## 2. 기능 제안
+
+### 〔#67 = 제안 H〕 **Build 엔티티 실체화** — 시즌 메타를 8축으로 원자화한다
+
+- **상태**: `[빌드]` 세션 2026-08-11 발의(2차 이관) · **구조 결정 3건이 사용자 합의 대기** ·
+  1차 데이터 8종 확보 · 인사이트 후보 8건 중 **3건 검증 완료(1건은 보고가 틀렸다)**
+- **사용자 취지(보고자 인용)**: "시즌별로 메타 정보를 수집해서 원자화하자. 이게 쌓이면
+  KB에 어울리는 기반 지식이 된다"
+- **현황**: `Build`는 KB_DATA_MODEL §2의 12종에 **이미 정의**돼 있고 `knowledge/builds/`도
+  있는데 `build.schema.json`과 데이터가 **0건**이다.
+- **KD-5 통과 논리**: 레코드 목록이 아니라 **「어느 축을 어떻게 엮었나」의 구조**만 담고
+  원자는 전부 id 참조. 조합 구조는 어느 레코드 문구로도 유도되지 않는다.
+
+#### 8축 (제안)
+
+공격 ①담체 ②스택 원천 ③전달 장치(스택→딜 다리) ④증폭 통 ⑤클리어 엔진 ⑥순환 고리 /
+방어 ⑦EHP 형태·경감·회복·캡면역·**포기한 약점** / ⑧공수 결합(4종 enum).
+
+#### 1차 데이터 8종 (0.5 · 정식 JSON화는 스키마 확정 후)
+
+| 빌드 | 스택 원천 | 전달 장치 | 결합 |
+|---|---|---|---|
+| Arc/Spark Archmage Stormweaver (S) | 최대 마나 | Archmage | separate / shared(Spark+MoM) |
+| Twister Gemling Legionnaire (S) | 지속시간·투사체속도 | Gemling `Advanced` | separate |
+| Falling Thunder Martial Artist (S) | 권능 충전·연계 | Ailith's Chimes | **offense-feeds-defense** |
+| Tempest Flurry Invoker (S) | 치명타·연계 | Hollow Palm(변형) | separate |
+| Poisonburst Pathfinder | 중독(물리+카오스) | 없음(히트 직접) | separate |
+| Cast on Dodge Ember Gemling | 회피 굴림 빈도 | CoD 2중 | **defense-action-feeds-offense** |
+| Lightning Spear Amazon (S) | **정확도** | `Penetrate` | separate |
+| Lifestacker Ball Lightning Chayula | **최대 생명력** | Rathpith Globe(바알 함양) | shared-resource |
+
+- **축별 점유 관찰**: 생명력 스택이 8종 중 1종(비주류)뿐 — **공석** · Ghost Dance가 4/8로
+  지배적 방어 회복 엔진 · CI 전환 3/8 · 결합 4유형이 전부 관찰돼("상위=자원 공유" 가설 **기각**)
+  enum의 근거가 된다.
+
+#### 합의 필요 (철칙 1 — 구조 변경)
+
+1. **relations**: 「빌드가 스킬/아이템을 쓴다」에 맞는 rel이 닫힌 13종에 없다.
+   `uses` 신설(vocab 변경) vs `requires` 근사 vs data 참조만. 역방향 조회
+   (「이 스킬 쓰는 메타 빌드는?」)가 핵심 가치라는 게 보고자 주장.
+2. **verification 라벨**: 웹 가이드 유래가 기존 라벨 어디에도 안 맞는다 — `COMMUNITY`
+   신설 제안(사용자 인게임 확인 시 IN_GAME 승격). UNVERIFIED로 뭉치면 라벨이 정보를 잃는다.
+3. **배치**: 시즌당 10~20건 예상 → KD-1 큐레이션 쪽(`knowledge/builds/0.5/<slug>.json`).
+   ⓘ 이건 기존 KD-1 규칙에 그대로 들어맞아 셋 중 가장 다툼이 적다.
+
+#### 인사이트 승격 후보 — `[엔진]` 검증 결과 (2026-08-11)
+
+| 후보 | 판정 |
+|---|---|
+| ① 눈알 왕관 전환 경계 | ✅ **확인.** `CalcOffence.lua:756-759`가 `Flag("SpellDamageAppliesToAttacks")` 아래 `Tabulate("INC", {flags=ModFlag.Spell}, "Damage")` — INC·Spell플래그·Damage 3조건 전부 필요가 맞다(MORE·치명타확률·flags=0 차단) |
+| ③ 누적 점화는 소각 전용 | ⚠ **틀렸다.** `active_skill_compounding_ignites` 보유 스킬은 **둘**이다 — `IncineratePlayer` **+ `WyvernFlameBreathPlayer`(젬 「Flame Breath」, poe2db `source=gem`·소켓 가능)**. 「소각 전용」으로 승격하면 설계가 Flame Breath를 통째로 놓친다. 후반부(`Modules/`에 compound 소비처 0건 = PoB 미계산)는 확인됨 |
+| ④ 출혈 중첩 불가 | ⚠ **중복.** `mechanic.bleed`에 `can_stack: false` + `stacking_note`로 이미 있다(보고자 추측이 맞았다). 전반부(비-상태이상 DoT 배타)만 신규 |
+| ②⑤⑥⑦⑧ | 미검증 — ⑥⑦⑧은 B 데이터에서 파생되므로 데이터 수록이 선행 |
+
+#### 도구 제안 (철칙 5)
+
+Build가 쌓이면 「축별 점유·빈 자리」는 집계 쿼리다 → `describe_meta(season=…)` 신설.
+**season 인사이트(후보 ⑥)는 이 도구가 대체한다** — 문서로 박으면 낡는다는 보고자 지적이 옳다.
 
 ### 〔제안 G = 이관 D4〕 접사 → **담체 아이템 역참조 경로가 없다**
 
