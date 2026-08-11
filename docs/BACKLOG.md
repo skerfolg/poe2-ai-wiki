@@ -718,6 +718,54 @@ let n = el[fk]; while (n && !(n.memoizedProps?.items && n.memoizedProps.title)) 
    `Lich`·`Witch3`·`Abyssal Lich` 세 코드가 있고 앞의 둘은 한글명이 똑같이 "리치"다 —
    **세 코드의 관계가 미정리**다.
 
+#### 5차 — 래더 PoB 코드 수집기 (2026-08-12, 사용자 "구현까지 하자")
+
+`src/pok/artifacts/ladder.py` + `tests/unit/test_ladder_collector.py`. **브라우저 불필요** —
+전 경로가 평문 HTTP로 된다(실측):
+
+| 단계 | 경로 |
+|---|---|
+| 캐시 토큰 | `/poe2/builds/<슬러그>` HTML에 정규식으로 박혀 있다(JS 렌더 불요). 값은 아무거나 통한다 |
+| 목록 | `/poe2/api/builds/<토큰>/search?overview=…&<필터>` — **protobuf** |
+| 캐릭터 | `…/character?account=&name=&overview=&timeMachine=` — **평문 JSON**, `pathOfBuildingExport` 포함 |
+
+**컨셉 정의가 곧 필터다** — `{"class": "Chronomancer"}`, `{"skill": "…"}`를 그대로 넘긴다.
+
+##### 목록 응답은 행이 아니라 **열**이다 (이 구현이 한 번 틀렸던 지점)
+
+컬럼이 `[컬럼id, 컬럼id, 값…]` 꼴이고 `name`·`account`가 각각 순위 순 배열을 갖는다.
+처음엔 행 단위로 읽어 "계정 옆 문자열 = 캐릭터명"으로 집었는데, 그 자리에 있는 건
+**스키마 문자열 `"account"`**라서 `character?name=account`로 404를 맞았다. 정규식으로
+바이트를 훑는 방식도 같은 이유로 못 쓴다(CSS 토큰 `coolgrey-100`이 계정 꼴에 걸린다).
+와이어 포맷을 실제로 파싱하고 컬럼 이름으로 잇는다. 회귀 시험 있음.
+
+##### 강제 지점 (철칙 5 — 문서가 아니라 코드/시험에)
+
+- **append-only**: 같은 갱신본은 덮어쓰지 않고, 갱신본이 다르면 새 파일. 코드는 재취득
+  불가라 덮어쓰기가 곧 소실이다.
+- **PoB 코드 없으면 저장 거부**: 빈 레코드를 쌓으면 "수집된 것처럼 보이는 구멍"이 남는다.
+- **출처와 측정을 안 섞는다**: 레벨·DPS·EHP는 목록에서 긁지 않는다(PoB 코드 안에 있다).
+  저장 페이로드의 수치는 전부 출처 — `collected_utc`(우리 수집)와
+  `character_last_seen_utc`(poe.ninja 관측)가 **다르다**는 것까지 담는다.
+- **중복 제거는 하지 않는다**: 같은 빌드 여러 벌이 목적이다.
+- 목록이 비면 조용한 0이 아니라 사유와 함께 `LadderError`.
+
+##### 전 사슬 실증 (2026-08-12)
+
+`collect('runesofaldur', filters={'class':'Chronomancer'}, limit=3)` → 3건 저장 →
+`parse_pob`가 그대로 읽었다: Sorceress/Chronomancer lvl 100 · 젬 그룹 10 · 아이템 15
+(Time Freeze + Prolonged Duration II + CDR II … 가 그룹으로 나온다).
+
+##### 남은 것 — 이 세션에서 안 한 것
+
+1. **축별 빈도 스키마 미정**. 현재 `idList`가 문자열 배열이라 **10벌을 겹칠 자리가 없다**.
+   불변(10/10)·가변(3/10)을 담으려면 항목에 빈도를 붙이거나 `variance` 블록이 필요하다
+   — 스키마 변경이라 **합의 대기**.
+2. **차이의 사인 구분**(설계 선택 vs 예산·진행도)은 해석 층의 몫. 재료(레벨·장비·유니크
+   수)는 PoB 코드에 들어 있으니 수집기는 안 빠뜨리기만 하면 된다.
+3. `artifacts/ladder/`는 gitignore다. 시즌을 넘겨 보존하려면 `ingest-raw`처럼 **별도
+   데이터 repo**로 올려야 한다(KI-1 원칙) — 미결.
+
 #### 인사이트 승격 후보 — `[엔진]` 검증 결과 (2026-08-11)
 
 | 후보 | 판정 |

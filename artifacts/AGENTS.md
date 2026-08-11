@@ -1,6 +1,10 @@
 # artifacts/ (데이터) — 재생성 불가 산출물 (gitignore)
 
-- 빌드 산출물(`builds/`)·생성 세션(`sessions/`)·큐레이션 대기 피드백(`feedback/`)·시세 스냅샷(`live-snapshots/`).
+- 빌드 산출물(`builds/`)·생성 세션(`sessions/`)·큐레이션 대기 피드백(`feedback/`)·시세 스냅샷(`live-snapshots/`)·래더 PoB 코드(`ladder/`).
+- `ladder/` = poe.ninja 래더에서 받은 **PoB 공유 코드 원본**(`src/pok/artifacts/ladder.py`가 쓴다).
+  **append-only** — 코드는 나중에 다시 못 가져온다(스냅샷 갱신·리스펙·캐릭터 삭제).
+  같은 캐릭터라도 갱신본이 다르면 **새 파일**로 쌓아 시간축을 보존한다.
+  ⚠ 같은 빌드 여러 벌은 중복이 아니다 — 축의 **불변/가변**을 가르는 재료다.
 - ⚠️ **손으로 편집하지 말 것.** 오직 코드(`src/pok/artifacts/`)를 통해서만 쓰고 읽는다.
 - 삭제 시 **정보 손실**(재생성 불가). `var/`(파생 캐시)와 다르다.
 - 정본(`knowledge/`) 진입은 **승격(promote)으로만** — 임의로 knowledge/에 복사 금지.
