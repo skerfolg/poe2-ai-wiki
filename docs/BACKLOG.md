@@ -272,7 +272,15 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
      읽고 넘어갔다 → 반환 최상단이나 `violations`로 올릴 것
   2. **design.md ↔ 스펙 대조**: 기각 목록에 있는 아이템/노드가 스펙에 있으면 거부·경고.
      `parse_design_doc`이 계약 위반을 이미 경고하지만 **아무도 부르지 않으면 안 뜬다**
-  3. **산출 출처 표기**: 트리·아이템에 "어느 문맥에서 산출됐나"를 남기고 현재 config와
+  3. ✅ **해결(2026-08-11)** — `engine/provenance.py`. `optimize_tree`·`optimize_items`·
+     `optimize_runes`·`optimize_rare`가 결과에 `derived_from` 도장을 **자동으로** 박고
+     (사람이 쓰는 자리 0), `compute_pob`·`assemble_pob`이 `stale`을 상시 부착하며 조립
+     manifest에도 각인한다. 보고자 설계 그대로: **축별** 판정 · `config`·`weights`는 값
+     그대로 · `skills`/`items`/`tree`는 해시 + 짧은 설명 · 불일치는 **문장**으로
+     (`config.conditionLowLife: False → True`) · **거부하지 않는다**.
+     자기 축은 뺀다(트리 도장은 트리를 안 본다) — 단 룬·희귀는 결과가 아이템 텍스트로
+     들어가므로 빼지 않는다("무기를 바꿨는데 룬 계획은 멀쩡"이 되면 안 된다)
+  3'. (원 요청) **산출 출처 표기**: 트리·아이템에 "어느 문맥에서 산출됐나"를 남기고 현재 config와
      다르면 **낡음(stale)**. 스킬 지침 §7이 낡음을 말하는데 **감지 수단이 없다**
   4. **필수 절차 미이행 감지**: `optimize_items`(유니크 전수)를 한 번도 안 돌린 채
      `assemble_pob`을 부르면 경고 — 이번에 **끝까지 한 번도 안 돌렸다**
