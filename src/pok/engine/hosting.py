@@ -21,6 +21,13 @@ PoB의 `requireSkillTypes`/`excludeSkillTypes`에만 있다. 그래서 구조적
 `Modules/CalcTools.lua`의 `doesTypeExpressionMatch`·`canGrantedEffectSupportActiveSkill`을
 그대로 옮겼다. AD-1(계산 재구현 금지)은 **계산**에 대한 것이고 이것은 카탈로그 질의다 —
 쌍마다 PoB를 돌리면 수만 회가 되어 쓸 수 없다. 대신 `tests/`가 알려진 사례로 대조한다.
+
+## 재료는 KB에서 읽는다 (#63 P2)
+
+처음 구현은 런타임에 `external/pob/**/Data/Skills`를 직독했다 — gitignore된
+**파생물**에 판정이 걸려 있었고(철칙 2), CI엔 그 데이터가 없어 통합 테스트 5건이
+통째로 깨졌다. 지금은 `kb/ingest/skill_types.py`가 수록한 KB `data.pob`를
+`kb/skill_facts.py`로 읽는다 — 정본은 git이라 어디서나 있다.
 """
 
 from __future__ import annotations
@@ -28,12 +35,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from pok.pob.catalog import (
-    SkillGate,
-    effect_display_names,
-    gem_effect_ids,
-    skill_gates,
-)
+from pok.kb.skill_facts import SkillGate, skill_gates
 
 # `requireSkillTypes`/`excludeSkillTypes`의 스택 연산자 (나머지는 전부 피연산자)
 _OPERATORS = frozenset({"AND", "OR", "NOT"})
@@ -100,31 +102,22 @@ def can_host(carrier: SkillGate, payload: SkillGate) -> HostVerdict:
 
 
 def label_of(gate: SkillGate) -> str:
-    """사람이 읽을 이름 — 보조 반쪽의 내부 id 대신 젬 표시 이름을 쓴다."""
-    return effect_display_names().get(gate.skill_id) or gate.name
+    """사람이 읽을 이름 — 보조 반쪽도 KB 레코드의 젬 표시 이름을 물려받는다."""
+    return gate.name or gate.skill_id
 
 
 def _candidates(query: str, gates: dict[str, SkillGate]) -> list[SkillGate]:
-    """스킬 id · 젬 표시 이름 · `gem_id` 중 무엇으로 물어도 **반쪽 전량**을 낸다.
+    """스킬 id · 표시 이름(한/영) · `gem_id` · KB 레코드 id 무엇으로 물어도 **반쪽 전량**.
 
     메타 젬은 소환 반쪽과 보조 반쪽이 다른 스킬이라, 이름 하나가 둘을 가리킨다.
     """
     if query in gates:
         return [gates[query]]
-    found: list[SkillGate] = []
-    for gem_id, effects in gem_effect_ids().items():
-        if gem_id != query:
-            continue
-        found.extend(gates[e] for e in effects if e in gates)
+    found = [g for g in gates.values() if query in (g.gem_id, g.record_id)]
     if found:
         return found
     lowered = query.casefold()
-    for effect, label in effect_display_names().items():
-        if label.casefold() == lowered and effect in gates:
-            found.append(gates[effect])
-    if found:
-        return found
-    return [g for g in gates.values() if g.name.casefold() == lowered]
+    return [g for g in gates.values() if lowered in (g.name.casefold(), g.name_ko)]
 
 
 def _resolve(query: str, gates: dict[str, SkillGate]) -> SkillGate | None:
@@ -192,7 +185,8 @@ def find_carriers(skill: str, *, include_blocked: bool = False) -> dict[str, Any
         out["blocked"] = sorted(blocked, key=lambda r: r["carrier"])
     out["notes"] = [
         "판정은 PoB `CalcTools.lua`의 타입 식 평가를 전사한 것이다 — 레코드 문구가 "
-        "아니라 타입 시스템이라 **전수이고 정확**하다",
+        "아니라 타입 시스템이다. 범위는 **KB 수록분**(938건 중 915건, #63 P1 리포트의 "
+        "`pob_only_gems`가 미수록 잔여)이다",
         "담을 수 있다는 것이 값어치가 있다는 뜻은 아니다 — 성능은 따로 측정하라",
         "⚠ **젬 설명문이 타입보다 좁게 말하는 경우가 있다.** 예: `Arbiter's Ignition`은 "
         "설명이 *Supports Fire Spell Skills*인데 `requireSkillTypes`는 `(Spell, Damage, AND)`라 "

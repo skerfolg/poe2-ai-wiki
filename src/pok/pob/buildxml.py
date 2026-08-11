@@ -306,10 +306,12 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
     정본 후보를 함께 낸다. 특히 표시 이름을 id 자리에 넣은 흔한 실수는 정확히 잡힌다
     ("Heavy Swing" → `SkillGemMeleePhysicalDamageSupport`).
     """
+    # statSet 게이트의 재료는 KB다(#63 P2) — `gem_ids`·`config_vars`는 "PoB에
+    # 실재하는가"라는 계산기 계약 검증이라 PoB 카탈로그에 남는다.
+    from pok.kb.skill_facts import stat_sets
     from pok.pob.catalog import (
         config_vars,
         gem_ids,
-        stat_sets,
         suggest_config_vars,
         suggest_gem_ids,
     )
@@ -539,9 +541,9 @@ def _gem_xml(gem: GemSpec) -> str:
     if gem.stat_set_index is None:
         return head + "/>"
 
-    from pok.pob.catalog import granted_effects
+    from pok.kb.skill_facts import primary_effect
 
-    effect = granted_effects().get(gem.gem_id, "")
+    effect = primary_effect(gem.gem_id)
     index = gem.stat_set_index
     return (
         head + ">\n"

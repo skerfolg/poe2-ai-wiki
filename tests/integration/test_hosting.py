@@ -2,36 +2,23 @@
 
 판정 로직은 `CalcTools.lua`를 전사한 것이라, **PoB가 바뀌면 여기서 깨져야 한다.**
 알려진 사례로 잠근다.
+
+#63 P2부터 재료는 KB `data.pob`다 — 정본은 git이라 CI에도 항상 있고, 예전처럼
+`Data/Skills/` 부재로 통째로 스킵되지 않는다(스킵은 "검증했다"가 아니다).
+여기 쓰는 스킬이 KB에서 빠지면 **스킵이 아니라 실패**해야 한다 — 정본의 구멍이다.
 """
 
 from __future__ import annotations
 
-import pytest
-
 from pok.engine.hosting import can_host, find_carriers, find_payloads
-from pok.pob.catalog import skill_gates
-
-# CI는 PoB를 통째로 받지 않고 카탈로그용 8개 파일만 받는다 — `Data/Skills/`에는
-# `sup_dex.lua` **하나뿐**이다(`.github/workflows/ci.yml`). 여기서 대조하는 스킬들은
-# `act_int`·`act_str`·`other`에 있어 CI엔 없다. 형상 확인: `bash scripts/ci_shape_test.sh`
-_REQUIRED = ("BallLightningPlayer", "SupportMetaTotemSpellTotemPlayer", "LivingBombPlayer")
+from pok.kb.skill_facts import skill_gates
 
 
-def _skill_data_ready() -> bool:
-    """대조에 쓸 스킬 정의가 실제로 있는가.
-
-    ⚠ 다른 통합 시험처럼 `resolve_snapshot()`으로 가드하면 **안 걸린다** — 그건
-    `HeadlessWrapper.lua` 유무를 보는 것이고 여기 필요한 것은 스킬 정의다.
-    파일 존재로 에두르지 않고 **쓸 것을 직접 묻는다.**
-    """
+def test_kb_carries_the_gates_this_file_needs() -> None:
+    """전제 자체를 시험으로 — KB 수록이 무너지면 여기가 먼저 말한다."""
     gates = skill_gates()
-    return all(name in gates for name in _REQUIRED)
-
-
-pytestmark = pytest.mark.skipif(
-    not _skill_data_ready(),
-    reason="PoB `Data/Skills/` 전량 없음 (CI 형상은 sup_dex.lua 하나뿐)",
-)
+    for name in ("BallLightningPlayer", "SupportMetaTotemSpellTotemPlayer", "LivingBombPlayer"):
+        assert name in gates, f"KB data.pob에 {name}이 없다 — skill-types 수집이 빠졌나?"
 
 
 def test_spell_totem_hosts_ball_lightning() -> None:
@@ -42,17 +29,18 @@ def test_spell_totem_hosts_ball_lightning() -> None:
 
 
 def test_item_granted_skill_cannot_be_socketed() -> None:
-    """까부르는 화염은 `fromItem`이라 젬 소켓 자체가 안 된다.
+    """`fromItem` 스킬은 젬 소켓 자체가 안 된다 — 경고가 반드시 붙어야 한다.
 
-    실측 2026-08-11: `Totemable` 플래그만 보고 "토템에 들어간다"고 판단해
-    설계가 한 바퀴 헛돌았다. 경고가 반드시 붙어야 한다.
+    실측 2026-08-11(까부르는 화염): `Totemable` 플래그만 보고 "토템에 들어간다"고
+    판단해 설계가 한 바퀴 헛돌았다. 원 사례(`His Winnowing Flame`)는 KB 미수록이라
+    (#63 P1 리포트 `pob_only_gems`) KB에 있는 fromItem 스킬로 같은 규칙을 잠근다.
     """
-    out = find_carriers("His Winnowing Flame")
+    out = find_carriers("Chaos Bolt")
     assert out["ok"]
     assert "fromItem" in out.get("warning", "")
 
     payloads = {p["skill"] for p in find_payloads("Spell Totem", limit=500)["payloads"]}
-    assert "His Winnowing Flame" not in payloads
+    assert "Chaos Bolt" not in payloads
 
 
 def test_spell_totem_excludes_persistent_and_cooldown() -> None:

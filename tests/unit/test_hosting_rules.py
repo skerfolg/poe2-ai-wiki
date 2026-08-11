@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from pok.engine.hosting import can_host
-from pok.pob.catalog import SkillGate
+from pok.kb.skill_facts import SkillGate
 
 
 def _gate(
