@@ -243,3 +243,80 @@ def stat_sets(gem_id: str, root: Path | None = None) -> tuple[str, tuple[str, ..
     """`gem_id` → (`grantedEffectId`, statSet 라벨들). 모르는 젬이면 `("", ())`."""
     effect = granted_effects(root).get(gem_id, "")
     return effect, stat_set_labels(root).get(effect, ())
+
+
+# ── skillTypes 카탈로그 — 「무엇이 무엇을 담을 수 있나」의 원천 ────────────────
+# 담체 판정(어느 메타/토템/트리거에 이 스킬을 넣을 수 있나)은 **레코드 문구에 없다.**
+# PoB의 `requireSkillTypes`/`excludeSkillTypes`에만 있다. 그래서 `discover_mechanics`
+# 같은 사전 매칭으로는 구조적으로 못 찾는다(그 도구가 스스로 밝힌 한계).
+# 실측 2026-08-11: 「주문 토템에 구형 번개를 넣을 수 있다」를 손으로 알아내야 했고,
+# 「까부르는 화염은 `fromItem`이라 젬 소켓 자체가 불가」를 놓쳐 설계가 한 바퀴 헛돌았다.
+_SKILL_TYPES = re.compile(r"\bskillTypes\s*=\s*\{")
+_REQUIRE_TYPES = re.compile(r"\brequireSkillTypes\s*=\s*\{")
+_EXCLUDE_TYPES = re.compile(r"\bexcludeSkillTypes\s*=\s*\{")
+_ADD_TYPES = re.compile(r"\baddSkillTypes\s*=\s*\{")
+_TYPE_REF = re.compile(r"SkillType\.(\w+)")
+_FROM_ITEM = re.compile(r"\bfromItem\s*=\s*true")
+_CANNOT_BE_SUPPORTED = re.compile(r"\bcannotBeSupported\s*=\s*true")
+_SUPPORT_GEMS_ONLY = re.compile(r"\bsupportGemsOnly\s*=\s*true")
+_IS_SUPPORT = re.compile(r"\bsupport\s*=\s*true")
+_SKILL_NAME = re.compile(r'\bname\s*=\s*"([^"]*)"')
+
+
+@dataclass(frozen=True)
+class SkillGate:
+    """한 스킬(또는 보조/메타 젬)의 담체 판정 재료 — PoB 정의 그대로."""
+
+    skill_id: str
+    name: str
+    types: frozenset[str]
+    # ⚠ require/exclude는 **후위(RPN) 식**이라 순서가 의미를 갖는다 —
+    # `{Spell, Totemable, AND}`는 "둘 다"이고 집합이 아니다(CalcTools.doesTypeExpressionMatch).
+    require: tuple[str, ...]
+    exclude: tuple[str, ...]
+    adds: tuple[str, ...]
+    from_item: bool
+    cannot_be_supported: bool
+    support_gems_only: bool
+    is_support: bool
+
+
+def _types_in(text: str, start: int, end: int) -> tuple[str, ...]:
+    return tuple(m.group(1) for m in _TYPE_REF.finditer(text, start, end))
+
+
+def _block_types(text: str, pattern: re.Pattern[str], start: int, end: int) -> tuple[str, ...]:
+    found = pattern.search(text, start, end)
+    if found is None:
+        return ()
+    close = _match_brace(text, found.end() - 1)
+    if close < 0:
+        return ()
+    return _types_in(text, found.end(), close)
+
+
+@lru_cache(maxsize=4)
+def skill_gates(root: Path | None = None) -> dict[str, SkillGate]:
+    """`skills[...]` 전량의 담체 판정 재료. 키는 PoB 스킬 id."""
+    out: dict[str, SkillGate] = {}
+    for path in sorted((pob_src(root) / "Data" / "Skills").glob("*.lua")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for match in _SKILL_BLOCK.finditer(text):
+            end = _match_brace(text, match.end() - 1)
+            if end < 0:
+                continue
+            head = match.end()
+            name = _SKILL_NAME.search(text, head, end)
+            out[match.group(1)] = SkillGate(
+                skill_id=match.group(1),
+                name=name.group(1) if name else match.group(1),
+                types=frozenset(_block_types(text, _SKILL_TYPES, head, end)),
+                require=_block_types(text, _REQUIRE_TYPES, head, end),
+                exclude=_block_types(text, _EXCLUDE_TYPES, head, end),
+                adds=_block_types(text, _ADD_TYPES, head, end),
+                from_item=_FROM_ITEM.search(text, head, end) is not None,
+                cannot_be_supported=_CANNOT_BE_SUPPORTED.search(text, head, end) is not None,
+                support_gems_only=_SUPPORT_GEMS_ONLY.search(text, head, end) is not None,
+                is_support=_IS_SUPPORT.search(text, head, end) is not None,
+            )
+    return out
