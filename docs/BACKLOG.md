@@ -250,7 +250,18 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
   PoB의 `requireSkillTypes`/`excludeSkillTypes`에만 있다
 - **실증**: `passive.empowering-infusions-8782`("주입을 최근 소모했으면 주문 피해 35%
   증가") 계열 6건이 KB에 있었는데, 주입을 세션 내내 다룬 보고자가 **한 번도 못 봤다**
-- **1차 조치(`[빌드]` 구현 중)**: `find_carriers(skill=)` / `find_payloads(carrier=)` —
+- **1차 조치 완료(2026-08-11, `[빌드]` 구현 + `[엔진]` 리뷰)**: `engine/hosting.py` ·
+  `catalog.skill_gates()`. 판정은 `CalcTools.lua`의 `doesTypeExpressionMatch`·
+  `canGrantedEffectSupportActiveSkill` **전사**다(계산이 아니라 카탈로그 질의 —
+  쌍마다 PoB를 돌리면 수만 회다). 구형 번개 담체 247건 · 주문 토템 페이로드 46건.
+  ⚠ 요구/배제는 **후위(RPN) 식**이라 집합 포함이 아니다: `{Spell, Totemable, AND}`는
+  "둘 다"지만 `{Spell, Totemable}`는 "둘 중 하나"다
+- **리뷰에서 고친 것 3건**: ① `mypy --strict` 실패(보고자는 안 돌렸다) ②
+  **소환수 타입 축 누락** — PoB는 요구 판정에만 `minionSkillTypes`를 함께 보는데
+  빠져 있어 **6,335쌍**의 판정이 틀렸다(스킬 42종 보유·보조 150종이
+  `ignoreMinionTypes`) ③ 통합 테스트 5건이 CI에서 전부 깨졌다(CI엔
+  `Data/Skills/sup_dex.lua` 하나뿐) — 데이터 없는 규칙 시험을 `tests/unit/`로 분리
+- **1차 조치 원문**: `find_carriers(skill=)` / `find_payloads(carrier=)` —
   문구가 아니라 **타입 시스템**으로 담체↔페이로드를 전수 열거. `catalog.py`에
   `skillTypes` 파싱 추가
 - **착수 시 볼 것**: **배제 사유를 함께 내는가.** 「후보에 없다」와 「이 이유로 배제됐다」는

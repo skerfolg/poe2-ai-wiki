@@ -39,11 +39,21 @@ from pok.pob.catalog import (
 _OPERATORS = frozenset({"AND", "OR", "NOT"})
 
 
-def _expression_matches(expression: tuple[str, ...], types: frozenset[str]) -> bool:
+def _expression_matches(
+    expression: tuple[str, ...],
+    types: frozenset[str],
+    minion_types: frozenset[str] = frozenset(),
+) -> bool:
     """후위 식 평가 — `CalcTools.lua:doesTypeExpressionMatch` 전사.
 
     ⚠ 집합 포함 검사가 아니다. `{Spell, Totemable, AND}`는 "둘 다"지만
     `{Spell, Totemable}`는 **둘 중 하나**다(스택에 참이 하나라도 남으면 통과).
+
+    `minion_types`는 PoB의 3번째 인자다 — 소환수 스킬의 타입도 참으로 친다.
+    **요구 판정에만** 넘어간다(배제엔 안 넘어간다): PoB가
+    `doesTypeExpressionMatch(exclude, effectiveSkillTypes)`와
+    `doesTypeExpressionMatch(require, effectiveSkillTypes, effectiveMinionTypes)`로
+    비대칭이다. 빠뜨리면 소환수 빌드에서 **거짓 배제**가 난다(스킬 42종 해당).
     """
     stack: list[bool] = []
     for token in expression:
@@ -56,7 +66,7 @@ def _expression_matches(expression: tuple[str, ...], types: frozenset[str]) -> b
         elif token == "NOT" and stack:
             stack[-1] = not stack[-1]
         elif token not in _OPERATORS:
-            stack.append(token in types)
+            stack.append(token in types or token in minion_types)
     return any(stack)
 
 
@@ -80,10 +90,11 @@ def can_host(carrier: SkillGate, payload: SkillGate) -> HostVerdict:
     if carrier.exclude and _expression_matches(carrier.exclude, payload.types):
         hit = sorted(t for t in carrier.exclude if t not in _OPERATORS and t in payload.types)
         return HostVerdict(False, f"배제 타입에 걸린다: {', '.join(hit)}")
-    if carrier.require and not _expression_matches(carrier.require, payload.types):
-        missing = sorted(
-            t for t in carrier.require if t not in _OPERATORS and t not in payload.types
-        )
+    # PoB: `effectiveMinionTypes = not grantedEffect.ignoreMinionTypes and (...)`
+    minion = frozenset() if carrier.ignore_minion_types else payload.minion_types
+    if carrier.require and not _expression_matches(carrier.require, payload.types, minion):
+        seen = payload.types | minion
+        missing = sorted(t for t in carrier.require if t not in _OPERATORS and t not in seen)
         return HostVerdict(False, f"요구 타입 미충족: {', '.join(missing)}")
     return HostVerdict(True, "")
 
@@ -155,9 +166,10 @@ def find_carriers(skill: str, *, include_blocked: bool = False) -> dict[str, Any
         if not gate.is_support or gate is payload:
             continue
         verdict = can_host(gate, payload)
-        row = {"carrier": label_of(gate), "skill_id": gate.skill_id}
+        row: dict[str, Any] = {"carrier": label_of(gate), "skill_id": gate.skill_id}
         if verdict.ok:
             if gate.adds:
+                # 보조가 **타입을 더한다** — 다음 보조의 판정이 달라진다(연쇄 주의)
                 row["adds_types"] = list(gate.adds)
             hosts.append(row)
         elif include_blocked:

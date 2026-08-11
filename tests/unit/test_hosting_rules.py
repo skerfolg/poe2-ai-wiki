@@ -19,6 +19,8 @@ def _gate(
     name: str,
     *,
     types: tuple[str, ...] = (),
+    minion_types: tuple[str, ...] = (),
+    ignore_minion_types: bool = False,
     require: tuple[str, ...] = (),
     exclude: tuple[str, ...] = (),
     from_item: bool = False,
@@ -33,6 +35,8 @@ def _gate(
         require=require,
         exclude=exclude,
         adds=(),
+        minion_types=frozenset(minion_types),
+        ignore_minion_types=ignore_minion_types,
         from_item=from_item,
         cannot_be_supported=cannot_be_supported,
         support_gems_only=support_gems_only,
@@ -87,3 +91,27 @@ def test_item_granted_skills_and_gem_only_carriers() -> None:
 def test_no_requirement_means_anything_goes() -> None:
     """요구가 비어 있으면 전부 통과다 — PoB의 `not requireSkillTypes[1]` 분기."""
     assert can_host(_gate("무조건", is_support=True), _gate("아무거나")).ok
+
+
+def test_minion_types_satisfy_requirements_but_not_exclusions() -> None:
+    """PoB는 **요구 판정에만** 소환수 타입을 함께 본다 — 배제엔 안 넘긴다.
+
+    `doesTypeExpressionMatch(exclude, skillTypes)` vs
+    `doesTypeExpressionMatch(require, skillTypes, minionTypes)`의 비대칭이다.
+    빠뜨리면 소환수 빌드에서 거짓 배제가 난다 — 실측 2026-08-11: 이 축 하나로
+    **6,335쌍**의 판정이 바뀌었다(스킬 42종이 `minionSkillTypes`를 갖는다).
+    """
+    host = _gate("주문 요구", require=("Spell",), is_support=True)
+    minion_spell = _gate("소환수 주문", types=("Minion",), minion_types=("Spell",))
+    assert can_host(host, minion_spell).ok, "소환수의 주문 타입이 요구를 채운다"
+
+    # 배제는 소환수 타입을 보지 않는다 — 본체 타입에만 걸린다
+    blocker = _gate("주문 배제", exclude=("Spell",), is_support=True)
+    assert can_host(blocker, minion_spell).ok, "배제에는 소환수 타입이 안 넘어간다"
+
+
+def test_ignore_minion_types_turns_the_axis_off() -> None:
+    """`ignoreMinionTypes`인 보조는 소환수 타입을 안 본다 (150종 해당)."""
+    host = _gate("주문 요구", require=("Spell",), ignore_minion_types=True, is_support=True)
+    minion_spell = _gate("소환수 주문", types=("Minion",), minion_types=("Spell",))
+    assert not can_host(host, minion_spell).ok

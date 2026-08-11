@@ -251,7 +251,13 @@ def stat_sets(gem_id: str, root: Path | None = None) -> tuple[str, tuple[str, ..
 # 같은 사전 매칭으로는 구조적으로 못 찾는다(그 도구가 스스로 밝힌 한계).
 # 실측 2026-08-11: 「주문 토템에 구형 번개를 넣을 수 있다」를 손으로 알아내야 했고,
 # 「까부르는 화염은 `fromItem`이라 젬 소켓 자체가 불가」를 놓쳐 설계가 한 바퀴 헛돌았다.
-_SKILL_TYPES = re.compile(r"\bskillTypes\s*=\s*\{")
+_SKILL_TYPES = re.compile(r"(?<!minion)\bskillTypes\s*=\s*\{")
+# 소환수 스킬의 타입 — PoB는 **요구 판정에만** 함께 본다
+# (`doesTypeExpressionMatch(require, skillTypes, minionTypes)`; 배제엔 안 넘긴다).
+# 실측 2026-08-11: 스킬 42종이 이걸 갖고 보조 150종이 `ignoreMinionTypes`를 쓴다 —
+# 빠뜨리면 소환수 빌드에서 **거짓 배제**가 난다.
+_MINION_TYPES = re.compile(r"\bminionSkillTypes\s*=\s*\{")
+_IGNORE_MINION = re.compile(r"\bignoreMinionTypes\s*=\s*true")
 _REQUIRE_TYPES = re.compile(r"\brequireSkillTypes\s*=\s*\{")
 _EXCLUDE_TYPES = re.compile(r"\bexcludeSkillTypes\s*=\s*\{")
 _ADD_TYPES = re.compile(r"\baddSkillTypes\s*=\s*\{")
@@ -275,6 +281,9 @@ class SkillGate:
     require: tuple[str, ...]
     exclude: tuple[str, ...]
     adds: tuple[str, ...]
+    # 소환수 타입 — 요구 판정에서만 쓰인다(PoB와 동일)
+    minion_types: frozenset[str]
+    ignore_minion_types: bool
     from_item: bool
     cannot_be_supported: bool
     support_gems_only: bool
@@ -359,6 +368,8 @@ def skill_gates(root: Path | None = None) -> dict[str, SkillGate]:
                 require=_block_types(text, _REQUIRE_TYPES, head, end),
                 exclude=_block_types(text, _EXCLUDE_TYPES, head, end),
                 adds=_block_types(text, _ADD_TYPES, head, end),
+                minion_types=frozenset(_block_types(text, _MINION_TYPES, head, end)),
+                ignore_minion_types=_IGNORE_MINION.search(text, head, end) is not None,
                 from_item=_FROM_ITEM.search(text, head, end) is not None,
                 cannot_be_supported=_CANNOT_BE_SUPPORTED.search(text, head, end) is not None,
                 support_gems_only=_SUPPORT_GEMS_ONLY.search(text, head, end) is not None,
