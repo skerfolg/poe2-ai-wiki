@@ -471,6 +471,9 @@ find_clusters = tool(_tree.find_clusters)
 scan_synergies = tool(_explore.scan_synergies)
 discover_mechanics = tool(_explore.discover_mechanics)
 find_hypotheses = tool(_explore.find_hypotheses)
+# 담체↔페이로드 — 문구가 아니라 PoB 타입 시스템에서 나오는 발산 재료
+find_carriers = tool(_explore.find_carriers)
+find_payloads = tool(_explore.find_payloads)
 
 
 def main() -> None:

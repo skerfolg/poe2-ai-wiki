@@ -295,6 +295,51 @@ def _block_types(text: str, pattern: re.Pattern[str], start: int, end: int) -> t
     return _types_in(text, found.end(), close)
 
 
+_ADDITIONAL_EFFECT_ID = re.compile(r'additionalGrantedEffectId\d+\s*=\s*"([^"]+)"')
+
+
+@lru_cache(maxsize=4)
+def gem_effect_ids(root: Path | None = None) -> dict[str, tuple[str, ...]]:
+    """`gem_id` → 그 젬이 주는 grantedEffect **전량**(주 + additional).
+
+    ⚠ 메타 젬은 **반쪽이 둘**이다 — 주문 토템은 `grantedEffectId`가 소환 스킬이고
+    보조 판정을 하는 쪽은 `additionalGrantedEffectId1`이다. 주 id만 보면
+    "주문 토템은 보조가 아니다"라는 틀린 답이 나온다.
+    """
+    text = (pob_src(root) / "Data" / "Gems.lua").read_text(encoding="utf-8", errors="replace")
+    out: dict[str, tuple[str, ...]] = {}
+    for match in re.finditer(r'\["(Metadata/Items/Gems/[^"]+)"\]\s*=\s*\{', text):
+        end = _match_brace(text, match.end() - 1)
+        stop = end if end > 0 else len(text)
+        ids: list[str] = []
+        primary = _GRANTED_EFFECT_ID.search(text, match.end(), stop)
+        if primary:
+            ids.append(primary.group(1))
+        ids.extend(m.group(1) for m in _ADDITIONAL_EFFECT_ID.finditer(text, match.end(), stop))
+        if ids:
+            out[match.group(1)] = tuple(ids)
+    return out
+
+
+@lru_cache(maxsize=4)
+def effect_display_names(root: Path | None = None) -> dict[str, str]:
+    """`grantedEffectId` → 젬 표시 이름.
+
+    보조 반쪽의 `skills[...].name`은 내부 id인 경우가 많다
+    (`SupportMetaTotemSpellTotemPlayer`) — 사람에게 보일 이름은 젬 쪽에 있다.
+    """
+    # ⚠ `gem_names()`는 **이름 → gem_id** 방향이다. 뒤집어 쓴다.
+    by_id = {gem_id: name for name, gem_id in gem_names(root).items()}
+    out: dict[str, str] = {}
+    for gem_id, effects in gem_effect_ids(root).items():
+        label = by_id.get(gem_id)
+        if not label:
+            continue
+        for effect in effects:
+            out.setdefault(effect, label)
+    return out
+
+
 @lru_cache(maxsize=4)
 def skill_gates(root: Path | None = None) -> dict[str, SkillGate]:
     """`skills[...]` 전량의 담체 판정 재료. 키는 PoB 스킬 id."""
