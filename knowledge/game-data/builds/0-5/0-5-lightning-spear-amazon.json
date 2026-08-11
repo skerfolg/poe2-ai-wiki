@@ -1,0 +1,86 @@
+{
+  "id": "build.0-5-lightning-spear-amazon",
+  "type": "Build",
+  "name": {
+    "ko": "번개 창 아마존",
+    "en": "Lightning Spear Amazon"
+  },
+  "tags": [
+    "lightning",
+    "spear",
+    "accuracy-stacking"
+  ],
+  "data": {
+    "class_name": "Huntress",
+    "ascendancy": "Amazon",
+    "offense": {
+      "carrier": [
+        "skill.lightning-spear"
+      ],
+      "stack_source": [
+        "정확도(Accuracy)"
+      ],
+      "transfer": [
+        "`Penetrate` — 정확도 25%를 물리 피해로"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [
+          "Tangletongue — 치명타 굴림 2회"
+        ],
+        "gain": []
+      },
+      "clear_engine": [
+        "2차 투사체"
+      ],
+      "loop": []
+    },
+    "defense": {
+      "ehp_form": [
+        "evasion",
+        "es"
+      ],
+      "mitigation": [
+        "Refutation — 룬 수호 소비 패리"
+      ],
+      "recovery": [
+        "skill.ghost-dance"
+      ],
+      "caps_immunities": [
+        "Spectral Ward — 갑옷 회피 12당 ES +1 (회피를 ES로 전달)"
+      ],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": ""
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "tier_omitted": "티어·메타 순위는 담지 않는다 — 근거였던 웹 티어 리스트가 0.4 재탕으로 오염돼 있었다(poe.ninja 실측 대조: Invoker S주장↔래더 0.5%, Amazon 1위주장↔1.0%). 순위가 필요하면 poe.ninja 사용률 실측으로만 채울 것"
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.lightning-spear"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://maxroll.gg/poe2/build-guides/lightning-spear-amazon-build-guide",
+      "patch": "0.5.4b",
+      "note": "수집 2026-08-11"
+    }
+  ]
+}

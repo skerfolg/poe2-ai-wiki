@@ -19,7 +19,7 @@
 >
 > **번호 규칙 (v0.2에서 정함)**: 번호는 **이 파일이 발급한다.** `[빌드]` 세션의 보고
 > 안 번호(#1~#8 등)와 섞이면 참조가 깨진다 — 실제로 `#17`이 두 항목에 붙어 있었고
-> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#67**다.
+> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#68**다.
 >
 > **PR 번호를 「(이 PR)」로 적지 말 것** — 머지되면 무엇을 가리키는지 알 수 없다.
 > 올린 뒤 실제 번호로 되돌아와 적는다(v0.2에서 17곳을 정정했다).
@@ -539,6 +539,92 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
 
 ## 2. 기능 제안
 
+### 〔#67 = 제안 H〕 **Build 엔티티 실체화** — 시즌 메타를 8축으로 원자화한다
+
+- **상태**: `[빌드]` 세션 2026-08-11 발의(2차 이관) · **구조 3건 사용자 승인 후 구현 완료
+  (2026-08-11)** · 1차 데이터 8종 수록 · 인사이트 후보는 검증분만 반영, 나머지 대기
+- **구현분**: `build.schema.json` 신설 · 어휘에 `uses`(14종째)·`COMMUNITY` 추가 ·
+  `store._TYPE_SCHEMA`에 Build 등록 · 8종 수록 · `tests/unit/test_build_entity.py`.
+  실측 확인: `related("skill.ghost-dance")` → 빌드 **4건** 역방향 조회(보고된 "4/8 지배"가
+  이제 문서가 아니라 **질의**로 나온다) · `search("Archmage", type_="Build")` 적중.
+- ⚠ **배치는 제안 원안을 바로잡았다**: `knowledge/builds/`가 아니라
+  `knowledge/game-data/builds/0-5/`다. 두 가지 이유 — ① `store.load()`는 `game-data/`만
+  스캔해서 원안대로면 **레코드가 도구에 안 보인다**(목적 자체가 무산) ② `knowledge/builds/`는
+  `promote.py`로 **승격된 것만** 들어오는 자리라 의미가 충돌한다.
+- **사용자 취지(보고자 인용)**: "시즌별로 메타 정보를 수집해서 원자화하자. 이게 쌓이면
+  KB에 어울리는 기반 지식이 된다"
+- **현황**: `Build`는 KB_DATA_MODEL §2의 12종에 **이미 정의**돼 있고 `knowledge/builds/`도
+  있는데 `build.schema.json`과 데이터가 **0건**이다.
+- **KD-5 통과 논리**: 레코드 목록이 아니라 **「어느 축을 어떻게 엮었나」의 구조**만 담고
+  원자는 전부 id 참조. 조합 구조는 어느 레코드 문구로도 유도되지 않는다.
+
+#### 8축 (제안)
+
+공격 ①담체 ②스택 원천 ③전달 장치(스택→딜 다리) ④증폭 통 ⑤클리어 엔진 ⑥순환 고리 /
+방어 ⑦EHP 형태·경감·회복·캡면역·**포기한 약점** / ⑧공수 결합(4종 enum).
+
+#### 1차 데이터 8종 (0.5 · 정식 JSON화는 스키마 확정 후)
+
+| 빌드 | 스택 원천 | 전달 장치 | 결합 |
+|---|---|---|---|
+| Arc/Spark Archmage Stormweaver (S) | 최대 마나 | Archmage | separate / shared(Spark+MoM) |
+| Twister Gemling Legionnaire (S) | 지속시간·투사체속도 | Gemling `Advanced` | separate |
+| Falling Thunder Martial Artist (S) | 권능 충전·연계 | Ailith's Chimes | **offense-feeds-defense** |
+| Tempest Flurry Invoker (S) | 치명타·연계 | Hollow Palm(변형) | separate |
+| Poisonburst Pathfinder | 중독(물리+카오스) | 없음(히트 직접) | separate |
+| Cast on Dodge Ember Gemling | 회피 굴림 빈도 | CoD 2중 | **defense-action-feeds-offense** |
+| Lightning Spear Amazon (S) | **정확도** | `Penetrate` | separate |
+| Lifestacker Ball Lightning Chayula | **최대 생명력** | Rathpith Globe(바알 함양) | shared-resource |
+
+- **축별 점유 관찰**: 생명력 스택이 8종 중 1종(비주류)뿐 — **공석** · Ghost Dance가 4/8로
+  지배적 방어 회복 엔진 · CI 전환 3/8 · 결합 4유형이 전부 관찰돼("상위=자원 공유" 가설 **기각**)
+  enum의 근거가 된다.
+
+#### 합의 결과 (사용자 판정 2026-08-11 — 셋 다 승인)
+
+1. **relations `uses` 신설** ✅ — 닫힌 어휘를 13→14종으로. 역방향 조회가 이 엔티티의
+   핵심 가치라 data 참조만으로는 `related()`에 안 걸린다.
+2. **`COMMUNITY` 라벨 신설** ✅ — `IN_GAME`(우리가 확인)과 `UNVERIFIED`(아무도 안
+   돌려본 추측) 사이의 빈 칸. 사용자 인게임 확인 시 IN_GAME 승격.
+3. **배치** ✅ KD-1 큐레이션 개별 JSON — 단 경로는 위 ⚠대로 `game-data/` 안이다.
+
+#### ⚠ 정정 통보 (`[빌드]` 2026-08-11) — **티어 근거가 오염돼 있었다**
+
+1차 데이터의 티어는 웹 가이드에서 왔는데, 그 소스가 **0.4 시절 빌드를 재탕한 SEO
+기사**였다. poe.ninja 실측(Runes of Aldur, 124,254 캐릭터)과 정반대다:
+
+| 주장 | 실제 래더 |
+|---|---|
+| Invoker "S티어" | **0.5%** |
+| Amazon "메타 1위" | **1.0%** |
+| — | 실제 상위: Martial Artist 20.7% · Gemling 15.7% · Spirit Walker 11.5% · Deadeye 8.6% · Oracle 5.5% |
+
+- **조치 완료**: 8종 전부에서 `facets.tier` 제거 + `tier_omitted` 사유 기록 ·
+  KB_DATA_MODEL에 "`COMMUNITY`의 신뢰 범위는 **구성까지**, 순위 주장은 담지 않는다" 명문화 ·
+  **강제 지점** `test_no_build_claims_a_tier`(문서로만 두면 다음 세션이 가이드 읽고 또 넣는다).
+- **살아남은 관찰**: Ghost Dance 지배(래더 **31%**로 재확인) · 결합 4유형(가이드 8종
+  실분해라 티어와 무관) · 생명력 스택 공석(래더에서도 재확인).
+- **폐기**: "메타 3계열 수렴" 문구 — 래더 기반 재작성 필요(인사이트 후보 ⑥ **보류**).
+- **함께 손볼 것**: durable 후보 ⑤(로우라이프 지도)의 "아무도 안 쓴다" 뉘앙스 —
+  실제로 **Pain Attunement 전체 12%·Oracle 23%**가 쓰고 있다. 미탐사가 아니다.
+- **남은 과제**: 순위가 필요하면 `facets.usage_pct`를 poe.ninja 실측으로 채운다.
+  수집 경로는 확보됐다(SPA라 WebFetch 불가 → 브라우저 패널 + `?class=<이름>` 필터 +
+  사이드바 추출, 과거 시즌은 Time machine으로 소급).
+
+#### 인사이트 승격 후보 — `[엔진]` 검증 결과 (2026-08-11)
+
+| 후보 | 판정 |
+|---|---|
+| ① 눈알 왕관 전환 경계 | ✅ **확인.** `CalcOffence.lua:756-759`가 `Flag("SpellDamageAppliesToAttacks")` 아래 `Tabulate("INC", {flags=ModFlag.Spell}, "Damage")` — INC·Spell플래그·Damage 3조건 전부 필요가 맞다(MORE·치명타확률·flags=0 차단) |
+| ③ 누적 점화는 소각 전용 | ⚠ **틀렸다.** `active_skill_compounding_ignites` 보유 스킬은 **둘**이다 — `IncineratePlayer` **+ `WyvernFlameBreathPlayer`(젬 「Flame Breath」, poe2db `source=gem`·소켓 가능)**. 「소각 전용」으로 승격하면 설계가 Flame Breath를 통째로 놓친다. 후반부(`Modules/`에 compound 소비처 0건 = PoB 미계산)는 확인됨 |
+| ④ 출혈 중첩 불가 | ⚠ **중복.** `mechanic.bleed`에 `can_stack: false` + `stacking_note`로 이미 있다(보고자 추측이 맞았다). 전반부(비-상태이상 DoT 배타)만 신규 |
+| ②⑤⑥⑦⑧ | 미검증 — ⑥⑦⑧은 B 데이터에서 파생되므로 데이터 수록이 선행 |
+
+#### 도구 제안 (철칙 5)
+
+Build가 쌓이면 「축별 점유·빈 자리」는 집계 쿼리다 → `describe_meta(season=…)` 신설.
+**season 인사이트(후보 ⑥)는 이 도구가 대체한다** — 문서로 박으면 낡는다는 보고자 지적이 옳다.
+
 ### 〔제안 G = 이관 D4〕 접사 → **담체 아이템 역참조 경로가 없다**
 
 - **상태**: 미착수 · `[빌드]` 세션 2026-08-11 발의 · **재현 확인**
@@ -637,6 +723,7 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
 | 결함 | 조치 | PR |
 |---|---|---|
 | 〔#64 = 이관 D1〕 `find_carriers`의 **거짓 차단 경고** — 「살아있는 폭탄은 젬으로 소켓 못 한다」고 단정해 컨셉이 폐기될 뻔했다. 게다가 같은 반환값의 `carriers`엔 주문 토템이 들어 있어 **자기모순** | 원인은 KB 모순이 아니라 **전사 오류**였다: PoB는 그 자리에서 `fromItem`이 아니라 `activeSkill.activeEffect.gemData`(젬이냐)를 본다. 소켓 가부를 `SkillGate.socketable`로 분리하고 **poe2db 획득 경로를 권위**로 삼았다(D8 — 카탈로그 사실은 poe2db). 경고는 단정에서 사실 기술로, `find_payloads`의 조용한 제외는 `excluded_item_granted`로 노출 | 대기 |
+| 〔이관 D5〕 **베리시움 각인 32건**이 담체 없이 뜬다 — 0.5 제작이 특정 유니크에 붙이는 전용 암시인데 부여 경로 레코드가 없다 | D2와 동계열이지만 **더 강하게 고칠 수 있었다**: 담체 이름이 키에 박혀 있다(`BloodThornVerisiumImplicit…`). 키 접두를 유니크 이름과 맞춰 `carrier_item`으로 **이름까지** 낸다 — **31/32 해석**(나머지 1건 `SentryFaster`는 접두가 모호해 미확인 유지). 이름 접기 필수(`Mjölner` 발음 구별 기호·`The Sentry` 관사) | 대기 |
 | 〔#65 = 이관 D2〕 바알 함양 변이 접사 **101건이 구조적 `carrier_unknown`** — 정적 유니크 대조 방식으로는 영영 못 찾아 설계 근거로 쓰이지 못했다 | `carrier_kind`에 `vaal-mutated` 갈래 신설(태그·접두 양쪽으로 판정) + `carrier_route: vaal-orb-mutated-unique` 기록. PoB 데이터가 실재를 뒷받침한다(`affix=""`·`weightKey={}`인데 `tradeHashes` 보유=거래되는 모드) | 대기 |
 | 〔#43〕 `compute_trigger_rate`가 CoC·CoEA의 **지배 항**(한계치 비례)을 뺐다 — 방향이 반대로 나왔다 | 젬 **원문에서 절을 읽어** 그 트리거는 **거부**하고 사유를 낸다. 트리거 단위라 CoEA의 Freeze·Shock는 그대로 잰다 | 대기 |
 | 〔#39〕 `item-exclusive` 접사의 **담체가 연결돼 있지 않다** — 모드의 존재가 획득 가능성으로 읽혀 하루에 5건 오판(둘은 설계 근거로 쓰였다가 폐기) | 담체를 **세 갈래**로 확인(정적 유니크·생성 유니크·키스톤) 후 `carrier_unknown` 표시 → `search_kb` 히트에 실어 보낸다. 5,488건 중 **2,163건(39.4%)** | 대기 |

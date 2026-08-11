@@ -1,7 +1,8 @@
 {
   "$id": "vocab/relations.json",
-  "title": "관계 13종 closed enum (BLUEPRINT §7)",
+  "title": "관계 14종 closed enum (BLUEPRINT §7). `uses`는 Build 전용 — #67, 사용자 승인 2026-08-11",
   "enum": [
+    "uses",
     "triggers",
     "enables",
     "scales_with",

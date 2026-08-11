@@ -1,0 +1,101 @@
+{
+  "id": "build.0-5-tempest-flurry-invoker",
+  "type": "Build",
+  "name": {
+    "ko": "폭풍의 연격 인보커",
+    "en": "Tempest Flurry Invoker"
+  },
+  "tags": [
+    "lightning",
+    "combo",
+    "herald"
+  ],
+  "data": {
+    "class_name": "Monk",
+    "ascendancy": "Invoker",
+    "offense": {
+      "carrier": [
+        "skill.tempest-flurry",
+        "skill.falling-thunder",
+        "skill.tempest-bell"
+      ],
+      "stack_source": [
+        "치명타",
+        "연계(Combo)"
+      ],
+      "transfer": [
+        "Hollow Palm — 무기 없음 → 젬 레벨 (KB 미수록, 변형)"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [],
+        "gain": []
+      },
+      "clear_engine": [
+        "전령 무한 연쇄 — skill.herald-of-ice + Armour Explosion + skill.herald-of-thunder (`Spirit of the Wolf Rite of Passage` 필요)"
+      ],
+      "loop": []
+    },
+    "defense": {
+      "ehp_form": [
+        "evasion",
+        "es"
+      ],
+      "mitigation": [],
+      "recovery": [
+        "skill.ghost-dance"
+      ],
+      "caps_immunities": [
+        "CI 선택(ES 10k)"
+      ],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": ""
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "tier_omitted": "티어·메타 순위는 담지 않는다 — 근거였던 웹 티어 리스트가 0.4 재탕으로 오염돼 있었다(poe.ninja 실측 대조: Invoker S주장↔래더 0.5%, Amazon 1위주장↔1.0%). 순위가 필요하면 poe.ninja 사용률 실측으로만 채울 것"
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.tempest-flurry"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.falling-thunder"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.tempest-bell"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-thunder"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://maxroll.gg/poe2/build-guides/tempest-flurry-invoker-build-guide",
+      "patch": "0.5.4b",
+      "note": "수집 2026-08-11"
+    }
+  ]
+}

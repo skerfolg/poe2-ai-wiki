@@ -1,0 +1,103 @@
+{
+  "id": "build.0-5-falling-thunder-martial-artist",
+  "type": "Build",
+  "name": {
+    "ko": "낙뢰 무예가",
+    "en": "Falling Thunder Martial Artist"
+  },
+  "tags": [
+    "lightning",
+    "combo",
+    "power-charge"
+  ],
+  "data": {
+    "class_name": "Monk",
+    "ascendancy": "Martial Artist",
+    "offense": {
+      "carrier": [
+        "skill.falling-thunder"
+      ],
+      "stack_source": [
+        "권능 충전",
+        "연계(Combo)"
+      ],
+      "transfer": [
+        "support.ailiths-chimes"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [
+          "치명타 ~100%"
+        ],
+        "gain": []
+      },
+      "clear_engine": [
+        "Frozen Locus",
+        "skill.herald-of-ice"
+      ],
+      "loop": [
+        "skill.whirling-assault → 연계 → 권능 충전"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "es",
+        "evasion"
+      ],
+      "mitigation": [
+        "Deflection"
+      ],
+      "recovery": [
+        "Shavronne's Satchel — 즉시 회복 플라스크를 ES로"
+      ],
+      "caps_immunities": [
+        "CI",
+        "Abasement·Shimmering Mirage(기절/동결 방지)"
+      ],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "offense-feeds-defense",
+      "note": "연계를 `Martial Adept`가 ES 회복으로 소비한다 (-0.2s ES recharge delay per Combo expended) — 공격 자원이 곧 방어 회복"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "tier_omitted": "티어·메타 순위는 담지 않는다 — 근거였던 웹 티어 리스트가 0.4 재탕으로 오염돼 있었다(poe.ninja 실측 대조: Invoker S주장↔래더 0.5%, Amazon 1위주장↔1.0%). 순위가 필요하면 poe.ninja 사용률 실측으로만 채울 것"
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.falling-thunder"
+    },
+    {
+      "rel": "uses",
+      "target": "support.ailiths-chimes"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.whirling-assault"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.chaos-inoculation"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://maxroll.gg/poe2/build-guides/falling-thunder-martial-artist-build-guide",
+      "patch": "0.5.4b",
+      "note": "수집 2026-08-11"
+    }
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "id": "build.0-5-poisonburst-pathfinder",
+  "type": "Build",
+  "name": {
+    "ko": "독성 폭발 패스파인더",
+    "en": "Poisonburst Pathfinder"
+  },
+  "tags": [
+    "poison",
+    "chaos",
+    "bow"
+  ],
+  "data": {
+    "class_name": "Ranger",
+    "ascendancy": "Pathfinder",
+    "offense": {
+      "carrier": [
+        "skill.poisonburst-arrow",
+        "skill.gas-arrow"
+      ],
+      "stack_source": [
+        "중독(물리+카오스 히트)"
+      ],
+      "transfer": [
+        "없음 — 히트가 곧 중독 강도라 다리가 필요 없다"
+      ],
+      "amplifier": {
+        "more": [
+          "Overwhelming Toxicity — 중독 중첩 ×2"
+        ],
+        "increased": [],
+        "gain": []
+      },
+      "clear_engine": [
+        "skill.herald-of-plague",
+        "Bursting Plague"
+      ],
+      "loop": []
+    },
+    "defense": {
+      "ehp_form": [
+        "evasion"
+      ],
+      "mitigation": [
+        "skill.wind-dancer"
+      ],
+      "recovery": [
+        "skill.ghost-dance"
+      ],
+      "caps_immunities": [
+        "어센던시 기절/둔화 면역"
+      ],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": ""
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "tier_omitted": "티어·메타 순위는 담지 않는다 — 근거였던 웹 티어 리스트가 0.4 재탕으로 오염돼 있었다(poe.ninja 실측 대조: Invoker S주장↔래더 0.5%, Amazon 1위주장↔1.0%). 순위가 필요하면 poe.ninja 사용률 실측으로만 채울 것"
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.poisonburst-arrow"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.gas-arrow"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-plague"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.wind-dancer"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://maxroll.gg/poe2/build-guides/poisonburst-arrow-pathfinder-build-guide",
+      "patch": "0.5.4b",
+      "note": "수집 2026-08-11"
+    }
+  ]
+}

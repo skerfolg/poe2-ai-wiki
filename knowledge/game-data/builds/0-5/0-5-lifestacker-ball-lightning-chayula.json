@@ -1,0 +1,98 @@
+{
+  "id": "build.0-5-lifestacker-ball-lightning-chayula",
+  "type": "Build",
+  "name": {
+    "ko": "생명력 스택 구형 번개 차율라",
+    "en": "Lifestacker Ball Lightning Ignite Chayula"
+  },
+  "tags": [
+    "fire",
+    "ignite",
+    "life-stacking"
+  ],
+  "data": {
+    "class_name": "Monk",
+    "ascendancy": "Acolyte of Chayula",
+    "offense": {
+      "carrier": [
+        "skill.ball-lightning"
+      ],
+      "stack_source": [
+        "최대 생명력 (10k~16k)"
+      ],
+      "transfer": [
+        "item.rathpith-globe — 생명력 100당 상태이상 강도 3% (바알 함양)"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [],
+        "gain": [
+          "item.blackflame — 점화를 카오스로"
+        ]
+      },
+      "clear_engine": [
+        "점화 지대"
+      ],
+      "loop": [
+        "점화 → CoEA 에너지 → skill.living-bomb → 화염 주입 → 구형 번개가 소비"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "life"
+      ],
+      "mitigation": [],
+      "recovery": [
+        "Into the Breach 붉은 불꽃 흡수 20%→75%"
+      ],
+      "caps_immunities": [
+        "item.kaoms-heart"
+      ],
+      "weakness_accepted": [
+        "원소 저항 포기 — 카오스 전환으로 공격측에서 벌충한다(명시적 트레이드)"
+      ]
+    },
+    "coupling": {
+      "kind": "shared-resource",
+      "note": "생명력이 딜 스택이자 EHP다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "boss"
+    ],
+    "tier_omitted": "티어·메타 순위는 담지 않는다 — 근거였던 웹 티어 리스트가 0.4 재탕으로 오염돼 있었다(poe.ninja 실측 대조: Invoker S주장↔래더 0.5%, Amazon 1위주장↔1.0%). 순위가 필요하면 poe.ninja 사용률 실측으로만 채울 것"
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.ball-lightning"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.living-bomb"
+    },
+    {
+      "rel": "uses",
+      "target": "item.rathpith-globe"
+    },
+    {
+      "rel": "uses",
+      "target": "item.blackflame"
+    },
+    {
+      "rel": "uses",
+      "target": "item.kaoms-heart"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://www.poe-vault.com/guides/lifestacker-ball-lightning-ignite-chayula",
+      "patch": "0.5.4b",
+      "note": "수집 2026-08-11"
+    }
+  ]
+}

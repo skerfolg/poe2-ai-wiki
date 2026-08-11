@@ -42,6 +42,33 @@ item.astramentis · modifier.fire-damage-pct · content.pinnacle-boss · build.s
 
 각 엔티티의 타입별 `data` 필드 구조는 `knowledge/schema/<type>.schema.json`에 정의한다(공통 envelope는 `record.schema.json`).
 
+### 2-0. Build — 시즌 메타를 8축으로 원자화 (#67, 사용자 승인 2026-08-11)
+
+`Build`는 12종에 정의만 돼 있고 데이터가 0건이었다. 시즌별 메타를 쌓아 **신규 빌드
+설계의 문법 기반**으로 쓴다. 스키마는 `knowledge/schema/build.schema.json`.
+
+- **8축**: 공격 ①담체 ②스택 원천 ③**전달 장치**(스택→딜 다리) ④증폭 통(more/increased/gain
+  분리) ⑤클리어 엔진 ⑥순환 고리 / 방어 ⑦EHP 형태·경감·회복·캡면역·**포기한 약점** /
+  ⑧**공수 결합**(4종 enum).
+- **KD-5 적합성**: 레코드 목록이 아니라 **「어느 축을 어떻게 엮었나」**만 담고 원자는 전부
+  id 참조다. 조합 구조는 어느 레코드 문구로도 유도되지 않는다.
+- **배치**: `knowledge/game-data/builds/<season>/<slug>.json` (KD-1 큐레이션).
+  ⚠ `knowledge/builds/`가 **아니다** — 거기는 `promote.py`로 **승격된 것만** 들어오는
+  자리이고, 무엇보다 `store.load()`가 `game-data/`만 스캔해 그 밖의 레코드는 **도구에
+  보이지 않는다**(역방향 조회라는 목적 자체가 무산된다).
+- **`uses` 관계**(어휘 14종째): 「빌드가 이 스킬·아이템을 쓴다」. 이게 있어야
+  `related(skill.…)`로 **「이 스킬을 쓰는 메타 빌드는?」**이 역방향으로 나온다 —
+  이 엔티티의 핵심 가치다. 실측: `related("skill.ghost-dance")` → 빌드 4건.
+- **`COMMUNITY` 라벨**: 커뮤니티 가이드에서 **실플레이가 관찰된** 것. `IN_GAME`(우리가
+  확인)과 `UNVERIFIED`(아무도 안 돌려본 추측) 사이의 빈 칸이었다. 사용자 인게임 확인 시
+  `IN_GAME` 승격.
+- ⛔ **`COMMUNITY`의 신뢰 범위는 「구성」까지다 — 순위·티어 주장은 담지 않는다.**
+  가이드가 어떤 축을 어떻게 엮었는지는 실제로 돌려 본 것이라 믿을 수 있지만, 티어는
+  근거가 없다. 실측 2026-08-11: 첫 8종에 실은 티어의 출처가 **0.4 빌드를 재탕한 SEO
+  기사**였고 poe.ninja 래더(124,254 캐릭터)와 정반대였다 — Invoker "S티어" ↔ 실제
+  **0.5%**, Amazon "메타 1위" ↔ **1.0%**. 순위가 필요하면 **poe.ninja 사용률 실측**으로만
+  채운다. 강제 지점: `tests/unit/test_build_entity.py::test_no_build_claims_a_tier`.
+
 ### 2-1. Skill·Support `data.pob` — PoB 구조화 사실 (#63 P1, 2026-08-11)
 
 담체 판정·모드 선택은 **어느 레코드 문구에도 없고** PoB 데이터에만 있어, 엔진이
