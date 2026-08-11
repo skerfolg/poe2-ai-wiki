@@ -45,6 +45,13 @@ index.sqlite
 *.lance/
 .chroma/
 
+# --- ④ 디버그 출력 (계보 無·재현 가능) : 정본도 산출물도 아닌 순수 쓰레기 ---
+# 빌드 세션이 `python run_*.py > foo.log` 로 리다이렉트한 stdout. 실측 2026-08-11:
+# 레포 루트에 12개가 **추적된 채** 커밋돼 있었다(e6ff0f8·b67f312) — `*.log` 규칙이
+# 없어 막히지 않았기 때문이다. 실질 내용은 같은 빌드 디렉터리의 JSON·design.md에
+# 이미 남아 있어 로그 쪽은 중복이었다.
+*.log
+
 # --- PoB 독립 클론 (대용량, scripts/setup 으로 설치; pob/versions.py 가 커밋 핀 기록) ---
 /external/*
 !/external/pob/
