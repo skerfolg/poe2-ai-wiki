@@ -13,6 +13,10 @@
   "data": {
     "class_name": "Monk",
     "ascendancy": "Acolyte of Chayula",
+    "ascendancy_name": {
+      "ko": "애컬라이트 오브 차율라",
+      "en": "Acolyte of Chayula"
+    },
     "offense": {
       "carrier": [
         "skill.ball-lightning"
@@ -64,9 +68,10 @@
     ],
     "tier_omitted": "티어·메타 순위는 담지 않는다 — 근거였던 웹 티어 리스트가 0.4 재탕으로 오염돼 있었다(poe.ninja 실측 대조: Invoker S주장↔래더 0.5%, Amazon 1위주장↔1.0%). 순위가 필요하면 poe.ninja 사용률 실측으로만 채울 것",
     "usage": {
-      "ascendancy_pct": 0.0,
-      "dominance": "Acolyte of Chayula는 탑10 밖. 생명력 스택은 래더에서도 공석",
-      "basis": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "ascendancy_pct": 1.4,
+      "sample_characters": 1741,
+      "dominance": "Acolyte of Chayula 1.4%(이전 기록의 0.0%는 오기 — 드릴다운으로 정정). 다만 이 빌드 구성은 래더와 어긋난다: 지배 주력은 Archon of Chayula 55.8%이고 Ball Lightning은 상위 12위 안에 없다. 생명력 스택 축은 여전히 미점유",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
       "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
     }
   },
@@ -105,6 +110,12 @@
       "ref": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
       "patch": "0.5.4b",
       "note": "래더 점유 부기 2026-08-11 — 구성은 가이드, 점유는 실측"
+    },
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "어센던시 드릴다운 실측 2026-08-11 — 점유·지배 아키타입 정정"
     }
   ]
 }

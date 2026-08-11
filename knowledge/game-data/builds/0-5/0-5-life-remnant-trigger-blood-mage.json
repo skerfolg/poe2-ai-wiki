@@ -1,0 +1,159 @@
+{
+  "id": "build.0-5-life-remnant-trigger-blood-mage",
+  "type": "Build",
+  "name": {
+    "ko": "생명력 잔류물 트리거 블러드 메이지",
+    "en": "Life-Remnant Trigger Blood Mage"
+  },
+  "tags": [
+    "lightning",
+    "cold",
+    "spell",
+    "life-cost",
+    "trigger"
+  ],
+  "data": {
+    "class_name": "Witch",
+    "ascendancy": "Blood Mage",
+    "ascendancy_name": {
+      "ko": "블러드 메이지",
+      "en": "Blood Mage"
+    },
+    "offense": {
+      "carrier": [
+        "skill.spark",
+        "skill.comet",
+        "skill.orb-of-storms",
+        "skill.frost-bomb"
+      ],
+      "stack_source": [
+        "생명력 — Sanguimancy(99.9%)가 마나 대신 생명력으로 시전하게 만든다",
+        "출혈·부상 (Grasping Wounds 96.1% · Sunder the Flesh 87.1%)"
+      ],
+      "transfer": [
+        "skill.life-remnants",
+        "skill.cast-on-critical"
+      ],
+      "amplifier": {
+        "more": [
+          "passive.crimson-power-31223",
+          "passive.sunder-the-flesh-26383"
+        ],
+        "increased": [
+          "skill.sigil-of-power",
+          "support.magnified-area-ii"
+        ],
+        "gain": [
+          "skill.archmage",
+          "support.harmonic-remnants-ii"
+        ]
+      },
+      "clear_engine": [
+        "support.spell-cascade",
+        "skill.spark"
+      ],
+      "loop": [
+        "Sanguimancy가 생명력으로 시전 → Life Remnants(100%)가 잔류물로 생명력을 되돌림 → 재시전. 연료와 회수가 같은 자원이라 순환이 닫혀 있다",
+        "Powered by Verisium 17.4% — 워드 경유 베리시움 주입 갈래가 여기서도 관측된다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "life"
+      ],
+      "mitigation": [
+        "passive.mind-over-matter",
+        "skill.arctic-armour"
+      ],
+      "recovery": [
+        "passive.vitality-siphon-23416",
+        "skill.life-remnants"
+      ],
+      "caps_immunities": [
+        "Eldritch Battery 40.0%"
+      ],
+      "weakness_accepted": [
+        "생명력이 연료라 순환이 끊기면 EHP가 곧바로 깎인다 — 회수(Life Remnants)가 단일 실패점"
+      ]
+    },
+    "coupling": {
+      "kind": "shared-resource",
+      "note": "생명력이 시전 자원·EHP·회복을 전부 겸직한다. MoM 42.5%가 마나까지 EHP로 끌어온다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "high",
+    "usage": {
+      "ascendancy_pct": 3.5,
+      "sample_characters": 4308,
+      "dominance": "Life Remnants 100.0% — 이 어센던시 전원이 같은 순환을 쓴다. Spark 52.9% · Comet 49.3%",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.spark"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.comet"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.orb-of-storms"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.life-remnants"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.cast-on-critical"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.sigil-of-power"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.powered-by-verisium"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.sanguimancy-8415"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.grasping-wounds-56162"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.crimson-power-31223"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.vitality-siphon-23416"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.mind-over-matter"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

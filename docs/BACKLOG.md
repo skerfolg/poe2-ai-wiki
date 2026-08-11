@@ -542,7 +542,9 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
 ### 〔#67 = 제안 H〕 **Build 엔티티 실체화** — 시즌 메타를 8축으로 원자화한다
 
 - **상태**: `[빌드]` 세션 2026-08-11 발의(2차 이관) · **구조 3건 사용자 승인 후 구현 완료
-  (2026-08-11)** · 1차 데이터 8종 수록 · 인사이트 후보는 검증분만 반영, 나머지 대기
+  (2026-08-11)** · 인사이트 후보는 검증분만 반영, 나머지 대기
+- **코퍼스 진척**: 1차 8종(가이드) → 3차 16종(래더 8종 추가) → **4차 33종**
+  (0.5 **23/23 어센던시 전량** 28종 · 0.4 상위 5강 5종). 아래 「4차」 절.
 - **구현분**: `build.schema.json` 신설 · 어휘에 `uses`(14종째)·`COMMUNITY` 추가 ·
   `store._TYPE_SCHEMA`에 Build 등록 · 8종 수록 · `tests/unit/test_build_entity.py`.
   실측 확인: `related("skill.ghost-dance")` → 빌드 **4건** 역방향 조회(보고된 "4/8 지배"가
@@ -629,11 +631,18 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
   `pain-attunement` → **3건**. 마지막 것이 중요하다 — **「로우라이프는 미탐사」가
   아니라는 것이 이제 질의로 반박된다**(durable 후보 ⑤의 뉘앙스 수정 근거).
 
-##### 0.4 코퍼스는 Build 레코드로 만들지 않는다 (판단 위임분)
+##### 0.4 코퍼스는 Build 레코드로 만들지 않는다 (판단 위임분) — ⚠ **4차에서 뒤집힘**
 
 원장의 0.4 데이터는 **클래스 점유·스킬 채택률 집계**이지 개별 빌드의 구성이 아니다.
 그것으로 Build 레코드를 만들면 8축 중 ①②③이 **지어낸 값**이 된다 — 이 엔티티가
 막으려던 바로 그것이다. 대신 **시즌 단층 관찰**을 season 인사이트 재료로 남긴다:
+
+> **뒤집힌 사유(4차, 2026-08-11)**: 이 판단의 전제는 "0.4는 **전역 집계뿐**이고 클래스
+> 드릴다운이 0건"이었다. 4차에서 0.4 상위 5강 드릴다운을 실제로 수집해 전제가 사라졌다
+> — 0.5 레코드가 딛고 선 것과 **같은 종류의 근거**(어센던시별 채택률)가 0.4에도 생겼다.
+> 다만 원래 우려는 유효하므로 두 가지를 레코드에 박았다: `facets.derivation`("한 캐릭터의
+> 구성이 아니라 사용률 분포이고 축 배치는 그 분포의 해석") · `facets.archetype_convergence`
+> (high/medium/low — 주력이 흩어진 어센던시를 단일 빌드로 오독하지 않게).
 
 - 신설 2종(MA·SW)이 즉시 **32%** 점유 · Gemling 리워크 0.8→15.7%
 - 구 상위 전멸: BM 17→3.5 · Oracle 16→5.5 · PF 12→2 · Invoker 5→0.5 · Amazon 4→1
@@ -643,6 +652,71 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
   밀림?). ⚠ `[빌드]`의 후보 C(생명력 스택) 생사 판정에 **0.5 패치노트 BM 항목 확인이 선행**
 - 자동화 너프 실증: Triggered 40%(0.4) → 28%(0.5)
 - 존속·성장: HoI 20→24% · Heart of the Well 49→62% / 약화: Comet 27→15 · Headhunter 48%→탑12 밖
+
+#### 4차 — 시즌 커버리지 완성 (2026-08-11, `[엔진]` 자체 수집)
+
+**0.5는 23/23 어센던시 전량 드릴다운 완료**(이전 8종 → 신규 15종). 0.4는 상위 5강.
+**코퍼스 16 → 33종**(0.5 28 · 0.4 5).
+
+##### 수집법 정정 — 기존 절차는 **상위 4~8행만** 긁고 있었다
+
+3차까지 쓴 `innerText` 추출은 사이드바가 **react-window 가상화 목록**이라 화면에 보이는
+행만 DOM에 있다 — 절마다 상위 4~8개에서 잘리고, 표시값도 정수로 반올림돼 있었다.
+정본 경로는 **React fiber**에서 원본 배열을 꺼내는 것이다:
+
+```js
+// div.filter-list → 조상 fiber의 memoizedProps {title, items:[{key, percentage}]}
+const fk = Object.keys(el).find(x => x.startsWith('__reactFiber'));
+let n = el[fk]; while (n && !(n.memoizedProps?.items && n.memoizedProps.title)) n = n.return;
+```
+
+전량(예: Items 268건) + 소수점 정확도로 나온다. 리그 슬러그는 `runesofaldur`(0.5)·`vaal`(0.4).
+⚠ **0.4 스냅샷엔 `Spirit Skills` 절이 없다**(7절, 0.5는 8절) — 정신력 스킬이 Main Skills에
+섞여 나오므로 **0.4↔0.5 주력 점유 직접 비교는 분모가 다르다.**
+
+##### 실측이 뒤집은 것
+
+| 기존 기록 | 실측 |
+|---|---|
+| `0-5-lifestacker-ball-lightning-chayula`의 `ascendancy_pct: 0.0` | **1.4%**(1,741명). 0.0은 오기 — "탑10 밖"을 0으로 적었다 |
+| 후보 B 베리시움 축 "메타 사용 0" | **Powered by Verisium이 3개 어센던시에서 주력 상위 12위 안** — Infernalist 19.6% · Blood Mage 17.4% · Shaman 11.0%. `related`로 반박된다 |
+| "0.5에서 생명력 축이 **비었다**" | **비지 않았다.** Blood Mage는 점유만 줄었고 구조는 그대로다 — Sanguimancy **99.9%** · Life Remnants **100%**. 빈 것은 축이 아니라 **인구**다 |
+| `0-5-poisonburst-pathfinder`가 Pathfinder를 대표 | 독은 어센던시 내 **소수 갈래**(12% 안팎). 지배는 냉기 활(Ice Shot 62.7%) |
+
+##### season 인사이트 재료 (4차 갱신)
+
+- **축 교체 vs 인구 이동은 다르다.** 살아남은 어센던시가 두 갈래로 갈린다 —
+  (a) **축을 갈아탄 것**: Pathfinder 독→냉기 활(Overwhelming Toxicity 72.0→17.1) ·
+  Shaman 변신 근접→아크메이지 주문(Archmage 0.4 미노출→54.8) ·
+  (b) **구성이 그대로인 것**: Titan(코어 노드·무기·전령 전부 유지, 점유만 5.9→3.6) ·
+  Blood Mage(Sanguimancy 99.9% 유지). **"몰락"으로 뭉뚱그린 기존 기록이 이 둘을 섞고 있었다.**
+- **자동화는 균일하게 깎이지 않았다.** 전역 Triggered 40→28%지만 분포는 양극단이다 —
+  Stormweaver 92.8 · Infernalist 76.7 · Blood Mage 62.1 · Chronomancer 62.3 **vs**
+  Witchhunter 1.2 · Tactician 1.4 · Amazon 4.5 · Pathfinder 9.4. 캐스터는 자동화가
+  기본값이고 무기 기반은 거의 안 쓴다. 토템은 반대 축(Warbringer 44.4 · Witchhunter 31.0).
+- **결합 4유형이 어센던시 설계와 붙어 있다.** `defense-action-feeds-offense`는 방패·분노
+  계열(Smith of Kitava·Tactician)에, `shared-resource`는 자원 전환 노드가 있는 곳
+  (Sanguimancy·Pyromantic Pact·Blood Magic·EB+MoM+Archmage)에 몰린다 — 임의 분포가 아니다.
+- **Heart of the Well 49→62%**(전 클래스 48~80%)·**Zarokh's Gift**가 0.5 각인 1위(전역 22%,
+  Pathfinder 52.5%)로 신설 진입. 0.4 각인 1위 **Fast Metabolism 17.4%**는 탑12 밖으로.
+- **Headhunter 47.8%(0.4) → 탑12 밖(0.5)**. 0.4 상위 4강 전부가 48~62%로 들던 물건이었다.
+- ⚠ **생명력 축 사인은 여전히 미규명이지만 질문이 바뀐다** — "왜 축이 죽었나"가 아니라
+  **"왜 사람이 떠났나"**다(구조는 100% 유지 중). 0.5 패치노트 BM 항목 확인은 그대로 선행 과제.
+
+##### 부수 결함 2건 (이 작업이 드러냄)
+
+1. **〔해소〕 Build 레코드가 한글 어센던시명으로 안 찾혔다.** 인덱스는
+   `data.ascendancy_name`으로만 한/영을 잇는데(`index/build.py:_ascendancy_key`) Build
+   레코드엔 그 필드가 없어 **영문으로만** 찾혔다. `test_전직은_어느_표기로도_찾힌다`가
+   0.4/0.5 Blood Mage 레코드가 들어오자마자 잡아냈다 — 기존 16종도 같은 상태였는데
+   테스트가 보는 전직이 아니라 조용했다. 33종 전부에 `ascendancy_name` 부착으로 해소.
+2. **〔미해소〕 `Abyssal Lich`에 한글명이 없다.** KB의 다른 전직 코드는 전부
+   `ascendancy_name.{ko,en}`을 갖는데 `Abyssal Lich`만 없어 이 어센던시의 레코드는
+   한글로 안 찾힌다. 지어내면 정본에 미검증 명칭이 박히므로 **사용자 판정 대기**.
+   ⚠ 함께 볼 것: poe.ninja는 0.5에서 `Lich`(2%)와 `Abyssal Lich`(2%)를 **별개**로 세는데
+   두 드릴다운의 코어 노드가 겹친다(Crystalline Phylactery·Soulless Form). KB엔
+   `Lich`·`Witch3`·`Abyssal Lich` 세 코드가 있고 앞의 둘은 한글명이 똑같이 "리치"다 —
+   **세 코드의 관계가 미정리**다.
 
 #### 인사이트 승격 후보 — `[엔진]` 검증 결과 (2026-08-11)
 

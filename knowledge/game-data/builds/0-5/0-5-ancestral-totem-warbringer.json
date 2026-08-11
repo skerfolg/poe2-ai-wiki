@@ -1,0 +1,157 @@
+{
+  "id": "build.0-5-ancestral-totem-warbringer",
+  "type": "Build",
+  "name": {
+    "ko": "조상 토템 워브링어",
+    "en": "Ancestral Totem Warbringer"
+  },
+  "tags": [
+    "totem",
+    "grenade",
+    "physical",
+    "life-cost"
+  ],
+  "data": {
+    "class_name": "Warrior",
+    "ascendancy": "Warbringer",
+    "ascendancy_name": {
+      "ko": "워브링어",
+      "en": "Warbringer"
+    },
+    "offense": {
+      "carrier": [
+        "skill.ancestral-spirits",
+        "skill.cluster-grenade",
+        "skill.voltaic-grenade",
+        "skill.infernal-cry"
+      ],
+      "stack_source": [
+        "토템 수 — 대리 시전체가 곧 딜 배수다",
+        "생명력 (Blood Magic 63.7%가 시전 비용을 생명력으로 돌린다)"
+      ],
+      "transfer": [
+        "skill.ancestral-spirits",
+        "skill.mortar-cannon"
+      ],
+      "amplifier": {
+        "more": [
+          "support.fire-attunement"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "support.rapid-attacks-ii"
+        ],
+        "gain": [
+          "skill.herald-of-ash"
+        ]
+      },
+      "clear_engine": [
+        "skill.cluster-grenade",
+        "skill.voltaic-grenade"
+      ],
+      "loop": [
+        "Ancestral Spirits가 토템을 세우고 토템이 대신 때린다 — 시전자는 자리를 잡는 데만 쓰인다",
+        "Warcaller's Bellow(29.4%)·Answered Call(51.3%)이 외침을 토템 유지와 엮는다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "armour",
+        "life"
+      ],
+      "mitigation": [
+        "passive.jade-heritage-6127",
+        "passive.wooden-wall-40915",
+        "passive.iron-reflexes"
+      ],
+      "recovery": [
+        "skill.time-of-need"
+      ],
+      "caps_immunities": [
+        "Blood Magic 63.7% — 마나 축 포기가 이 어센던시의 기본값"
+      ],
+      "weakness_accepted": [
+        "토템이 부서지면 딜이 0이 된다 — 재설치 시간이 곧 공백"
+      ]
+    },
+    "coupling": {
+      "kind": "shared-resource",
+      "note": "Blood Magic이 생명력을 시전 자원 겸 EHP로 묶는다. 토템 유지 비용이 곧 EHP 지출이다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "medium",
+    "usage": {
+      "ascendancy_pct": 0.5,
+      "sample_characters": 647,
+      "dominance": "Totem 44.4%로 리그 최고 — 소수 어센던시지만 토템 축은 여기 집중돼 있다. Ancestral Spirits 48.1%",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.ancestral-spirits"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.cluster-grenade"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.voltaic-grenade"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.infernal-cry"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.mortar-cannon"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.time-of-need"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.anvils-weight-58704"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.jade-heritage-6127"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.blood-magic"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.answered-call-39411"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.wooden-wall-40915"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.iron-reflexes"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

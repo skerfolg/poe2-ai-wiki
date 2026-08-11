@@ -1,0 +1,157 @@
+{
+  "id": "build.0-4-shapeshift-melee-shaman",
+  "type": "Build",
+  "name": {
+    "ko": "변신 근접 샤먼",
+    "en": "Shapeshift Melee Shaman"
+  },
+  "tags": [
+    "shapeshift",
+    "melee",
+    "physical",
+    "rage"
+  ],
+  "data": {
+    "class_name": "Druid",
+    "ascendancy": "Shaman",
+    "ascendancy_name": {
+      "ko": "샤먼",
+      "en": "Shaman"
+    },
+    "offense": {
+      "carrier": [
+        "skill.walking-calamity",
+        "skill.pounce",
+        "skill.maul",
+        "skill.furious-slam",
+        "skill.rampage"
+      ],
+      "stack_source": [
+        "분노 (Ferocious Roar 40.2% · Rage III 47.7%)",
+        "변신 형태 — 짐승 형태가 근접 스킬 묶음을 연다"
+      ],
+      "transfer": [
+        "skill.ferocious-roar",
+        "passive.avatar-of-evolution-61983"
+      ],
+      "amplifier": {
+        "more": [
+          "passive.furious-wellspring-35762",
+          "support.close-combat-ii"
+        ],
+        "increased": [
+          "support.rapid-attacks-ii",
+          "support.magnified-area-ii"
+        ],
+        "gain": [
+          "skill.herald-of-ash",
+          "skill.herald-of-ice"
+        ]
+      },
+      "clear_engine": [
+        "skill.herald-of-ice",
+        "skill.shockwave-totem"
+      ],
+      "loop": [
+        "Reactive Growth(84.4%)가 피격·교전을 재생으로 돌려 근접 유지를 만든다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "life",
+        "armour"
+      ],
+      "mitigation": [
+        "passive.iron-reflexes"
+      ],
+      "recovery": [
+        "passive.reactive-growth-58646"
+      ],
+      "caps_immunities": [
+        "CI 10.7%(소수 갈래)"
+      ],
+      "weakness_accepted": [
+        "원거리 대응이 없다 — 붙어야만 딜이 나온다"
+      ]
+    },
+    "coupling": {
+      "kind": "defense-action-feeds-offense",
+      "note": "0.5에서 같은 어센던시가 **주문·마나(Archmage 54.8%)로 완전 전향**했다. 변신 근접은 Maul 22.7% 수준의 잔재로만 남았다 — 축 교체의 두 번째 사례"
+    }
+  },
+  "facets": {
+    "season": "0.4",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "high",
+    "usage": {
+      "ascendancy_pct": 7.6,
+      "sample_characters": 9486,
+      "dominance": "Walking Calamity 48.7% · Pounce 47.4% · Maul 45.1% · Furious Slam 41.8%. Triggered 5.4%로 리그 최저 — 완전 수동 근접",
+      "basis": "https://poe.ninja/poe2/builds/vaal (Fate of the Vaal, 124,057 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.walking-calamity"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.pounce"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.maul"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.furious-slam"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ferocious-roar"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.shockwave-totem"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.reactive-growth-58646"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.druidic-champion-56933"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.furious-wellspring-35762"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.avatar-of-evolution-61983"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.iron-reflexes"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/vaal (Fate of the Vaal, 124,057 캐릭터)",
+      "patch": "0.4",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

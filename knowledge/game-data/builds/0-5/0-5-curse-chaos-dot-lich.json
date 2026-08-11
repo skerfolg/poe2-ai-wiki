@@ -1,0 +1,157 @@
+{
+  "id": "build.0-5-curse-chaos-dot-lich",
+  "type": "Build",
+  "name": {
+    "ko": "저주 카오스 지속피해 리치",
+    "en": "Curse Chaos-DoT Lich"
+  },
+  "tags": [
+    "chaos",
+    "dot",
+    "curse",
+    "minion"
+  ],
+  "data": {
+    "class_name": "Witch",
+    "ascendancy": "Lich",
+    "ascendancy_name": {
+      "ko": "리치",
+      "en": "Lich"
+    },
+    "offense": {
+      "carrier": [
+        "skill.essence-drain",
+        "skill.contagion",
+        "skill.dark-effigy",
+        "skill.chaos-bolt"
+      ],
+      "stack_source": [
+        "저주 중첩 — Whispers of Doom(46.6%)이 저주 한도를 늘리고 Blasphemy(72.9%)가 상시화",
+        "시듦 (Withering Presence 42.3%)"
+      ],
+      "transfer": [
+        "skill.dark-effigy",
+        "skill.blasphemy"
+      ],
+      "amplifier": {
+        "more": [
+          "support.heightened-curse",
+          "passive.rupture-the-soul-23352"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "support.ritualistic-curse"
+        ],
+        "gain": [
+          "skill.pain-offering"
+        ]
+      },
+      "clear_engine": [
+        "skill.contagion"
+      ],
+      "loop": [
+        "Blasphemy가 저주를 상시 유지 → Dark Effigy가 저주 걸린 대상을 추가로 때린다 — 저주가 디버프이자 딜 담체를 겸한다",
+        "Contagion이 죽은 대상에서 지속피해를 확산시켜 클리어를 만든다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "es"
+      ],
+      "mitigation": [
+        "passive.soulless-form-33570",
+        "skill.temporal-chains"
+      ],
+      "recovery": [
+        "skill.convalescence",
+        "skill.essence-drain"
+      ],
+      "caps_immunities": [
+        "Crystalline Phylactery 73.7%",
+        "Eternal Life 63.7% — ES가 있는 동안 생명력이 변하지 않는다"
+      ],
+      "weakness_accepted": [
+        "즉발 단일 대상 딜이 얇다 — 지속피해가 쌓일 시간을 요구한다"
+      ]
+    },
+    "coupling": {
+      "kind": "offense-feeds-defense",
+      "note": "Essence Drain(35.8%)이 피해를 회복으로 돌린다. Eternal Life 63.7%는 로우라이프 고정 수단이지만 Pain Attunement가 11.1%뿐이라 여기선 **딜 페이오프가 아니라 방어 고정**으로 쓰이고 있다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "medium",
+    "usage": {
+      "ascendancy_pct": 1.9,
+      "sample_characters": 2306,
+      "dominance": "Despair 40.2% · Contagion 36.6% · Essence Drain 35.8%가 한 묶음. Blasphemy 72.9%가 저주를 오라로 상시화",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.essence-drain"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.contagion"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.dark-effigy"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.despair"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.blasphemy"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.withering-presence"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.pain-offering"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.crystalline-phylactery-17788"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.soulless-form-33570"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.eternal-life-28431"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.whispers-of-doom-47759"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.necromantic-conduit-26085"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

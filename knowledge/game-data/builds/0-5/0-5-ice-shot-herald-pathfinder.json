@@ -1,0 +1,156 @@
+{
+  "id": "build.0-5-ice-shot-herald-pathfinder",
+  "type": "Build",
+  "name": {
+    "ko": "얼음 화살 전령 패스파인더",
+    "en": "Ice Shot Herald Pathfinder"
+  },
+  "tags": [
+    "cold",
+    "bow",
+    "herald",
+    "shatter"
+  ],
+  "data": {
+    "class_name": "Ranger",
+    "ascendancy": "Pathfinder",
+    "ascendancy_name": {
+      "ko": "패스파인더",
+      "en": "Pathfinder"
+    },
+    "offense": {
+      "carrier": [
+        "skill.ice-shot",
+        "skill.tornado-shot",
+        "skill.barrage",
+        "skill.bow-shot"
+      ],
+      "stack_source": [
+        "동결 — 얼린 적을 산산조각내는 것이 스택이자 방아쇠다",
+        "투사체 수 (Tornado Shot·Barrage)"
+      ],
+      "transfer": [
+        "skill.herald-of-ice",
+        "skill.freezing-mark"
+      ],
+      "amplifier": {
+        "more": [
+          "support.concentrated-area"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "support.overabundance-ii"
+        ],
+        "gain": [
+          "support.elemental-armament-ii",
+          "skill.herald-of-ice"
+        ]
+      },
+      "clear_engine": [
+        "skill.herald-of-ice",
+        "skill.tornado-shot"
+      ],
+      "loop": [
+        "Ice Shot이 동결 → 처치 시 Herald of Ice가 산산조각 폭발 → 그 폭발이 다음 적을 얼린다. 클리어가 스스로를 먹여 살리는 고리"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "evasion",
+        "life"
+      ],
+      "mitigation": [
+        "skill.wind-dancer",
+        "skill.ghost-dance"
+      ],
+      "recovery": [
+        "skill.eternal-rage"
+      ],
+      "caps_immunities": [
+        "Path Seeker 97.4% · Relentless Pursuit 94.8% — 플라스크 기반 상태이상 해제"
+      ],
+      "weakness_accepted": [
+        "동결이 안 걸리는 대상(보스 내성)에서 클리어 고리가 끊긴다"
+      ]
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": "회피·유령 춤(68.3%)이 방어를 맡고 딜과 자원을 나누지 않는다. 0.5 Pathfinder는 독(⑥ 순환형)에서 전령 연쇄(⑤ 클리어형)로 축을 갈아탔다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "high",
+    "usage": {
+      "ascendancy_pct": 1.8,
+      "sample_characters": 2203,
+      "dominance": "Ice Shot 62.7% · Tornado Shot 59.5% · Herald of Ice 59.7%가 한 묶음. 0.4의 독 파인더는 12% 안팎으로 밀렸다(Overwhelming Toxicity 72.0%→17.1%)",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.ice-shot"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.tornado-shot"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.barrage"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.freezing-mark"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.wind-dancer"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.path-seeker-16433"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.relentless-pursuit-24868"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.path-of-the-sorceress-12795"
+    },
+    {
+      "rel": "uses",
+      "target": "item.heart-of-the-well"
+    },
+    {
+      "rel": "uses",
+      "target": "item.nascent-hope"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

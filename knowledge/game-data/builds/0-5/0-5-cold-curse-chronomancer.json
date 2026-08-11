@@ -1,0 +1,160 @@
+{
+  "id": "build.0-5-cold-curse-chronomancer",
+  "type": "Build",
+  "name": {
+    "ko": "냉기 저주 크로노맨서",
+    "en": "Cold Curse Chronomancer"
+  },
+  "tags": [
+    "cold",
+    "spell",
+    "curse",
+    "cooldown"
+  ],
+  "data": {
+    "class_name": "Sorceress",
+    "ascendancy": "Chronomancer",
+    "ascendancy_name": {
+      "ko": "크로노맨서",
+      "en": "Chronomancer"
+    },
+    "offense": {
+      "carrier": [
+        "skill.comet",
+        "skill.ice-nova",
+        "skill.frost-bomb",
+        "skill.frostbolt"
+      ],
+      "stack_source": [
+        "쿨다운 회복 — Quicksand Hourglass(76.7%)+CDR II(93.3%)로 **시간 자체가 스택 원천**이다",
+        "저주 중첩 (Whispers of Doom 52.3%)"
+      ],
+      "transfer": [
+        "skill.frost-wall",
+        "skill.cast-on-elemental-ailment",
+        "skill.cast-on-critical"
+      ],
+      "amplifier": {
+        "more": [
+          "support.heightened-curse",
+          "passive.apex-of-the-moment-49049"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "skill.sigil-of-power"
+        ],
+        "gain": [
+          "support.spell-cascade"
+        ]
+      },
+      "clear_engine": [
+        "support.spell-cascade",
+        "skill.ice-nova"
+      ],
+      "loop": [
+        "Now and Again(58.2%)·Apex of the Moment(55.0%)이 쿨다운을 되돌려 Comet을 재시전 — 쿨다운 회복이 딜 증폭기와 같은 역할을 한다",
+        "Frost Wall이 투사체를 다중 히트로 쪼갠다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "es",
+        "life"
+      ],
+      "mitigation": [
+        "passive.phased-form-28153",
+        "skill.temporal-chains"
+      ],
+      "recovery": [
+        "skill.temporal-rift",
+        "skill.convalescence"
+      ],
+      "caps_immunities": [
+        "CI 전환 15.9%",
+        "Time Freeze 26.7% — 행동 정지로 피격 자체를 지운다"
+      ],
+      "weakness_accepted": [
+        "쿨다운에 묶여 순간 화력의 상한이 고정된다"
+      ]
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": "Temporal Rift(28.8%)는 상태를 되감아 회복하는 방어 장치이고 딜과 자원을 나누지 않는다. 다만 쿨다운 회복 투자는 공수 양쪽(Comet 재시전·Time Freeze 재사용)에 동시에 얹힌다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "high",
+    "usage": {
+      "ascendancy_pct": 1.5,
+      "sample_characters": 1825,
+      "dominance": "Frost Bomb 58.0% · Comet 55.2% · Frost Wall 51.7%. Cooldown Recovery II 93.3%가 어센던시의 정체를 드러낸다",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.comet"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ice-nova"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.frost-bomb"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.frost-wall"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.time-freeze"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.temporal-rift"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.blasphemy"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.phased-form-28153"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.quicksand-hourglass-10731"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.now-and-again-10987"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.apex-of-the-moment-49049"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.whispers-of-doom-47759"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

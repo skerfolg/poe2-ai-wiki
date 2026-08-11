@@ -1,0 +1,153 @@
+{
+  "id": "build.0-4-poison-bow-pathfinder",
+  "type": "Build",
+  "name": {
+    "ko": "독 활 패스파인더",
+    "en": "Poison Bow Pathfinder"
+  },
+  "tags": [
+    "poison",
+    "chaos",
+    "bow",
+    "dot"
+  ],
+  "data": {
+    "class_name": "Ranger",
+    "ascendancy": "Pathfinder",
+    "ascendancy_name": {
+      "ko": "패스파인더",
+      "en": "Pathfinder"
+    },
+    "offense": {
+      "carrier": [
+        "skill.poisonburst-arrow",
+        "skill.toxic-growth",
+        "skill.gas-arrow",
+        "skill.vine-arrow"
+      ],
+      "stack_source": [
+        "독 중첩 — 히트마다 중첩이 쌓이고 중첩 수가 곧 지속피해다"
+      ],
+      "transfer": [
+        "다리 없음 — 히트가 곧 독 강도다. Herald of Plague(70.7%)가 확산만 맡는다"
+      ],
+      "amplifier": {
+        "more": [
+          "support.deadly-poison-ii",
+          "support.poison-iii",
+          "passive.overwhelming-toxicity-29074"
+        ],
+        "increased": [
+          "support.concentrated-area",
+          "support.magnified-area-ii"
+        ],
+        "gain": [
+          "support.bursting-plague"
+        ]
+      },
+      "clear_engine": [
+        "skill.herald-of-plague",
+        "skill.gas-arrow"
+      ],
+      "loop": [
+        "Gas Arrow가 구름을 깔고 Poisonburst Arrow가 점화 → Herald of Plague가 처치 시 독을 확산 → 다음 무리로 이어진다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "evasion",
+        "life"
+      ],
+      "mitigation": [
+        "skill.wind-dancer",
+        "skill.ghost-dance"
+      ],
+      "recovery": [],
+      "caps_immunities": [
+        "Relentless Pursuit 95.8% · Path Seeker 92.9% — 플라스크 상시화로 상태이상을 지운다"
+      ],
+      "weakness_accepted": [
+        "즉발 딜이 없다 — 중첩이 쌓이기 전에 죽여야 하는 구간에서 무력하다"
+      ]
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": "0.5에서 이 아키타입은 12% 수준으로 밀리고 같은 어센던시가 냉기 활(Ice Shot 62.7%)로 갈아탔다 — 어센던시는 살아남았지만 **축이 교체된** 사례"
+    }
+  },
+  "facets": {
+    "season": "0.4",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "high",
+    "usage": {
+      "ascendancy_pct": 12.1,
+      "sample_characters": 15072,
+      "dominance": "Toxic Growth 69.1% · Poisonburst Arrow 69.1% · Gas Arrow 67.5% · Vine Arrow 59.2%가 한 묶음으로 움직인다. Overwhelming Toxicity 72.0%",
+      "basis": "https://poe.ninja/poe2/builds/vaal (Fate of the Vaal, 124,057 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.poisonburst-arrow"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.toxic-growth"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.gas-arrow"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.vine-arrow"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.wind-dancer"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.overwhelming-toxicity-29074"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.relentless-pursuit-24868"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.path-seeker-16433"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.running-assault-61991"
+    },
+    {
+      "rel": "uses",
+      "target": "item.plaguefinger"
+    },
+    {
+      "rel": "uses",
+      "target": "item.headhunter"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/vaal (Fate of the Vaal, 124,057 캐릭터)",
+      "patch": "0.4",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

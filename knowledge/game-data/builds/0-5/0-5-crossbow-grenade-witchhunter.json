@@ -1,0 +1,161 @@
+{
+  "id": "build.0-5-crossbow-grenade-witchhunter",
+  "type": "Build",
+  "name": {
+    "ko": "석궁 수류탄 위치헌터",
+    "en": "Crossbow Grenade Witchhunter"
+  },
+  "tags": [
+    "crossbow",
+    "grenade",
+    "elemental",
+    "manual"
+  ],
+  "data": {
+    "class_name": "Mercenary",
+    "ascendancy": "Witchhunter",
+    "ascendancy_name": {
+      "ko": "위치헌터",
+      "en": "Witchhunter"
+    },
+    "offense": {
+      "carrier": [
+        "skill.explosive-grenade",
+        "skill.cluster-grenade",
+        "skill.flash-grenade",
+        "skill.oil-grenade",
+        "skill.fragmentation-rounds",
+        "skill.galvanic-shards",
+        "skill.permafrost-bolts"
+      ],
+      "stack_source": [
+        "탄종 전환 — 장전한 탄이 곧 피해 유형이다 (Elemental Armament II 90.4%)",
+        "약화·표식 (Freezing Mark 29.9%)"
+      ],
+      "transfer": [
+        "다리 없음 — 발사가 곧 피해다. 수류탄만 기폭 지연을 거친다"
+      ],
+      "amplifier": {
+        "more": [
+          "support.concentrated-area",
+          "support.elemental-focus"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "passive.pitiless-killer-61973"
+        ],
+        "gain": [
+          "support.elemental-armament-ii",
+          "skill.herald-of-ash"
+        ]
+      },
+      "clear_engine": [
+        "skill.herald-of-thunder",
+        "skill.herald-of-ice",
+        "skill.mortar-cannon"
+      ],
+      "loop": [
+        "장전→발사→재장전이 수동 순환. Triggered 1.2%로 리그 최저 — 자동화를 쓰지 않는 아키타입이다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "evasion",
+        "life"
+      ],
+      "mitigation": [
+        "skill.sorcery-ward",
+        "skill.wind-dancer",
+        "item.hyrris-ire"
+      ],
+      "recovery": [
+        "skill.eternal-rage"
+      ],
+      "caps_immunities": [
+        "Sorcery Ward 92.4% — 주문 피해 전용 경감을 사실상 전원이 든다"
+      ],
+      "weakness_accepted": [
+        "에너지 실드·방어도를 버리고 회피+워드에 건다"
+      ]
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": "Mortar Cannon 토템(33.4%)으로 Totem 31.0%가 나오지만 그건 딜 분산이지 방어와 엮이지 않는다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "medium",
+    "usage": {
+      "ascendancy_pct": 1.9,
+      "sample_characters": 2343,
+      "dominance": "무기가 석궁 87.2%로 고정. 주력은 수류탄·탄종으로 갈리지만 Explosive Grenade 51.0%가 최다",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.explosive-grenade"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.cluster-grenade"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.galvanic-shards"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-thunder"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.sorcery-ward"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.wind-dancer"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.mortar-cannon"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.obsessive-rituals-38601"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.ceremonial-ablution-6935"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.pitiless-killer-61973"
+    },
+    {
+      "rel": "uses",
+      "target": "item.hyrris-ire"
+    },
+    {
+      "rel": "uses",
+      "target": "item.laviangas-spirits"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

@@ -1,0 +1,154 @@
+{
+  "id": "build.0-5-spark-comet-crit-trigger-stormweaver",
+  "type": "Build",
+  "name": {
+    "ko": "스파크·혜성 치명타 트리거 스톰위버",
+    "en": "Spark/Comet Crit-Trigger Stormweaver"
+  },
+  "tags": [
+    "lightning",
+    "cold",
+    "spell",
+    "trigger"
+  ],
+  "data": {
+    "class_name": "Sorceress",
+    "ascendancy": "Stormweaver",
+    "ascendancy_name": {
+      "ko": "스톰위버",
+      "en": "Stormweaver"
+    },
+    "offense": {
+      "carrier": [
+        "skill.spark",
+        "skill.comet",
+        "skill.frost-bomb"
+      ],
+      "stack_source": [
+        "치명타 확률 (Pinpoint Critical 85.5%) — 트리거 발동률이 곧 딜률",
+        "마나 회수 (Mana Remnants 94.8%)"
+      ],
+      "transfer": [
+        "skill.cast-on-critical",
+        "skill.siphon-elements",
+        "skill.cast-on-elemental-ailment"
+      ],
+      "amplifier": {
+        "more": [
+          "passive.refracted-infusion-42522",
+          "원소 주입 소비 보너스"
+        ],
+        "increased": [
+          "skill.sigil-of-power",
+          "support.magnified-area-ii"
+        ],
+        "gain": [
+          "skill.archmage",
+          "skill.elemental-conflux"
+        ]
+      },
+      "clear_engine": [
+        "skill.elemental-storm",
+        "support.spell-cascade"
+      ],
+      "loop": [
+        "Frost Bomb·Orb of Storms 시전 → 치명타 → Cast on Critical → Spark·Comet 자동 시전",
+        "Siphon Elements(83.8%)가 상태이상에서 주입 생성 → 주입 소비 스킬이 회수"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "es",
+        "mana"
+      ],
+      "mitigation": [
+        "passive.mind-over-matter"
+      ],
+      "recovery": [
+        "skill.convalescence"
+      ],
+      "caps_immunities": [
+        "CI 전환 41.8%",
+        "Eldritch Battery 31.1%"
+      ],
+      "weakness_accepted": [
+        "생명력 포기(CI 갈래) — 물리 타격 완화 수단이 없다"
+      ]
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": "주 갈래(CI 41.8%)는 분리형이다. MoM 36.9% + Archmage 37.9%를 함께 쓰는 부분집합만 마나가 딜·EHP를 겸직하는 shared-resource가 된다 — 한 어센던시 안에 두 결합형이 공존한다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "high",
+    "usage": {
+      "ascendancy_pct": 4.7,
+      "sample_characters": 5779,
+      "dominance": "Spark 90.3% · Comet 84.7% · Frost Bomb 83.0%로 주력 3종이 수렴. Triggered 92.8%",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.spark"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.comet"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.frost-bomb"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.cast-on-critical"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.siphon-elements"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.archmage"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.sigil-of-power"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.chaos-inoculation"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.mind-over-matter"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.storms-recollection-49189"
+    },
+    {
+      "rel": "uses",
+      "target": "item.maligaros-virtuosity"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

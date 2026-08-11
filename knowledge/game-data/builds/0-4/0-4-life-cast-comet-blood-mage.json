@@ -1,0 +1,158 @@
+{
+  "id": "build.0-4-life-cast-comet-blood-mage",
+  "type": "Build",
+  "name": {
+    "ko": "생명력 시전 혜성 블러드 메이지",
+    "en": "Life-Cast Comet Blood Mage"
+  },
+  "tags": [
+    "cold",
+    "lightning",
+    "spell",
+    "life-cost",
+    "trigger"
+  ],
+  "data": {
+    "class_name": "Witch",
+    "ascendancy": "Blood Mage",
+    "ascendancy_name": {
+      "ko": "블러드 메이지",
+      "en": "Blood Mage"
+    },
+    "offense": {
+      "carrier": [
+        "skill.comet",
+        "skill.spark",
+        "skill.orb-of-storms",
+        "skill.living-bomb"
+      ],
+      "stack_source": [
+        "생명력 — Sanguimancy(99.9%)로 마나 대신 생명력 시전",
+        "출혈·부상 (Grasping Wounds 96.5% · Sunder the Flesh 90.9%)"
+      ],
+      "transfer": [
+        "skill.life-remnants",
+        "skill.cast-on-critical"
+      ],
+      "amplifier": {
+        "more": [
+          "passive.crimson-power-31223",
+          "passive.sunder-the-flesh-26383"
+        ],
+        "increased": [
+          "skill.sigil-of-power",
+          "support.magnified-area-ii"
+        ],
+        "gain": [
+          "support.harmonic-remnants-ii"
+        ]
+      },
+      "clear_engine": [
+        "support.spell-cascade",
+        "skill.elemental-weakness"
+      ],
+      "loop": [
+        "생명력 시전 → Life Remnants 회수 → 재시전. 0.5와 같은 고리이지만 자동화 비중이 훨씬 높았다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "life"
+      ],
+      "mitigation": [
+        "passive.mind-over-matter",
+        "skill.arctic-armour",
+        "item.the-vertex"
+      ],
+      "recovery": [
+        "passive.vitality-siphon-23416",
+        "skill.life-remnants"
+      ],
+      "caps_immunities": [
+        "Eldritch Battery 37.6%"
+      ],
+      "weakness_accepted": [
+        "생명력이 연료 — 회수가 끊기면 EHP가 곧장 깎인다"
+      ]
+    },
+    "coupling": {
+      "kind": "shared-resource",
+      "note": "생명력이 시전 자원·EHP를 겸직. 0.5에서도 이 구조 자체는 그대로 살아남았다(Sanguimancy 99.9%)"
+    }
+  },
+  "facets": {
+    "season": "0.4",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "high",
+    "usage": {
+      "ascendancy_pct": 16.9,
+      "sample_characters": 21017,
+      "dominance": "0.4 최다 어센던시. Life Remnants 76.8% · Comet 74.2% · Spark 59.8%. Triggered 85.7% · Cast on Critical 86.5%로 자동화가 표준이었다",
+      "basis": "https://poe.ninja/poe2/builds/vaal (Fate of the Vaal, 124,057 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.comet"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.spark"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.life-remnants"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.cast-on-critical"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.orb-of-storms"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.elemental-weakness"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.sanguimancy-8415"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.grasping-wounds-56162"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.sunder-the-flesh-26383"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.vitality-siphon-23416"
+    },
+    {
+      "rel": "uses",
+      "target": "item.the-vertex"
+    },
+    {
+      "rel": "uses",
+      "target": "item.headhunter"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/vaal (Fate of the Vaal, 124,057 캐릭터)",
+      "patch": "0.4",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}
