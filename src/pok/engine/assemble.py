@@ -20,6 +20,11 @@ from typing import Any
 
 from pok.artifacts.store import find_by_hash, new_build_id, record_build
 from pok.common.paths import knowledge_dir
+from pok.engine.decisions import (
+    find_design_doc,
+    rejected_but_present,
+    rejection_record_gap,
+)
 from pok.engine.integrity import spec_integrity
 from pok.engine.legality import ItemLegalityChecker, LegalityReport
 from pok.engine.provenance import missing_procedures, stale_components
@@ -143,6 +148,17 @@ def assemble(
         skipped = missing_procedures(spec_data)
         if skipped:
             manifest["skipped_procedures"] = skipped
+        # **문서의 기각 결정과 대조한다** (#58 ②). 적법성은 「기각했었나」를 모른다 —
+        # 실측: 문서가 기각한 복점관이 스펙에 남아 5슬롯 실측 전체가 그 위에서 나왔다.
+        # 문서는 슬러그로 자동 탐색한다(인자를 새로 만들면 안 넘기면 그만이다).
+        design_text = find_design_doc(slug)
+        if design_text:
+            revived = rejected_but_present(spec_data, design_text)
+            if revived:
+                manifest["rejected_but_present"] = revived
+            gap = rejection_record_gap(design_text)
+            if gap:
+                manifest["design_record_gap"] = gap
 
     # 대체 모델링 계보(B-3): 효과를 트리 노드로 재현한 주얼은 사실을 기록에 남긴다 —
     # 소켓 소모·조달 가정은 재현되지 않으므로 실측 해석 시 이 사실이 필요하다.
