@@ -1,0 +1,90 @@
+{
+  "id": "build.0-5-ring-stack-ritualist",
+  "type": "Build",
+  "name": {
+    "ko": "반지 스택 리추얼리스트",
+    "en": "Ring Stack Ritualist"
+  },
+  "tags": [
+    "ring-stacking",
+    "jewellery"
+  ],
+  "data": {
+    "class_name": "Witch",
+    "ascendancy": "Ritualist",
+    "offense": {
+      "carrier": [
+        "skill.spark",
+        "skill.blood-boil"
+      ],
+      "stack_source": [
+        "반지 슬롯 — 장신구 자체가 스택 원천"
+      ],
+      "transfer": [
+        "passive.unfurled-finger-34785 (100%) — 추가 반지 슬롯",
+        "item.kalandras-touch (50%) — 반지 복제"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [],
+        "gain": []
+      },
+      "clear_engine": [
+        "skill.blood-boil — 지속 물리 AoE"
+      ],
+      "loop": []
+    },
+    "defense": {
+      "ehp_form": [
+        "hybrid"
+      ],
+      "mitigation": [],
+      "recovery": [],
+      "caps_immunities": [],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": "아키타입이 **스킬이 아니라 장신구 슬롯**이다 — 주력이 산개(Spark 29% 최다)한 이유. 전달 장치가 장신구인 유일 사례"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map"
+    ],
+    "usage": {
+      "ascendancy_pct": 1.8,
+      "dominance": "Unfurled Finger 100% · Kalandra's Touch 50%",
+      "basis": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "note": "어센던시 점유율이다 — **이 빌드 자체의 점유가 아니다**. 아키타입이 그 어센던시 안에서 얼마나 지배적인지는 dominance를 볼 것"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.spark"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.blood-boil"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.unfurled-finger-34785"
+    },
+    {
+      "rel": "uses",
+      "target": "item.kalandras-touch"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 가이드가 아니라 **실제 캐릭터 집계**다"
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "id": "build.0-5-lowlife-caster-abyssal-lich",
+  "type": "Build",
+  "name": {
+    "ko": "로우라이프 캐스터 심연의 리치",
+    "en": "Low-Life Caster Abyssal Lich"
+  },
+  "tags": [
+    "low-life",
+    "chaos",
+    "minion"
+  ],
+  "data": {
+    "class_name": "Witch",
+    "ascendancy": "Abyssal Lich",
+    "offense": {
+      "carrier": [
+        "skill.entangle",
+        "skill.bonestorm"
+      ],
+      "stack_source": [
+        "로우라이프 상태"
+      ],
+      "transfer": [
+        "passive.pain-attunement (51%) · support.execute-iii (61%) — 로우라이프 곱연산 콤보의 실사용 클래스"
+      ],
+      "amplifier": {
+        "more": [
+          "passive.pain-attunement",
+          "support.execute-iii"
+        ],
+        "increased": [],
+        "gain": []
+      },
+      "clear_engine": [
+        "해골 소환"
+      ],
+      "loop": []
+    },
+    "defense": {
+      "ehp_form": [
+        "es"
+      ],
+      "mitigation": [],
+      "recovery": [],
+      "caps_immunities": [
+        "passive.soulless-form-33570 (72%)",
+        "⚠ 로우라이프 공급이 **점유·희생이 아니다** — `영원한 생`(70%)의 「ES 있는 동안 생명력 불변」이 로우라이프를 **영구 고정**한다. 기존 공급 지도에 없던 3번째 경로"
+      ],
+      "weakness_accepted": [
+        "생명력 풀 포기"
+      ]
+    },
+    "coupling": {
+      "kind": "offense-feeds-defense",
+      "note": "로우라이프 상태가 딜 배수(PA·Execute III)이자 ES 운용의 전제다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "boss"
+    ],
+    "usage": {
+      "ascendancy_pct": 1.8,
+      "dominance": "Crystalline Phylactery 96% · 영원한 생 70% · Execute III 61% · Pain Attunement 51%",
+      "basis": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "note": "어센던시 점유율이다 — **이 빌드 자체의 점유가 아니다**. 아키타입이 그 어센던시 안에서 얼마나 지배적인지는 dominance를 볼 것"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.entangle"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.bonestorm"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.pain-attunement"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.crystalline-phylactery-17788"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.soulless-form-33570"
+    },
+    {
+      "rel": "uses",
+      "target": "support.execute-iii"
+    },
+    {
+      "rel": "uses",
+      "target": "item.the-fall-of-the-axe"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds (Runes of Aldur, 124,254 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 가이드가 아니라 **실제 캐릭터 집계**다"
+    }
+  ]
+}
