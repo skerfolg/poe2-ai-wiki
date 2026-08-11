@@ -22,7 +22,7 @@ from pok.artifacts.store import find_by_hash, new_build_id, record_build
 from pok.common.paths import knowledge_dir
 from pok.engine.integrity import spec_integrity
 from pok.engine.legality import ItemLegalityChecker, LegalityReport
-from pok.engine.provenance import stale_components
+from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob import codec
 from pok.pob.buildxml import BuildSpec, to_xml
 from pok.pob.runner import PobResult, run_build
@@ -136,6 +136,13 @@ def assemble(
         stale = stale_components(spec_data)
         if stale:
             manifest["stale"] = stale
+        # **출고 시점에만** 묻는다 (#58 ④) — 탐색 중에는 안 돌린 게 정상이라 매번
+        # 물으면 소음이 된다(§0 ⑤). 규율은 이미 `skills/`에 있었고 **감지 수단만**
+        # 없었다: 실측 2026-08-11, 한 회차가 유니크 전수를 끝까지 안 돌렸고 그래서
+        # 검은화염을 포함한 유니크가 후보에 오른 적이 없었다.
+        skipped = missing_procedures(spec_data)
+        if skipped:
+            manifest["skipped_procedures"] = skipped
 
     # 대체 모델링 계보(B-3): 효과를 트리 노드로 재현한 주얼은 사실을 기록에 남긴다 —
     # 소켓 소모·조달 가정은 재현되지 않으므로 실측 해석 시 이 사실이 필요하다.

@@ -100,3 +100,39 @@ def test_a_spec_without_stamps_is_silent() -> None:
     """도장이 없는 옛 스펙이 갑자기 경고 더미가 되면 안 된다."""
     assert stale_components(_spec()) == []
     assert stale_components({"derived_from": None}) == []
+
+
+# ── 필수 절차 미이행 (백로그 #58 ④) ──
+
+
+def test_missing_unique_enumeration_is_reported() -> None:
+    """규율은 이미 `skills/`에 있었고 **감지 수단만** 없었다.
+
+    실측 2026-08-11: 한 회차가 유니크 전수를 끝까지 안 돌려 검은화염을 포함한
+    유니크가 후보에 오른 적이 없었다. 나중에 돌려 보니 `defensive_only`로
+    EHP +1,032짜리 후보가 근거와 함께 나왔다 — **호출을 안 했으면 그 근거도 없다.**
+    """
+    from pok.engine.provenance import missing_procedures
+
+    (found,) = missing_procedures(_spec())
+    assert found["procedure"] == "optimize_items"
+    assert "전수" in found["why"]
+    assert "derived_from" in found["advice"], "무엇을 해야 사라지는지 말해야 한다"
+
+
+def test_a_stamped_spec_is_silent() -> None:
+    """돌린 흔적이 있으면 조용하다 — 출고마다 뜨면 아무도 안 읽는다(§0 ⑤)."""
+    from pok.engine.provenance import missing_procedures
+
+    spec = _spec()
+    spec["derived_from"] = {"items": stamp(spec, "items", tool="optimize_items")}
+    assert missing_procedures(spec) == []
+
+
+def test_other_stamps_do_not_satisfy_it() -> None:
+    """트리를 돌렸다고 유니크를 본 것이 아니다 — 축이 다르다."""
+    from pok.engine.provenance import missing_procedures
+
+    spec = _spec()
+    spec["derived_from"] = {"tree": stamp(spec, "tree", tool="optimize_tree")}
+    assert [m["procedure"] for m in missing_procedures(spec)] == ["optimize_items"]

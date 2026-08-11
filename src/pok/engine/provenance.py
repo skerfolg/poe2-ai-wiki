@@ -163,3 +163,39 @@ def stale_components(spec: dict[str, Any]) -> list[dict[str, str]]:
                 entry["advice"] = f"{tool} 재실행"
             out.append(entry)
     return out
+
+
+# 문서에 이미 적힌 **필수 절차** → 그것을 돌렸다는 증거인 도장 이름 (백로그 #58 ④).
+#
+# 규율을 여기서 새로 만들지 않는다 — 이미 `skills/`에 있는데 **감지 수단이 없어서**
+# 안 지켜진 것들이다(`insight.disciplines-need-enforcement-points`). ③의 도장이
+# 생기면서 "돌렸는가"가 기계로 보이게 됐으므로 별도 기록 장치를 만들 필요가 없다.
+_REQUIRED_PROCEDURES = (
+    (
+        "items",
+        "optimize_items",
+        "유니크 **전수** 열거를 한 번도 안 돌렸다 — 희귀 합성만 보면 빌드가 단조로워진다"
+        "(`skills/build-generation/AGENTS.md` §금지: 「고유 아이템을 후보에서 빠뜨리지 말 것」). "
+        "실측 2026-08-11: 한 회차가 끝까지 안 돌려 검은화염을 포함한 유니크가 후보에 오른 "
+        "적이 없었다. 돌려 보니 `defensive_only`로 EHP +1,032짜리 후보가 근거와 함께 나왔다",
+    ),
+)
+
+
+def missing_procedures(spec: dict[str, Any]) -> list[dict[str, str]]:
+    """돌렸어야 하는데 흔적이 없는 절차 — **출고 시점에만** 물을 것.
+
+    탐색 중에는 안 돌린 게 정상이라 매번 물으면 소음이 된다(§0 ⑤). 그래서
+    `assemble_pob`(정본 출고)에서만 부른다.
+
+    ⚠ 이것이 판정하는 것은 **"흔적이 없다"**이지 "안 돌렸다"가 아니다. 도구를 돌리고
+    `derived_from`을 스펙에 안 옮겼으면 여기 걸린다 — 그 경우도 고쳐야 할 것은 맞다
+    (다음 세션이 이어받을 때 출처가 없는 것은 같은 문제다).
+    """
+    stamps = spec.get("derived_from") or {}
+    marks = stamps if isinstance(stamps, dict) else {}
+    return [
+        {"procedure": tool, "why": why, "advice": f"{tool} 실행 후 `derived_from`을 스펙에 옮길 것"}
+        for component, tool, why in _REQUIRED_PROCEDURES
+        if component not in marks
+    ]

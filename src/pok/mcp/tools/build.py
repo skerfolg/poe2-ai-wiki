@@ -47,7 +47,7 @@ from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.integrity import spec_integrity
 from pok.engine.items import req_shortfall
 from pok.engine.legality import ItemLegalityChecker
-from pok.engine.provenance import stale_components
+from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob.buildxml import spec_from_dict
 from pok.pob.runner import PobResult
 
@@ -233,6 +233,11 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     재는 것도 정상 작업이다). 실측 사고: 선행 문서가 「트리 전부 무효」라고 적었는데
     다음 세션이 그 트리 위에 25포인트를 더 얹었다 — **무엇이 달라서 무효인지**를
     몰랐기 때문이다.
+
+    `skipped_procedures`는 **출고 반환에만** 실린다(#58 ④) — 돌렸어야 하는데 흔적이
+    없는 절차다. 지금은 `optimize_items`(유니크 전수) 하나이며 판정 근거는
+    `derived_from`에 그 도장이 있느냐다. 규율은 이미 스킬 문서에 있었고 **감지 수단만**
+    없었다 — 실측: 한 회차가 끝까지 안 돌려 유니크가 후보에 오른 적이 없었다.
 
     `design_warnings`는 **적법한데 애초에 빌드가 아닌 것**이다(#58 ①) — 주력 그룹에
     딜 스킬이 없거나 트리거 젬에 발동될 스킬이 없는 경우. 실측: 그 상태로 3회차가
@@ -434,6 +439,12 @@ def assemble_pob(
         },
         # 차단은 안 되지만 **상시 참으로 가정한 config** — 공급원은 있으나 항상 켜져
         # 있지는 않다. 유지율을 적지 않으면 평시에 안 나오는 수치를 출고하는 것이다.
+        # 필수 절차 미이행 — **출고 반환에만** 싣는다 (#58 ④). manifest에도 각인된다.
+        **(
+            {"skipped_procedures": missing_procedures(build_spec)}
+            if missing_procedures(build_spec)
+            else {}
+        ),
         "assumptions": {
             "always_on_config": [
                 {"var": v.var, "value": v.value, "source": v.matched_in}
