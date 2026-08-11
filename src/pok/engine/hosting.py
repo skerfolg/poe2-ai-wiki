@@ -185,8 +185,8 @@ def find_carriers(skill: str, *, include_blocked: bool = False) -> dict[str, Any
         out["blocked"] = sorted(blocked, key=lambda r: r["carrier"])
     out["notes"] = [
         "판정은 PoB `CalcTools.lua`의 타입 식 평가를 전사한 것이다 — 레코드 문구가 "
-        "아니라 타입 시스템이다. 범위는 **KB 수록분**(938건 중 915건, #63 P1 리포트의 "
-        "`pob_only_gems`가 미수록 잔여)이다",
+        "아니라 타입 시스템이다. 범위는 KB 수록분이며, PoB에만 있는 나머지는 전량 "
+        "**제외 원장 근거**(잔재·미획득 — `exclusions.json`)라 커버리지에 구멍이 없다",
         "담을 수 있다는 것이 값어치가 있다는 뜻은 아니다 — 성능은 따로 측정하라",
         "⚠ **젬 설명문이 타입보다 좁게 말하는 경우가 있다.** 예: `Arbiter's Ignition`은 "
         "설명이 *Supports Fire Spell Skills*인데 `requireSkillTypes`는 `(Spell, Damage, AND)`라 "

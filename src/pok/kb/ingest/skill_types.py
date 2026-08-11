@@ -34,11 +34,13 @@ KB 레코드 ↔ PoB는 **표시 이름(en)**으로 잇는다(젬 966건 중 911
 from __future__ import annotations
 
 import copy
+import json
 import re
 import unicodedata
 from pathlib import Path
 from typing import Any
 
+from pok.common.paths import knowledge_dir
 from pok.kb.pob_pin import POB_COMMIT, pob_src_dir
 from pok.kb.store import load as store_load
 from pok.kb.store import write_record, write_shard
@@ -259,9 +261,14 @@ def apply_skill_types(
 ) -> dict[str, Any]:
     """KB Skill·Support 전량에 `data.pob`를 수록하고 커버리지를 리포트로 낸다.
 
-    누락을 조용히 넘기지 않는다 — `kb_unmatched`(KB에 있는데 PoB에서 못 찾음)와
-    `pob_only_gems`(PoB 젬인데 KB 레코드 없음)는 **파서 갭이거나 수록 갭**이다.
-    후자의 수록 여부 판정은 게임 지식이므로 사용자 몫이다(KI-7).
+    누락을 조용히 넘기지 않되, **이미 판정된 것을 갭으로 되팔지도 않는다** —
+    첫 판에서 PoB 전용 젬 50종을 "수집 갭"으로 보고했는데 전량이 제외 원장
+    (`knowledge/ingest/exclusions.json`)에 사람 승인과 함께 있었다(2026-08-11 실측,
+    잔재 31·미획득 6·수락 거부 12·통합 2 — 이관 보고가 검증에서 뒤집힌 것과 같은
+    계열의 오보였다). 그래서 리포트가 원장을 대조한다:
+
+    - `pob_only_excluded` — 원장 근거 제외 (이미 판정 끝, 부활 감지는 process가 담당)
+    - `pob_only_unexplained` — **설명 없는 갭**만 판정 요청 대상이다(KI-7)
     """
     src = pob_src_dir(root)
     effects = parse_skill_effects(src)
@@ -313,8 +320,11 @@ def apply_skill_types(
         store_load(root)  # 안전장치: 전체 재검증 (파일별 재검증 비용 회피)
 
     pob_only = sorted(
-        gem["name"] for gem in gems.values() if _fold(gem["name"]) not in used_gem_names
+        {gem["name"] for gem in gems.values() if _fold(gem["name"]) not in used_gem_names}
     )
+    ruled_out = _ledger_names(root)
+    excluded = [n for n in pob_only if _fold(n) in ruled_out]
+    unexplained = [n for n in pob_only if _fold(n) not in ruled_out]
     multi_mode = sum(1 for e in effects.values() if len(e.get("stat_sets", [])) > 1)
     gated = sum(1 for e in effects.values() if e.get("require") or e.get("exclude"))
     report = {
@@ -322,14 +332,38 @@ def apply_skill_types(
         "matched_via_gem": matched_gem,
         "matched_via_skill_name": matched_skill,
         "kb_unmatched": sorted(kb_unmatched),
-        "pob_only_gems": pob_only,
+        "pob_only_excluded": excluded,
+        "pob_only_unexplained": unexplained,
         "pob_effects_total": len(effects),
         "pob_effects_multi_mode": multi_mode,
         "pob_effects_gated": gated,
         "note": (
-            "kb_unmatched=KB에 있는데 PoB에서 못 찾은 것(표기 차이 의심), "
-            "pob_only_gems=PoB 젬인데 KB 레코드가 없는 것 — 수록 여부는 게임 지식"
-            " 판정이라 사용자 몫이다(KI-7)"
+            "kb_unmatched=KB에 있는데 PoB에서 못 찾은 것(표기 차이·구 패치 잔재 의심), "
+            "pob_only_excluded=제외 원장 근거로 이미 판정된 것(부활 감지는 process 몫), "
+            "pob_only_unexplained=**설명 없는 갭** — 이것만 게임 지식 판정을 청할 것(KI-7)"
         ),
     }
     return report
+
+
+def _ledger_names(root: Path | None = None) -> set[str]:
+    """제외 원장의 젬 이름(접힌 꼴) — PoB 전용분을 "갭"으로 되팔지 않기 위한 대조 상대.
+
+    원장은 두 표기를 쓴다: `poe1_remnant_pob`는 PoB 표시 이름, 나머지는 poe2db
+    슬러그(밑줄 구분) — 둘 다 접는다.
+    """
+    path = knowledge_dir(root) / "ingest" / "exclusions.json"
+    if not path.exists():
+        return set()
+    ledger = json.loads(path.read_text(encoding="utf-8"))
+    names: set[str] = set()
+    for entry in ledger.get("poe1_remnant_pob", []):
+        if name := entry.get("pob_name"):
+            names.add(_fold(str(name)))
+    for key in ("unobtainable_gems", "superseded", "removed_from_game"):
+        for entry in ledger.get(key, []):
+            slugs = entry.get("slugs", []) if "slugs" in entry else [entry.get("slug")]
+            for slug in slugs:
+                if slug:
+                    names.add(_fold(str(slug).replace("_", " ")))
+    return names

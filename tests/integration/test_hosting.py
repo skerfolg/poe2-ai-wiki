@@ -32,8 +32,8 @@ def test_item_granted_skill_cannot_be_socketed() -> None:
     """`fromItem` 스킬은 젬 소켓 자체가 안 된다 — 경고가 반드시 붙어야 한다.
 
     실측 2026-08-11(까부르는 화염): `Totemable` 플래그만 보고 "토템에 들어간다"고
-    판단해 설계가 한 바퀴 헛돌았다. 원 사례(`His Winnowing Flame`)는 KB 미수록이라
-    (#63 P1 리포트 `pob_only_gems`) KB에 있는 fromItem 스킬로 같은 규칙을 잠근다.
+    판단해 설계가 한 바퀴 헛돌았다. 원 사례(`His Winnowing Flame`)는 제외 원장의
+    잔재 판정분이라(2026-07-29 승인) KB에 있는 fromItem 스킬로 같은 규칙을 잠근다.
     """
     out = find_carriers("Chaos Bolt")
     assert out["ok"]
