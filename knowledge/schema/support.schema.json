@@ -1,15 +1,9 @@
 {
   "$id": "support.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Support.data (P1a 최소)",
+  "title": "Support.data (담체 조건은 applies_to_tags가 아니라 data.pob.require/exclude — #63으로 대체·폐기)",
   "type": "object",
   "properties": {
-    "applies_to_tags": {
-      "type": "array",
-      "items": {
-        "type": "string"
-      }
-    },
     "pob": {
       "$ref": "pob-gate.schema.json"
     }

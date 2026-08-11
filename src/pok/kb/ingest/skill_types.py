@@ -285,7 +285,8 @@ def apply_skill_types(
 
     store = store_load(root)
     matched_gem = matched_skill = 0
-    kb_unmatched: list[str] = []
+    kb_poe2db_only: list[str] = []
+    kb_stale: list[str] = []
     updated: dict[str, dict[str, Any]] = {}  # id → 갱신된 raw 레코드
     used_gem_names: set[str] = set()
 
@@ -295,7 +296,15 @@ def apply_skill_types(
         name_en = str(record.raw.get("name", {}).get("en", ""))
         block = _pob_block(record.type, name_en, gems_by_name, gems, effects, player_by_name)
         if block is None:
-            kb_unmatched.append(record.id)
+            # PoB에 없는 것이 두 부류다: 현 패치 poe2db가 실재를 보증하는 것
+            # (아이템 부여·기본 공격 — PoB 미모델링이 정상)과, 그 보증이 없는 것.
+            # 첫 판은 이 둘을 뭉뚱그려 "잔재 의심 23건"으로 냈고, 교차 검증 결과
+            # 20건은 전자였다(2026-08-11) — 부류를 도구가 가른다.
+            current = any(
+                s.get("src") == "poe2db" and s.get("patch") == patch
+                for s in record.raw.get("sources", [])
+            )
+            (kb_poe2db_only if current else kb_stale).append(record.id)
             continue
         if "gem_id" in block:
             matched_gem += 1
@@ -328,19 +337,21 @@ def apply_skill_types(
     multi_mode = sum(1 for e in effects.values() if len(e.get("stat_sets", [])) > 1)
     gated = sum(1 for e in effects.values() if e.get("require") or e.get("exclude"))
     report = {
-        "kb_gem_records": matched_gem + matched_skill + len(kb_unmatched),
+        "kb_gem_records": matched_gem + matched_skill + len(kb_poe2db_only) + len(kb_stale),
         "matched_via_gem": matched_gem,
         "matched_via_skill_name": matched_skill,
-        "kb_unmatched": sorted(kb_unmatched),
+        "kb_poe2db_only": sorted(kb_poe2db_only),
+        "kb_unmatched_stale": sorted(kb_stale),
         "pob_only_excluded": excluded,
         "pob_only_unexplained": unexplained,
         "pob_effects_total": len(effects),
         "pob_effects_multi_mode": multi_mode,
         "pob_effects_gated": gated,
         "note": (
-            "kb_unmatched=KB에 있는데 PoB에서 못 찾은 것(표기 차이·구 패치 잔재 의심), "
-            "pob_only_excluded=제외 원장 근거로 이미 판정된 것(부활 감지는 process 몫), "
-            "pob_only_unexplained=**설명 없는 갭** — 이것만 게임 지식 판정을 청할 것(KI-7)"
+            "kb_poe2db_only=현 패치 poe2db가 보증하는 PoB 미수록분(아이템 부여·기본 "
+            "공격 — 정상, pob_computable로 표시), kb_unmatched_stale=현 패치 보증이 "
+            "없는 것과 pob_only_unexplained=설명 없는 PoB 전용분 — **이 둘만** 판정을 "
+            "청할 것(KI-7). pob_only_excluded=원장 근거 제외(부활 감지는 process 몫)"
         ),
     }
     return report

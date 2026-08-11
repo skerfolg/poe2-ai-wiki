@@ -108,7 +108,7 @@ def test_queue_table_matches_the_open_entries(text: str) -> None:
 def test_overturned_report_count_matches_the_table(text: str) -> None:
     """「N건이 틀렸다」와 표 행 수는 **손으로 맞춰야 해서 어긋난다** — 3번 고쳤다."""
     section = _section(text, "## 3. 검증으로 뒤집힌 보고", "## 4. ")
-    claimed = int(re.search(r"이관 보고 (\d+)건이 틀렸다", section).group(1))  # type: ignore[union-attr]
+    claimed = int(re.search(r"보고 (\d+)건이 틀렸다", section).group(1))  # type: ignore[union-attr]
     rows = [ln for ln in section.splitlines() if ln.startswith("|")]
     assert claimed == len(rows) - 2, f"주장 {claimed}건 vs 표 {len(rows) - 2}행"
 

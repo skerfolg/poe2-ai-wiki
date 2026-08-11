@@ -971,6 +971,30 @@
    "evidence": "poe2wiki rev96644 — 'The Acrobatics Keystone Passive Skill has been removed' + Category:Removed passive skills. 트리 수집(0.5.4b)에서도 미존재",
    "approved": "2026-07-30 user",
    "note": "부활 감지: 트리 ingest에서 동명 키스톤 재등장 시 리포트"
+  },
+  {
+   "id": "support.chain",
+   "name_en": "Chain",
+   "removed_in": "0.3.0",
+   "evidence": "0.3 보조 젬 티어제 개편으로 평판형이 Chain I·II·III로 대체. 교차 검증(2026-08-11): PoB 0.5 스냅샷에 평판 Chain 젬 없음(Chain I~III 있음) ∧ poe2db 0.5.4b support-gems 목록에 없음 ∧ 웹(0.3 The Third Edict 개편 문서). KB엔 support.chain-i/ii/iii가 data.pob까지 수록돼 있음",
+   "approved": "2026-08-11 user (잔재 의심 교차 검증 후 정리 지시)",
+   "note": "수기 시드(seed:hand-authored, 0.5.0 표기)였다 — 부활 감지: poe2db 목록에 평판 Chain 재등장 시 리포트"
+  },
+  {
+   "id": "support.pierce",
+   "name_en": "Pierce",
+   "removed_in": "0.3.0",
+   "evidence": "0.3 티어제 개편으로 Pierce I·II·III로 대체. 교차 검증(2026-08-11): PoB 0.5 스냅샷에 평판 Pierce 없음 ∧ poe2db 0.5.4b 목록에 없음(Pierce_I/II/III 있음) ∧ 웹(0.3 개편 문서). KB엔 support.pierce-i/ii/iii 수록",
+   "approved": "2026-08-11 user (잔재 의심 교차 검증 후 정리 지시)",
+   "note": "수기 시드였다 — 부활 감지: poe2db 목록에 평판 Pierce 재등장 시 리포트"
+  },
+  {
+   "id": "support.fire-infusion",
+   "name_en": "Fire Infusion",
+   "removed_in": "0.5.x (개명)",
+   "evidence": "개명 확인(2026-08-11): PoB Gems.lua에서 gameId=SupportGemFireInfusion의 표시 이름이 'Fire Attunement'. poe2db 0.5.4b 목록에 Fire_Infusion 없음·Fire_Attunement 있음. KB엔 support.fire-attunement가 data.pob까지 수록. gas-arrow의 satisfiable_by 참조는 fire-attunement로 교체",
+   "approved": "2026-08-11 user (잔재 의심 교차 검증 후 정리 지시)",
+   "note": "수기 시드였다 — 이름만 바뀐 같은 젬 계열(주입→조율)"
   }
  ],
  "unobtainable_gems": [
