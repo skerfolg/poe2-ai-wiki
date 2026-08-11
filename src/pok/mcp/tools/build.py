@@ -6,12 +6,17 @@ build_spec dict 형식 (spec_from_dict 계약):
   {"class_name": "Sorceress", "ascendancy": "Sorceress1", "level": 90,
    "tree_nodes": [4739, ...],
    "skills": [{"gems": [{"gem_id": "Metadata/Items/Gems/SkillGemSpark",
-                          "name": "Spark", "level": 20}]}],
+                          "name": "Spark", "level": 20, "stat_set_index": 1}]}],
    "items": [{"slot": "Ring 1", "text": "Rarity: RARE\\n...",
                "substitutes": ["25% more Elemental Damage with Spells"]}],
    "jewels": [{"socket_node_id": 55555, "text": "Rarity: UNIQUE\\n...",
                 "allocates": [51868]}],
    "config": {"enemyIsBoss": true}}
+
+젬의 `stat_set_index`는 **어느 모드로 계산할지**다(1부터). 한 스킬이 모드를 여럿
+가지면(구형 번개 3개·스파크 2개 등 111종) 안 줄 때 PoB가 조용히 1번을 쓴다 —
+실측 2026-08-10: 구형 번개 `TotalDPS` 151.2 / 381.5 / **497.6**. 미지정은 조립이
+거부하고 어떤 모드가 있는지 알려 준다.
 
 대체 모델링 두 갈래 — 둘 다 manifest `substitute_modeling`에 기록된다:
 
@@ -39,6 +44,7 @@ from pok.common.paths import knowledge_dir
 from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
+from pok.engine.integrity import spec_integrity
 from pok.engine.items import req_shortfall
 from pok.engine.legality import ItemLegalityChecker
 from pok.pob.buildxml import spec_from_dict
@@ -122,6 +128,12 @@ def _pick(
         out["req_shortfall"] = shortfall
     if build_spec is not None:
         out.update(_items_legal(build_spec))
+        # 설계 무결성은 **적법성과 별개 축**이다 (#58 ①). 적법한데 애초에 빌드가
+        # 아닌 경우를 잡는다 — 주력기 부재·트리거 미연결. 거부하지 않고 **매번**
+        # 싣는다(1회성 경고는 문서와 동급이다 — #29).
+        design = spec_integrity(build_spec)
+        if design:
+            out["design_warnings"] = list(design)
     return out
 
 
@@ -408,7 +420,7 @@ def assemble_pob(
             ],
             "notes": list(assumptions.notes),
         },
-        **_pick(built.result, stats),
+        **_pick(built.result, stats, build_spec),
     }
 
 

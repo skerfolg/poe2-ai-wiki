@@ -370,11 +370,19 @@ def parse_detail(html: str) -> DetailPage:
             continue
         htext = header.get_text(strip=True)
         if htext.startswith("From"):
+            # From 카드는 **한 장이 아니다** — 획득 경로가 종류별로 쪼개져 여러 장 온다.
+            # 덮어쓰면 마지막 장만 남아 **젬 경로가 통째로 사라진다**: 실측 2026-08-10,
+            # Spark(`Uncut Skill Gem` + `Earthbound`)·Herald 3종·Unleash·Blink 등 8종이
+            # `item-granted`로 오분류돼 있었다. 그 라벨로 조립 게이트를 걸면 정상
+            # 빌드를 막는다(§0 ⑤). 누적하고 개수도 합산한다.
             m = re.search(r"From\s*/\s*(\d+)", htext)
-            page.acquisition_count = int(m.group(1)) if m else 0
-            page.acquisition = [
-                a.get_text(strip=True) for a in card.find_all("a") if a.get_text(strip=True)
-            ]
+            page.acquisition_count = (page.acquisition_count or 0) + (int(m.group(1)) if m else 0)
+            seen = set(page.acquisition)
+            for anchor in card.find_all("a"):
+                label = anchor.get_text(strip=True)
+                if label and label not in seen:
+                    seen.add(label)
+                    page.acquisition.append(label)
         elif htext.startswith("Level Effect"):
             page.has_level_effect = True
     return page

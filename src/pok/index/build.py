@@ -19,7 +19,7 @@ from pok.kb.store import Store, load
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
 # v6: records.unlock — 해금 제약을 검색 히트에 실어 보낸다(B-13)
 # v7: fts body에 minion_stats — 소환수 효과 검색(#8-b 분리 후 도달 경로)
-SCHEMA_VERSION = 8  # v8: records.pob_gap — PoB가 못 읽는 문구를 히트에 실어 보낸다(제안 D)
+SCHEMA_VERSION = 9  # v9: records.carrier_unknown — 담체 미확인 접사를 히트에 실어 보낸다(#39)
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -39,7 +39,8 @@ CREATE TABLE records (
     -- **경고 없이 델타 0**으로 나오고(pok.pob.parse_gaps), 세션은 그걸 "값어치
     -- 없음"이라는 실측으로 오독한다. 레코드 본문(get_entry)에만 두면 후보를 훑는
     -- 단계에서 안 보이고, 오독은 그 단계에서 굳는다(B-13과 같은 구조).
-    pob_gap TEXT NOT NULL DEFAULT ''
+    pob_gap TEXT NOT NULL DEFAULT '',
+    carrier_unknown INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX idx_records_asc ON records(ascendancy);
 CREATE TABLE tags (id TEXT NOT NULL, tag TEXT NOT NULL);
@@ -179,7 +180,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
         )
         for r in store.records.values():
             con.execute(
-                "INSERT INTO records VALUES (?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO records VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
                     r.id,
                     r.type,
@@ -190,6 +191,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
                     _ascendancy_key(r.raw),
                     _unlock_key(r.raw),
                     _pob_gap_key(r.raw),
+                    1 if (r.raw.get("data") or {}).get("carrier_unknown") else 0,
                 ),
             )
             con.executemany("INSERT INTO tags VALUES (?,?)", [(r.id, t) for t in r.tags])

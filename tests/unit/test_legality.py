@@ -584,3 +584,178 @@ def test_unknown_socket_count_withholds_judgement() -> None:
         "소켓 수를 모르면 상한을 계산할 수 없다"
     )
     assert any("Sockets:" in e for e in report.errors), "선언 누락은 구조 오류로 낸다"
+
+
+def test_variant_lines_do_not_make_a_unique_illegal(checker: ItemLegalityChecker) -> None:
+    """변형 선언은 **스펙 줄**이지 모드가 아니다 (백로그 #45, 2026-08-10).
+
+    `_check_unique`가 자기만의 5개짜리 스펙 줄 목록을 들고 있어서 `_SPEC_LINE_PREFIXES`에
+    `variant:`를 넣어 둔 것이 유니크 경로엔 적용되지 않았다 — 판정 주체가 둘이면
+    어긋난다(§0 ④). `item.the-unborn-lich`는 변형 12종이라 **변형을 적어야** 어느 스킬을
+    부여받는지 정해지는데, 적으면 비적법이 됐다(§0 ⑤).
+    """
+    head = "Rarity: UNIQUE\nThe Unborn Lich\nStellar Amulet\n"
+    mod = "70% increased Desecrated Modifier magnitudes\n"
+    plain = checker.check(head + "Item Level: 82\n" + mod)
+    with_variant = checker.check(
+        head + "Variant: His Winnowing Flame\nSelected Variant: 1\nItem Level: 82\n" + mod
+    )
+    assert plain.is_legal and with_variant.is_legal
+    assert [(v.status, v.line) for v in plain.verdicts] == [
+        (v.status, v.line) for v in with_variant.verdicts
+    ], "변형 줄을 적었다고 판정이 달라지면 안 된다"
+    # 반대 방향 — 스펙 줄을 건너뛴다고 진짜 모드까지 통과시키면 안 된다
+    fake = checker.check(head + "Item Level: 82\n999% increased Nonsense\n")
+    assert not fake.is_legal
+
+
+def test_rune_conditional_shows_the_actual_rune_value(checker: ItemLegalityChecker) -> None:
+    """ "룬으로는 가능"이 **「그 수치로 가능」**으로 읽혔다 (백로그 #56, 2026-08-10).
+
+    매칭 키가 숫자를 죽인 정규화 텍스트라 `+40 to Intelligence`가 실제 `+12`인
+    룬에 붙는다(3.3배). 보고자는 레코드를 따로 열어 보고서야 알았다 — §0 ①의 값 판본.
+    """
+    head = "Rarity: RARE\nX\nAttuned Wand\nItem Level: 80\n"
+    over = checker.check(head + "+40 to Intelligence\n").verdicts[0]
+    assert over.status == "CONDITIONAL" and over.modifier_id == "modifier.greater-resolve-rune"
+    assert "12" in over.reason and "40" in over.reason, "실제 값과 선언값을 나란히 보여야 한다"
+    assert "소켓 4칸" in over.reason, "몇 칸이 필요한지까지 줘야 고칠 수 있다"
+
+    # 값이 맞으면 다르다고 말하지 않는다 — 경고가 소음이 되면 안 읽힌다
+    same = checker.check(head + "+25 to all Attributes\n".replace("25", "5")).verdicts[0]
+    assert "선언값과 같다" in same.reason
+
+
+def test_rune_notation_is_accepted_on_uniques(checker: ItemLegalityChecker) -> None:
+    """규약대로 `{rune}`을 적었더니 **유니크에서만** 거부됐다 (백로그 #56).
+
+    일반 아이템 경로는 접두를 미리 벗기는데 유니크 경로는 원문을 넘겨서 키가
+    어긋났다. 그 때문에 한 회차가 룬 4칸을 비워 뒀다 — #33이 그 축을 DPS +69.6%로
+    재 뒀는데도. 금지하려면 대안 경로가 통해야 한다(철칙 5 따름정리).
+    """
+    text = (
+        "Rarity: UNIQUE\nThe Unborn Lich\nStellar Amulet\nItem Level: 82\n"
+        "Sockets: R\nRune: Greater Resolve Rune\n"
+        "{rune}+12 to Intelligence\n70% increased Desecrated Modifier magnitudes\n"
+    )
+    report = checker.check(text)
+    assert report.is_legal, [(v.status, v.line, v.reason) for v in report.verdicts]
+    assert any(v.status == "CONDITIONAL" and "룬" in v.reason for v in report.verdicts)
+
+
+def test_base_implicit_is_not_judged_as_an_affix(checker: ItemLegalityChecker) -> None:
+    """베이스 임플리싯을 접사 풀에서 찾아 **자기 도구의 출력을 거부했다** (백로그 #57).
+
+    `Invoking Belt`의 `Has 1 Charm Slot`은 KB 접사 표기(`+1 charm slot`)와 문구가
+    달라 UNKNOWN으로 찍혔다. 그런데 그 줄은 `optimize_rare`가 자동 기재한 것이라
+    조립의 **모든 시도**가 실격났고, 접사 0건 · `legal: False` · 사유 없음이 나왔다.
+    정본은 베이스 레코드의 `data.implicit`이다.
+    """
+    head = "Rarity: RARE\nEngineered Belt\nInvoking Belt\nCharm Slots: 1\nImplicits: 1\n"
+    # 명세 형식(범위 그대로)도, 롤된 값도 통과해야 한다
+    for body in (
+        "{range:0.5}(8-12)% increased Cast Speed\nHas 1 Charm Slot\n",
+        "10% increased Cast Speed\nHas 1 Charm Slot\n",
+    ):
+        report = checker.check(head + body)
+        assert report.is_legal, [(v.status, v.line, v.reason) for v in report.verdicts]
+        assert all("임플리싯" in v.reason for v in report.verdicts)
+    # 반대 방향 — 부풀린 임플리싯은 여전히 거부한다
+    inflated = checker.check(head + "40% increased Cast Speed\nHas 1 Charm Slot\n")
+    assert not inflated.is_legal
+    assert any("임플리싯 범위 밖" in v.reason for v in inflated.verdicts)
+
+
+def test_range_notation_does_not_crash_the_checker(checker: ItemLegalityChecker) -> None:
+    """범위 표기 `(5-7)`이 검사기를 통째로 죽였다 (백로그 #56 수정의 회귀, 2026-08-10).
+
+    `_NUM`이 `(a-b)`를 토큰 하나로 잡는데 그대로 `float()`에 넘겼다. 유니크·임플리싯
+    텍스트에선 범위 표기가 **정상 형태**라 흔하고, 경로가
+    `compute_pob → _items_legal → check`이라 **모든 측정이 같이 죽었다.**
+    """
+    text = "Rarity: RARE\nX\nStellar Amulet\nItem Level: 80\n{range:0.5}+(5-7) to all Attributes\n"
+    report = checker.check(text)  # 터지지 않는 것 자체가 이 테스트의 핵심
+    assert report.is_legal
+
+
+def test_a_broken_note_never_kills_the_verdict() -> None:
+    """사유에 덧붙이는 **참고 문구**의 실패는 참고 문구만 잃어야 한다 (§0 ⑤).
+
+    원인(범위 표기)은 고쳤지만 구조가 틀렸다 — 부가 정보가 판정을 죽이면 안 된다.
+    """
+    from pok.engine.legality import _rune_value_note
+
+    assert _rune_value_note("+(a-b) to X", {"data": {"per_slot": None}}) == ""
+    assert _rune_value_note("+40 to Intelligence", {"data": None}) == ""
+
+
+def test_decorated_rune_line_matches_on_uniques(checker: ItemLegalityChecker) -> None:
+    """`{rune}`만 벗기고 `{range:…}`는 안 벗겨 유니크에서 여전히 UNKNOWN이 났다."""
+    text = (
+        "Rarity: UNIQUE\nThe Unborn Lich\nStellar Amulet\nItem Level: 82\n"
+        "{range:0.5}+(10-15) to Intelligence\n70% increased Desecrated Modifier magnitudes\n"
+    )
+    report = checker.check(text)
+    assert report.is_legal, [(v.status, v.line) for v in report.verdicts]
+
+
+def test_declaration_form_is_judged_like_plain_text(checker: ItemLegalityChecker) -> None:
+    """선언형이 **검사에서 통째로 빠져 있었다** (백로그 #60, 2026-08-11).
+
+    `Prefix: {range:0.5}IncreasedLife10` 꼴은 스펙 줄이라 모드 판정을 건너뛰는데,
+    그러면 매칭되는 모드가 하나도 없어 접사 수·group 배타가 **전부 공회전**한다.
+    같은 목걸이가 평문형에선 한도 초과로 걸리고 선언형에선 판정 0건에 `legal: True`
+    였다. #34 이후 `optimize_rare`가 내는 것이 이 형식이라, 아이템 게이트가
+    **자기 도구의 출력에 대해 무력**했다.
+    """
+    head = "Rarity: RARE\nX\nStellar Amulet\nCrafted: true\n"
+    over = checker.check(
+        head
+        + "Suffix: {range:0.5}GlobalSpellGemsLevel3\n"
+        + "Suffix: {range:0.5}GlobalProjectileSkillGemLevel3\n"
+        + "Suffix: {range:0.5}Intelligence9\nSuffix: {range:0.5}Dexterity9\n"
+        + "Prefix: {range:0.5}IncreasedLife10\nPrefix: None\nLevelReq: 80\n"
+    )
+    assert not over.is_legal
+    assert any("한도 3 초과" in e for e in over.errors), over.errors
+    assert len(over.verdicts) == 5, "빈 칸(`Prefix: None`)은 세지 않는다"
+
+    # 한도 안이면 통과한다 — 게이트가 정상을 막으면 안 된다(§0 ⑤)
+    ok = checker.check(
+        head
+        + "Suffix: {range:0.5}Intelligence9\n"
+        + "Prefix: {range:0.5}IncreasedLife10\nLevelReq: 80\n"
+    )
+    assert ok.is_legal, (ok.errors, [(v.status, v.line) for v in ok.verdicts])
+
+    # 모르는 키는 조용히 넘기지 않는다
+    unknown = checker.check(head + "Suffix: {range:0.5}NotARealModKey\n")
+    assert any(v.status == "UNKNOWN" for v in unknown.verdicts)
+
+
+def test_skill_level_suffixes_are_mutually_exclusive(checker: ItemLegalityChecker) -> None:
+    """group이 달라도 배타인 계열 (백로그 #59, 사용자 판정 2026-08-11).
+
+    「+N to Level of all … Skills」는 poe2db에서 대상별로 group이 나뉘어 있어
+    (`GlobalIncreaseSpellSkillGemLevel` vs `…ProjectileSkillGemLevel`) group 배타로는
+    안 잡혔다 — 37 group·188 모드짜리 계열이다. 규칙은 하드코딩이 아니라 판 규칙
+    정본(`board-rules.json::family_exclusion`)에 있다.
+    """
+    head = "Rarity: RARE\nX\nStellar Amulet\nItem Level: 80\n"
+    both = checker.check(
+        head + "+3 to Level of all Spell Skills\n+3 to Level of all Projectile Skills\n"
+    )
+    assert not both.is_legal
+    assert any("계열 배타" in e for e in both.errors), both.errors
+
+    # 선언형에서도 같이 잡혀야 한다 — 두 형식의 강도가 갈리면 그게 #60이었다
+    declared = checker.check(
+        "Rarity: RARE\nX\nStellar Amulet\nCrafted: true\n"
+        "Suffix: {range:0.5}GlobalSpellGemsLevel3\n"
+        "Suffix: {range:0.5}GlobalProjectileSkillGemLevel3\nLevelReq: 80\n"
+    )
+    assert any("계열 배타" in e for e in declared.errors), declared.errors
+
+    # 하나만이면 통과 · 무관한 접미와의 공존도 통과 (§0 ⑤)
+    assert checker.check(head + "+3 to Level of all Spell Skills\n").is_legal
+    assert checker.check(head + "+3 to Level of all Spell Skills\n+35 to Dexterity\n").is_legal

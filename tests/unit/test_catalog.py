@@ -53,7 +53,10 @@ def test_valid_spec_passes() -> None:
     spec = spec_from_dict(
         {
             **BASE,
-            "skills": [{"gems": [{"gem_id": SPARK, "name": "Spark", "level": 20}]}],
+            # 스파크는 모드가 둘이라 `stat_set_index`가 필요하다(#52)
+            "skills": [
+                {"gems": [{"gem_id": SPARK, "name": "Spark", "level": 20, "stat_set_index": 1}]}
+            ],
             "config": {"multiplierIncisionStackCount": 10},
         }
     )
@@ -189,9 +192,10 @@ def test_staged_skill_requires_explicit_stages() -> None:
     xml = to_xml(spec)
     assert 'skillStageCount="10"' in xml and 'skillStageCountCalcs="10"' in xml
 
-    # 단계형이 아닌 스킬은 무관하다
+    # 단계형이 아닌 스킬은 무관하다 (`stat_set_index`는 스파크가 모드 2개라 필요 — #52)
     spec_from_dict({**base, "skills": [{"gems": [
-        {"name": "Spark", "gem_id": "Metadata/Items/Gems/SkillGemSpark", "level": 20}
+        {"name": "Spark", "gem_id": "Metadata/Items/Gems/SkillGemSpark", "level": 20,
+         "stat_set_index": 1}
     ]}]})  # fmt: skip
 
 

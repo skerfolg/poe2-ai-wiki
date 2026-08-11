@@ -34,6 +34,7 @@ KB 원문에는 `(35-42)%` 같은 값 범위가 있고 그 해석은 `Item.lua:9
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -92,12 +93,34 @@ class ItemParseGapError(RuntimeError):
     """덤프 스크립트가 POK_OK 없이 끝났다."""
 
 
-def scannable_lines(data: dict[str, Any]) -> list[str]:
+def scannable_lines(data: dict[str, Any], name: str = "") -> list[str]:
     """판정 근거로 삼는 **영문** 줄 (`kb.pob_gaps.scannable_lines`와 같은 원칙).
 
     한글(`texts_ko`)은 PoB가 파싱하는 대상이 아니라 애초에 판정 축이 될 수 없다.
+
+    ## ⚠ 유니크는 **PoB 원문**으로 시험한다 (백로그 #38)
+
+    KB의 유니크 `explicits`에는 변형이 **플레이스홀더 한 줄**로 뭉쳐 있다:
+
+        Can Allocate Passive Skills from the (Mercenary/Ranger/…)'s starting point
+
+    PoB 패턴은 `"…from the (%a+)'s starting point"`(한 단어)라 슬래시가 든 이 줄은
+    **안 맞는다.** 그래서 `item.split-personality`가 "PoB 미지원"으로 기록됐는데,
+    변형을 확정한 줄(`…from the Warrior's…`)은 **정상 파싱된다.** 실측 2026-08-10:
+
+        플레이스홀더    → unknown (갭으로 잡힘)
+        변형-Warrior   → 정상 파싱
+
+    즉 그건 PoB의 한계가 아니라 **우리 시험 문구 선택의 문제**였다. 다변형 유니크
+    234건 중 98건이 `pob_gap` 표시를 달고 있어 같은 오판이 번져 있을 수 있다.
+    PoB 원문(`Data/Uniques/*.lua`)에는 `{variant:N}`으로 변형별 줄이 있으므로
+    **그걸 쓴다** — 정본은 PoB 소스다(AD-1).
     """
     lines: list[str] = []
+    if name:
+        from_source = _unique_source_lines(name)
+        if from_source:
+            return from_source
     for key in ("texts", "explicits", "implicits"):
         value = data.get(key)
         if isinstance(value, list):
@@ -109,6 +132,33 @@ def scannable_lines(data: dict[str, Any]) -> list[str]:
                 lines += [str(x) for x in slot_lines]
     # 줄바꿈·탭은 프로토콜 구분자라 못 넘긴다. 빈 줄은 PoB가 아이템 구획으로 읽는다.
     return [" ".join(x.split()) for x in lines if x and x.strip()]
+
+
+# PoB 원문의 **스펙 줄**(모드가 아니다). `Item.lua::ParseRaw`가 specName으로 읽는다 —
+# `<이름>: <값>` 꼴이라 첫 콜론 앞이 한두 낱말이면 스펙 줄이다.
+_UNIQUE_SPEC_LINE = re.compile(r"^[A-Z][A-Za-z ]{0,24}:", re.M)
+
+
+def _unique_source_lines(name: str) -> list[str]:
+    """PoB 원문의 **모드 줄만** — 스펙 줄(`Variant:`·`Selected …`)은 모드가 아니다.
+
+    `{variant:N}`·`{range:R}` 같은 장식 접두는 그대로 둔다. PoB가 읽는 형태 그대로
+    넘겨야 판정이 실물과 같아진다.
+    """
+    from pok.pob.uniques import unique_raw
+
+    raw = unique_raw(name)
+    if raw is None:
+        return []
+    out: list[str] = []
+    for index, line in enumerate(raw.splitlines()):
+        stripped = line.strip()
+        if not stripped or index < 2:  # 첫 두 줄은 이름·베이스
+            continue
+        if not stripped.startswith("{") and _UNIQUE_SPEC_LINE.match(stripped):
+            continue  # `Variant:`·`Limited to:`·`Source:`·`LevelReq:` … 스펙 줄
+        out.append(" ".join(stripped.split()))
+    return out
 
 
 def _probe(
@@ -171,7 +221,9 @@ def dump_item_parse_gaps(
     for record in store_load(root).records.values():
         if record.type not in ("Modifier", "Item"):
             continue
-        lines = scannable_lines(record.raw.get("data") or {})
+        name = str((record.raw.get("name") or {}).get("en") or "")
+        is_unique = (record.raw.get("data") or {}).get("rarity") == "unique"
+        lines = scannable_lines(record.raw.get("data") or {}, name if is_unique else "")
         if lines:
             batch[record.id] = lines
 

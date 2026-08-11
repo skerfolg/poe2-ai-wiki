@@ -38,11 +38,18 @@ _PROBE_BASE = "Rarity: RARE\nPoK Probe\nAmber Amulet\nItem Level: 100"
 def test_정본_표기가_지금_PoB_판정과_같다() -> None:
     """스냅샷을 올리고 `python -m pok.pob.item_parse_gaps`를 안 돌리면 여기서 깨진다."""
     store = store_load()
+
+    # ⚠ 감사와 **같은 규칙**으로 배치를 만든다 — 유니크는 PoB 원문으로 시험한다(#38).
+    # 여기만 옛 방식(KB 플레이스홀더)으로 두면 "정본이 낡았다"는 **가짜 경보**가 뜬다.
+    def _lines(record: object) -> list[str]:
+        data = record.raw.get("data") or {}  # type: ignore[attr-defined]
+        name = str((record.raw.get("name") or {}).get("en") or "")  # type: ignore[attr-defined]
+        return scannable_lines(data, name if data.get("rarity") == "unique" else "")
+
     batch = {
         record.id: lines
         for record in store.records.values()
-        if record.type in ("Modifier", "Item")
-        and (lines := scannable_lines(record.raw.get("data") or {}))
+        if record.type in ("Modifier", "Item") and (lines := _lines(record))
     }
     found = _probe(batch, _PRIMARY_BASE, resolve_snapshot(), 1800.0)
     # 파싱 예외(별개 결함)와 다른 kind가 이미 붙은 것은 표기 대상이 아니다 — 빼고 본다.

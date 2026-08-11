@@ -42,6 +42,10 @@ class Hit:
     # PoB가 이 레코드의 문구를 계산에 넣지 못한다는 경고. None = 모델링됨.
     # 이 칸이 비어 있던 동안 세션은 **델타 0을 '값어치 없음'으로 읽었다**(#3).
     pob_gap: str | None = None
+    # 이 `item-exclusive` 접사를 **실제로 다는 유니크를 못 찾았다**(#39). 모드 레코드의
+    # 존재가 곧 획득 가능성으로 읽혀 하루에 5건 오판했다 — 둘은 설계 근거로 쓰였다가
+    # 뒤집혔다. ⛔ "획득 불가"가 아니라 **"우리가 확인하지 못했다"**이다.
+    carrier_unknown: str | None = None
 
 
 def _meta(con: sqlite3.Connection, key: str) -> str | None:
@@ -139,6 +143,13 @@ _POB_GAP_REASON = {
 }
 
 
+_CARRIER_UNKNOWN = (
+    "이 접사를 **실제로 다는 유니크를 못 찾았다**(PoB 유니크 정의 전량 + 생성 유니크 대조). "
+    "모드가 KB에 있다는 것이 곧 획득 가능은 아니다 — 담체를 확인하기 전에는 설계 근거로 "
+    "쓰지 말 것. ⛔ '획득 불가'가 아니라 '확인 못 함'이다"
+)
+
+
 def _pob_gap_reason(kind: str) -> str | None:
     if not kind:
         return None
@@ -184,7 +195,8 @@ def search(
             where.append("r.id IN (SELECT id FROM tags WHERE tag = ?)")
             params.append(t)
         sql = (
-            "SELECT r.id, r.type, r.name_ko, r.name_en, r.verification, r.unlock, r.pob_gap "
+            "SELECT r.id, r.type, r.name_ko, r.name_en, r.verification, r.unlock, r.pob_gap, "
+            "r.carrier_unknown "
             "FROM records r"
         )
         if where:
@@ -208,7 +220,7 @@ def search(
         rows = con.execute(sql, params).fetchall()
         aliases = _ascendancy_aliases(con, for_ascendancy) if for_ascendancy else None
         out: list[Hit] = []
-        for rid, rtype, ko, en, ver, unlock_json, pob_gap in rows:
+        for rid, rtype, ko, en, ver, unlock_json, pob_gap, carrier in rows:
             tag_rows = con.execute("SELECT tag FROM tags WHERE id=?", (rid,)).fetchall()
             locked_to, needs, excluded = _unlock_fields(
                 str(unlock_json or ""), aliases, for_ascendancy
@@ -225,6 +237,7 @@ def search(
                     needs,
                     excluded,
                     _pob_gap_reason(str(pob_gap or "")),
+                    _CARRIER_UNKNOWN if carrier else None,
                 )
             )
         return out

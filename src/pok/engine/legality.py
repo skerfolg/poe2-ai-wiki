@@ -164,6 +164,125 @@ def _expand_enum(text: str) -> list[str]:
     return out
 
 
+def _magnitudes(text: str) -> list[float]:
+    """문구의 수치들 — `(10-15)` 같은 **범위는 상단**을 쓴다.
+
+    `_NUM`은 범위 표기까지 한 토큰으로 잡으므로 그대로 `float()`에 넣으면 터진다
+    (실측 2026-08-10: 벨트 임플리싯 `(8-12)% increased Cast Speed`에서 조립이 죽었다).
+    """
+    out: list[float] = []
+    for token in _NUM.findall(text):
+        span = _RANGE.fullmatch(token)
+        out.append(float(span.group(2)) if span else float(token))
+    return out
+
+
+_DECLARED_AFFIX = re.compile(r"^\s*(Prefix|Suffix)\s*:\s*(.+?)\s*$", re.I | re.M)
+
+
+def _declared_affixes(item_text: str) -> list[tuple[str, str]]:
+    """`Prefix:`/`Suffix:` 선언 줄 → (종류, PoB 모드 키) (백로그 #60).
+
+    빈 칸은 `Prefix: None`으로 적히므로 걸러낸다. 장식 접두(`{range:0.5}`)는
+    표기이지 키가 아니다.
+    """
+    out: list[tuple[str, str]] = []
+    for kind, body in _DECLARED_AFFIX.findall(item_text):
+        key = _MOD_DECORATION.sub("", body).strip()
+        if key and key.lower() != "none":
+            out.append((kind.capitalize(), key))
+    return out
+
+
+def _base_implicits(base: dict[str, Any] | None) -> dict[str, str]:
+    """베이스가 달고 나오는 임플리싯 줄들 — 정규화 키 → 원문 (백로그 #57).
+
+    KB `data.implicit`은 **여러 줄일 수 있다**(`Invoking Belt`은 시전 속도 + 부적
+    칸 둘). 줄 단위로 쪼개야 두 번째 줄이 미아가 되지 않는다.
+    """
+    raw = str(((base or {}).get("data") or {}).get("implicit") or "")
+    out: dict[str, str] = {}
+    for line in raw.splitlines():
+        stripped = _MOD_DECORATION.sub("", line).strip()
+        if stripped:
+            out[_norm(stripped)] = stripped
+    return out
+
+
+def _match_implicit(line: str, implicits: dict[str, str]) -> LineVerdict | None:
+    """이 줄이 베이스 임플리싯인가 — 맞으면 값이 베이스 범위 안인지까지 본다.
+
+    ⚠ 적힌 값이 **아직 롤되지 않은 범위**일 수 있다 — PoB 명세 형식은
+    `{range:0.5}(8-12)% increased Cast Speed`처럼 범위를 그대로 두고 비율만
+    장식으로 얹는다. 그래서 접사용 롤 대조를 그대로 쓰면 자기 출력이 실격난다.
+    적힌 수치 전부가 베이스 범위의 봉투 안이면 통과다.
+    """
+    stripped = _MOD_DECORATION.sub("", line).strip()
+    source = implicits.get(_norm(stripped))
+    if source is None:
+        return None
+    bounds = [(float(lo), float(hi)) for lo, hi in _RANGE.findall(source)] or [
+        (v, v) for v in _magnitudes(source)
+    ]
+    low, high = min(b[0] for b in bounds), max(b[1] for b in bounds)
+    written = _magnitudes(stripped) + [float(lo) for lo, _ in _RANGE.findall(stripped)]
+    outside = [v for v in written if v < low - 1e-6 or v > high + 1e-6]
+    if not outside:
+        return LineVerdict(line, "LEGAL", reason="베이스 임플리싯 — 접사 칸을 쓰지 않는다")
+    return LineVerdict(
+        line,
+        "ILLEGAL",
+        reason=f"베이스 임플리싯 범위 밖: {outside} ∉ [{low:g}, {high:g}] (베이스: {source!r})",
+    )
+
+
+def _rune_value_note(line: str, rune: dict[str, Any]) -> str:
+    """ "룬으로는 가능"에 **그 룬의 실제 값**을 붙인다 (백로그 #56, 2026-08-10).
+
+    매칭 키는 숫자를 `#`로 죽인 정규화 텍스트라 `+40 to Intelligence`가
+    `+12` 룬에 붙는다 — 그래도 CONDITIONAL이 나오니 호출자는 **그 수치로 가능**
+    하다고 읽는다. 실측: `+40 to Intelligence` → `greater-resolve-rune`(실제 +12,
+    3.3배) · `+25 to all Attributes` → `legacy-of-erians-cobble`(실제 +5, 5배).
+    보고자는 레코드를 따로 열어 보고서야 알았다 — §0 ①의 값 판본이다.
+
+    ⛔ 여기서 위반이라고 단정하지 않는다: 같은 룬을 여러 칸에 박는 것이 정상
+    운용이라 소켓 수를 알아야 상한이 정해진다(그 판정은 `_rune_value_verdict`가
+    `{rune}` 표기 경로에서 한다). 여기선 **사실을 보이고 필요한 칸 수를 준다.**
+    """
+    try:
+        return _rune_value_note_inner(line, rune)
+    except (ValueError, TypeError, ArithmeticError):
+        # ⛔ **주석 하나가 검사 전체를 죽이면 안 된다** — 이 함수는 사유에 덧붙이는
+        # 참고 문구일 뿐인데, 파싱이 터지자 `compute_pob`이 통째로 죽어 한 세션의
+        # 측정이 막혔다(실측 2026-08-10: `(5-7)` 범위 표기). 원인은 고쳤지만
+        # **구조가 틀렸다**: 부가 정보의 실패는 부가 정보만 잃어야 한다(§0 ⑤).
+        return ""
+
+
+def _rune_value_note_inner(line: str, rune: dict[str, Any]) -> str:
+    written = _magnitudes(line)
+    per_slot = (rune.get("data") or {}).get("per_slot") or {}
+    values: dict[str, float] = {}
+    for slot, texts in per_slot.items():
+        for text in texts:
+            if _norm(text) == _norm(line):
+                nums = _magnitudes(str(text))
+                if nums:
+                    values[str(slot)] = max(nums)
+    if not written or not values:
+        return ""
+    want, best = max(written), max(values.values())
+    shown = " · ".join(f"{v:g} ({s})" for s, v in sorted(values.items()))
+    if abs(want - best) < 1e-6:
+        return f". 이 룬 1개 값 = {shown} — 선언값과 같다"
+    needed = math.ceil(want / best) if best > 0 else 0
+    return (
+        f". ⚠ **이 룬 1개 값은 {shown}이고 선언값 {want:g}과 다르다** — "
+        f"그 수치를 내려면 소켓 {needed}칸이 필요하다(룬 효과 증폭 없을 때). "
+        f"칸 수는 `Sockets:` 선언으로 적어야 값 판정이 돈다"
+    )
+
+
 @dataclass(frozen=True)
 class LineVerdict:
     line: str
@@ -193,16 +312,18 @@ class ItemLegalityChecker:
     def __init__(self, knowledge: Path) -> None:
         kdir = knowledge if knowledge.name == "knowledge" else knowledge / "knowledge"
         rules = kdir / "crafting-rules" / "board-rules.json"
-        self._affix_caps: dict[str, Any] = (
-            json.loads(rules.read_text(encoding="utf-8")).get("affix_caps", {})
-            if rules.exists()
-            else {}
+        self._rules: dict[str, Any] = (
+            json.loads(rules.read_text(encoding="utf-8")) if rules.exists() else {}
         )
+        self._affix_caps: dict[str, Any] = self._rules.get("affix_caps", {})
         kb = store_load(knowledge.parent if knowledge.name == "knowledge" else knowledge)
         self._root = knowledge.parent if knowledge.name == "knowledge" else knowledge
         self._bases: dict[str, dict[str, Any]] = {}
         self._uniques: dict[str, dict[str, Any]] = {}  # 유니크 이름 → 레코드
         self._mods: dict[str, list[dict[str, Any]]] = {}  # 정규화 텍스트 → 후보 레코드들
+        # PoB 모드 키 → 레코드. **선언형 아이템 텍스트**(`Prefix: <key>`)를 되짚는다 —
+        # 그 형식이 검사에서 통째로 빠져 있었다(백로그 #60).
+        self._by_pob_key: dict[str, dict[str, Any]] = {}
         # 고유 주얼 전략 모듈용 색인 (2026-07-31, 사용자 확립 "주얼별 전략 모듈")
         self._heart: dict[str, list[dict[str, Any]]] = {}  # Heart of the Well 훼손 풀
         self._notables: dict[str, dict[str, Any]] = {}  # 본 트리+어센 노터블 (Megalomaniac)
@@ -221,6 +342,9 @@ class ItemLegalityChecker:
                 # 넣으면 색인이 비고, 실제로 룬 16줄이 전부 UNKNOWN이었다(2026-08-05).
                 for text in _mod_texts(r.raw["data"]):
                     self._mods.setdefault(_norm(text), []).append(r.raw)
+                key = str(r.raw["data"].get("pob_key") or "")
+                if key:
+                    self._by_pob_key.setdefault(key.lower(), r.raw)
             elif r.type == "Modifier" and "heart-of-the-well" in r.raw.get("data", {}).get(
                 "origins", []
             ):
@@ -246,7 +370,38 @@ class ItemLegalityChecker:
             (float(m.group(1)) for ln in mod_lines if (m := _SUFFIX_EFFECT.match(ln))), 0.0
         )
         catalyst, catalyst_quality = parse_catalyst(item_text)
+        # **베이스 임플리싯은 접사가 아니다** (백로그 #57, 2026-08-10). 고르는 것이
+        # 아니라 베이스가 달고 나오는 줄이라 접사 풀에서 찾으면 안 나온다 — 실측:
+        # `Invoking Belt`의 `Has 1 Charm Slot`이 UNKNOWN으로 찍혔다(KB 접사 표기는
+        # `+1 charm slot`). 그런데 그 줄은 `optimize_rare`가 **자기가 자동 기재**한
+        # 것이라, 조립 중 적법성 검사가 **모든 시도에서** 실패해 접사를 하나도 못
+        # 고르고 `legal: False`만 남았다. 정본은 베이스 레코드의 `implicit`이다.
+        implicits = _base_implicits(base)
+        # **선언형은 검사에서 통째로 빠져 있었다** (백로그 #60, 2026-08-11).
+        # `Prefix: {range:0.5}IncreasedLife10` 꼴은 스펙 줄이라 모드 판정을 건너뛰는데,
+        # 그러면 매칭되는 모드가 하나도 없어 접사 수·group 배타·스폰 검사가 **전부
+        # 공회전**한다 — 실측: 같은 목걸이가 평문형에선 `접사 총 7개 — 총한도 6 초과`로
+        # 걸리고 선언형에선 판정 0건에 `legal: True`였다. #34 이후 `optimize_rare`가
+        # 내는 것이 바로 이 형식이라, 아이템 게이트가 자기 도구 출력에 대해 무력했다.
+        for kind, key in _declared_affixes(item_text):
+            record = self._by_pob_key.get(key.lower())
+            if record is None:
+                verdicts.append(
+                    LineVerdict(
+                        f"{kind}: {key}",
+                        "UNKNOWN",
+                        reason=f"PoB 모드 키 {key!r}를 KB에서 못 찾았다 — 표기를 확인할 것",
+                    )
+                )
+                continue
+            verdicts.append(
+                LineVerdict(f"{kind}: {key}", "LEGAL", str(record["id"]), reason="선언형 접사")
+            )
+            matched[str(record["id"])] = record
         for line in mod_lines:
+            if (found := _match_implicit(line, implicits)) is not None:
+                verdicts.append(found)
+                continue
             verdict = self._check_line(
                 line,
                 base,
@@ -280,6 +435,12 @@ class ItemLegalityChecker:
                 if g in groups:
                     errors.append(f"group 중복: {g} ({groups[g]} vs {rec['id']})")
                 groups[g] = rec["id"]
+        # **group이 달라도 배타인 계열**이 있다 (백로그 #59, 사용자 판정 2026-08-11).
+        # 「+N to Level of all … Skills」는 poe2db에서 대상별로 group이 나뉘어 있어
+        # (`GlobalIncreaseSpellSkillGemLevel` vs `…ProjectileSkillGemLevel`) group 배타로는
+        # 안 잡힌다 — 실측: 한 목걸이에 스펠 +3과 투사체 +3이 동시에 LEGAL이었다.
+        # 규칙은 하드코딩하지 않고 판 규칙 정본에서 읽는다(범위 조정도 그 파일에서).
+        errors.extend(self._family_exclusion_errors(matched))
         cap_errors = False
         for affix, n in counts.items():
             if n > caps[affix]:
@@ -363,8 +524,16 @@ class ItemLegalityChecker:
         rec = self._uniques.get(name.lower())
         if rec is None:
             return LegalityReport(verdicts=(), errors=(f"KB에 없는 유니크: {name!r}",))
-        meta = ("item level:", "quality:", "sockets:", "implicits:", "--")
-        mod_lines = [ln for ln in lines[3:] if not ln.lower().startswith(meta)]
+        # ⚠ 여기 **자기만의 5개짜리 목록**이 있었다 — 같은 규칙이 두 벌이면 어긋난다
+        # (§0 ④ 판정 주체가 둘이면 어긋난다). 실측 2026-08-10: `_SPEC_LINE_PREFIXES`에
+        # `variant:`를 넣어 뒀는데도 유니크 경로가 그걸 안 타서 `Variant:` 두 줄이
+        # UNKNOWN으로 찍혔다. `item.the-unborn-lich`는 **변형 12종**이고 변형을 적어야
+        # 어느 스킬을 부여받는지 정해지는데, 적으면 비적법이 됐다(§0 ⑤).
+        mod_lines = [
+            ln
+            for ln in lines[3:]
+            if not ln.lower().startswith(_SPEC_LINE_PREFIXES) and ln.lower() not in _SPEC_MARKERS
+        ]
         special = {
             "prism of belief": self._check_prism,
             "megalomaniac": self._check_megalomaniac,
@@ -401,11 +570,38 @@ class ItemLegalityChecker:
             )
         return LegalityReport(verdicts=tuple(verdicts))
 
+    def _family_exclusion_errors(self, matched: dict[str, dict[str, Any]]) -> list[str]:
+        """group을 넘어 배타인 계열 검사 — 규칙은 `board-rules.json::family_exclusion`."""
+        rule = self._rules.get("family_exclusion") or {}
+        pattern = str(rule.get("match") or "")
+        if not pattern:
+            return []
+        wanted = {str(a) for a in (rule.get("scope") or {}).get("affix_types") or ()}
+        matcher = re.compile(pattern, re.I)
+        hits = [
+            rec
+            for rec in matched.values()
+            if (not wanted or rec["data"].get("affix_type") in wanted)
+            and any(matcher.search(text) for text in _mod_texts(rec["data"]))
+        ]
+        if len(hits) < 2:
+            return []
+        names = ", ".join(sorted(str(r["id"]) for r in hits))
+        return [f"계열 배타 위반 — {rule.get('rule', '')} ({len(hits)}개: {names})"]
+
     def _rune_line(self, line: str) -> LineVerdict | None:
         """이 문구가 **룬으로** 붙일 수 있는 것인가 (유니크·일반 공통 판정).
 
         룬은 접사와 별개 축이라 아이템 희귀도와 무관하게 소켓에 들어간다.
+
+        ⚠ `{rune}` 접두를 **여기서 벗긴다** (백로그 #56). 일반 아이템 경로는
+        `_check_line`이 미리 벗기지만 유니크 경로는 원문 그대로 넘겨서, 규약대로
+        `{rune}+12 to Intelligence`라고 적으면 정규화 키가 어긋나
+        `UNKNOWN: 유니크 고정 모드에도 룬 풀에도 없음`이 났다 — 표기법을 지킨
+        쪽이 거부당한 것이다. 그래서 한 회차가 **룬 4칸을 비워 뒀다**(#33이 그 축을
+        DPS +69.6%로 재 뒀는데도). 금지하려면 대안 경로가 통해야 한다(철칙 5 따름정리).
         """
+        line = _MOD_DECORATION.sub("", _RUNE_PREFIX.sub("", line, count=1)).strip()
         for cand in self._mods.get(_norm(line), []):
             if "rune" in (cand.get("data") or {}).get("origins", []):
                 return LineVerdict(
@@ -413,7 +609,8 @@ class ItemLegalityChecker:
                     "CONDITIONAL",
                     str(cand["id"]),
                     "고정 모드는 아니지만 **룬으로는 가능** — 유니크에도 룬 소켓이 있다. "
-                    "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라",
+                    "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라"
+                    + _rune_value_note(line, cand),
                 )
         return None
 
@@ -765,7 +962,8 @@ class ItemLegalityChecker:
                 "CONDITIONAL",
                 str(runes[0]["id"]),
                 "접사로는 불가하나 **룬으로는 가능** — PoB 표기는 `{rune}` 접두다. "
-                "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라",
+                "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라"
+                + _rune_value_note(line, runes[0]),
             )
         return LineVerdict(line, "ILLEGAL", reason=" / ".join(reasons))
 

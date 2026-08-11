@@ -317,3 +317,44 @@ def test_소켓_초과는_위반이다(defaults: KbDefaults) -> None:
 def test_소켓을_안_주면_기존_동작_그대로(defaults: KbDefaults) -> None:
     report = check_exhaustion(_V6_LINKS[:1], max_supports_per_skill=defaults.max_supports_per_skill)
     assert report.rune_sockets == () and report.rune_fill_pct == 0.0 and report.ok
+
+
+# ── 색 원장은 **한 노드의 조건**이다 (백로그 #55, 2026-08-10) ──
+
+
+def test_색_원장_위반은_무엇의_조건인지_말한다() -> None:
+    """`satisfied: false`를 **빌드 위반**으로 읽어 섀시를 갈아엎을 뻔했다.
+
+    과반이 사는 것은 성유 전용 노터블 하나의 면역뿐인데 리포트가 그 말을 안 했다.
+    거짓 위반은 참 위반의 신호를 죽인다(§0 ⑤).
+    """
+    from pok.engine.constraints.colors import CONDITION_NODE
+
+    report = check_color_majority(
+        (SkillLinks("구형 번개", (("점화 III", "red"), ("조프의 장작", "red"))),), "blue"
+    )
+    assert not report.satisfied
+    assert report.applies_to == CONDITION_NODE
+    assert report.grants == "냉각 면역"
+    text = " ".join(report.violations)
+    assert CONDITION_NODE in text, "어느 노드의 조건인지 없으면 빌드 위반으로 읽힌다"
+    assert "안 쓸 거면 위반이 아니다" in text
+    assert "속성" in text, "보조 색과 캐릭터 속성 요구가 다른 축임을 말해야 한다"
+
+
+def test_색은_KB에서_채운다() -> None:
+    """색은 요구 속성에서 결정적으로 나온다 — 손으로 전사하면 틀린다."""
+    report = check_color_majority(
+        (SkillLinks("구형 번개", (("점화 III", ""), ("조프의 장작", ""), ("화염 조율", ""))),),
+        "red",
+    )
+    assert report.satisfied, "KB가 셋 다 red라고 안다"
+    assert dict(report.counts)["red"] == 3
+    assert not report.color_mismatches
+
+
+def test_선언한_색이_KB와_다르면_알린다() -> None:
+    """틀린 색 하나가 과반 집계를 통째로 뒤집는다 — 감지되므로 도구가 말한다."""
+    report = check_color_majority((SkillLinks("구형 번개", (("점화 III", "blue"),)),), "red")
+    assert report.satisfied, "KB 값(red)으로 세야 한다"
+    assert any("점화 III" in m and "KB" in m for m in report.color_mismatches)

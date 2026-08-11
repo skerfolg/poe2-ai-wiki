@@ -236,3 +236,17 @@ def test_여러_파일에_걸쳐도_한_건이라도_막히면_전부_취소(rep
         )
     assert json.loads(single.read_text(encoding="utf-8"))["data"] == {"keep": "me"}
     assert _shard(repo).read_text(encoding="utf-8") == shard_before
+
+
+def test_dropping_a_parent_also_drops_its_children() -> None:
+    """부모를 `None`으로 지우면 **자식도 근거 있는 삭제**다 (백로그 #38 부수 발견).
+
+    자식 경로를 근거에서 빼면 「의도한 삭제」가 「근거 없는 소실」로 거부된다 —
+    실측 2026-08-10: `{"pob_modeling": None}`이 자식 5개(`detail`·`kind`·`snapshot`…)
+    때문에 막혀 **파싱 갭 재감사가 통째로 못 돌았다.**
+    """
+    from pok.kb.store import _apply_test_hook  # type: ignore[attr-defined]
+
+    data = {"keep": 1, "pob_modeling": {"supported": False, "kind": "x", "detail": "y"}}
+    merged = _apply_test_hook(data, {"pob_modeling": None})
+    assert merged == {"keep": 1}, merged

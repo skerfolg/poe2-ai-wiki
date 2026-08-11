@@ -26,7 +26,6 @@
 
 from __future__ import annotations
 
-import atexit
 import os
 import re
 import subprocess
@@ -226,21 +225,8 @@ def build_items(
     }
 
 
-_DAEMON: object | None = None
-
-
 def _shared_daemon() -> Any:
-    """프로세스당 하나의 상주 PoB. 못 띄우면 `None` — 호출자가 1회성 경로로 되돌아간다."""
-    global _DAEMON
-    if _DAEMON is None:
-        from pok.pob.daemon import PobDaemon
+    """프로세스당 하나의 상주 PoB — 정본은 `pok.pob.daemon.shared_daemon`이다."""
+    from pok.pob.daemon import shared_daemon
 
-        try:
-            daemon = PobDaemon()
-            daemon.start()
-        except Exception:  # PoB 스냅샷 없음·기동 실패 — 조용히 죽지 않고 되돌아간다
-            _DAEMON = False
-        else:
-            _DAEMON = daemon
-            atexit.register(daemon.close)
-    return _DAEMON or None
+    return shared_daemon()

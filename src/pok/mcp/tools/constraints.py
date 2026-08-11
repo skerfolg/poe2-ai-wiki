@@ -39,11 +39,23 @@ def _get_defaults() -> KbDefaults:
     return _defaults
 
 
+def _support_pair(entry: Any) -> tuple[str, str]:
+    """`[이름, 색]`도 받고 **`"이름"`만도 받는다** — 색은 KB가 안다(#55).
+
+    색을 손으로 전사하면 틀릴 수 있고, 틀리면 과반 집계가 통째로 어긋난다.
+    빈 색으로 넘기면 engine이 KB에서 채우고 어긋난 선언은 보고한다.
+    """
+    if isinstance(entry, str):
+        return entry, ""
+    name, *rest = entry
+    return str(name), str(rest[0]) if rest else ""
+
+
 def _skills(raw: list[dict[str, Any]]) -> tuple[SkillLinks, ...]:
     return tuple(
         SkillLinks(
             skill=str(s.get("skill", "")),
-            supports=tuple((str(n), str(c)) for n, c in s.get("supports", [])),
+            supports=tuple(_support_pair(e) for e in s.get("supports", [])),
         )
         for s in raw
     )
@@ -65,7 +77,14 @@ def check_constraints(
     입력 (모두 선택, design.md 장부의 전사):
       point_budget = {"bundles": [{"name","points","required"?}], "budget"?}
                      (budget 생략 = KB mechanic.ascendancy-points)
-      color_ledger = {"skills": [{"skill", "supports": [[이름, 색], …]}], "color": "red"}
+      color_ledger = {"skills": [{"skill", "supports": ["이름", …]}], "color": "red"}
+                     **색은 생략해도 된다** — KB가 요구 속성에서 결정적으로 안다.
+                     적어 낸 색이 KB와 다르면 `color_mismatches`로 알린다.
+                     ⚠ 이 판정은 **성유 노터블 하나의 조건**이다(결정화된 면역:
+                     지정색 과반 → 냉각/점화/감전 면역). 그 노드를 안 쓰면 미충족은
+                     위반이 아니다 — 리포트의 `applies_to`·`grants`를 읽을 것.
+                     보조의 색과 **캐릭터 속성 요구는 별개 축**이다(속성 부족은
+                     `compute_pob`의 `req_shortfall`이 본다)
       reservation  = {"entries": [{"name","base_amount","fixed"?}], "efficiency_pct",
                       "pool"?, "axis"?, "low_life_threshold_pct"?}
                      **축 무관** — 생명력 축은 pool 생략(=100, 단위 %), 정신력 축은
@@ -388,7 +407,7 @@ def compute_trigger_rate(
     Power 기반이 아닌 젬(고정 25·이동거리·자원 등)은 계산하지 않고 사유를 낸다 —
     그 경우 젬 레코드의 `energy_stats` 원문을 읽을 것.
     """
-    from pok.engine.trigger import Enemy, MetaGem
+    from pok.engine.trigger import Enemy, MetaGem, threshold_scaled_triggers
     from pok.engine.trigger import compute_trigger_rate as _rate
     from pok.index.search import get_entry
 
@@ -409,6 +428,8 @@ def compute_trigger_rate(
         max_energy_per_100ms=float(data.get("max_energy_per_100ms", 10.0)),
         max_energy_flat=data.get("max_energy_flat"),
         energy_gain_increase_pct=energy_gain_increase_pct,
+        # 한계치 비례 항은 **원문에서 읽는다**(#43) — 손으로 적으면 패치에 안 따라온다
+        threshold_scaled=threshold_scaled_triggers(data.get("stats") or []),
     )
     enemy = Enemy(
         rarity=enemy_rarity,

@@ -149,7 +149,7 @@ def _hit_dict(hit: Any) -> dict[str, Any]:
     """히트 → dict. **비어 있는 해금 칸은 뺀다** — 압축 히트(D14)에 상시 None 세 칸을
     실으면 전 질의가 토큰을 무는데, 정작 신호가 필요한 건 제약이 걸린 소수다."""
     out = asdict(hit)
-    for key in ("locked_to", "requires_nodes", "excluded_by_unlock", "pob_gap"):
+    for key in ("locked_to", "requires_nodes", "excluded_by_unlock", "pob_gap", "carrier_unknown"):
         if not out.get(key):
             out.pop(key, None)
     if "requires_nodes" in out:
@@ -194,7 +194,13 @@ def search_kb(
     델타 0은 "값어치 없음"이 아니라 **"측정 안 됨"**이다. 트리 노드 501건(전체의
     10.2%)이 여기 해당한다(실측 2026-08-07). 그대로 측정해 버리면 원소 집정관
     계열처럼 축 하나가 통째로 0으로 잠긴다(#3). 상세·대체 조립은 get_entry의
-    `pob_modeling`."""
+    `pob_modeling`.
+
+    **`carrier_unknown`이 붙은 히트는 그 접사를 실제로 다는 유니크를 못 찾은 것이다**
+    — 모드가 KB에 있다는 것이 곧 획득 가능은 아니다. `item-exclusive` 5,488건 중
+    **2,163건(39.4%)**이 여기 해당한다(실측 2026-08-10, PoB 유니크 정의 전량 + 생성
+    유니크 대조). 빌드 세션이 하루에 5건 오판했고 둘은 설계 근거로 쓰였다가 뒤집혔다.
+    ⛔ "획득 불가"가 아니라 **"확인 못 함"**이다 — 담체를 확인한 뒤에 근거로 쓸 것."""
     hits = _search(
         query=query,
         tags=tags,
