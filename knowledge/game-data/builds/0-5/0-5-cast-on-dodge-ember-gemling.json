@@ -1,0 +1,92 @@
+{
+  "id": "build.0-5-cast-on-dodge-ember-gemling",
+  "type": "Build",
+  "name": {
+    "ko": "회피 시전 잉걸불 젬링",
+    "en": "Cast on Dodge Ember Gemling"
+  },
+  "tags": [
+    "fire",
+    "trigger",
+    "dodge"
+  ],
+  "data": {
+    "class_name": "Mercenary",
+    "ascendancy": "Gemling Legionnaire",
+    "offense": {
+      "carrier": [
+        "skill.ember-fusillade"
+      ],
+      "stack_source": [
+        "회피 굴림 빈도"
+      ],
+      "transfer": [
+        "Cast on Dodge 2중 — 젬 + 부재 목걸이",
+        "룬 효과 3배 무기"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [
+          "지속 100% 감소 — 즉발화"
+        ],
+        "gain": []
+      },
+      "clear_engine": [
+        "자동 폭격"
+      ],
+      "loop": [
+        "구르기 → 에너지 축적 → 발동"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "es"
+      ],
+      "mitigation": [
+        "Guard(Decree of Flight)",
+        "skill.temporal-chains"
+      ],
+      "recovery": [
+        "skill.ghost-dance"
+      ],
+      "caps_immunities": [
+        "Seraph's Heart — 저항 90% 취급 확률"
+      ],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "defense-action-feeds-offense",
+      "note": "생존 행동(구르기)이 곧 딜 트리거다 — 방어 조작이 공격 자원을 만든다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "tier": "A",
+    "role": [
+      "map"
+    ]
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.ember-fusillade"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.temporal-chains"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ghost-dance"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://odealo.com/articles/poe2-builds/ember-fusillade-gemling-legionnaire",
+      "patch": "0.5.4b",
+      "note": "수집 2026-08-11"
+    }
+  ]
+}

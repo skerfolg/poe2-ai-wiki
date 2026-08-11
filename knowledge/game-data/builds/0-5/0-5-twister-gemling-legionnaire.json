@@ -1,0 +1,97 @@
+{
+  "id": "build.0-5-twister-gemling-legionnaire",
+  "type": "Build",
+  "name": {
+    "ko": "트위스터 젬링 리저네어",
+    "en": "Twister Gemling Legionnaire"
+  },
+  "tags": [
+    "cold",
+    "attack",
+    "gem-quality"
+  ],
+  "data": {
+    "class_name": "Mercenary",
+    "ascendancy": "Gemling Legionnaire",
+    "offense": {
+      "carrier": [
+        "skill.twister",
+        "skill.whirling-slash"
+      ],
+      "stack_source": [
+        "지속시간",
+        "투사체 속도"
+      ],
+      "transfer": [
+        "Gemling `Advanced` — 전 젬 추가 품질"
+      ],
+      "amplifier": {
+        "more": [],
+        "increased": [
+          "skill.barrage"
+        ],
+        "gain": []
+      },
+      "clear_engine": [
+        "support.frost-nexus"
+      ],
+      "loop": [
+        "산산조각 ↔ 냉각 지대"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "evasion",
+        "es",
+        "hybrid"
+      ],
+      "mitigation": [],
+      "recovery": [
+        "Vitality (KB 미수록)"
+      ],
+      "caps_immunities": [
+        "무기 세트 분리"
+      ],
+      "weakness_accepted": []
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": ""
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "tier": "S",
+    "role": [
+      "map",
+      "boss"
+    ]
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.twister"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.whirling-slash"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.barrage"
+    },
+    {
+      "rel": "uses",
+      "target": "support.frost-nexus"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://maxroll.gg/poe2/build-guides/gemling-twister-build-guide",
+      "patch": "0.5.4b",
+      "note": "수집 2026-08-11"
+    }
+  ]
+}

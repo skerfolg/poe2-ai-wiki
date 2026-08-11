@@ -1,0 +1,138 @@
+{
+ "$id": "build.schema.json",
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "Build.data — 시즌 메타 빌드를 8축으로 원자화 (#67, 사용자 승인 2026-08-11). 원자는 전부 id 참조이고 여기 담는 것은 **엮은 구조**다 (KD-5)",
+ "type": "object",
+ "properties": {
+  "class_name": {
+   "type": "string",
+   "minLength": 1
+  },
+  "ascendancy": {
+   "type": "string"
+  },
+  "offense": {
+   "type": "object",
+   "description": "①~⑥ 공격 축",
+   "properties": {
+    "carrier": {
+     "$ref": "#/$defs/idList",
+     "description": "① 딜 기재 — 실제 피해를 내는 스킬"
+    },
+    "stack_source": {
+     "$ref": "#/$defs/idList",
+     "description": "② 스택 원천 — 무엇을 쌓아 딜로 바꾸나 (자원·상태·수치)"
+    },
+    "transfer": {
+     "$ref": "#/$defs/idList",
+     "description": "③ 전달 장치 — 스택을 딜로 잇는 다리. 이게 없으면 스택은 딜이 아니다"
+    },
+    "amplifier": {
+     "type": "object",
+     "description": "④ 증폭 통 — 곱연산/가산을 섞지 않는다 (곱연산 편향 방지)",
+     "properties": {
+      "more": {
+       "$ref": "#/$defs/idList"
+      },
+      "increased": {
+       "$ref": "#/$defs/idList"
+      },
+      "gain": {
+       "$ref": "#/$defs/idList"
+      }
+     },
+     "additionalProperties": false
+    },
+    "clear_engine": {
+     "$ref": "#/$defs/idList",
+     "description": "⑤ 클리어 엔진 — 단일 대상 딜과 다른 축이다"
+    },
+    "loop": {
+     "type": "array",
+     "description": "⑥ 순환 고리 — 자원·발동이 스스로를 먹여 살리는 경로 (서술 허용)",
+     "items": {
+      "type": "string"
+     }
+    }
+   },
+   "additionalProperties": false
+  },
+  "defense": {
+   "type": "object",
+   "description": "⑦ 방어 축",
+   "properties": {
+    "ehp_form": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "life",
+       "es",
+       "evasion",
+       "armour",
+       "mana",
+       "hybrid"
+      ]
+     }
+    },
+    "mitigation": {
+     "$ref": "#/$defs/idList"
+    },
+    "recovery": {
+     "$ref": "#/$defs/idList"
+    },
+    "caps_immunities": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "weakness_accepted": {
+     "type": "array",
+     "description": "명시적으로 포기한 약점 — 빌드가 무엇을 버렸는지가 설계 정보다",
+     "items": {
+      "type": "string"
+     }
+    }
+   },
+   "additionalProperties": false
+  },
+  "coupling": {
+   "type": "object",
+   "description": "⑧ 공수 결합 — 4유형은 실측 분류다(0.5 메타 8종에서 넷 다 관찰). \"상위 빌드는 자원 공유\"라는 가설은 이 분포로 기각됐다",
+   "properties": {
+    "kind": {
+     "enum": [
+      "shared-resource",
+      "separate",
+      "offense-feeds-defense",
+      "defense-action-feeds-offense"
+     ]
+    },
+    "note": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "kind"
+   ],
+   "additionalProperties": false
+  }
+ },
+ "required": [
+  "class_name",
+  "offense",
+  "defense",
+  "coupling"
+ ],
+ "additionalProperties": true,
+ "$defs": {
+  "idList": {
+   "type": "array",
+   "description": "KB 엔티티 id 또는 아직 원자가 없는 축의 서술. id는 relations `uses`로도 함께 걸어 역방향 조회를 가능하게 한다",
+   "items": {
+    "type": "string",
+    "minLength": 1
+   }
+  }
+ }
+}
