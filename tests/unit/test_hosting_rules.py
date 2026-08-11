@@ -27,6 +27,7 @@ def _gate(
     cannot_be_supported: bool = False,
     support_gems_only: bool = False,
     is_support: bool = False,
+    catalog_source: str = "",
 ) -> SkillGate:
     return SkillGate(
         skill_id=name,
@@ -41,6 +42,7 @@ def _gate(
         cannot_be_supported=cannot_be_supported,
         support_gems_only=support_gems_only,
         is_support=is_support,
+        catalog_source=catalog_source,
     )
 
 
@@ -86,6 +88,22 @@ def test_item_granted_skills_and_gem_only_carriers() -> None:
     item_support = _gate("아이템 보조", from_item=True, is_support=True)
     assert not can_host(item_support, _gate("부여 스킬", from_item=True)).ok
     assert can_host(item_support, _gate("젬 스킬")).ok
+
+
+def test_poe2db_gem_source_beats_pob_from_item() -> None:
+    """`fromItem`이어도 **poe2db가 젬이라 하면 젬이다** (D8 · 이관 D1, 2026-08-11).
+
+    PoB의 정적 `fromItem`은 젬의 부재를 뜻하지 않는다 — 살아있는 폭탄은 `fromItem`이면서
+    `Uncut Skill Gem`으로 커팅되는 tier 3 젬이다. 이 규칙이 없으면 그 스킬이
+    **젬 전용 담체에서 거짓 차단**되고, 실제로 컨셉 하나가 폐기될 뻔했다.
+    """
+    gem_only = _gate("젬 전용", support_gems_only=True, is_support=True)
+    dual = _gate("이중 경로", from_item=True, catalog_source="gem")
+    item_only = _gate("아이템 전용", from_item=True, catalog_source="item-granted")
+
+    assert can_host(gem_only, dual).ok, "poe2db가 젬이라 한 스킬을 막으면 안 된다"
+    assert not can_host(gem_only, item_only).ok
+    assert dual.socketable and not item_only.socketable
 
 
 def test_no_requirement_means_anything_goes() -> None:

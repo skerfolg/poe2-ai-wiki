@@ -85,9 +85,13 @@ def can_host(carrier: SkillGate, payload: SkillGate) -> HostVerdict:
     """
     if payload.cannot_be_supported:
         return HostVerdict(False, f"{payload.name}은 보조를 받지 못한다 (cannotBeSupported)")
-    if carrier.support_gems_only and payload.from_item:
-        return HostVerdict(False, f"{carrier.name}은 젬만 지원한다 — {payload.name}은 아이템 부여")
-    if carrier.from_item and payload.from_item:
+    # ⚠ 이 두 줄의 판정 기준은 `from_item`이 **아니라** 소켓 가부다 — PoB도 여기서
+    # `activeSkill.activeEffect.gemData` 유무를 본다. `from_item`을 대리로 쓰면
+    # 젬으로도 얻는 스킬(살아있는 폭탄)이 거짓 차단된다(`[빌드]` 이관 D1, 2026-08-11).
+    if carrier.support_gems_only and not payload.socketable:
+        return HostVerdict(False, f"{carrier.name}은 젬만 지원한다 — {payload.name}은 젬이 아니다")
+    # PoB: `grantedEffect.fromItem and grantedEffect.support and (활성 스킬도 아이템 유래)`
+    if carrier.from_item and carrier.is_support and not payload.socketable:
         return HostVerdict(False, "아이템 부여 보조는 아이템 부여 스킬을 지원하지 못한다")
     if carrier.exclude and _expression_matches(carrier.exclude, payload.types):
         hit = sorted(t for t in carrier.exclude if t not in _OPERATORS and t in payload.types)
@@ -139,8 +143,8 @@ def _resolve_carrier(query: str, gates: dict[str, SkillGate]) -> SkillGate | Non
 
 
 def _socketable(gate: SkillGate) -> bool:
-    """젬으로 소켓 가능한 활성 스킬인가 — 아이템 부여는 담을 수 없다."""
-    return not gate.is_support and not gate.from_item
+    """젬으로 소켓 가능한 활성 스킬인가 — 판정은 `SkillGate.socketable`(D8)."""
+    return gate.socketable
 
 
 def find_carriers(skill: str, *, include_blocked: bool = False) -> dict[str, Any]:
@@ -176,10 +180,22 @@ def find_carriers(skill: str, *, include_blocked: bool = False) -> dict[str, Any
         "carriers": sorted(hosts, key=lambda r: r["carrier"]),
         "count": len(hosts),
     }
-    if payload.from_item:
+    if not payload.socketable:
+        # ⚠ **단정하지 않는다.** 예전 문구는 "메타 젬·토템에 넣지 못한다"고 못박았는데,
+        # 정작 같은 반환값의 `carriers`에 주문 토템이 들어 있어 **자기모순**이었다
+        # (`[빌드]` 이관 D1). 아이템 부여 스킬도 그 아이템에 박힌 보조 젬의 지원은
+        # 받으므로 담체가 0인 것도 아니다 — 사실만 말하고 판정은 넘긴다.
         out["warning"] = (
-            f"{payload.name}은 **아이템 부여 스킬**(fromItem)이다 — 젬으로 소켓할 수 없어 "
-            "메타 젬·토템에 넣지 못한다. 부여 아이템을 착용해야만 쓸 수 있다"
+            f"{payload.name}은 젬으로 소켓하지 않는 스킬이다"
+            f"(poe2db 획득 경로 {payload.catalog_source or '미표기'} · PoB `fromItem`) — "
+            "부여 아이템을 착용해야 쓸 수 있고, 아래 담체는 **그 아이템에 함께 박은 보조**로 "
+            "읽어야 한다. 별도 소켓의 메타 젬에 넣는 구성은 성립하지 않는다"
+        )
+    elif payload.from_item:
+        # 젬이면서 아이템 부여도 되는 이중 경로 — 차단이 아니라 정보다
+        out["note_dual_path"] = (
+            f"{payload.name}은 **이중 경로**다 — poe2db는 젬(`{payload.catalog_source}`)이라 "
+            "하고 PoB는 `fromItem`도 표시한다. 젬으로 소켓해 쓸 수 있다"
         )
     if include_blocked:
         out["blocked"] = sorted(blocked, key=lambda r: r["carrier"])
@@ -212,8 +228,13 @@ def find_payloads(carrier: str, *, limit: int = 200) -> dict[str, Any]:
 
     seen: set[str] = set()
     payloads: list[dict[str, str]] = []
+    item_only: set[str] = set()
     for gate in gates.values():
-        if not _socketable(gate) or not can_host(host, gate).ok:
+        if gate.is_support or not can_host(host, gate).ok:
+            continue
+        if not _socketable(gate):
+            # 조용히 버리지 않는다 — 몇 건을 왜 뺐는지 반환값에 남긴다(#63 계열의 교훈)
+            item_only.add(label_of(gate).strip() or gate.skill_id)
             continue
         label = label_of(gate).strip()
         if not label or label in seen:  # 같은 젬의 변형들이 한 이름으로 겹친다
@@ -231,7 +252,10 @@ def find_payloads(carrier: str, *, limit: int = 200) -> dict[str, Any]:
     }
     if len(payloads) > limit:
         out["truncated"] = f"{len(payloads)}건 중 {limit}건만 반환 — limit을 올려 전량을 볼 것"
+    out["excluded_item_granted"] = sorted(item_only)
     out["notes"] = [
-        "**아이템 부여 스킬(fromItem)은 제외했다** — 젬 소켓이 안 되므로 담을 수 없다",
+        f"타입 판정은 통과하지만 **젬으로 소켓하지 않는 스킬 {len(item_only)}건**을 뺐다 "
+        "(`excluded_item_granted`). 소켓 가부는 poe2db 획득 경로로 가른다 — PoB의 "
+        "`fromItem`만 보면 젬으로도 얻는 스킬이 거짓 배제된다(이관 D1)",
     ]
     return out

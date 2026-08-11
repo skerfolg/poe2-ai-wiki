@@ -48,6 +48,14 @@ GENERATED_PREFIXES: tuple[str, ...] = (
     "UniqueHeart",
     "UniqueLoreweave",
 )
+# 바알 함양이 **사후에** 붙이는 변이 접사 — 어느 정적 유니크 정의에도 없다.
+# 그래서 "유니크 원문 대조" 방식으로는 **구조적으로** 담체를 못 찾고, 계열 전량이
+# `carrier_unknown`이 되어 설계 근거로 쓰이지 못했다(`[빌드]` 이관 D2, 2026-08-11).
+# PoB 데이터가 뒷받침한다: `affix = ""` · `weightKey = {}`(정상 풀에서 롤 불가)인데
+# `tradeHashes`는 있다 — 즉 **실재하고 거래되는** 모드다(사용자 인게임 확인: 래스피스
+# 구체 함양본). 담체는 "바알 함양 오브를 쓴 유니크"이고, 그건 아는 사실이지 미확인이 아니다.
+VAAL_MUTATED_TAG = "mutatedunique_vaal"
+VAAL_MUTATED_PREFIX = "UniqueMutatedVaal"
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
 _DECORATION = re.compile(r"^(?:\{[a-z]+(?::[^}]*)?\})+", re.I)
 
@@ -72,12 +80,15 @@ def carrier_index(root: Path | None = None) -> set[str]:
 
 
 def carrier_kind(data: dict[str, Any], carriers: set[str]) -> str:
-    """이 모드의 담체가 어느 갈래인가 — `static` | `generated` | `unknown`."""
+    """이 모드의 담체가 어느 갈래인가 — `static` | `generated` | `vaal-mutated` | `unknown`."""
     texts = [str(t) for t in (data.get("texts") or [])]
     if texts and any(_norm(t) in carriers for t in texts):
         return "static"
     if str(data.get("pob_key") or "").startswith(GENERATED_PREFIXES):
         return "generated"
+    tags = {str(t) for t in (data.get("mod_tags") or [])}
+    if VAAL_MUTATED_TAG in tags or str(data.get("pob_key") or "").startswith(VAAL_MUTATED_PREFIX):
+        return "vaal-mutated"
     return "unknown"
 
 
@@ -92,7 +103,7 @@ def apply_carrier_flags(root: Path | None = None, *, write: bool = True) -> dict
     carriers = carrier_index(root)
     store = store_load(root)
     updates: dict[str, dict[str, Any]] = {}
-    counts = {"static": 0, "generated": 0, "unknown": 0}
+    counts = {"static": 0, "generated": 0, "vaal-mutated": 0, "unknown": 0}
     for record_id, record in store.records.items():
         data = record.raw.get("data") or {}
         if record.type != "Modifier" or "item-exclusive" not in (data.get("origins") or []):
@@ -102,10 +113,18 @@ def apply_carrier_flags(root: Path | None = None, *, write: bool = True) -> dict
         kind = carrier_kind(data, carriers)
         counts[kind] += 1
         flagged = bool(data.get("carrier_unknown"))
+        patch: dict[str, Any] = {}
         if kind == "unknown" and not flagged:
-            updates[record_id] = {"carrier_unknown": True}
+            patch["carrier_unknown"] = True
         elif kind != "unknown" and flagged:
-            updates[record_id] = {"carrier_unknown": None}  # 담체가 확인됐다
+            patch["carrier_unknown"] = None  # 담체가 확인됐다
+        # 「모른다」가 아니라 **어떻게 얻는지 안다**는 것을 적는다 — 담체가 특수 경로인
+        # 계열은 그 경로를 이름으로 남겨야 설계가 근거로 쓸 수 있다(도박성은 별개 판단).
+        want = "vaal-orb-mutated-unique" if kind == "vaal-mutated" else None
+        if data.get("carrier_route") != want:
+            patch["carrier_route"] = want
+        if patch:
+            updates[record_id] = patch
     if write and updates:
         patch_records(updates, root=root)
     return {**counts, "changed": len(updates), "wrote": bool(write)}
