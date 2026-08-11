@@ -76,7 +76,7 @@
 |---|---|---|
 | **#53** `optimize_rare`가 낸 text를 `assemble_pob`이 거부 | 미검증(보고 원문) | 롤 값의 티어 범위는 조립 중 검사 경로를 안 탄다 (#23 재발) |
 | **#54** `optimize_rare`가 **PoB에 없는 베이스명**을 낸다 | 미검증(보고 원문) | `Chain Mitts`·`Chain Coif`·`Chain Boots` |
-| **#63** ⛔ 구조화 사실이 **KB를 건너뛰고 PoB 소스에서 직독**된다 | 사용자 지적 · 계획 수립 | 정본이 아니라 **파생물**에 판정이 걸려 있다(철칙 2) |
+| **#63** ⛔ 구조화 사실이 **KB를 건너뛰고 PoB 소스에서 직독**된다 | **P1·P2·P4 완료** · P3 판정 대기 | 젬 50종 미수록 판정(그중 담체 37종)이 사용자 몫 |
 | **#62** ⛔ 엔진이 **「무엇을 만들 수 있나」에 못 답한다** — 발상 도구 부재 | 사용자 지적 · `[빌드]`가 착수 | 이관 6차까지 **전부 검사·게이트**였다 |
 | **#58** ⛔ 검사가 **스냅샷만 보고 출처를 안 본다** — 계승 감사 부재 | 미검증(보고 원문) | 한 세션이 같은 실패 3연속, 세 번 다 도구는 통과 |
 | **#44** PoB가 못 재는 축이 **주력 딜**이면 조립이 정상으로 보인다 | 재현됨(보고자) | 3·4·5차가 소수점까지 동일했다(`3785.134737`) |
@@ -236,7 +236,8 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
   보고 문면이 두 갈래로 읽힌다(⑪ 부수 정보는 전자, ②는 후자로 적혀 있다)
 
 ### #63 〔신규〕 ⛔ 구조화 사실이 **KB를 건너뛰고 PoB 소스에서 직독**된다 — 수집 갭 메우기
-- **상태**: 사용자 지적 2026-08-11 · **계획 수립 완료, 착수 대기** · 계열
+- **상태**: 사용자 지적 2026-08-11 · **P1·P1b·P2·P4 완료(2026-08-11)** ·
+  P3은 실측 재평가로 축소 — **남은 것은 사용자 판정 3건**(아래 진행 기록)
 - **사용자 지적**: "엔진 구현이 PoB 코드를 너무 최우선으로 생각하고 구현하는 것 같다.
   정보 출처는 poe2db도 쓰기로 했잖아. 너무 PoB의 플러그인 느낌으로 개발하고 있는데,
   우리 자체 판단으로 의사결정하고 PoB를 도구로 써야 맞는 것 아닌가" +
@@ -285,8 +286,46 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
    테스트. 지금 8개 파일이 읽는데 그중 `catalog.py`·`uniques.py`가 경계 밖이다.
    감지되므로 도구에 넣는다(철칙 5).
 
-- **착수 시 판단할 것**: P1이 KB 스키마에 필드를 추가한다 — `docs/KB_DATA_MODEL.md`
-  갱신이 함께 필요하고, 그건 **사용자 합의 사항**이다(철칙 1)
+#### 진행 기록 (2026-08-11, 사용자 "#63 진행" 지시로 착수)
+
+- **P1 완료**: `kb/ingest/skill_types.py` — Skill·Support 938건 중 **915건**에
+  `data.pob` 수록(젬 이름 매칭 914 + 스킬 이름 1, 발음 구별 기호 정규화로 +2).
+  statSets 140건·판정식 591건·fromItem 105건 전부 들어왔다. 재실행 멱등.
+- **P1b 완료**: `pob-gate.schema.json` 신설 + skill/support 스키마 연결 +
+  KB_DATA_MODEL §2-1. 계획에 명시된 필드 그대로라 사용자 지시("진행해라")를
+  합의로 갈음했다 — 어긋났다면 되돌릴 것.
+- **P2 완료**: `kb/skill_facts.py` 신설, `hosting.py`·statSet 게이트·XML 키가 KB를
+  읽는다. `pob/catalog.py`엔 계산기 계약(gem_ids·config_vars)만 남음. 부수 효과:
+  담체 질의가 **한글 이름**도 받고, 통합 테스트가 CI에서 더는 스킵되지 않는다(#62 계열).
+- **P4 완료**: `tests/unit/test_pob_source_boundary.py` — 경계 밖 접촉·죽은 예외
+  모두 실패. 허용 목록 추가는 사용자 합의 사항으로 못 박음.
+- **P3 실측 재평가** — 계획의 세 필드는 P1이 대부분 흡수했다:
+  - `category`(12.5%): 엔진 소비처 없음 + 이제 `data.pob.effects[].types`로 전량
+    유도 가능(Attack 161·Spell 97). **KD-5(추론 가능한 것 진입 불가)에 따라
+    채우지 않는 것이 맞다고 판단** — 뒤집으려면 소비처를 먼저 제시할 것.
+  - `applies_to_tags`(1.1%): require/exclude 식이 정본이고 KB에 들어왔다 —
+    **대체 완료**. 남은 6건 삭제 여부만 판정 대상.
+  - `cast_time_s`(26.9%): 착시였다 — Spell 타입 97건 기준 **미보유 9건**뿐이고
+    (Arctic Armour·Elemental Expression 등) 전부 시전형이 아니다. 할 일 없음.
+
+#### 판정 대기 (사용자 몫 — KI-7/KI-8)
+
+1. ⛔ **PoB 젬 50종이 KB에 레코드가 없다** — 그중 **보조(담체) 젬 37종**이라
+   `find_carriers`가 그만큼 못 본다(담체 질의 247→226). 두 갈래:
+   - **원시 페이지 있음 20종**(수집됐는데 병합에서 빠짐 — 원인 미규명):
+     Auto Reload · Bloodlust · Commandment · Dauntless · Ferocity · Flamepierce ·
+     Freezefork · Infernal Legion III · Life Bounty · Lockdown · Malady · Mana Bounty ·
+     Murderous Intent · Overextend · Runic Extraction · Rusted Spikes ·
+     Shock Conduction II · Shock Siphon · Spar · Stormchain
+   - **원시 페이지 없음 28종**(fetch-plan에도 없거나 아이템 부여 스킬):
+     His Winnowing Flame 계열 4종(fromItem — #62의 까부르는 화염 실사례가 여기) ·
+     Cast on Melee Kill/Stun · Reverberate · Ruthless · Daze 등
+   목록 전체는 `python -m pok.kb.ingest skill-types --patch 0.5.4b`의 `pob_only_gems`.
+2. **구 패치 잔재 의심 23건** (`kb_unmatched`): 큐레이션 시드 support.chain ·
+   support.pierce · support.fire-infusion(PoB에선 **Fire Attunement**로 개명 확인) ·
+   support.empowered-sparks-ii + 기본 공격·아이템 부여 스킬 19건 — 현 패치 실재
+   여부 판정 후 삭제/개명. 삭제 전 전량 나열 규약 적용.
+3. `applies_to_tags` 기존 6건 삭제 여부 (위 P3 항 참조).
 
 ### #62 〔신규〕 ⛔ 엔진이 **「무엇을 만들 수 있나」에 못 답한다** — 발상 도구 부재
 - **상태**: 사용자 지적 2026-08-11 · `[빌드]` A분기 세션이 1차 구현 착수(사용자 승인,
