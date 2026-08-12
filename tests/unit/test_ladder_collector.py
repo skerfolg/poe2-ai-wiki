@@ -316,3 +316,52 @@ def test_목적지와_동선을_갈라_센다(tmp_path, monkeypatch) -> None:
     per = out["_tree_shape"]["per_build"]
     assert per["small"]["median"] == 1, "스몰이 어디에도 안 남으면 동선 비용을 못 본다"
     assert per["unmapped"]["max"] == 1, "KB에 없는 번호를 조용히 버리면 수집 갭이 사라진다"
+
+
+def test_지나친_목적지를_센다(tmp_path, monkeypatch) -> None:
+    """부재는 채택률 표에 없다 — 「닿을 수 있었는데 안 찍은」 것을 따로 세야
+    포기 판단의 근거가 생긴다(사용자 정리 2026-08-12).
+
+    ⚠ 관련성 필터 없이 내면 무관한 노터블이 표를 덮으므로 그 사실을 반환값에 붙인다.
+    """
+    from pok.engine import ladder_aggregate as agg
+
+    class _Node:
+        def __init__(self, kind: str, name: str, stats: tuple[str, ...]) -> None:
+            self.kind, self.name_en, self.stats_en = kind, name, stats
+
+    nodes = {
+        10: _Node("notable", "Taken", ("30% increased Totem Life",)),
+        20: _Node("notable", "Skipped", ("30% increased Totem Damage",)),
+        30: _Node("notable", "Unrelated", ("Minions deal more damage",)),
+    }
+
+    class _Graph:
+        def __init__(self, *_a, **_k) -> None:
+            self.nodes = nodes
+
+        def candidates(self, near, max_dist, kinds=(), ascendancy_name=None):
+            return [(nid, nodes[nid], 2) for nid in (20, 30) if nid not in near]
+
+    monkeypatch.setattr("pok.engine.tree.graph.TreeGraph", _Graph)
+
+    class _Fake:
+        skill_groups = ()
+        items = ()
+        ascendancy = "Oracle"
+        tree_nodes = (10,)
+
+    monkeypatch.setattr(agg, "parse_pob", lambda _c: _Fake())
+    folder = tmp_path / "0-5" / "c"
+    folder.mkdir(parents=True)
+    (folder / "a.json").write_text(json.dumps({"pob_export": "x"}), encoding="utf-8")
+
+    raw = agg.passed_over("0-5", "c", base=tmp_path)
+    assert "caveat" in raw, "관련성 필터 없이 낸 표는 그 사실을 밝혀야 한다"
+    assert {r["name"] for r in raw["rows"]} == {"Skipped", "Unrelated"}
+
+    filtered = agg.passed_over("0-5", "c", base=tmp_path, include=[("Totem", 1.0)])
+    assert [r["name"] for r in filtered["rows"]] == ["Skipped"]
+    assert filtered["rows"][0]["passed_by"] == 1
+    assert filtered["rows"][0]["taken_by"] == 0
+    assert "caveat" not in filtered

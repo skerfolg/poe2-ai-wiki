@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -160,6 +161,103 @@ def aggregate_concept(
     }
 
 
+# ────────────────── 지나쳤다 (부재의 증거) ──────────────────
+#
+# 채택률 표는 **찍은 것**만 보여 준다. 그런데 트리 설계의 절반은 「필수처럼 보이는데
+# 동선 비용이 가치를 넘어서 포기한 것」이고, 그 판단의 근거는 표에 **없다** —
+# 부재는 세어지지 않기 때문이다(사용자 정리 2026-08-12).
+#
+# 그래서 여기서는 반대로 묻는다: **손 닿는 거리에 있었는데 아무도 안 찍은 목적지**는
+# 무엇인가. 표본 전원이 코앞에서 지나쳤다면 그건 「값이 안 나온다」는 실증이고,
+# 우리가 앵커로 삼으려던 노드가 거기 있으면 앵커를 다시 골라야 한다는 신호다.
+#
+# ⚠ 판정하지 않는다 — 세기만 한다. "왜 지나쳤나"(비용? 중복? 조건 미달?)는 해석이고,
+#   표본이 작을 때 조용히 틀린다. 임계값을 코드에 박지 않는 이유와 같다.
+
+
+def passed_over(
+    season: str,
+    concept: str,
+    *,
+    base: Path | None = None,
+    within: int = 2,
+    kinds: tuple[str, ...] = ("notable", "keystone"),
+    include: Sequence[tuple[str, float]] = (),
+) -> dict[str, Any]:
+    """표본이 **닿을 수 있었는데 안 찍은** 목적지를 센다.
+
+    `within`은 이미 찍은 노드 집합에서의 BFS 거리다 — 2면 "스몰 한두 개만 더 쓰면
+    닿는" 자리. 거리를 넓히면 후보가 폭발하므로 기본을 좁게 둔다.
+
+    해금 조건은 `TreeGraph.candidates`가 건다(다른 전직 전용 노드를 넣으면
+    「지나쳤다」가 아니라 **애초에 못 찍는 것**인데 그게 포기로 읽힌다 — B-13).
+
+    `include`(효과 문구 가중치)를 주면 그 축에 걸리는 노드만 남긴다. **안 주면
+    노이즈가 표를 덮는다** — 토템 표본이 소환수 노터블을 지나친 것은 포기가 아니라
+    무관이다. 안 준 호출에는 반환값에 그 사실을 붙인다(`caveat`).
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.engine.tree.clusters import relevance
+    from pok.engine.tree.graph import TreeGraph
+
+    folder = (base or ladder_dir()) / season / concept
+    files = sorted(folder.glob("*.json"))
+    if not files:
+        raise LadderError(f"수집된 것이 없다: {folder}")
+
+    graph = TreeGraph(knowledge_dir())
+    near: dict[int, list[int]] = {}  # 노드 → 그것을 지나친 빌드들의 거리
+    taken: dict[int, int] = {}
+    for path in files:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        summary = parse_pob(doc["pob_export"])
+        allocated = {int(n) for n in (summary.tree_nodes or ())}
+        asc = getattr(summary, "ascendancy", None) or doc.get("raw", {}).get("class")
+        for nid in allocated:
+            node = graph.nodes.get(nid)
+            if node and node.kind in kinds:
+                taken[nid] = taken.get(nid, 0) + 1
+        for nid, _node, dist in graph.candidates(
+            allocated, within, kinds=kinds, ascendancy_name=str(asc) if asc else None
+        ):
+            near.setdefault(nid, []).append(dist)
+
+    n = len(files)
+    rows = []
+    for nid, dists in near.items():
+        node = graph.nodes[nid]
+        score = relevance(node.stats_en, list(include), []) if include else 0.0
+        if include and score <= 0:
+            continue
+        rows.append(
+            {
+                "node": nid,
+                "name": node.name_en,
+                "kind": node.kind,
+                # 몇 벌이 「닿는 거리에 두고도」 안 찍었나. 이것이 부재의 크기다.
+                "passed_by": len(dists),
+                "taken_by": taken.get(nid, 0),
+                "median_steps": sorted(dists)[len(dists) // 2],
+                "relevance": score,
+                "stat": (node.stats_en or ("",))[0][:80],
+            }
+        )
+    rows.sort(key=lambda r: (-r["relevance"], -r["passed_by"], r["median_steps"], r["node"]))
+    out: dict[str, Any] = {
+        "sample": {"n": n, "unit": "sampled-builds", "within_steps": within},
+        "note": "passed_by = 그 거리 안에 두고도 찍지 않은 빌드 수. "
+        "taken_by가 0이고 passed_by가 n에 가까우면 **전원이 코앞에서 지나쳤다**는 뜻이다. "
+        "왜인지는 여기서 판정하지 않는다",
+        "rows": rows,
+    }
+    if not include:
+        out["caveat"] = (
+            "관련성 필터(include) 없이 냈다 — 무관한 노터블이 표를 덮는다. "
+            "「지나쳤다」로 읽기 전에 축을 주고 다시 낼 것"
+        )
+    return out
+
+
 # ──────────────────────────── CLI ────────────────────────────
 #
 # 저비용 에이전트(코덱스·저티어)가 재량 없이 돌릴 수 있어야 한다. 그래서 판단이
@@ -203,6 +301,22 @@ def _cli(argv: list[str] | None = None) -> int:
         help="이 개수 미만으로 겹친 항목은 싣지 않는다(작은 표본의 꼬리는 노이즈다)",
     )
 
+    po = sub.add_parser(
+        "passed-over", help="닿는 거리에 두고도 **안 찍은** 목적지 (포기 판단의 근거)"
+    )
+    po.add_argument("--season", required=True)
+    po.add_argument("--concept", required=True)
+    po.add_argument("--within", type=int, default=2, help="이미 찍은 노드에서의 BFS 거리")
+    po.add_argument("--top", type=int, default=25)
+    po.add_argument(
+        "--include",
+        action="append",
+        default=[],
+        metavar="TERM[:WEIGHT]",
+        help="효과 문구 관련성 필터. 없으면 무관한 노터블이 표를 덮는다 "
+        '(예: --include "Totem:2" --include Spirit)',
+    )
+
     pr = sub.add_parser("profile", help="A군 — 메커니즘 동반 프로파일(UsageProfile)을 만든다")
     pr.add_argument("--season", required=True)
     pr.add_argument("--concept", required=True)
@@ -241,6 +355,23 @@ def _cli(argv: list[str] | None = None) -> int:
             )
             return 1
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
+        return 0
+
+    if args.cmd == "passed-over":
+        try:
+            include = []
+            for term in args.include:
+                word, _, w = term.partition(":")
+                include.append((word, float(w) if w else 1.0))
+            out = passed_over(args.season, args.concept, within=args.within, include=include)
+        except LadderError as exc:
+            print(json.dumps({"error": str(exc)}, ensure_ascii=False, indent=2))
+            return 1
+        total = len(out["rows"])
+        out["rows"] = out["rows"][: args.top]
+        # 잘랐다고 말하지 않으면 전량으로 읽힌다(BACKLOG 형태 ①).
+        out["truncated"] = {"shown": len(out["rows"]), "total": total}
+        print(json.dumps(out, ensure_ascii=False, indent=2))
         return 0
 
     if args.cmd == "profile":

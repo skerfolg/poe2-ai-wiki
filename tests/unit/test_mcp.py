@@ -62,13 +62,18 @@ def test_server_info_separates_loaded_from_source_commit() -> None:
     """
     from pok.mcp import server
 
-    info = server.server_info()
-    assert "loaded_commit" in info and "source_commit" in info
-    assert info["stale"] is False, "테스트는 로드 직후라 둘이 같아야 한다"
-
-    # 로드 커밋이 옛것인 상황을 재현 — stale이 서고 note가 재시작을 지시해야 한다
     original = server._LOADED_COMMIT
     try:
+        # ⚠ 「로드 직후니 둘이 같다」에 기대면 **다른 세션이 커밋하는 순간 깨진다** —
+        #   import 시점과 호출 시점 사이에 HEAD가 움직인다. 이 레포는 세션 여럿이
+        #   같은 트리를 공유하므로 실제로 깨졌다(2026-08-12, 코덱스 수집과 동시 작업).
+        #   검사하려는 것은 **두 값의 비교 동작**이지 HEAD의 안정성이 아니다.
+        server._LOADED_COMMIT = server.server_info()["source_commit"]
+        info = server.server_info()
+        assert "loaded_commit" in info and "source_commit" in info
+        assert info["stale"] is False, "두 커밋이 같으면 stale이 서면 안 된다"
+
+        # 로드 커밋이 옛것인 상황을 재현 — stale이 서고 note가 재시작을 지시해야 한다
         server._LOADED_COMMIT = "0000000"
         stale_info = server.server_info()
         assert stale_info["stale"] is True

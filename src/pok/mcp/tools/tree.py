@@ -648,3 +648,52 @@ def list_implicits(base_type: str, root_dir: str | None = None) -> dict[str, Any
         "certain_count": sum(1 for o in options if o.slot_certain),
         "notes": notes,
     }
+
+
+def passed_over_nodes(
+    concept: str,
+    include: list[list[Any]],
+    season: str = "0-5",
+    within: int = 2,
+    top: int = 25,
+) -> dict[str, Any]:
+    """래더 표본이 **닿는 거리에 두고도 안 찍은** 목적지 노드 (포기 판단의 근거).
+
+    채택률 표는 찍은 것만 보여 준다. 그런데 트리 설계의 절반은 「필수처럼 보이는데
+    동선 비용이 가치를 넘어서 포기한 것」이고, **부재는 세어지지 않아** 그 판단의
+    근거가 어디에도 없었다. 이 도구가 그 반대편을 센다.
+
+    `passed_by`가 표본 수에 가깝고 `taken_by`가 0이면 **전원이 코앞에서 지나쳤다** —
+    앵커로 삼으려던 노드가 거기 있으면 앵커를 다시 고르라는 신호다. 반대로
+    `taken_by`가 높은데 `passed_by`도 높으면 **갈리는 선택**이라 자유석에 가깝다.
+
+    `within`은 이미 찍은 노드 집합에서의 BFS 거리다(2 = 스몰 한두 개만 더 쓰면 닿음).
+    `include` = `[["Totem", 2.0], ["Spirit", 1.0]]` 꼴. ⚠ **필수다** — 관련성 필터가
+    없으면 무관한 노터블이 표를 덮는다(토템 표본이 소환수 노터블을 지나친 것은
+    포기가 아니라 무관이다).
+
+    `concept`은 수집 디렉터리 이름이다(`skillmodes-Totem`·`class-Blood_Mage`).
+    ⛔ 왜 지나쳤는지는 **판정하지 않는다** — 비용인지 중복인지 조건 미달인지는
+    해석이고, 표본이 작을 때 조용히 틀린다.
+    """
+    from pok.artifacts.ladder import LadderError
+    from pok.engine.ladder_aggregate import passed_over as _passed
+
+    if not include:
+        raise ValueError(
+            "include가 비었다 — 관련성 필터 없이는 무관한 노터블이 표를 덮는다"
+            "(실측: 토템 표본 상위에 소환수 노터블이 올라왔다)"
+        )
+    try:
+        out = _passed(
+            season,
+            concept,
+            within=within,
+            include=[(str(k), float(w)) for k, w in include],
+        )
+    except LadderError as exc:
+        return {"error": str(exc), "how": "수집 디렉터리 이름을 확인할 것(공백은 `_`)"}
+    total = len(out["rows"])
+    out["rows"] = out["rows"][:top]
+    out["truncated"] = {"shown": len(out["rows"]), "total": total}
+    return out
