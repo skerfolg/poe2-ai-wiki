@@ -1,0 +1,447 @@
+{
+  "id": "usage-profile.0-5-class-lich",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "리치 (Lich) 동반 프로파일 (0-5)",
+    "en": "리치 (Lich) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.lich-23710",
+      "label": "리치 (Lich)"
+    },
+    "query": {
+      "class": "Lich"
+    },
+    "class_spread": [
+      {
+        "ref": "Lich",
+        "share": 100.0,
+        "count": 10
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 129,
+          "median": 133,
+          "max": 135
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 4,
+          "median": 5,
+          "max": 6
+        },
+        "keystone": {
+          "min": 2,
+          "median": 3,
+          "max": 5
+        },
+        "notable": {
+          "min": 20,
+          "median": 23,
+          "max": 38
+        },
+        "small": {
+          "min": 87,
+          "median": 100,
+          "max": 103
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/class-Lich 10벌"
+      },
+      "gems": [
+        {
+          "ref": "Magnified Area II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Temporal Chains",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Enfeeble",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Charge Profusion II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Profane Ritual",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Convalescence",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Heightened Curse",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Despair",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Ghost Dance",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Malice",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Mobility",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Withering Presence",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Clarity I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Clarity II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Her Declaration",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Purity of Ice",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Refutation",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "From Nothing",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Alpha's Howl",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Shavronne's Satchel",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Morior Invictus",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Beira's Anguish",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Dream Fragments",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.necromantic-conduit-26085",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.blackened-heart-2877",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.insightfulness-116",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.conduit-33979",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.enhanced-barrier-44299",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.whispers-of-doom-47759",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.crystalline-phylactery-17788",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.rupture-the-soul-23352",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.warlord-leader-14761",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.zone-of-control-50485",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.beastial-skin-59720",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.enhanced-reflexes-51707",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.master-of-hexes-40345",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.profane-commander-54814",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.spectral-ward-34324",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.ingenuity-39567",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.inner-faith-30562",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.lingering-whispers-16499",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.resonance-25520",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.dreamcatcher-11838",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.incessant-cacophony-59",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.mana-blessing-61027",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.mystic-stance-63064",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.spiral-into-depression-1546",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.step-like-mist-48198",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.trained-deflection-52180",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.lich-23710"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'class': 'Lich'}"
+    }
+  ]
+}
