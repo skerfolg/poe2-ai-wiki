@@ -76,3 +76,59 @@ def test_목표가_없으면_기존_동작_그대로() -> None:
     base = {"CombinedDPS": 1_000_000, "TotalEHP": 5000}
     assert plain.score(_nd(CombinedDPS=100_000.0), base) == 0.1
     assert plain.focus(base) is None
+
+
+# ────────────── 필수 앵커는 점수 경쟁 밖이다 ──────────────
+
+
+def _graph():
+    from pok.common.paths import knowledge_dir
+    from pok.engine.tree.graph import TreeGraph
+
+    return TreeGraph(knowledge_dir())
+
+
+def _spec():
+    from pok.pob.buildxml import BuildSpec
+
+    return BuildSpec(class_name="Monk", ascendancy="Monk1", tree_nodes=())
+
+
+def test_앵커는_기준선에_들어가_가지치기에서_보호된다() -> None:
+    """메커니즘 노드는 PoB가 못 재는 경우가 많아 델타 0으로 잡힌다.
+
+    보호하지 않으면 가지치기가 곧바로 회수한다 — 넣자마자 사라지는 셈이다.
+    `_prune_dead_branches`는 `original.tree_nodes`를 보호 집합으로 쓰므로,
+    앵커를 **원래 스펙에 편입**하는 것이 그대로 보호가 된다.
+    """
+    from pok.engine.tree.optimize import _seed_anchors
+
+    anchor = 11495  # 마셜 아티스트 시작 노터블
+    seeded, notes, cost = _seed_anchors(_spec(), _graph(), (anchor,), 20)
+    assert anchor in seeded.tree_nodes and cost > 0
+    assert any("가지치기도 건드리지 않는다" in n for n in notes)
+
+
+def test_연결_불가_앵커를_조용히_빼지_않는다() -> None:
+    """조용히 빼면 「앵커를 넣었다」고 믿은 채 없는 트리를 받는다."""
+    from pok.engine.tree.optimize import _seed_anchors
+
+    _, notes, _ = _seed_anchors(_spec(), _graph(), (999_999,), 20)
+    assert any("연결 불가" in n for n in notes)
+
+
+def test_앵커가_예산을_넘으면_말한다() -> None:
+    """설계가 성립하지 않는다는 신호다 — 조용히 넘어가면 예산 0인 그리디를 돌린다."""
+    from pok.engine.tree.optimize import _seed_anchors
+
+    _, notes, cost = _seed_anchors(_spec(), _graph(), (11495, 21984), 1)
+    assert cost > 1
+    assert any("초과" in n for n in notes)
+
+
+def test_앵커가_없으면_스펙이_그대로다() -> None:
+    from pok.engine.tree.optimize import _seed_anchors
+
+    spec = _spec()
+    seeded, notes, cost = _seed_anchors(spec, _graph(), (), 20)
+    assert seeded is spec and notes == () and cost == 0

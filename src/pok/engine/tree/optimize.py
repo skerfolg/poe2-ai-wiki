@@ -195,6 +195,7 @@ def optimize_tree(
     unconnected_regions: tuple[Mapping[str, Any], ...] = (),
     cluster_include: tuple[tuple[str, float], ...] = (),
     cluster_exclude: tuple[str, ...] = (),
+    required_anchors: tuple[int, ...] = (),
 ) -> OptimizeResult:
     """포인트 예산 안에서 정책 점수가 양수인 최선 수를 반복 채택한다.
 
@@ -232,8 +233,15 @@ def optimize_tree(
                 return 1
         return walked
 
+    # ── 필수 앵커 먼저 박는다 (점수 경쟁과 분리) ──
+    #
+    # 메커니즘에 반드시 필요한 노드에 **높은 가중치**를 주는 방식은 틀렸다 — 가중치는
+    # 여전히 경쟁이라, 점수가 더 높은 다른 노드에 밀린다. 필수는 경쟁 대상이 아니라
+    # **통과점**이다(사용자 정리 2026-08-12). 그리고 PoB가 못 재는 메커니즘 노드는
+    # 델타가 0이라 그리디가 **절대** 안 뽑는다 — 여기서 박지 않으면 영영 안 들어온다.
+    spec, anchor_notes, anchor_cost = _seed_anchors(spec, graph, required_anchors, point_budget)
     current = spec
-    budget = point_budget
+    budget = max(0, point_budget - anchor_cost)
     rejected = 0
     with PobDaemon() as daemon:
         best_solution: tuple[BuildSpec, PobResult] | None = None  # 단조성 안전장치
@@ -312,7 +320,7 @@ def optimize_tree(
     far, notes = _scan_far_clusters(
         graph, current, cluster_include, cluster_exclude, candidate_radius
     )
-    notes = (*notes, *_target_notes(objective, final.stats))
+    notes = (*anchor_notes, *notes, *_target_notes(objective, final.stats))
     return OptimizeResult(
         current,
         final,
@@ -321,6 +329,49 @@ def optimize_tree(
         rejected_rounds=rejected,
         far_clusters=far,
         notes=notes,
+    )
+
+
+def _seed_anchors(
+    spec: BuildSpec, graph: TreeGraph, anchors: tuple[int, ...], budget: int
+) -> tuple[BuildSpec, tuple[str, ...], int]:
+    """필수 앵커를 트리에 먼저 연결하고, 그 결과를 **보호 대상 기준선**으로 만든다.
+
+    반환한 스펙이 `optimize_tree`의 `spec`(= 가지치기가 건드리지 않는 원래 트리)이
+    되므로, 앵커와 그 경로는 **델타가 0이어도 잘려 나가지 않는다.** 이게 핵심이다 —
+    메커니즘 노드는 PoB가 못 재는 경우가 많아(트리거·일부 DoT) 델타 0으로 잡히고,
+    보호하지 않으면 가지치기가 곧바로 회수해 버린다.
+    """
+    if not anchors:
+        return spec, (), 0
+    tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
+    added: list[int] = []
+    unreachable: list[int] = []
+    for node_id in anchors:
+        path = graph.shortest_path(tree, node_id)
+        if path is None:
+            unreachable.append(node_id)
+            continue
+        tree.update(path)
+        added.extend(path)
+    notes: list[str] = []
+    if added:
+        notes.append(
+            f"필수 앵커 {len(anchors) - len(unreachable)}개를 먼저 연결했다 — "
+            f"{len(added)}포인트. 점수 경쟁에서 제외되고 가지치기도 건드리지 않는다"
+        )
+    if unreachable:
+        # 조용히 빼면 "앵커를 넣었다"고 믿은 채 없는 트리를 받는다.
+        notes.append(f"⚠ 연결 불가 앵커 {unreachable} — 트리에 들어가지 않았다")
+    if len(added) > budget:
+        notes.append(
+            f"⚠ 필수 앵커만으로 예산을 {len(added) - budget}포인트 **초과**했다 — "
+            "그리디에 남은 예산이 없다. 앵커를 줄이거나 예산을 늘릴 것"
+        )
+    return (
+        dataclasses.replace(spec, tree_nodes=tuple(spec.tree_nodes) + tuple(added)),
+        tuple(notes),
+        len(added),
     )
 
 

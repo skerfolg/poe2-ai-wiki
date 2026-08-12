@@ -85,6 +85,7 @@ def optimize_tree(
     cluster_include: list[list[Any]] | None = None,
     cluster_exclude: list[str] | None = None,
     targets: list[dict[str, Any]] | None = None,
+    required_anchors: list[int] | None = None,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
@@ -105,6 +106,14 @@ def optimize_tree(
     않게"를 표현하지 못한다 — 균형은 가중치를 손으로 맞춰서가 아니라 경계 충족으로
     얻는다. ⚠ PoB가 못 재는 축을 목표로 걸면 그 축으로는 한 걸음도 못 민다
     (델타가 0이 아니라 측정이 없다) — `notes`에 그 사실이 실린다.
+
+    `required_anchors` = **메커니즘상 반드시 필요한 노드**(KB node_id). 그리디를 돌리기
+    전에 먼저 연결하고 그 포인트를 예산에서 뺀다. 가중치를 크게 주는 방식과 다르다 —
+    가중치는 여전히 경쟁이라 점수 높은 다른 노드에 밀린다. 필수는 경쟁 대상이 아니라
+    **통과점**이다. 특히 **PoB가 못 재는 메커니즘 노드는 델타 0이라 그리디가 절대
+    안 뽑는다** — 여기 넣지 않으면 영영 안 들어온다. 연결된 앵커와 그 경로는
+    가지치기도 건드리지 않는다. 후보는 `corpus.missing_unanimous`(표본 전원이 찍는
+    목적지)와 컨셉상 필수 노드에서 고른다.
 
     `exclude_nodes` = **설계 판단으로 뺀 노드**. 그리디는 배타 관계를 모르므로 손으로
     빼도 그냥 다시 뽑는다 — 실측 2026-08-09: 원소 집정관 축을 위해 「검은화염 계약」
@@ -146,6 +155,7 @@ def optimize_tree(
         unconnected_regions=tuple(unconnected_regions or ()),
         cluster_include=tuple((str(k), float(w)) for k, w in (cluster_include or ())),
         cluster_exclude=tuple(cluster_exclude or ()),
+        required_anchors=tuple(required_anchors or ()),
     )
     return {
         # 후보 반경 **밖**의 관련 뭉치 — 효과 문구째로 낸다. 점수만 내면 두 축을
