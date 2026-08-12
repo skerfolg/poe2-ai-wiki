@@ -77,6 +77,102 @@
         "쿨다운에 묶여 순간 화력의 상한이 고정된다"
       ]
     },
+    "observed": {
+      "sample": {
+        "n": 3,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 상위 3명 PoB 실측 (runesofaldur, class=Chronomancer, 2026-08-12 수집)"
+      },
+      "gems": [
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 100.0,
+          "count": 3
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 100.0,
+          "count": 3
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 100.0,
+          "count": 3
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Clarity II",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Deliberation",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Slow Potency",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Spell Cascade",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Temporal Chains",
+          "share": 66.7,
+          "count": 2
+        }
+      ],
+      "items": [
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 100.0,
+          "count": 3
+        },
+        {
+          "ref": "From Nothing",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Headhunter",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 66.7,
+          "count": 2
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 66.7,
+          "count": 2
+        }
+      ]
+    },
     "coupling": {
       "kind": "separate",
       "note": "Temporal Rift(28.8%)는 상태를 되감아 회복하는 방어 장치이고 딜과 자원을 나누지 않는다. 다만 쿨다운 회복 투자는 공수 양쪽(Comet 재시전·Time Freeze 재사용)에 동시에 얹힌다"
@@ -88,7 +184,7 @@
       "map",
       "boss"
     ],
-    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다 · `data.observed`는 별개다 — 그쪽은 상위 3명의 PoB 코드를 겹쳐 센 **관측치**이고 해석이 아니다(표본 3벌이라 꼬리는 싣지 않았다)",
     "archetype_convergence": "high",
     "usage": {
       "ascendancy_pct": 1.5,

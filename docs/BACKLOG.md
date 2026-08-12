@@ -758,9 +758,33 @@ let n = el[fk]; while (n && !(n.memoizedProps?.items && n.memoizedProps.title)) 
 
 ##### 남은 것 — 이 세션에서 안 한 것
 
-1. **축별 빈도 스키마 미정**. 현재 `idList`가 문자열 배열이라 **10벌을 겹칠 자리가 없다**.
-   불변(10/10)·가변(3/10)을 담으려면 항목에 빈도를 붙이거나 `variance` 블록이 필요하다
-   — 스키마 변경이라 **합의 대기**.
+1. ~~축별 빈도 스키마 미정~~ → **`data.observed` 신설로 해소** (사용자 승인 2026-08-12).
+   축 배열에 빈도를 섞지 **않았다** — 8축은 해석이고 채택률은 관측이라 한 배열에 넣으면
+   둘이 뭉개진다. 별도 블록으로 갈랐고, 그래서 기존 33종 마이그레이션도 불필요했다(가산).
+
+   ```
+   data.observed:
+     sample:  {n, unit: characters|sampled-builds, basis}   ← 필수
+     gems / items / passives / …  [{ref, share, count}]     ← 채택률 내림차순
+   ```
+
+   - **`sample` 필수**: `share: 100`만 있으면 3벌 중 3벌인지 1000명 중 1000명인지 모른다.
+     신뢰도가 전혀 다른데 겉보기가 같다. 강제 지점 `test_관측은_표본을_밝힌다`.
+   - **안층은 `count` 필수**: "3/10"이 "30%"로만 적히면 표본 크기가 사라진다.
+   - `unit`이 두 층을 한 모양으로 담는다 — `characters`(어센던시 집계, 바깥층) ·
+     `sampled-builds`(상위 N명 PoB, 안층).
+   - `gems`는 액티브/보조가 **섞여 있다** — PoB 코드가 그 둘을 구분해 주지 않는다.
+     바깥층의 `main_skills`/`supports`와 같은 범주가 아니므로 키를 따로 뒀다.
+   - 집계기 `engine/ladder_aggregate.py`. **artifacts가 아니라 engine이다** — 파일 읽기
+     (`artifacts`)와 코드 파싱(`pob`)을 둘 다 쓰는데 그 둘은 같은 층이라 서로 import할 수
+     없다(import-linter가 잡았다). 세는 일뿐이라 철칙 3의 「엔진=결정적」과 어긋나지 않는다.
+      한 빌드 안 중복은 1로 센다("몇 명이 쓰나"이지
+     "몇 번 끼나"가 아니다 — 배수로 세면 불변/가변 판정이 통째로 틀어진다). 회귀 시험 있음.
+   - **임계값은 코드에 안 박았다** — "몇 % 이상이 필수인가"는 표본 크기에 따라 달라지는
+     판단이라 해석 층의 몫이다.
+   - 실증: `0-5-cold-curse-chronomancer`에 상위 3명 겹쳐 넣었다 — CDR II·Magnified Area II·
+     Prolonged Duration II·Lavianga's Spirits가 **3/3**(불변), 나머지는 2/3.
+     표본 3벌이라 1/3 꼬리는 싣지 않았다.
 2. **차이의 사인 구분**(설계 선택 vs 예산·진행도)은 해석 층의 몫. 재료(레벨·장비·유니크
    수)는 PoB 코드에 들어 있으니 수집기는 안 빠뜨리기만 하면 된다.
 3. `artifacts/ladder/`는 gitignore다. 시즌을 넘겨 보존하려면 `ingest-raw`처럼 **별도

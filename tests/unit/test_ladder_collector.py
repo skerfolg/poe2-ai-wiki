@@ -172,3 +172,18 @@ def test_모르는_리그는_추측하지_않고_멈춘다(tmp_path) -> None:
     ref = CharacterRef(1, "WOualey-0844", "BoBerCully")
     with pytest.raises(LadderError, match="시즌을 모른다"):
         store_character(_doc(), league_slug="somenewleague", ref=ref, query={}, base=tmp_path)
+
+
+def test_한_빌드_안의_중복은_한_번만_센다() -> None:
+    """묻는 것은 「몇 명이 쓰나」이지 「몇 번 끼나」가 아니다.
+
+    한 빌드가 같은 보조를 3군데 끼웠다고 채택률이 3배가 되면 **불변/가변 판정이
+    통째로 틀어진다** — 이 데이터의 값어치가 바로 그 판정이다.
+    """
+    from pok.engine.ladder_aggregate import _tally
+
+    out = _tally([["A", "A", "A", "B"], ["A"], ["B"]])
+    assert out == [
+        {"ref": "A", "share": 66.7, "count": 2},
+        {"ref": "B", "share": 66.7, "count": 2},
+    ]

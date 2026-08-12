@@ -108,3 +108,32 @@ def test_transfer_axis_is_recorded(builds: list) -> None:
     for record in builds:
         transfer = record.raw["data"]["offense"].get("transfer")
         assert transfer, f"{record.id}에 transfer 축이 비어 있다 — 없으면 없다고 적을 것"
+
+
+def test_관측은_표본을_밝힌다(builds: list) -> None:
+    """`data.observed`는 **관측치**라 표본 없이는 읽을 수 없다 (사용자 승인 2026-08-12).
+
+    「10명 중 10명이 혜성」과 「혜성을 쓴다」의 차이가 이 엔티티의 값어치다 —
+    전자는 **불변(필수)**, 후자는 그냥 등장. 그런데 `share: 100`만 적혀 있으면
+    3벌 중 3벌인지 1000명 중 1000명인지 알 수 없고, 그 둘은 신뢰도가 전혀 다르다.
+    그래서 스키마가 `sample`을 필수로 걸고, 여기서 한 번 더 확인한다.
+
+    8축(offense/defense)과 섞지 않는 것도 같은 이유다 — 그쪽은 해석이고 이쪽은 측정이다.
+    """
+    for record in builds:
+        observed = record.raw["data"].get("observed")
+        if observed is None:
+            continue
+        sample = observed["sample"]
+        assert sample["n"] >= 1 and sample["basis"]
+        for key, entries in observed.items():
+            if key == "sample":
+                continue
+            assert entries == sorted(entries, key=lambda e: -e["share"]), (
+                f"{record.id}의 {key}가 채택률 내림차순이 아니다"
+            )
+            for e in entries:
+                # 안층(표본 N벌)은 개수를 함께 실어야 "3/10"이 "30%"로 뭉개지지 않는다
+                if sample["unit"] == "sampled-builds":
+                    assert "count" in e, f"{record.id}: {e['ref']}에 count가 없다"
+                    assert e["count"] <= sample["n"]
