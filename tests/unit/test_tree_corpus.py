@@ -346,3 +346,33 @@ def test_키워드_없이도_앵커까지_나온다() -> None:
     by_axis = out["by_axis"]
     assert by_axis["proposed_anchors"], "앵커 제안이 비었다"
     assert by_axis["cost"]["points"] > 0, "값을 안 매기면 앵커를 고를 수 없다"
+
+
+def test_소켓을_채택률_근거로_앵커에_올린다() -> None:
+    """빈 소켓은 델타 0이라 **점수로는 절대 안 뽑힌다** — 먼 목적지와 같은 성질이고
+    같은 해법(근거를 들어 먼저 박기)이 필요하다.
+
+    전원 공통만 쓰면 모자란다. 소켓은 자리마다 갈려 개별 채택률이 낮아도 **빌드당
+    개수는 일정**하기 때문이다(실측 2026-08-12: 마셜 아티스트 중앙 4 대 전원공통 3,
+    스톰위버 5 대 3, **블러드 메이지 8 대 4**). 그래서 표본 중앙 개수까지 채운다 —
+    지어낸 임계값이 아니라 표본이 실제로 쓰는 개수다.
+    """
+    from pok.engine.tree.corpus import suggest_anchors
+
+    for asc in ("Martial Artist", "Blood Mage", "Stormweaver"):
+        s = suggest_anchors(_graph, asc)["sockets"]
+        assert s["sample_median"] > 0, f"{asc}: 표본 소켓 개수를 못 읽었다"
+        assert len(s["proposed"]) >= len(s["unanimous"]), "제안이 전원공통보다 적다"
+        assert len(s["proposed"]) >= min(s["sample_median"], len(s["adoption"]))
+        assert "optimize_rare" in s["note"], "내용을 만드는 도구를 안 가리킨다"
+        assert "측정이 아니다" in s["note"], "코퍼스 근거임을 안 밝혔다"
+
+
+def test_블러드_메이지_전직_노드가_연결된다() -> None:
+    """실측 2026-08-12: 형제 전직 5종은 링크돼 있는데 블러드 메이지(59822)만 빠져
+    있어 그 전직 노터블이 클래스 시작에서 **아예 닿지 않았다** —
+    `connect_anchors`가 「연결 불가 타깃」으로 터졌다. 0.5 실가동 22종 중 유일했다.
+    """
+    for node_id in (8415, 26383, 56162):  # Sanguimancy · Sunder the Flesh · Grasping Wounds
+        allocated, _paths = _graph.connect_anchors("Witch", [node_id])
+        assert node_id in allocated, f"{node_id}에 닿지 못했다"

@@ -62,8 +62,16 @@ def test_connect_anchors_전체_연결(graph: TreeGraph) -> None:
 
 
 def test_connect_anchors_비연결은_거부(graph: TreeGraph) -> None:
+    """⚠ 예전엔 8415(Sanguimancy, 블러드 메이지)를 무연결 사례로 썼는데 **그게
+    결함이었다**(실측 2026-08-12). 형제 전직 5종은 클래스 시작에 링크돼 있는데
+    블러드 메이지(59822)만 빠져 있어 못 닿았던 것이지, 「어센던시 노드는 본 트리와
+    무연결」이 규칙인 게 아니다 — 그 전제로 시험이 깨진 동작을 정답으로 박아 뒀다.
+
+    진짜 무연결은 **0.5에 없는 계열**(Shadow·Marauder·Duelist·Templar)이다.
+    그쪽 클래스 시작 자체가 `CLASS_START`에 없어 권역이 통째로 고아다.
+    """
     with pytest.raises(ValueError, match="연결 불가"):
-        graph.connect_anchors("Witch", [8415])  # 어센던시 노드는 본 트리와 무연결
+        graph.connect_anchors("Witch", [5162])  # Assassin(Shadow1) — 0.5에 없는 계열
 
 
 def test_candidates_거리와_종류(graph: TreeGraph) -> None:

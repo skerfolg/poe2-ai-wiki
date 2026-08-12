@@ -227,6 +227,66 @@ def discover_axes(
     }
 
 
+def _socket_anchors(
+    data: dict[str, Any], node_of: dict[str, int], graph: TreeGraph
+) -> dict[str, Any]:
+    """주얼 소켓을 **채택률 근거로** 앵커에 올린다 (사용자 지시 2026-08-12).
+
+    빈 소켓은 델타가 0이라 **점수 경쟁으로는 영영 안 뽑힌다** — 먼 목적지와 같은
+    성질이고, 같은 해법(근거를 들어 먼저 박기)이 필요하다.
+
+    전원 공통(count == n)만 쓰면 모자란다. 소켓은 자리마다 갈려서 개별 채택률이
+    낮아도 **빌드당 개수는 일정**하기 때문이다(실측 2026-08-12):
+
+    | 전직 | 표본 중앙 개수 | 전원 공통 | 부족 |
+    |---|---|---|---|
+    | 마셜 아티스트 | 4 | 3 | 1 |
+    | 스톰위버 | 5 | 3 | 2 |
+    | 블러드 메이지 | 8 | 4 | **4** |
+
+    그래서 **표본 중앙 개수까지** 채택률 순으로 채운다. 임계값을 지어낸 게 아니라
+    표본이 실제로 쓰는 개수다.
+
+    ⛔ **값을 보장하지 않는다.** 소켓은 포인트를 쓰고 주얼이 들어오기 전까지 아무것도
+    주지 않는다 — 내용은 `optimize_rare(slot="Jewel@<node>")`가 정하고, 그 뒤에야
+    이 자리가 값을 하는지 잴 수 있다(2패스).
+    """
+    n = data["observed"]["sample"]["n"]
+    median = int(
+        (data.get("tree_shape") or {}).get("per_build", {}).get("jewel-socket", {}).get("median", 0)
+    )
+    ranked: list[tuple[int, int]] = []
+    for entry in data["observed"]["passives"]:
+        nid = node_of.get(entry["ref"])
+        node = graph.nodes.get(nid) if nid else None
+        if node is not None and node.kind == "jewel-socket":
+            ranked.append((int(entry["count"]), nid))
+    ranked.sort(key=lambda kv: (-kv[0], kv[1]))
+    unanimous = [nid for count, nid in ranked if count == n]
+    proposed = [nid for _c, nid in ranked[: max(median, len(unanimous))]]
+    out: dict[str, Any] = {
+        "sample_median": median,
+        "unanimous": unanimous,
+        "proposed": proposed,
+        "adoption": [{"node": nid, "count": f"{c}/{n}"} for c, nid in ranked[:10]],
+    }
+    if median > len(ranked):
+        # 목록이 min_count로 잘려 있어 중앙값을 못 채울 수 있다 — 조용히 모자라지 않게.
+        out["short_of_median"] = (
+            f"표본은 중앙 {median}개를 찍는데 목록에는 {len(ranked)}종뿐이다"
+            f"(count≥{data['observed']['sample'].get('min_count', 1)}로 잘린 목록) — "
+            "부족분은 원시 코퍼스를 봐야 나온다"
+        )
+    out["note"] = (
+        "빈 소켓은 델타 0이라 **점수로는 절대 안 뽑힌다** — `proposed`를 "
+        "`required_anchors`에 넣어 자리를 먼저 잡고, 내용은 "
+        '`optimize_rare(slot="Jewel@<node>")`로 만든 뒤 그 text를 `jewel_templates`에 '
+        "넣어 다시 재라(2패스). ⛔ 이 제안은 **코퍼스 근거지 측정이 아니다** — "
+        "포인트를 쓰고도 주얼이 없으면 아무것도 주지 않는다"
+    )
+    return out
+
+
 def _base_class(graph: TreeGraph, ascendancy: str) -> str | None:
     """전직 실명 → 기본 클래스("Martial Artist" → "Monk").
 
@@ -460,6 +520,8 @@ def suggest_anchors(
         )
 
     out.pop("_sampled", None)
+    if profile is not None:
+        out["sockets"] = _socket_anchors(data, node_of, graph)
     if axes is None and profile is not None:
         # **사람이 키워드를 대지 않아도** 축이 나오게 한다. 안 그러면 이 도구는
         # "축을 선언하면 변환해 주는" 물건에 머문다(사용자 지적 2026-08-12).
