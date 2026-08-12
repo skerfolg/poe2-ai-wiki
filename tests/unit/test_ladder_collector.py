@@ -214,3 +214,66 @@ def test_두_단어_컨셉도_id가_스키마를_통과한다() -> None:
     ):
         rid = f"usage-profile.{profile_id_slug(f'0-5-{concept}')}"
         assert re.match(pattern, rid), f"{concept} → {rid}가 entityId 패턴에 걸린다"
+
+
+def test_필터가_무시되면_저장하지_않는다() -> None:
+    """poe.ninja는 **값**이 어휘에 없으면 조용히 무시하고 리그 전체 상위 N을 준다.
+
+    키 검사로는 못 막는다(키는 맞고 값이 틀렸다). 실측 2026-08-12:
+    `skills=Cast on Critical`이 무시돼 리그 상위 10명이 그대로 UsageProfile 2건이
+    되어 정본에 들어갔다 — 보고서상으로는 「10벌 수집 성공」이었다.
+    """
+    from pok.artifacts.ladder import _verify_filters_applied
+
+    docs = [{"name": f"c{i}", "keystones": ["Chaos Inoculation"]} for i in range(10)]
+    with pytest.raises(LadderError, match="필터가 걸리지 않았다"):
+        _verify_filters_applied(
+            "runesofaldur",
+            filters={"skills": "Cast on Critical"},
+            docs=docs,
+            refs=[],
+            token="t",
+            limit=10,
+        )
+
+
+def test_값을_실제로_지니면_통과한다(monkeypatch) -> None:
+    """유효한 필터까지 막으면 게이트가 정상을 죽인다(BACKLOG 형태 ⑤).
+
+    무필터 대조는 네트워크를 타므로 여기서는 끊는다 — 검증 대상은 값 보유율이다.
+    """
+    from pok.artifacts import ladder as mod
+
+    monkeypatch.setattr(mod, "search_characters", lambda *a, **k: [])
+    monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
+    docs = [{"name": f"c{i}", "keystones": ["Chaos Inoculation"]} for i in range(10)]
+    warnings = mod._verify_filters_applied(
+        "runesofaldur",
+        filters={"keypassives": "Chaos Inoculation"},
+        docs=docs,
+        refs=[CharacterRef(1, "a-1", "b")],
+        token="t",
+        limit=10,
+    )
+    assert not [w for w in warnings if "못 찾은 표본" in w]
+
+
+def test_일부만_지니면_거부가_아니라_경고다(monkeypatch) -> None:
+    """실측: `skillmodes=Triggered`는 9/10만 문자열이 잡혔다(표기 차이).
+
+    이걸 거부로 처리하면 멀쩡한 수집이 막힌다 — 신호는 남기되 흐름은 세우지 않는다.
+    """
+    from pok.artifacts import ladder as mod
+
+    monkeypatch.setattr(mod, "search_characters", lambda *a, **k: [])
+    monkeypatch.setattr(mod.time, "sleep", lambda *_: None)
+    docs = [{"n": i, "mode": "Triggered"} for i in range(9)] + [{"n": 9}]
+    warnings = mod._verify_filters_applied(
+        "runesofaldur",
+        filters={"skillmodes": "Triggered"},
+        docs=docs,
+        refs=[CharacterRef(1, "a-1", "b")],
+        token="t",
+        limit=10,
+    )
+    assert any("9/10" in w for w in warnings)

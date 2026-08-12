@@ -94,6 +94,7 @@ class CollectReport:
     written: list[str] = field(default_factory=list)
     skipped_same_revision: list[str] = field(default_factory=list)
     failed: list[dict[str, str]] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -103,6 +104,7 @@ class CollectReport:
             "written": self.written,
             "skipped_same_revision": self.skipped_same_revision,
             "failed": self.failed,
+            "warnings": self.warnings,
         }
 
 
@@ -434,6 +436,84 @@ def store_character(
     return path, True
 
 
+def _value_presence(docs: list[dict[str, Any]], value: str) -> int:
+    """표본 중 그 값을 **실제로 지닌** 캐릭터 수.
+
+    캐릭터 문서(JSON) 전문에서 값 문자열을 찾는다. 무딘 방법이지만 실측으로
+    충분히 갈린다 — 유효한 필터는 9~10/10, 무시된 필터는 0/10이다(2026-08-12,
+    8개 컨셉 대조). PoB 코드까지 풀 필요도 없었다: 키스톤·스킬·클래스가 전부
+    `raw` 안에 문자열로 들어 있다.
+    """
+    needle = value.strip().lower()
+    if not needle:
+        return len(docs)
+    return sum(1 for d in docs if needle in json.dumps(d, ensure_ascii=False).lower())
+
+
+def _verify_filters_applied(
+    league_slug: str,
+    *,
+    filters: dict[str, str],
+    docs: list[dict[str, Any]],
+    refs: list[CharacterRef],
+    token: str,
+    limit: int,
+) -> list[str]:
+    """필터가 **실제로 걸렸는지** 표본으로 검증한다. 안 걸렸으면 `LadderError`.
+
+    ⚠ 이 검사가 없으면 조용한 오답이 정본까지 간다. 실측 2026-08-12:
+    `skills=Cast on Critical`·`skills=Archmage`가 poe.ninja 어휘에 없어 **무시됐고**,
+    수집기는 "10벌 수집 성공"이라 답했다. 받은 것은 리그 전체 상위 10명이었고
+    그대로 UsageProfile 2건이 되어 정본에 들어갔다 — 보고서만 봐서는 못 잡는다
+    (클래스 구성 두 줄이 우연히 똑같아 보인 것이 유일한 단서였다).
+
+    키 검사(`search_characters`)로는 못 막는다. 키는 맞고 **값**이 틀린 경우다.
+
+    신호를 둘 쓴다. 하나로는 갈리지 않기 때문이다:
+    - **값 보유율**: 인기 있는 값은 필터가 무시돼도 표본 절반이 우연히 갖는다
+      (`Herald of Ice`가 무필터 상위 10명 중 6명).
+    - **무필터 상위 N과의 동일성**: 필터가 무시되면 결과가 그것과 같아진다.
+      단 정말로 전원이 쓰는 값이면 정상으로도 같아질 수 있어, 이것만으로는 못 자른다.
+    """
+    warnings: list[str] = []
+    if not docs:
+        return warnings
+
+    presence = {k: _value_presence(docs, v) for k, v in filters.items()}
+    n = len(docs)
+
+    dead = [f"{k}={filters[k]!r} (보유 0/{n})" for k, got in presence.items() if got == 0]
+    if dead:
+        raise LadderError(
+            f"필터가 걸리지 않았다 — 저장하지 않는다: {', '.join(dead)}. "
+            f"받은 것은 리그 전체 상위 {n}명일 가능성이 높다. "
+            "poe.ninja가 쓰는 **정확한 표기**를 확인할 것(예: 스킬 정식명·젬명). "
+            "값이 어휘에 없으면 조용히 무시된다 — 임의로 비슷한 값을 넣어 재시도하지 말 것"
+        )
+
+    partial = [f"{k}={filters[k]!r} {got}/{n}" for k, got in presence.items() if got < n]
+    if partial:
+        warnings.append(
+            f"값을 못 찾은 표본이 있다: {', '.join(partial)} — "
+            "문자열 대조라 표기가 다를 수 있다(치명적이진 않으나 보고할 것)"
+        )
+
+    # 무필터 상위 N과 같은가. 위에서 보유 0은 이미 걸렀으므로, 여기서 동일하다는 건
+    # ①필터가 잉여이거나 ②표기가 우연히 겹친 무시다 — 사람이 봐야 갈린다.
+    time.sleep(_MIN_INTERVAL_S)
+    try:
+        plain = search_characters(league_slug, filters=None, limit=limit, token=token)
+    except LadderError:
+        return warnings  # 대조 실패는 수집을 막을 사유가 아니다
+    same = {(r.account, r.name) for r in refs} == {(r.account, r.name) for r in plain}
+    if same:
+        warnings.append(
+            f"표본이 무필터 상위 {limit}명과 **완전히 같다** — 필터가 무시됐는지 "
+            "정말 전원이 쓰는지 사람이 확인할 것(프로파일로 만들기 전에)"
+        )
+    return warnings
+
+
 def collect(
     league_slug: str,
     *,
@@ -444,17 +524,38 @@ def collect(
     """컨셉 하나에 대해 상위 N명의 PoB 코드를 쌓는다.
 
     중복 제거는 **하지 않는다** — 같은 빌드 여러 벌이 이 수집의 목적이다.
+
+    받아온 표본은 **저장 전에** 필터 적용 여부를 검증한다. 저장한 뒤에 알면
+    되돌리는 일이 사람 몫이 되고, 원시는 삭제 금지라 되돌리기도 어렵다.
     """
     query = dict(filters or {})
     token = snapshot_token(league_slug)
     refs = search_characters(league_slug, filters=filters, limit=limit, token=token)
     report = CollectReport(league=league_slug, query=query, requested=limit)
     base = base or ladder_dir()
+
+    fetched: list[tuple[CharacterRef, dict[str, Any]]] = []
     for ref in refs:
         time.sleep(_MIN_INTERVAL_S)
         who = f"{ref.account}/{ref.name}"
         try:
-            doc = fetch_character(league_slug, ref, token=token)
+            fetched.append((ref, fetch_character(league_slug, ref, token=token)))
+        except LadderError as exc:
+            report.failed.append({"character": who, "why": str(exc)})
+
+    if query:
+        report.warnings = _verify_filters_applied(
+            league_slug,
+            filters=query,
+            docs=[d for _, d in fetched],
+            refs=[r for r, _ in fetched],
+            token=token,
+            limit=limit,
+        )
+
+    for ref, doc in fetched:
+        who = f"{ref.account}/{ref.name}"
+        try:
             path, is_new = store_character(
                 doc, league_slug=league_slug, ref=ref, query=query, base=base
             )

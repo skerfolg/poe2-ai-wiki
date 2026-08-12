@@ -145,7 +145,23 @@ def _cli(argv: list[str] | None = None) -> int:
                 return 2
             k, v = item.split("=", 1)
             filters[k] = v
-        report = collect(args.league, filters=filters, limit=args.limit)
+        try:
+            report = collect(args.league, filters=filters, limit=args.limit)
+        except LadderError as exc:
+            # 트레이스백을 내면 저비용 에이전트가 「일시 오류」로 읽고 재시도한다.
+            # 필터가 무시된 경우는 재시도로 안 풀린다 — 값 표기를 사람이 고쳐야 한다.
+            print(
+                json.dumps(
+                    {
+                        "error": str(exc),
+                        "query": filters,
+                        "how": "임의 재시도 금지 — 그대로 보고할 것",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 1
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
         return 0
 
