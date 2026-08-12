@@ -240,10 +240,31 @@ def evaluate_bundles(
                 "sum_of_parts": b.sum_of_parts,
                 "synergy": {k: b.synergy(k) for k in keys},
                 "per_point": {k: round(b.per_point(k), 4) for k in keys},
+                # 가는 길에 딸려 온 목적지 — 유저가 길을 고를 때 실제로 세는 값이다.
+                # 포인트와 델타가 같아 보이는 두 길이 여기서 갈린다.
+                "incidental": [{"node": n, "name": nm} for n, nm in b.incidental],
                 "unreachable": list(b.unreachable),
             }
             for b in results
-        ]
+        ],
+        # **길의 가치 비교** — 묶음을 나란히 놓지 않으면 "포기하고 대안" 판단이 안 된다.
+        # 순위는 첫 stat의 포인트당 효율이고, 부수 획득은 순위에 **안** 넣는다
+        # (그 값어치는 이미 델타에 들어 있거나 나중 축이라 이중 계산이 된다).
+        "comparison": {
+            "ranked_by": f"per_point[{keys[0]}]",
+            "rows": [
+                {
+                    "name": b.name,
+                    "points": b.points,
+                    "delta": round(b.deltas.get(keys[0], 0.0), 2),
+                    "per_point": round(b.per_point(keys[0]), 4),
+                    "incidental": len(b.incidental),
+                }
+                for b in sorted(results, key=lambda x: -x.per_point(keys[0]))
+            ],
+            "note": "포인트당 효율 순. 델타가 큰 쪽이 아니라 **싼 쪽**이 이길 수 있다 — "
+            "포기 판단은 여기서 나온다. 부수 획득 수는 참고이고 순위에 넣지 않았다",
+        },
     }
 
 

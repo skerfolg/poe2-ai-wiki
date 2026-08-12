@@ -68,3 +68,34 @@ def test_대조가_출고_반환에_실제로_실린다() -> None:
 
     src = inspect.getsource(build.assemble_pob)
     assert '"corpus": compare_build_spec(build_spec)' in src
+
+
+def test_경로에서_주운_것을_센다() -> None:
+    """「하나의 길에서 찍을 수 있는 노드가 많은 게 가치 높은 길」(사용자 정리).
+
+    포인트와 델타만 보면 같아 보이는 두 길이 부수 획득에서 갈린다. 이걸 안 세면
+    길의 가치를 비교할 수단이 없다.
+    """
+    import dataclasses
+
+    from pok.engine.tree import deltas as mod
+
+    # 목적지 하나로 가는 길에 노터블 하나가 딸려 오는 상황
+    target, incidental_id = 13828, 21984  # 21984 = 주얼 소켓(목적지 종류)
+    graph = _graph
+    assert graph.nodes[incidental_id].kind in ("notable", "keystone", "jewel-socket")
+
+    fields = {f.name for f in dataclasses.fields(mod.BundleDelta)}
+    assert "incidental" in fields, "부수 획득 필드가 사라지면 길의 가치를 못 잰다"
+
+    bundle = mod.BundleDelta(
+        name="x",
+        nodes=(target,),
+        path=(target, incidental_id),
+        points=2,
+        deltas={"CombinedDPS": 100.0},
+        sum_of_parts={"CombinedDPS": 80.0},
+        incidental=((incidental_id, graph.nodes[incidental_id].name_en),),
+    )
+    assert bundle.per_point("CombinedDPS") == 50.0
+    assert bundle.synergy("CombinedDPS") == 20.0
