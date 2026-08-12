@@ -55,6 +55,21 @@ _ACCOUNT_RE = re.compile(r"\A[^\s#/]{3,32}-\d{3,5}\Z")
 
 _MIN_INTERVAL_S = 0.7  # 남의 서버다 — 순차 + 간격
 
+# 리그 슬러그 → 시즌. poe.ninja는 패치 번호를 주지 않으므로 **여기가 유일한 대응표**다.
+# 정본(`knowledge/game-data/builds/<시즌>/`)이 시즌으로 갈리는데 원시가 슬러그로 갈리면
+# 시즌이 쌓였을 때 "이 PoB 코드가 어느 시즌 것인가"를 이을 방법이 없다 — 그래서 원시도
+# 시즌으로 재운다. 새 리그가 열리면 여기에 한 줄 추가한다.
+_SEASON_BY_SLUG: dict[str, str] = {
+    "runesofaldur": "0-5",
+    "runesofaldurhc": "0-5",
+    "runesofaldurssf": "0-5",
+    "runesofaldurhcssf": "0-5",
+    "vaal": "0-4",
+    "vaalhc": "0-4",
+    "vaalssf": "0-4",
+    "vaalhcssf": "0-4",
+}
+
 
 class LadderError(RuntimeError):
     """수집이 진행될 수 없는 상태 — 조용히 빈 결과를 내지 않는다."""
@@ -289,10 +304,36 @@ def _safe(part: str) -> str:
     return cleaned[:80] or "unnamed"
 
 
-def _record_path(base: Path, league_slug: str, doc: dict[str, Any]) -> Path:
+def season_of(league_slug: str) -> str:
+    """리그 슬러그 → 시즌. 모르는 리그면 **추측하지 않고 멈춘다**.
+
+    빠뜨린 채 진행하면 슬러그 이름의 디렉터리가 조용히 하나 더 생기고, 나중에
+    시즌 대조가 안 되는 원시 뭉치가 남는다.
+    """
+    season = _SEASON_BY_SLUG.get(league_slug)
+    if not season:
+        raise LadderError(
+            f"리그 슬러그 '{league_slug}'의 시즌을 모른다 — "
+            "ladder._SEASON_BY_SLUG에 등록할 것(원시도 시즌으로 재운다)"
+        )
+    return season
+
+
+def concept_slug(filters: dict[str, str] | None) -> str:
+    """질의 필터 → 디렉터리 이름. **컨셉 정의가 곧 필터**이므로 그대로 이름이 된다.
+
+    필터 없이 모으면(리그 전체 상위 N) `_all`로 간다.
+    """
+    if not filters:
+        return "_all"
+    parts = [f"{_safe(k)}-{_safe(v)}" for k, v in sorted(filters.items())]
+    return "__".join(parts)[:120]
+
+
+def _record_path(base: Path, league_slug: str, doc: dict[str, Any], concept: str) -> Path:
     rev = str(doc.get("updatedUtc") or doc.get("lastSeenUtc") or "unknown")[:19]
     stem = f"{_safe(str(doc.get('account')))}__{_safe(str(doc.get('name')))}__{_safe(rev)}"
-    return base / league_slug / f"{stem}.json"
+    return base / season_of(league_slug) / concept / f"{stem}.json"
 
 
 def store_character(
@@ -305,7 +346,8 @@ def store_character(
 ) -> tuple[Path, bool]:
     """append-only 저장. 이미 있는 갱신본이면 (경로, False)."""
     base = base or ladder_dir()
-    path = _record_path(base, league_slug, doc)
+    concept = concept_slug(query)
+    path = _record_path(base, league_slug, doc, concept)
     if path.exists():
         return path, False
     pob = doc.get("pathOfBuildingExport")
@@ -316,6 +358,8 @@ def store_character(
     payload = {
         "source": "poe.ninja",
         "league_slug": league_slug,
+        "season": season_of(league_slug),
+        "concept": concept,
         "query": query,
         "rank_in_query": ref.rank,
         "collected_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

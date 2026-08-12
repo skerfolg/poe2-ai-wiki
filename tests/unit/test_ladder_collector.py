@@ -130,7 +130,7 @@ def test_같은_갱신본은_덮어쓰지_않는다(tmp_path) -> None:
         base=tmp_path,
     )
     assert third is True
-    assert len(list((tmp_path / "runesofaldur").glob("*.json"))) == 2
+    assert len(list((tmp_path / "0-5" / "class-Chronomancer").glob("*.json"))) == 2
 
 
 def test_출처와_측정을_섞지_않는다(tmp_path) -> None:
@@ -144,10 +144,14 @@ def test_출처와_측정을_섞지_않는다(tmp_path) -> None:
     )
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert saved["rank_in_query"] == 3
+    # 원시도 **시즌**으로 재운다 — 정본이 시즌으로 갈리는데 원시가 슬러그면 못 잇는다
+    assert path.parent == tmp_path / "0-5" / "class-Chronomancer"
     assert saved["character_last_seen_utc"] and saved["collected_utc"]
     assert set(saved) == {
         "source",
         "league_slug",
+        "season",
+        "concept",
         "query",
         "rank_in_query",
         "collected_utc",
@@ -156,3 +160,15 @@ def test_출처와_측정을_섞지_않는다(tmp_path) -> None:
         "pob_export",
         "raw",
     }
+
+
+def test_모르는_리그는_추측하지_않고_멈춘다(tmp_path) -> None:
+    """슬러그→시즌 대응표에 없으면 실패해야 한다.
+
+    조용히 슬러그 이름으로 쌓으면 **시즌 대조가 안 되는 원시 뭉치**가 남는다 —
+    정본은 시즌(`0-5/`)으로 갈리는데 원시만 슬러그(`runesofaldur/`)로 갈렸던
+    상태가 정확히 그 문제였다(사용자 승인 2026-08-12로 시즌 기준 통일).
+    """
+    ref = CharacterRef(1, "WOualey-0844", "BoBerCully")
+    with pytest.raises(LadderError, match="시즌을 모른다"):
+        store_character(_doc(), league_slug="somenewleague", ref=ref, query={}, base=tmp_path)

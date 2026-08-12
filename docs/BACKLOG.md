@@ -766,6 +766,19 @@ let n = el[fk]; while (n && !(n.memoizedProps?.items && n.memoizedProps.title)) 
 3. `artifacts/ladder/`는 gitignore다. 시즌을 넘겨 보존하려면 `ingest-raw`처럼 **별도
    데이터 repo**로 올려야 한다(KI-1 원칙) — 미결.
 
+##### 원시 디렉터리를 시즌·컨셉 기준으로 (사용자 승인 2026-08-12, 처리 완료)
+
+`ladder/<리그슬러그>/` → **`ladder/<시즌>/<컨셉>/`**. 예 `ladder/0-5/class-Chronomancer/`.
+
+- **왜**: 정본이 `builds/<시즌>/`으로 갈리는데 원시만 슬러그(`runesofaldur`·`vaal`)로
+  갈려 있어, 시즌이 쌓이면 **둘을 이을 방법이 없었다**. 같은 0.5인데 이름이 달랐다.
+- 대응표 `ladder._SEASON_BY_SLUG` — poe.ninja는 패치 번호를 주지 않으므로 여기가
+  유일한 접점이다. **모르는 리그면 추측하지 않고 `LadderError`**(조용히 슬러그
+  이름으로 쌓으면 시즌 대조가 안 되는 뭉치가 남는다). 회귀 시험 있음.
+- 컨셉 디렉터리는 질의 필터에서 나온다(`{"class":"Chronomancer"}` → `class-Chronomancer`),
+  필터 없으면 `_all`. **컨셉 정의가 곧 필터**라 별도 이름표가 필요 없다.
+- 페이로드에 `season`·`concept` 필드 추가. 기수집 3건은 새 구조로 재수집해 옮겼다.
+
 #### 인사이트 승격 후보 — `[엔진]` 검증 결과 (2026-08-11)
 
 | 후보 | 판정 |
