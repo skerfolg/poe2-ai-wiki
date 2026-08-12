@@ -710,7 +710,12 @@ let n = el[fk]; while (n && !(n.memoizedProps?.items && n.memoizedProps.title)) 
    레코드엔 그 필드가 없어 **영문으로만** 찾혔다. `test_전직은_어느_표기로도_찾힌다`가
    0.4/0.5 Blood Mage 레코드가 들어오자마자 잡아냈다 — 기존 16종도 같은 상태였는데
    테스트가 보는 전직이 아니라 조용했다. 33종 전부에 `ascendancy_name` 부착으로 해소.
-2. **〔미해소〕 `Abyssal Lich`에 한글명이 없다.** KB의 다른 전직 코드는 전부
+2. **〔해소 — 사용자 판정 2026-08-12〕 `Abyssal Lich` = 「심연의 리치」.** 아래는 판정 전 기록.
+   덧붙임: KB 전체에서 `Abyssal Lich`를 쓰는 레코드는 **이 Build 1건뿐**이었다(패시브 쪽은
+   `Witch3`/`Lich`를 쓴다). poe.ninja가 둘을 별개로 세는 것과 KB의 코드 체계가 어긋나는
+   문제는 남아 있으나, 한글 검색은 이제 된다.
+
+   ~~**〔미해소〕 `Abyssal Lich`에 한글명이 없다.**~~ KB의 다른 전직 코드는 전부
    `ascendancy_name.{ko,en}`을 갖는데 `Abyssal Lich`만 없어 이 어센던시의 레코드는
    한글로 안 찾힌다. 지어내면 정본에 미검증 명칭이 박히므로 **사용자 판정 대기**.
    ⚠ 함께 볼 것: poe.ninja는 0.5에서 `Lich`(2%)와 `Abyssal Lich`(2%)를 **별개**로 세는데
@@ -755,6 +760,16 @@ let n = el[fk]; while (n && !(n.memoizedProps?.items && n.memoizedProps.title)) 
 `collect('runesofaldur', filters={'class':'Chronomancer'}, limit=3)` → 3건 저장 →
 `parse_pob`가 그대로 읽었다: Sorceress/Chronomancer lvl 100 · 젬 그룹 10 · 아이템 15
 (Time Freeze + Prolonged Duration II + CDR II … 가 그룹으로 나온다).
+
+##### A군 앵커 확정 (2026-08-12)
+
+A군 8종의 `--anchor`를 KB 실존 id로 확정해 `skills/ladder-corpus/AGENTS.md`에 표로 박았다
+— 이것이 없으면 코덱스가 컨셉마다 멈춘다. `mechanic.trigger`(트리거 자동화) ·
+`mechanic.totems` · `skill.herald-of-ice` · `passive.chaos-inoculation` ·
+`skill.cast-on-critical` · `passive.mind-over-matter` · `passive.pain-attunement` ·
+`skill.archmage`. 8종 전부 실존 검증 완료.
+⚠ 「Triggered」는 후보가 둘이었다(`mechanic.trigger` · `mechanic.triggered-skills`) —
+한글명이 있는 `mechanic.trigger`를 골랐다.
 
 ##### 남은 것 — 이 세션에서 안 한 것
 

@@ -66,6 +66,20 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
 - `--concept`은 1에서 만들어진 디렉터리 이름과 **정확히 같아야 한다**
   (`artifacts/ladder/<시즌>/` 아래를 보고 확인할 것).
 - `--filter`는 1에서 쓴 것과 **똑같이** 준다(레코드의 `query`가 된다 — 재현용).
+- `--anchor`는 아래 표에서 고른다(전부 KB 실존 확인 완료 2026-08-12).
+  표에 없는 컨셉이면 `search_kb`로 찾고, 못 찾으면 **지어내지 말고 사람에게 보고**한다.
+
+  | 컨셉 필터 | `--anchor` | `--label` |
+  |---|---|---|
+  | `skillmodes=Triggered` | `mechanic.trigger` | `트리거 자동화` |
+  | `skillmodes=Totem` | `mechanic.totems` | `토템 (Totem)` |
+  | `skills=Herald of Ice` | `skill.herald-of-ice` | `얼음의 전령` |
+  | `keypassives=Chaos Inoculation` | `passive.chaos-inoculation` | `카오스 접종 (CI)` |
+  | `skills=Cast on Critical` | `skill.cast-on-critical` | `치명타 시 시전 (CoC)` |
+  | `keypassives=Mind Over Matter` | `passive.mind-over-matter` | `정신의 승리 (MoM)` |
+  | `keypassives=Pain Attunement` | `passive.pain-attunement` | `고통의 조율` |
+  | `skills=Archmage` | `skill.archmage` | `아크메이지` |
+
 - `--anchor`는 **KB 실존 id**다. `pok` MCP의 `search_kb`로 확인해서 넣는다.
   못 찾으면 **지어내지 말고 사람에게 보고**한다. 없는 id면 명령이 거부한다.
 - `--write`가 있으면 `knowledge/game-data/usage-profiles/`에 파일을 쓴다.
