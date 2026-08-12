@@ -209,7 +209,7 @@ def optimize_tree(
     후보 = 현재 트리에서 candidate_radius 안의 notable/keystone/jewel-socket
     (거리순 상한 max_candidates_per_round — 초과분은 다음 라운드에서 트리가
     자라며 자연히 반경에 들어온다). 주얼 소켓의 가치는 장착 주얼이 있어야
-    보인다(빈 소켓 델타 0) — jewel_templates(가정 주얼 raw 텍스트들)를 주면
+    보인다(빈 소켓 델타 0) — jewel_templates(**가정 탐침**, 설계물이 아니다)를 주면
     소켓 후보를 템플릿별로 실측해 목적 점수 최고인 템플릿으로 평가하고,
     채택 시 spec.jewels에 해당 JewelSpec을 편입한다. 가지치기가 소켓을
     제거하면 주얼도 함께 제거된다.
@@ -264,8 +264,11 @@ def optimize_tree(
     if not jewel_templates:
         jewel_notes.append(
             "주얼 템플릿이 없어 소켓을 **0으로 쟀다** — 빈 소켓은 델타가 0이라 "
-            "그리디가 영영 안 찍는다(래더 표본은 중앙 5개를 찍는다). 컨셉에서 나온 "
-            "주얼 raw 텍스트를 `jewel_templates`로 줄 것"
+            "그리디가 영영 안 찍는다(래더 표본은 중앙 5개를 찍는다). "
+            "⚠ **모두에게 맞는 주얼은 없다**(사용자 지적 2026-08-12) — 손으로 짜지 말고 "
+            '소켓을 먼저 할당한 뒤 `optimize_rare(slot="Jewel@<소켓 node_id>")`로 '
+            "**이 빌드 전용** 주얼을 뽑아 그 text를 `jewel_templates`에 넣을 것. "
+            "여기 템플릿은 설계물이 아니라 **소켓 값을 재기 위한 가정 탐침**이다"
         )
     else:
         from pok.engine.jewels import needs_radius_declaration
