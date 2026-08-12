@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from pok.common.paths import knowledge_dir
+from pok.engine.tree.corpus import compare_tree
 from pok.engine.tree.graph import TreeGraph
 from pok.engine.tree.optimize import Objective
 from pok.engine.tree.optimize import optimize_tree as _optimize
@@ -20,14 +21,28 @@ def _get_graph() -> TreeGraph:
     return _graph
 
 
-def connect_anchors(class_name: str, targets: list[int]) -> dict[str, Any]:
+def connect_anchors(
+    class_name: str, targets: list[int], ascendancy: str | None = None
+) -> dict[str, Any]:
     """타깃 노드들(KB node_id)을 클래스 시작점에서 최소 포인트로 연결
-    (그리디 슈타이너 — 근사). 반환: 할당 노드 전체와 타깃별 경로·총 포인트."""
-    allocated, paths = _get_graph().connect_anchors(class_name, targets)
+    (그리디 슈타이너 — 근사). 반환: 할당 노드 전체와 타깃별 경로·총 포인트.
+
+    `class_name`은 **기본 클래스**다("Monk"·"Witch"). `ascendancy`("Martial Artist")를
+    함께 주면 반환값에 **래더 표본과의 대조**(`corpus`)가 붙는다 — 표본 전원이 찍는
+    목적지를 빠뜨렸으면 `missing_unanimous`에 나온다(실측 2026-08-12: 어센던시 22종
+    전부에 전원 공통 노드가 1~11개 있고 주얼 소켓이 거기 자주 낀다). 안 주면
+    트리의 전직 전용 노드로 추론하고, 그마저 없으면 **대조하지 않았다고 밝힌다**.
+    ⛔ 대조이지 판정이 아니다(빼려면 근거를 남길 것).
+    """
+    graph = _get_graph()
+    allocated, paths = graph.connect_anchors(class_name, targets)
     return {
         "allocated": allocated,
         "points": len(allocated),
         "paths": {str(t): p for t, p in paths.items()},
+        # 자동 부착 — 세션이 프로파일·passed_over의 존재를 몰라도 여기서 본다.
+        # 문서에만 적는 방식은 이 레포에서 실패가 증명됐다(철칙 5).
+        "corpus": compare_tree(graph, class_name, set(allocated), ascendancy=ascendancy),
     }
 
 
@@ -149,6 +164,14 @@ def optimize_tree(
             for s in out.steps
         ],
         "jewels": [{"socket_node_id": j.socket_node_id, "text": j.text} for j in out.spec.jewels],
+        # connect_anchors와 같은 이유로 자동 부착 — 최적화가 끝난 트리에서
+        # 「표본 전원이 찍는 목적지」가 빠져 있으면 여기서 드러난다(철칙 5).
+        "corpus": compare_tree(
+            _get_graph(),
+            spec.class_name,
+            set(out.spec.tree_nodes),
+            ascendancy=spec.ascendancy,
+        ),
         # 이 트리가 **어느 문맥에서 나왔나** — 스펙에 그대로 옮겨 두면 다음 세션의
         # `compute_pob`이 낡음을 문장으로 알려 준다(#58 ③)
         "derived_from": _stamp(
