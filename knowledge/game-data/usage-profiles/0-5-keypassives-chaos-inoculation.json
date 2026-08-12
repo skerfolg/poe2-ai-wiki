@@ -1,0 +1,260 @@
+{
+  "id": "usage-profile.0-5-keypassives-chaos-inoculation",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "카오스 접종 (CI) 동반 프로파일 (0-5)",
+    "en": "카오스 접종 (CI) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.chaos-inoculation",
+      "label": "카오스 접종 (CI)"
+    },
+    "query": {
+      "keypassives": "Chaos Inoculation"
+    },
+    "class_spread": [
+      {
+        "ref": "Disciple of Varashta",
+        "share": 20.0,
+        "count": 2
+      },
+      {
+        "ref": "Lich",
+        "share": 20.0,
+        "count": 2
+      },
+      {
+        "ref": "Deadeye",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Gemling Legionnaire",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Invoker",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Martial Artist",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Oracle",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Tactician",
+        "share": 10.0,
+        "count": 1
+      }
+    ],
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/keypassives-Chaos_Inoculation 10벌"
+      },
+      "gems": [
+        {
+          "ref": "Magnified Area II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Heightened Curse",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Temporal Chains",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Charge Profusion II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Clarity I",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Zenith II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Boundless Energy II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Clarity II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Elemental Armament II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Elemental Conflux",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mobility",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Rapid Attacks III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Shock",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Slow Potency",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Sniper's Mark",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Nascent Hope",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "From Nothing",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Kalandra's Touch",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Mageblood",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.chaos-inoculation"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'keypassives': 'Chaos Inoculation'}"
+    }
+  ]
+}
