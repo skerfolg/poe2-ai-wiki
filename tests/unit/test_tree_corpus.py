@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 from pok.common.paths import knowledge_dir
 from pok.engine.tree.corpus import ascendancy_in, compare_tree
 from pok.engine.tree.graph import TreeGraph
@@ -99,3 +101,42 @@ def test_경로에서_주운_것을_센다() -> None:
     )
     assert bundle.per_point("CombinedDPS") == 50.0
     assert bundle.synergy("CombinedDPS") == 20.0
+
+
+def test_실제_경로에서_부수_획득을_뽑는다(monkeypatch) -> None:
+    """앞 시험은 자료구조만 봤다 — 실제 경로에서 추출되는지는 별개 문제다.
+
+    PoB 데몬 없이 돌리려고 계산만 가짜로 세운다(경로·부수 획득은 진짜 그래프에서 나온다).
+    """
+    from pok.engine.tree.deltas import evaluate_bundles
+    from pok.pob.buildxml import BuildSpec
+
+    spec = BuildSpec(class_name="Monk", ascendancy="Monk1", tree_nodes=())
+
+    class _Result:
+        stats: ClassVar[dict[str, float]] = {"CombinedDPS": 100.0}
+        pruned_nodes = ()
+
+    class _Daemon:
+        def compute_build(self, _spec):
+            return _Result()
+
+        def close(self) -> None:
+            pass
+
+    # 주얼 소켓(목적지)을 경유해야 닿는 노드를 타깃으로 고른다
+    socket = 21984
+    neighbours = [n for n in _graph.adj[socket] if _graph.nodes[n].kind == "small"]
+    assert neighbours, "주얼 소켓에 인접한 스몰이 없다 — 표본 선택을 다시 할 것"
+
+    out = evaluate_bundles(
+        spec,
+        _graph,
+        [{"name": "t", "nodes": [socket]}],
+        stats=("CombinedDPS",),
+        daemon=_Daemon(),
+    )
+    assert out and out[0].points > 0
+    got = {n for n, _ in out[0].incidental}
+    assert socket not in got, "요청한 타깃 자신은 부수 획득이 아니다"
+    assert got <= set(out[0].path), "경로 밖 노드가 부수 획득으로 잡혔다"
