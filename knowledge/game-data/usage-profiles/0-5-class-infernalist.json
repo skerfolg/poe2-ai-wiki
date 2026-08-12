@@ -1,0 +1,827 @@
+{
+  "id": "usage-profile.0-5-class-infernalist",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "인퍼널리스트 (Infernalist) 동반 프로파일 (0-5)",
+    "en": "인퍼널리스트 (Infernalist) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.infernalist-32699",
+      "label": "인퍼널리스트 (Infernalist)"
+    },
+    "query": {
+      "class": "Infernalist"
+    },
+    "class_spread": [
+      {
+        "ref": "Infernalist",
+        "share": 100.0,
+        "count": 10
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 129,
+          "median": 146,
+          "max": 160
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 5,
+          "median": 8,
+          "max": 12
+        },
+        "keystone": {
+          "min": 0,
+          "median": 1,
+          "max": 4
+        },
+        "notable": {
+          "min": 22,
+          "median": 31,
+          "max": 34
+        },
+        "small": {
+          "min": 89,
+          "median": 101,
+          "max": 118
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/class-Infernalist 10벌"
+      },
+      "gems": [
+        {
+          "ref": "Efficiency II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Atziri's Communion",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Comet",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Execute III",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Remnant Potency I",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Spark",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Spell Cascade",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Boundless Energy II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Cast on Elemental Ailment",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Lightning Mastery",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Living Bomb",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Sione's Temper",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Uhtred's Omen",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Vilenta's Propulsion",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Armour Demolisher II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Her Declaration",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Multishot II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Pierce III",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Projectile Acceleration III",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Remnants of Kalguur",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Siphon Elements",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "The Stars Answer",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Amanamu's Tithe",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Arbiter's Ignition",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Arc",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Elemental Conflux",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Freeze",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Heightened Curse",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Pinpoint Critical",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Powered by Verisium",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Romira's Requital",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uhtred's Augury",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Warm Blooded",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Armour Break III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ball Lightning",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cannibalism II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cast on Block",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cast on Critical",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Considered Casting",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cool Headed",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Energy Retention",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Frost Wall",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Heightened Charges",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ice Nova",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Knockback",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Minion Mastery",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Perpetual Charge",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Pinnacle of Power",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Power Siphon",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Raise Shield",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Second Wind II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Seraph's Heart",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Sigil of Power",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Spellslinger",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Strong Hearted",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Summon Infernal Hound",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Trinity",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Uhtred's Exodus",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Uruk's Smelting",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Vorana's Siege",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Rite of Passage",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "From Nothing",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Mageblood",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Kalandra's Touch",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Olroth's Resolve",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Voices",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Runeseeker's Call",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Prism of Belief",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "The Brass Dome",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Adonia's Ego",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Alpha's Howl",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Caster Arm",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Surefooted Leg",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Svalinn",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.grinning-immolation-34419",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.jewel-socket-55190",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.raw-power-51184",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.throatseeker-56265",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.altered-flesh-18348",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.brain-storm-50498",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.bringer-of-flame-18158",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.invigorating-archon-41394",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.mental-alacrity-16466",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.pain-attunement",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.pyromantic-pact-13174",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.turn-the-clock-forward-2335",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.beidats-will-46644",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.brain-freeze-24721",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.chakra-of-elements-63400",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.dreamcatcher-11838",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.energising-archon-43633",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.final-barrage-2999",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.heartbreaking-13407",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-60735",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.overflowing-power-65204",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.preservation-32951",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.remnant-attraction-1506",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.tempered-mind-8831",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.bone-chains-26563",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.careful-assassin-46197",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.heartstopping-38537",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.invocated-efficiency-51934",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-2491",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-46882",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-54127",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.overzealous-10295",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.rupturing-pins-7782",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.sanguine-tolerance-4810",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.true-strike-61601",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.core-of-the-guardian-6133",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.critical-overload-5501",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.energise-40399",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.evocational-practitioner-41753",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-26725",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.loyal-hellhound-17754",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.practiced-signs-36302",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.roil-60269",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.sudden-escalation-10398",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.turn-the-clock-back-35564",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.wide-barrier-46384",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.infernalist-32699"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'class': 'Infernalist'}"
+    }
+  ]
+}
