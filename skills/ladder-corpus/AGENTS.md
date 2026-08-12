@@ -20,7 +20,12 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate collect \
   --league runesofaldur --filter class=Chronomancer --limit 10
 ```
 
-- `--filter`는 반복 가능하다(`--filter class=X --filter skill=Y`). **컨셉 정의가 곧 필터다.**
+- `--filter`는 반복 가능하다. **컨셉 정의가 곧 필터다.**
+- ⚠ **필터 키는 복수형이다** — `skills` · `items` · `keypassives` · `skillmodes` ·
+  `allskills` · `spiritgems` · `anointed` · `class` · `weaponmode`.
+  단수형(`skill`·`item`·`skillmode`)은 poe.ninja가 **조용히 무시**하고 리그 전체
+  상위 N명을 돌려준다(실측 2026-08-12). 수집기가 막아 주지만 처음부터 복수형을 쓸 것.
+  값은 게임 내 표기 그대로 — 예 `--filter skills=Arc --filter skillmodes=Totem`.
 - 리그 슬러그: 0.5=`runesofaldur` · 0.4=`vaal`.
 - 멱등하다 — 다시 돌려도 같은 갱신본은 안 쌓인다(`skipped_same_revision`).
 - 출력 JSON의 `failed`가 비어 있지 않으면 **그대로 보고**하고 다음 컨셉으로 넘어간다.

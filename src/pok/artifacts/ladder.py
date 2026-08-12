@@ -226,6 +226,34 @@ def _columns(buf: bytes) -> dict[str, list[str]]:
     return out
 
 
+def _dimensions(buf: bytes) -> set[str]:
+    """질의에 쓸 수 있는 필터 키를 **응답에서 직접 읽는다**.
+
+    목록을 하드코딩하면 poe.ninja가 바꿀 때 낡는다. 응답의 차원 정의 절이
+    `[차원id, 표시키]` 꼴로 들어 있으므로 그걸 그대로 쓴다.
+    """
+    out: set[str] = set()
+    try:
+        top = [v for _, w, v in _iter_fields(buf) if w == 2 and isinstance(v, bytes)]
+    except ValueError:
+        return out
+    for body in top:
+        try:
+            # 차원 정의는 **필드 2**에만 있다. 아무 `[문자열,문자열]` 쌍이나 받으면
+            # 다른 절의 `[skillmode, <해시>]` 같은 것까지 유효 키로 새어 든다 —
+            # 그런데 `skillmode`(단수)는 서버가 무시하는 키다. 정확히 그 구멍이 있었다.
+            subs = [
+                v for f, w, v in _iter_fields(body) if w == 2 and f == 2 and isinstance(v, bytes)
+            ]
+        except ValueError:
+            continue
+        for sub in subs:
+            ss = _strings_of(sub)
+            if ss and len(ss) == 2:
+                out.add(ss[0])
+    return out
+
+
 def _refs_from_columns(cols: dict[str, list[str]]) -> list[CharacterRef]:
     accounts, names = cols.get("account") or [], cols.get("name") or []
     if not accounts or not names:
@@ -254,7 +282,22 @@ def search_characters(
     overview = _overview_of(league_slug)
     params = {"overview": overview, **(filters or {})}
     url = f"{_BASE}/poe2/api/builds/{token}/search?{urllib.parse.urlencode(params)}"
-    found = _refs_from_columns(_columns(_get(url)))
+    raw = _get(url)
+
+    # ⚠ poe.ninja는 **모르는 질의 파라미터를 조용히 무시한다** (실측 2026-08-12).
+    # `skill=Arc`(단수)는 무시되고 `skills=Arc`(복수)만 먹는다 — 그런데 응답은
+    # 정상이라 호출자는 "Arc 쓰는 상위 10명"을 받았다고 믿는다. 실제로는 리그
+    # 전체 상위 10명이다. `zzz=nonsense`도 통과한다. 조용한 오답이라 반드시 막는다.
+    known = _dimensions(raw) | {"overview"}
+    unknown = sorted(k for k in params if k not in known)
+    if unknown:
+        raise LadderError(
+            f"poe.ninja가 모르는 필터 키다(조용히 무시된다): {unknown} — "
+            f"쓸 수 있는 키: {sorted(known - {'overview'})}. "
+            "복수형에 주의할 것(skills·items·keypassives·skillmodes)"
+        )
+
+    found = _refs_from_columns(_columns(raw))
     if not found:
         raise LadderError(
             f"목록이 비었다 — 필터를 확인할 것({params}). "
