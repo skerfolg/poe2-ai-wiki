@@ -75,3 +75,25 @@ def test_마른_라운드에_멈추지_않고_넓힌다(graph: TreeGraph, monkey
     assert after.steps, "넓히고도 한 수도 못 뒀다"
     assert any("넓혔다" in n for n in after.notes), "넓힌 사실을 안 밝혔다"
     assert not any("쓰지 못하고 끝났다" in n for n in after.notes), "예산이 남았다"
+
+
+def test_시간_상한을_넘기면_멈추고_밝힌다(graph: TreeGraph) -> None:
+    """후보 하나가 PoB 계산 1회(실측 0.16초)다. 예산·후보 수에 비례해 늘어나
+    **예산 156·후보 40이 40분을 넘겼다**(실측 2026-08-12: 진행 표시도 없이 45분째
+    돌던 실행을 죽였다). 상한이 없으면 세션이 통째로 멈춘다.
+
+    ⚠ 중단한 트리는 **덜 최적화된 것이지 완성된 것이 아니다** — 그 사실이 반환값에
+    없으면 정상 산출물로 읽힌다.
+    """
+    out = opt.optimize_tree(
+        spec_from_dict({"class_name": "Monk", "ascendancy": "Monk1", "level": 90}),
+        graph,
+        opt.Objective(weights={"TotalEHP": 1.0}),
+        point_budget=60,
+        candidate_radius=8,
+        max_candidates_per_round=30,
+        time_budget_s=5,
+    )
+    assert any("시간 상한" in n and "남았다" in n for n in out.notes), (
+        "시간으로 잘린 트리를 완성본과 구별할 수 없다"
+    )

@@ -14,6 +14,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 import math
+import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -201,6 +202,7 @@ def optimize_tree(
     cluster_include: tuple[tuple[str, float], ...] = (),
     cluster_exclude: tuple[str, ...] = (),
     required_anchors: tuple[int, ...] = (),
+    time_budget_s: float | None = None,
 ) -> OptimizeResult:
     """포인트 예산 안에서 정책 점수가 양수인 최선 수를 반복 채택한다.
 
@@ -248,6 +250,15 @@ def optimize_tree(
     current = spec
     budget = max(0, point_budget - anchor_cost)
     rejected = 0
+    # ⏱ **시간 상한.** 후보 하나가 PoB 계산 1회(실측 0.16초)이고 라운드마다 후보
+    # 수만큼 돈다 — 예산 156·후보 40이면 가지치기 재실행까지 합쳐 **40분을 넘긴다**
+    # (실측 2026-08-12: 진행 표시도 없이 45분째 돌던 실행을 죽였다). 상한이 없으면
+    # 세션이 통째로 멈추고, 그 사이 무엇이 되고 있는지 알 방법도 없다.
+    started = time.monotonic()
+
+    def out_of_time() -> bool:
+        return time_budget_s is not None and (time.monotonic() - started) >= time_budget_s
+
     # 마른 라운드에서 **넓혀 보고** 멈춘다 — 아래 주석 참고.
     reach, slice_size = candidate_radius, max_candidates_per_round
     widened: list[str] = []
@@ -257,6 +268,8 @@ def optimize_tree(
             # ── 그리디 채택 ──
             rejected = 0
             while budget > 0:
+                if out_of_time():
+                    break
                 tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
                 cands = [
                     nid
@@ -327,8 +340,8 @@ def optimize_tree(
                 best_solution = _better(objective, best_solution, cand)
             pruned.extend(newly_pruned)
             banned.update(p.endpoint_id for p in newly_pruned)
-            if refund == 0:
-                break  # 죽은 가지 없음 — 안정
+            if refund == 0 or out_of_time():
+                break  # 죽은 가지 없음 — 안정 (또는 시간 상한)
             budget += refund  # 환급 포인트를 온전한 묶음에 재투자 (다음 루프)
         # 실측으로 가장 나은 해 반환 (동가치면 포인트 적게 쓴 쪽 — 스텁·죽은 끝단 배제)
         final = daemon.compute_build(current)
@@ -346,7 +359,14 @@ def optimize_tree(
             f"후보가 말라 탐색을 넓혔다: {' → '.join(widened)} — "
             "시작 반경이 이 빌드에 좁았다는 뜻이다(다음엔 candidate_radius를 올려 시작할 것)",
         )
-    if budget > 0:
+    if time_budget_s is not None and out_of_time():
+        notes = (
+            *notes,
+            f"⏱ 시간 상한 {time_budget_s:.0f}초를 넘겨 **중단했다** — 예산 {budget}포인트가 "
+            f"남았다. 후보 하나가 PoB 계산 1회(약 0.16초)라 예산·후보 수에 비례해 는다. "
+            "덜 최적화된 트리이지 완성된 트리가 아니다",
+        )
+    elif budget > 0:
         notes = (
             *notes,
             f"⚠ 예산 {budget}포인트를 **쓰지 못하고 끝났다** — 최대 반경까지 넓혀도 "
