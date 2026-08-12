@@ -1,0 +1,91 @@
+{
+ "$id": "usage-profile.schema.json",
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "UsageProfile.data — 한 **메커니즘**을 쓰는 사람들의 동반 프로파일 (#67, 사용자 승인 2026-08-12)",
+ "description": "Build는 「이 빌드가 어떻게 생겼나」에 답한다. 이건 「이 메커니즘을 쓰면 무엇이 따라오나」에 답한다 — 클래스가 섞여 있어도 되고, 섞여 있는 것이 오히려 요점이다. 0.5 실측에서 어센던시별 주력이 극도로 수렴했으므로(Spirit Walker 95% · Deadeye 85% · Martial Artist 76%) 어센던시 안을 파는 것은 답지 복사에 가깝고, 남는 설계 공간은 **클래스 간 이식**이다. 그 이식 가능성을 보려면 메커니즘을 앵커로 잡고 무엇이 클래스를 넘어 따라붙는지를 봐야 한다.",
+ "type": "object",
+ "properties": {
+  "season": {
+   "type": "string",
+   "minLength": 1
+  },
+  "anchor": {
+   "type": "object",
+   "description": "이 프로파일이 무엇을 중심으로 잘렸나. **KB의 실존 id**여야 한다 — 없으면 프로파일이 무엇에 대한 것인지 질의로 되짚을 수 없다. relations `uses`로도 같이 건다",
+   "properties": {
+    "ref": {
+     "type": "string",
+     "minLength": 1
+    },
+    "label": {
+     "type": "string",
+     "minLength": 1
+    }
+   },
+   "required": [
+    "ref",
+    "label"
+   ],
+   "additionalProperties": false
+  },
+  "query": {
+   "type": "object",
+   "description": "이 표본을 만든 poe.ninja 필터 그대로. **재현 가능해야 한다** — 없으면 나중에 같은 잣대로 다시 못 센다",
+   "additionalProperties": {
+    "type": "string"
+   }
+  },
+  "class_spread": {
+   "$ref": "build.schema.json#/$defs/frequencyList",
+   "description": "표본이 어느 어센던시들로 이뤄졌나. **이게 없으면 프로파일이 거짓말을 한다** — 한 클래스가 표본을 독점했는데 「클래스를 넘는 공통점」으로 읽히기 때문이다"
+  },
+  "observed": {
+   "type": "object",
+   "description": "Build.data.observed와 **같은 모양**이다. 해상도만 다르고 읽는 법은 같다",
+   "properties": {
+    "sample": {
+     "type": "object",
+     "properties": {
+      "n": {
+       "type": "integer",
+       "minimum": 1
+      },
+      "unit": {
+       "enum": [
+        "characters",
+        "sampled-builds"
+       ]
+      },
+      "basis": {
+       "type": "string",
+       "minLength": 1
+      }
+     },
+     "required": [
+      "n",
+      "unit",
+      "basis"
+     ],
+     "additionalProperties": false
+    }
+   },
+   "patternProperties": {
+    "^(gems|main_skills|spirit_skills|supports|passives|items|weapons|skill_modes)$": {
+     "$ref": "build.schema.json#/$defs/frequencyList"
+    }
+   },
+   "required": [
+    "sample"
+   ],
+   "additionalProperties": false
+  }
+ },
+ "required": [
+  "season",
+  "anchor",
+  "query",
+  "class_spread",
+  "observed"
+ ],
+ "additionalProperties": false
+}

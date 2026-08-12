@@ -33,7 +33,9 @@ def _tally(rows: list[list[str]]) -> list[dict[str, Any]]:
     n = len(rows)
     counts: dict[str, int] = {}
     for row in rows:
-        for name in set(row):
+        # 빈 이름을 거르지 않으면 ''가 한 항목으로 잡혀 스키마(minLength 1)에 걸린다 —
+        # PoB 코드에 이름 없는 젬 슬롯이 실제로 들어 있다(실측).
+        for name in {s.strip() for s in row if s and s.strip()}:
             counts[name] = counts.get(name, 0) + 1
     return [
         {"ref": name, "share": round(cnt * 100 / n, 1), "count": cnt}
@@ -56,11 +58,14 @@ def aggregate_concept(
 
     gems: list[list[str]] = []
     items: list[list[str]] = []
+    ascendancies: list[list[str]] = []
     for path in files:
         doc = json.loads(path.read_text(encoding="utf-8"))
         summary = parse_pob(doc["pob_export"])
         gems.append([g for grp in (summary.skill_groups or []) for g in (grp.gems or ())])
         items.append([getattr(it, "name", "") or "" for it in (summary.items or [])])
+        asc = getattr(summary, "ascendancy", None) or doc.get("raw", {}).get("class")
+        ascendancies.append([str(asc)] if asc else [])
 
     return {
         "sample": {
@@ -70,6 +75,9 @@ def aggregate_concept(
         },
         "gems": _tally(gems),
         "items": _tally([[i for i in row if i] for row in items]),
+        # 표본의 어센던시 구성. A군(메커니즘 축)에서 이게 없으면 한 클래스가 표본을
+        # 독점했는데 「클래스를 넘는 공통점」으로 읽힌다 — 조용한 거짓말이다.
+        "_class_spread": _tally([r for r in ascendancies if r]),
     }
 
 
@@ -156,3 +164,51 @@ def _cli(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(_cli())
+
+
+def build_usage_profile(
+    season: str,
+    concept: str,
+    *,
+    anchor_ref: str,
+    anchor_label: str,
+    query: dict[str, str],
+    base: Path | None = None,
+) -> dict[str, Any]:
+    """A군(메커니즘 축) 레코드를 만든다.
+
+    Build는 「이 빌드가 어떻게 생겼나」에, 이건 「이 메커니즘을 쓰면 무엇이 따라오나」에
+    답한다. 표본에 클래스가 섞여 있는 것이 **결함이 아니라 요점**이다 — 클래스를 넘어
+    따라붙는 것이 곧 이식 가능한 문법이다.
+
+    ⚠ `class_spread`를 반드시 함께 낸다. 한 클래스가 표본을 독점했는데 「클래스를
+    넘는 공통점」으로 읽히면 프로파일이 조용히 거짓말을 한다.
+    """
+    agg = aggregate_concept(season, concept, base=base)
+    spread = agg.pop("_class_spread", [])
+    return {
+        "id": f"usage-profile.{season}-{concept}".lower(),  # envelope는 소문자 id만 받는다
+        "type": "UsageProfile",
+        "name": {
+            "ko": f"{anchor_label} 동반 프로파일 ({season})",
+            "en": f"{anchor_label} usage profile ({season})",
+        },
+        "tags": ["usage-profile", season],
+        "data": {
+            "season": season.replace("-", "."),
+            "anchor": {"ref": anchor_ref, "label": anchor_label},
+            "query": query,
+            "class_spread": spread,
+            "observed": agg,
+        },
+        "relations": [{"rel": "uses", "target": anchor_ref}],
+        "verification": "COMMUNITY",
+        "sources": [
+            {
+                "src": "community",
+                "ref": "https://poe.ninja/poe2/builds",
+                "patch": "0.5.4b",
+                "note": f"래더 PoB 실측 — 질의 {query}",
+            }
+        ],
+    }

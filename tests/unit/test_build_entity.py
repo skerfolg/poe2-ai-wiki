@@ -137,3 +137,25 @@ def test_관측은_표본을_밝힌다(builds: list) -> None:
                 if sample["unit"] == "sampled-builds":
                     assert "count" in e, f"{record.id}: {e['ref']}에 count가 없다"
                     assert e["count"] <= sample["n"]
+
+
+def test_동반_프로파일은_클래스_구성을_밝힌다() -> None:
+    """A군(메커니즘 축)은 표본에 **클래스가 섞여 있는 것이 요점**이다 —
+    클래스를 넘어 따라붙는 것이 곧 이식 가능한 문법이기 때문이다.
+
+    그런데 한 클래스가 표본을 독점했는데 「클래스를 넘는 공통점」으로 읽히면
+    프로파일이 조용히 거짓말을 한다. 그래서 `class_spread`를 스키마 필수로 걸고
+    앵커가 실존 id인지도 여기서 확인한다(없으면 무엇에 대한 프로파일인지 못 되짚는다).
+    """
+    kb = load()
+    profiles = [r for r in kb.records.values() if r.type == "UsageProfile"]
+    known = set(kb.records)
+    for record in profiles:
+        data = record.raw["data"]
+        assert data["class_spread"], f"{record.id}에 클래스 구성이 없다"
+        assert data["anchor"]["ref"] in known, (
+            f"{record.id}의 앵커 {data['anchor']['ref']}가 KB에 없다"
+        )
+        assert data["query"], f"{record.id}에 질의가 없다 — 같은 잣대로 다시 못 센다"
+        n = data["observed"]["sample"]["n"]
+        assert sum(e["count"] for e in data["class_spread"]) == n

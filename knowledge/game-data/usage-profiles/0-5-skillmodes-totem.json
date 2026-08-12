@@ -1,0 +1,340 @@
+{
+  "id": "usage-profile.0-5-skillmodes-totem",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "토템 (Totem) 동반 프로파일 (0-5)",
+    "en": "토템 (Totem) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "mechanic.totems",
+      "label": "토템 (Totem)"
+    },
+    "query": {
+      "skillmodes": "Totem"
+    },
+    "class_spread": [
+      {
+        "ref": "Oracle",
+        "share": 40.0,
+        "count": 4
+      },
+      {
+        "ref": "Shaman",
+        "share": 20.0,
+        "count": 2
+      },
+      {
+        "ref": "Invoker",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Titan",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Warbringer",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Witchhunter",
+        "share": 10.0,
+        "count": 1
+      }
+    ],
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/skillmodes-Totem 10벌"
+      },
+      "gems": [
+        {
+          "ref": "Archmage",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Spell Totem",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Clarity II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Entangle",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Urgent Totems III",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Lightning Mastery",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Atziri's Communion",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Grim Pillars",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Heightened Curse",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Living Lightning II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Potent Exposure",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Spark",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Spellslinger",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Vorana's Siege",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Biting Frost II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Blind II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Branching Fissures II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Clarity I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cool Headed",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Frost Bomb",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Her Declaration",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mana Tempest",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mobility",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Morrigan's Insight",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Remnant Potency III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Sigil of Power",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Strong Hearted",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Temporal Chains",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "The Stars Answer",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Thunderstorm",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Vitality II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Zenith II",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Rite of Passage",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Kalandra's Touch",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Mageblood",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "From Nothing",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Prism of Belief",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Runeseeker's Call",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "mechanic.totems"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'skillmodes': 'Totem'}"
+    }
+  ]
+}
