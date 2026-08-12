@@ -281,6 +281,29 @@ def _norm_mod(text: str) -> str:
     return " ".join(stripped.lower().replace("+", " ").split())
 
 
+def _expand_variants(text: str, cap: int = 64) -> list[str]:
+    """`(Owl/Serpent/Bear)` 같은 **택1 표기**를 실제 문구들로 편다.
+
+    KB 유니크 explicit은 변형을 한 줄에 모아 적는다(`Possessed by Spirit Of The
+    (Owl/Serpent/Primate/Bear) …`). 실물 아이템은 그중 하나만 들고 있어
+    (`… Of The Bear …`) 그대로 대조하면 **한 줄도 안 맞는다** — 게이트가 멀쩡한
+    아이템을 "옵션 줄이 하나도 없다"로 거부한다(실측 2026-08-12: 래더 코퍼스
+    300벌 중 240벌이 「통과 의례」 하나 때문에 막혔다. BACKLOG 형태 ⑤).
+
+    수치 범위 `(40-60)`은 `_norm_mod`가 지우므로 여기서 건드리지 않는다.
+    """
+    match = re.search(r"\(([^()/]+(?:/[^()/]+)+)\)", text)
+    if match is None:
+        return [text]
+    out: list[str] = []
+    for option in match.group(1).split("/"):
+        head = text[: match.start()] + option.strip() + text[match.end() :]
+        out.extend(_expand_variants(head, cap))
+        if len(out) >= cap:
+            break
+    return out[:cap]
+
+
 @functools.lru_cache(maxsize=1)
 def _ascendancy_codes() -> dict[str, str]:
     """어센던시 내부 코드 → 실명 (KB 시작 노드가 곧 매핑표)."""
@@ -361,7 +384,7 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
         # **Helmet 슬롯 전체가 죽었다**(실측 2026-08-09, `item.thrillsteel`).
         # 줄 단위 일치는 양쪽을 다 막는다 — 우연한 부분 일치도, 짧다는 이유의 탈락도 없다.
         line_norms = {_norm_mod(ln) for ln in lines[2:]}
-        norms = [_norm_mod(e) for e in explicits]
+        norms = [_norm_mod(v) for e in explicits for v in _expand_variants(e)]
         if not any(n and ((len(n) >= 12 and n in body_norm) or n in line_norms) for n in norms):
             problems.append(
                 f"items[{ii}]: {name!r}는 KB 유니크인데 옵션 줄이 하나도 없다 — PoB는 "

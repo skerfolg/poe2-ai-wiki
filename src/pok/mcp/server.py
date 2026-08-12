@@ -447,6 +447,7 @@ evaluate_delta = tool(_build.evaluate_delta)
 check_item_legality = tool(_build.check_item_legality)
 assemble_pob = tool(_build.assemble_pob)
 parse_pob = tool(_build.parse_pob)
+restore_pob_spec = tool(_build.restore_pob_spec)
 measure_leverage = tool(_build.measure_leverage)
 
 # 설계 루프 (P4.5, D26~D28)

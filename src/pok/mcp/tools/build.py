@@ -511,3 +511,31 @@ def measure_leverage(
         "other_operating_cost": measure_operating_cost(other_spec).as_measured(),
         "notes": list(comparison.notes),
     }
+
+
+def restore_pob_spec(build_code: str, assume_first_stat_set: bool = True) -> dict[str, Any]:
+    """PoB 공유 코드 → **우리 `build_spec`** (#67 6차). 남의 빌드를 우리 도구에 태운다.
+
+    `parse_pob`은 요약(무엇이 들어 있나)이고 이건 복원(다시 계산할 수 있게)이다.
+    래더 코퍼스의 PoB 코드를 `compute_pob`·`optimize_tree`·`evaluate_bundles`에
+    그대로 넣을 수 있게 된다.
+
+    ⚠ **`notes`·`needs_decision`을 반드시 읽을 것.** 코드에 없어서 못 되돌린 것과
+    우리가 가정한 것이 거기 있다. 특히:
+    - `stat_set_index` — PoB 코드는 **어느 모드로 계산했는지 안 남긴다**. 기본은 1번
+      가정이고, 모드가 둘 이상인 젬이면 수치가 크게 달라진다(실측 20배).
+    - 단계형 스킬의 `stages`도 코드에 없다(코퍼스 300벌 전부). 필요하면 직접 채울 것.
+    - 교체 무기 슬롯·무기 세트 전용 할당은 우리 스펙에 자리가 없어 빠진다.
+
+    실측 2026-08-12(래더 300벌): 복원 53벌 · 그중 EHP 오차 5% 이내 43% · 20% 이내 86%.
+    거부 247벌은 대부분 우리 게이트(아이템 부여 스킬·단계형)가 막은 것이다.
+    """
+    from pok.pob.restore import spec_from_pob
+
+    out = spec_from_pob(build_code, assume_first_stat_set=assume_first_stat_set)
+    return {
+        "build_spec": out.spec,
+        "notes": list(out.notes),
+        "needs_decision": list(out.needs_decision),
+        "faithful": out.faithful,
+    }
