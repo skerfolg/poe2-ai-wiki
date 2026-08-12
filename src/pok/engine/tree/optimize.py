@@ -353,7 +353,13 @@ def _seed_anchors(
             unreachable.append(node_id)
             continue
         tree.update(path)
-        added.extend(path)
+        # 전직 시작 노드는 통행만 하고 스펙에는 안 싣는다(위 graph.connect_anchors와 같은
+        # 이유 — 넣으면 PoB가 잘라내고 그 트리의 측정이 전부 무효가 된다).
+        added.extend(
+            n
+            for n in path
+            if not (graph.nodes.get(n) is not None and graph.nodes[n].kind == "ascendancy-start")
+        )
     notes: list[str] = []
     if added:
         notes.append(

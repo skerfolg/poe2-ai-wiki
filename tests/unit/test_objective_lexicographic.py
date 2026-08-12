@@ -103,8 +103,12 @@ def test_앵커는_기준선에_들어가_가지치기에서_보호된다() -> N
     """
     from pok.engine.tree.optimize import _seed_anchors
 
-    anchor = 11495  # 마셜 아티스트 시작 노터블
-    seeded, notes, cost = _seed_anchors(_spec(), _graph(), (anchor,), 20)
+    graph = _graph()
+    # 전직 **시작** 노드는 스펙에 안 실린다(PoB가 자동 할당) — 일반 노터블로 확인한다
+    anchor = next(
+        n.node_id for n in graph.nodes.values() if n.kind == "notable" and not n.ascendancy
+    )
+    seeded, notes, cost = _seed_anchors(_spec(), graph, (anchor,), 20)
     assert anchor in seeded.tree_nodes and cost > 0
     assert any("가지치기도 건드리지 않는다" in n for n in notes)
 

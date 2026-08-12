@@ -196,3 +196,33 @@ def test_원시가_없으면_경고를_비우지_않고_사유를_남긴다() ->
 
     out = _cautions({"query": {"class": "Nope"}, "season": "0.5"}, [("Cold", 1.0)])
     assert isinstance(out, dict) and "skipped" in out
+
+
+def test_전직_시작_노드는_스펙에_싣지_않는다() -> None:
+    """PoB가 전직 선택으로 **자동 할당**하므로 tree_nodes에 있으면 잘라낸다
+    (`pruned_nodes`). 그런데 델타·묶음 측정은 pruned가 있으면 결과를 **통째로
+    버린다** — 노드 하나 때문에 그 트리의 모든 측정이 무효가 되고, 그리디는
+    후보가 전부 사라져 한 수도 못 뽑는다.
+
+    실측 2026-08-12 e2e: 마셜 아티스트 앵커 11개를 박았더니 그리디가 0수였고,
+    원인은 경로가 지나간 전직 시작 노드 11495 하나였다. **통행은 시키되 산출물에는
+    싣지 않는다.**
+    """
+    from pok.engine.tree.optimize import _seed_anchors
+    from pok.pob.buildxml import BuildSpec
+
+    spec = BuildSpec(class_name="Monk", ascendancy="Monk1", tree_nodes=())
+    # Way of the Stonefist 같은 전직 노터블은 전직 시작 노드를 통해서만 닿는다
+    asc_notable = next(
+        n.node_id for n in _graph.nodes.values() if n.ascendancy == "Monk1" and n.kind == "notable"
+    )
+    seeded, _, _ = _seed_anchors(spec, _graph, (asc_notable,), 30)
+    assert asc_notable in seeded.tree_nodes, "전직 노터블 자체는 들어가야 한다"
+    starts = [n for n in seeded.tree_nodes if _graph.nodes[n].kind == "ascendancy-start"]
+    assert not starts, f"전직 시작 노드가 스펙에 섞였다: {starts}"
+
+    allocated, _ = _graph.connect_anchors("Monk", [asc_notable])
+    assert not [n for n in allocated if _graph.nodes[n].kind == "ascendancy-start"], (
+        "connect_anchors의 allocated에도 섞이면 안 된다 — "
+        "그걸 스펙에 넣는 세션이 같은 함정에 빠진다"
+    )

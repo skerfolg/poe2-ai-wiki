@@ -197,7 +197,16 @@ class TreeGraph:
             tree.update(best_p)
             paths[best_t] = best_p
             remaining.discard(best_t)
-        allocated = sorted(tree - {self.start_of(class_name)})
+        # ⚠ 전직 시작 노드는 **스펙에 넣으면 안 된다** — PoB가 전직 선택으로 자동
+        # 할당하므로 tree_nodes에 있으면 `pruned_nodes`로 잘라낸다. 그러면 그 트리를
+        # 쓰는 **모든 측정이 무효 처리**되어(deltas·bundles가 pruned 결과를 버린다)
+        # 그리디가 한 수도 못 뽑는다 — 실측 2026-08-12 e2e에서 정확히 그렇게 멈췄고,
+        # 원인은 노드 하나였다(11495). 통행은 시켜도 산출물에는 싣지 않는다.
+        allocated = sorted(
+            n
+            for n in tree - {self.start_of(class_name)}
+            if not (self.nodes.get(n) is not None and self.nodes[n].kind == "ascendancy-start")
+        )
         return allocated, paths
 
     def distances_from(self, sources: set[int], max_dist: int) -> dict[int, int]:
