@@ -1,0 +1,828 @@
+{
+  "id": "usage-profile.0-5-class-smith-of-kitava",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "스미스 오브 키타바 (Smith of Kitava) 동반 프로파일 (0-5)",
+    "en": "스미스 오브 키타바 (Smith of Kitava) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.smith-of-kitava-5852",
+      "label": "스미스 오브 키타바 (Smith of Kitava)"
+    },
+    "query": {
+      "class": "Smith of Kitava"
+    },
+    "class_spread": [
+      {
+        "ref": "Smith of Kitava",
+        "share": 100.0,
+        "count": 10
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 133,
+          "median": 157,
+          "max": 159
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 2,
+          "median": 5,
+          "max": 12
+        },
+        "keystone": {
+          "min": 1,
+          "median": 1,
+          "max": 4
+        },
+        "notable": {
+          "min": 13,
+          "median": 42,
+          "max": 46
+        },
+        "small": {
+          "min": 102,
+          "median": 107,
+          "max": 110
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/class-Smith_of_Kitava 10벌",
+        "min_count": 3
+      },
+      "gems": [
+        {
+          "ref": "Magnified Area II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Raging Cry",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Raise Shield",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Rapid Attacks II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Tireless",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Ahn's Citadel",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Atalui's Bloodletting",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Shield Wall",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Enraged Warcry II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Infernal Cry",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Scavenged Plating",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Berserk",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Cannibalism I",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Fortifying Cry",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Heft",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Kaom's Madness",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Rage III",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Shield Charge",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Vitality II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Armour Break III",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Concentrated Area",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Fire Mastery",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Leap Slam",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Rapid Attacks III",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Styrn's Ferocity",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Uruk's Smelting",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Brutality III",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Echoing Cry",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Elemental Armament II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Exposing Cry",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Heavy Swing",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Her Declaration",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Herald of Ash",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Lifetap",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Mace Strike",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Maim",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Physical Mastery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Resonating Shield",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Styrn's Mountain",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uhtred's Omen",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uul-Netol's Embrace",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Vorana's Siege",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Armour Explosion",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Branching Fissures II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cannibalism II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Charge Profusion II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Close Combat II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Daresso's Passion",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Eternal Mark",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Garukhan's Resolve",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Holy Descent",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Medved's Felling",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mobility",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Pounce",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Precision II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Stun III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "War Banner",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Heart of the Well",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Mageblood",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Prism of Belief",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Exceptional Ornate Plate",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Against the Darkness",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "From Nothing",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Combat Arm",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Constricting Command",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Nebuloch",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Restorative Leg",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Undying Hate",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Voices",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.jewel-socket-26725",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-55190",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-2491",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.kitavan-engraving-60913",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.smiths-masterwork-9988",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.blood-magic",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.brutal-5710",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.greatest-defence-27687",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.heatproofing-25438",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.molten-symbol-9997",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.smash-45363",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.bolstering-yell-26070",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.crushing-verdict-18505",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.jewel-socket-54127",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.tempered-defences-18157",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.admonisher-35876",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.battle-trance-37276",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.blood-rush-39083",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.coal-stoker-57959",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.dedication-to-kitava-64962",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.flowing-metal-13772",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.relentless-7721",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.sturdy-metal-32416",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.tribute-to-utula-22908",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.urgent-call-1169",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.vocal-empowerment-31373",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.goring-47316",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.internal-layer-110",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.leather-bindings-8525",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.light-on-your-feet-55131",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.made-to-last-44952",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.momentum-63579",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.pile-on-51129",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.roaring-cries-28613",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.the-molten-ones-gift-28542",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.unyielding-10774",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.beef-25482",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.blade-catcher-17029",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.cacophony-6514",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.deafening-cries-38053",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.devastation-48006",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.forged-in-flame-48537",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.gem-enthusiast-32976",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.guttural-roar-29762",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.heavy-armour-59589",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.ignore-pain-7341",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.in-your-face-57379",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-46882",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.mass-hysteria-27108",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.polished-iron-27950",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.punctured-lung-13482",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.reverberating-impact-59767",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.sand-in-the-eyes-25619",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.barbaric-strength-50562",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.burning-strikes-6544",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.endurance-5663",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.fast-metabolism-8827",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.favourable-odds-19546",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.frantic-fighter-59208",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.inherited-strength-46683",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.primal-growth-32071",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.projectile-bulwark-19236",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.spiked-shield-36808",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.sundering-2511",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.tactical-retreat-17825",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.thrill-of-battle-25711",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.smith-of-kitava-5852"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'class': 'Smith of Kitava'}"
+    }
+  ]
+}

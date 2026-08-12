@@ -1,9 +1,9 @@
 {
-  "id": "usage-profile.0-5-skillmodes-totem",
+  "id": "usage-profile.0-5-keypassives-mind-over-matter",
   "type": "UsageProfile",
   "name": {
-    "ko": "토템 (Totem) 동반 프로파일 (0-5)",
-    "en": "토템 (Totem) usage profile (0-5)"
+    "ko": "정신의 승리 (MoM) 동반 프로파일 (0-5)",
+    "en": "정신의 승리 (MoM) usage profile (0-5)"
   },
   "tags": [
     "usage-profile",
@@ -12,40 +12,30 @@
   "data": {
     "season": "0.5",
     "anchor": {
-      "ref": "mechanic.totems",
-      "label": "토템 (Totem)"
+      "ref": "passive.mind-over-matter",
+      "label": "정신의 승리 (MoM)"
     },
     "query": {
-      "skillmodes": "Totem"
+      "keypassives": "Mind Over Matter"
     },
     "class_spread": [
       {
-        "ref": "Oracle",
+        "ref": "Blood Mage",
         "share": 40.0,
         "count": 4
       },
       {
-        "ref": "Shaman",
+        "ref": "Oracle",
+        "share": 30.0,
+        "count": 3
+      },
+      {
+        "ref": "Lich",
         "share": 20.0,
         "count": 2
       },
       {
-        "ref": "Invoker",
-        "share": 10.0,
-        "count": 1
-      },
-      {
-        "ref": "Titan",
-        "share": 10.0,
-        "count": 1
-      },
-      {
-        "ref": "Warbringer",
-        "share": 10.0,
-        "count": 1
-      },
-      {
-        "ref": "Witchhunter",
+        "ref": "Stormweaver",
         "share": 10.0,
         "count": 1
       }
@@ -59,9 +49,9 @@
       ],
       "per_build": {
         "allocated": {
-          "min": 134,
-          "median": 148,
-          "max": 159
+          "min": 133,
+          "median": 153,
+          "max": 160
         },
         "ascendancy-start": {
           "min": 1,
@@ -74,24 +64,24 @@
           "max": 1
         },
         "jewel-socket": {
-          "min": 3,
+          "min": 4,
           "median": 5,
-          "max": 7
+          "max": 12
         },
         "keystone": {
-          "min": 0,
-          "median": 3,
-          "max": 11
+          "min": 1,
+          "median": 4,
+          "max": 10
         },
         "notable": {
-          "min": 24,
-          "median": 36,
-          "max": 67
+          "min": 22,
+          "median": 30,
+          "max": 58
         },
         "small": {
-          "min": 52,
-          "median": 103,
-          "max": 112
+          "min": 84,
+          "median": 98,
+          "max": 117
         }
       }
     },
@@ -99,59 +89,54 @@
       "sample": {
         "n": 10,
         "unit": "sampled-builds",
-        "basis": "poe.ninja 래더 PoB 실측 — 0-5/skillmodes-Totem 10벌",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/keypassives-Mind_Over_Matter 10벌",
         "min_count": 3
       },
       "gems": [
         {
-          "ref": "Archmage",
+          "ref": "Magnified Area II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Remnant Potency I",
           "share": 80.0,
           "count": 8
         },
         {
           "ref": "Efficiency II",
-          "share": 80.0,
-          "count": 8
-        },
-        {
-          "ref": "Magnified Area II",
-          "share": 80.0,
-          "count": 8
+          "share": 70.0,
+          "count": 7
         },
         {
           "ref": "Rapid Casting II",
-          "share": 80.0,
-          "count": 8
+          "share": 70.0,
+          "count": 7
         },
         {
-          "ref": "Spell Totem",
-          "share": 80.0,
-          "count": 8
+          "ref": "Zenith II",
+          "share": 70.0,
+          "count": 7
         },
         {
           "ref": "Clarity II",
-          "share": 70.0,
-          "count": 7
+          "share": 60.0,
+          "count": 6
         },
         {
-          "ref": "Entangle",
-          "share": 70.0,
-          "count": 7
-        },
-        {
-          "ref": "Prolonged Duration II",
-          "share": 70.0,
-          "count": 7
-        },
-        {
-          "ref": "Rakiata's Flow",
-          "share": 70.0,
-          "count": 7
-        },
-        {
-          "ref": "Urgent Totems III",
-          "share": 70.0,
-          "count": 7
+          "ref": "Comet",
+          "share": 60.0,
+          "count": 6
         },
         {
           "ref": "Cooldown Recovery II",
@@ -159,17 +144,22 @@
           "count": 6
         },
         {
-          "ref": "Mana Remnants",
-          "share": 60.0,
-          "count": 6
-        },
-        {
-          "ref": "Harmonic Remnants II",
+          "ref": "Archmage",
           "share": 50.0,
           "count": 5
         },
         {
-          "ref": "Lightning Mastery",
+          "ref": "Boundless Energy II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Cast on Critical",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Khatal's Rejuvenation",
           "share": 50.0,
           "count": 5
         },
@@ -179,7 +169,12 @@
           "count": 5
         },
         {
-          "ref": "Atziri's Communion",
+          "ref": "Spellslinger",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Atalui's Bloodletting",
           "share": 40.0,
           "count": 4
         },
@@ -189,7 +184,27 @@
           "count": 4
         },
         {
-          "ref": "Grim Pillars",
+          "ref": "Charge Regulation",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Clarity I",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Enfeeble",
           "share": 40.0,
           "count": 4
         },
@@ -199,12 +214,22 @@
           "count": 4
         },
         {
-          "ref": "Living Lightning II",
+          "ref": "Life Remnants",
           "share": 40.0,
           "count": 4
         },
         {
-          "ref": "Potent Exposure",
+          "ref": "Lightning Mastery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Rakiata's Flow",
           "share": 40.0,
           "count": 4
         },
@@ -214,17 +239,22 @@
           "count": 4
         },
         {
-          "ref": "Spellslinger",
+          "ref": "Spell Cascade",
           "share": 40.0,
           "count": 4
         },
         {
-          "ref": "Vorana's Siege",
+          "ref": "Temporal Chains",
           "share": 40.0,
           "count": 4
         },
         {
-          "ref": "Biting Frost II",
+          "ref": "Uhtred's Omen",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Arbiter's Ignition",
           "share": 30.0,
           "count": 3
         },
@@ -234,32 +264,27 @@
           "count": 3
         },
         {
-          "ref": "Branching Fissures II",
+          "ref": "Charge Profusion II",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "Clarity I",
+          "ref": "Cursed Ground",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "Cool Headed",
+          "ref": "Elemental Conflux",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "Frost Bomb",
+          "ref": "Explosive Transmutation",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "Her Declaration",
-          "share": 30.0,
-          "count": 3
-        },
-        {
-          "ref": "Mana Tempest",
+          "ref": "Living Bomb",
           "share": 30.0,
           "count": 3
         },
@@ -269,12 +294,22 @@
           "count": 3
         },
         {
-          "ref": "Morrigan's Insight",
+          "ref": "Orb of Storms",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "Remnant Potency III",
+          "ref": "Pierce III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Powered by Verisium",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Seraph's Heart",
           "share": 30.0,
           "count": 3
         },
@@ -284,41 +319,41 @@
           "count": 3
         },
         {
+          "ref": "Sione's Temper",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Siphon Elements",
+          "share": 30.0,
+          "count": 3
+        },
+        {
           "ref": "Strong Hearted",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "Temporal Chains",
+          "ref": "Uhtred's Augury",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "The Stars Answer",
-          "share": 30.0,
-          "count": 3
-        },
-        {
-          "ref": "Thunderstorm",
-          "share": 30.0,
-          "count": 3
-        },
-        {
-          "ref": "Vitality II",
-          "share": 30.0,
-          "count": 3
-        },
-        {
-          "ref": "Zenith II",
+          "ref": "Vilenta's Propulsion",
           "share": 30.0,
           "count": 3
         }
       ],
       "items": [
         {
+          "ref": "Kalandra's Touch",
+          "share": 70.0,
+          "count": 7
+        },
+        {
           "ref": "Rite of Passage",
-          "share": 80.0,
-          "count": 8
+          "share": 70.0,
+          "count": 7
         },
         {
           "ref": "Heart of the Well",
@@ -326,12 +361,7 @@
           "count": 6
         },
         {
-          "ref": "Kalandra's Touch",
-          "share": 60.0,
-          "count": 6
-        },
-        {
-          "ref": "Lavianga's Spirits",
+          "ref": "From Nothing",
           "share": 50.0,
           "count": 5
         },
@@ -341,17 +371,32 @@
           "count": 5
         },
         {
-          "ref": "The Fall of the Axe",
+          "ref": "Voices",
           "share": 50.0,
           "count": 5
         },
         {
-          "ref": "From Nothing",
+          "ref": "Atziri's Splendour",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uhtred's Chalice",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Alpha's Howl",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "Megalomaniac",
+          "ref": "Nascent Hope",
           "share": 30.0,
           "count": 3
         },
@@ -359,28 +404,38 @@
           "ref": "Prism of Belief",
           "share": 30.0,
           "count": 3
-        },
-        {
-          "ref": "Runeseeker's Call",
-          "share": 30.0,
-          "count": 3
         }
       ],
       "passives": [
         {
-          "ref": "passive.ancestral-bond-45202",
-          "share": 80.0,
-          "count": 8
+          "ref": "passive.jewel-socket-21984",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 100.0,
+          "count": 10
         },
         {
           "ref": "passive.jewel-socket-7960",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.arcane-intensity-19044",
           "share": 80.0,
           "count": 8
         },
         {
-          "ref": "passive.ancestral-conduits-51820",
-          "share": 70.0,
-          "count": 7
+          "ref": "passive.raw-mana-3567",
+          "share": 80.0,
+          "count": 8
         },
         {
           "ref": "passive.controlling-magic-13823",
@@ -388,74 +443,49 @@
           "count": 7
         },
         {
-          "ref": "passive.jewel-socket-21984",
-          "share": 70.0,
-          "count": 7
-        },
-        {
-          "ref": "passive.jewel-socket-61419",
-          "share": 70.0,
-          "count": 7
-        },
-        {
-          "ref": "passive.ancestral-reach-43396",
-          "share": 60.0,
-          "count": 6
-        },
-        {
-          "ref": "passive.arcane-intensity-19044",
-          "share": 60.0,
-          "count": 6
-        },
-        {
-          "ref": "passive.desensitisation-28267",
-          "share": 60.0,
-          "count": 6
-        },
-        {
           "ref": "passive.eldritch-battery",
-          "share": 60.0,
-          "count": 6
+          "share": 70.0,
+          "count": 7
         },
         {
           "ref": "passive.jewel-socket-26196",
-          "share": 60.0,
-          "count": 6
+          "share": 70.0,
+          "count": 7
         },
         {
-          "ref": "passive.jewel-socket-55190",
-          "share": 60.0,
-          "count": 6
+          "ref": "passive.jewel-socket-61834",
+          "share": 70.0,
+          "count": 7
         },
         {
-          "ref": "passive.raw-mana-3567",
-          "share": 60.0,
-          "count": 6
-        },
-        {
-          "ref": "passive.supportive-ancestors-19249",
-          "share": 60.0,
-          "count": 6
-        },
-        {
-          "ref": "passive.ancestral-alacrity-2575",
+          "ref": "passive.invigorating-archon-41394",
           "share": 50.0,
           "count": 5
         },
         {
-          "ref": "passive.barbaric-strength-50562",
+          "ref": "passive.jewel-socket-32763",
           "share": 50.0,
           "count": 5
         },
         {
-          "ref": "passive.ether-flow-16256",
+          "ref": "passive.mental-alacrity-16466",
           "share": 50.0,
           "count": 5
         },
         {
-          "ref": "passive.relentless-vindicator-6898",
+          "ref": "passive.remnant-attraction-1506",
           "share": 50.0,
           "count": 5
+        },
+        {
+          "ref": "passive.arcane-remnants-46124",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.brain-freeze-24721",
+          "share": 40.0,
+          "count": 4
         },
         {
           "ref": "passive.brain-storm-50498",
@@ -463,102 +493,107 @@
           "count": 4
         },
         {
-          "ref": "passive.entwined-realities-32905",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.final-barrage-2999",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.for-the-jugular-20677",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.grounded-in-the-earth-25429",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.invigorating-archon-41394",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.jewel-socket-61834",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.mind-eraser-45632",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.overzealous-10295",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.pain-attunement",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.remnant-attraction-1506",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.shredding-force-5284",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.the-lesser-harm-34313",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.the-unseen-path-5571",
-          "share": 40.0,
-          "count": 4
-        },
-        {
-          "ref": "passive.blackflame-covenant-42680",
-          "share": 30.0,
-          "count": 3
-        },
-        {
-          "ref": "passive.brain-freeze-24721",
-          "share": 30.0,
-          "count": 3
-        },
-        {
           "ref": "passive.chakra-of-elements-63400",
-          "share": 30.0,
-          "count": 3
+          "share": 40.0,
+          "count": 4
         },
         {
-          "ref": "passive.chakra-of-thought-29306",
-          "share": 30.0,
-          "count": 3
+          "ref": "passive.conduit-33979",
+          "share": 40.0,
+          "count": 4
         },
         {
-          "ref": "passive.efficient-inscriptions-42245",
-          "share": 30.0,
-          "count": 3
-        },
-        {
-          "ref": "passive.elemental-equilibrium-46742",
-          "share": 30.0,
-          "count": 3
+          "ref": "passive.crimson-power-31223",
+          "share": 40.0,
+          "count": 4
         },
         {
           "ref": "passive.energising-archon-43633",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.ether-flow-16256",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.grasping-wounds-56162",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.ingenuity-39567",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.invocated-efficiency-51934",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.lingering-whispers-16499",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.master-of-hexes-40345",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.profane-commander-54814",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.sanguimancy-8415",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.sunder-the-flesh-26383",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.tempered-mind-8831",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.vitality-siphon-23416",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.adverse-growth-4295",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.desensitisation-28267",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.dreamcatcher-11838",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.dynamism-3688",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.entwined-realities-32905",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
           "share": 30.0,
           "count": 3
         },
@@ -568,32 +603,62 @@
           "count": 3
         },
         {
-          "ref": "passive.jewel-socket-26725",
+          "ref": "passive.heartbreaking-13407",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "passive.lasting-incantations-58096",
+          "ref": "passive.heartstopping-38537",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "passive.mental-alacrity-16466",
+          "ref": "passive.infusion-of-power-59387",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "passive.mind-over-matter",
+          "ref": "passive.jewel-socket-46882",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "passive.preservation-32951",
+          "ref": "passive.jewel-socket-60735",
           "share": 30.0,
           "count": 3
         },
         {
-          "ref": "passive.tempered-mind-8831",
+          "ref": "passive.mind-eraser-45632",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.raw-power-51184",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.relentless-vindicator-6898",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.sudden-escalation-10398",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.the-lesser-harm-34313",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.the-unseen-path-5571",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.throatseeker-56265",
           "share": 30.0,
           "count": 3
         },
@@ -603,7 +668,12 @@
           "count": 3
         },
         {
-          "ref": "passive.wasting-casts-61444",
+          "ref": "passive.turn-the-clock-forward-2335",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.whispers-of-doom-47759",
           "share": 30.0,
           "count": 3
         }
@@ -613,7 +683,7 @@
   "relations": [
     {
       "rel": "uses",
-      "target": "mechanic.totems"
+      "target": "passive.mind-over-matter"
     }
   ],
   "verification": "COMMUNITY",
@@ -622,7 +692,7 @@
       "src": "community",
       "ref": "https://poe.ninja/poe2/builds",
       "patch": "0.5.4b",
-      "note": "래더 PoB 실측 — 질의 {'skillmodes': 'Totem'}"
+      "note": "래더 PoB 실측 — 질의 {'keypassives': 'Mind Over Matter'}"
     }
   ]
 }

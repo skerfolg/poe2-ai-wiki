@@ -5,12 +5,13 @@
 > 전제: 레포 루트에서 실행 · `PYTHONPATH=src` · `.venv/bin/python`.
 > 설계 배경: [BACKLOG](../../docs/BACKLOG.md) #67 4·5차 절.
 
-## 두 갈래가 있다 — 먼저 어느 쪽인지 확인할 것
+## 세 갈래가 있다 — 먼저 어느 쪽인지 확인할 것
 
 | 갈래 | 컨셉 예 | 만드는 것 | 3단계에서 |
 |---|---|---|---|
 | **A군 (메커니즘 축)** | `skillmodes=Totem` | `UsageProfile` 레코드 | `profile` 명령이 **파일까지 쓴다** |
 | **B군 (어센던시 빌드)** | `class=Blood Mage` | 기존 Build 레코드의 `data.observed` | 사람이 **손으로** 넣는다 |
+| **C군 (어센던시 축)** | `class=Blood Mage` | `UsageProfile` 레코드 | `profile` 명령이 **파일까지 쓴다** |
 
 A군은 표본에 여러 어센던시가 섞인다 — **그게 요점이다.** 클래스를 넘어 따라붙는
 것이 곧 이식 가능한 문법이다(실측: `skillmodes=Totem` 10벌이 6개 어센던시에
@@ -52,6 +53,12 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate collect \
 - 멱등하다 — 다시 돌려도 같은 갱신본은 안 쌓인다(`skipped_same_revision`).
 - 출력 JSON의 `failed`가 비어 있지 않으면 **그대로 보고**하고 다음 컨셉으로 넘어간다.
   임의로 재시도하거나 우회하지 말 것.
+- ⚠ **필터 값도 조용히 무시된다** — 키가 복수형이어도 **값**이 poe.ninja 어휘에 없으면
+  리그 전체 상위 N을 돌려준다(실측 2026-08-12: `skills=Cast on Critical`·`skills=Archmage`가
+  그렇게 무효 프로파일 2건이 됐다). 이제 수집기가 표본을 대조해 **저장 전에 거부**한다.
+  거부되면 **값 표기 문제**이므로 비슷한 값으로 바꿔 재시도하지 말고 **사람에게 보고**한다.
+- 출력의 `warnings`도 **함께 보고**한다(빈 배열이면 생략). "무필터 상위 N과 완전히 같다"가
+  뜨면 프로파일을 만들기 전에 사람 확인을 받는다.
 
 ### 2. 집계 — 표본이 찼을 때만
 
@@ -86,19 +93,76 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
   | `skillmodes=Totem` | `mechanic.totems` | `토템 (Totem)` |
   | `skills=Herald of Ice` | `skill.herald-of-ice` | `얼음의 전령` |
   | `keypassives=Chaos Inoculation` | `passive.chaos-inoculation` | `카오스 접종 (CI)` |
-  | `skills=Cast on Critical` | `skill.cast-on-critical` | `치명타 시 시전 (CoC)` |
-  | `keypassives=Mind Over Matter` | `passive.mind-over-matter` | `정신의 승리 (MoM)` |
+    | `keypassives=Mind Over Matter` | `passive.mind-over-matter` | `정신의 승리 (MoM)` |
   | `keypassives=Pain Attunement` | `passive.pain-attunement` | `고통의 조율` |
-  | `skills=Archmage` | `skill.archmage` | `아크메이지` |
 
+- ⛔ **CoC·아크메이지는 표에서 뺐다** — `skills=Cast on Critical`·`skills=Archmage`는
+  poe.ninja 어휘에 없어 무시된다(실측 2026-08-12, 무효 프로파일 2건 발생 후 삭제).
+  정확한 표기를 확인하기 전에는 다시 넣지 말 것.
 - `--anchor`는 **KB 실존 id**다. `pok` MCP의 `search_kb`로 확인해서 넣는다.
   못 찾으면 **지어내지 말고 사람에게 보고**한다. 없는 id면 명령이 거부한다.
 - `--write`가 있으면 `knowledge/game-data/usage-profiles/`에 파일을 쓴다.
   없으면 stdout으로만 낸다(확인용).
+- **레코드 id·파일명은 `--concept`과 글자가 다를 수 있다 — 정상이다.** 디렉터리
+  이름은 공백이 `_`인데(`skills-Herald_of_Ice`) id는 `-`만 받으므로 변환된다
+  (`usage-profile.0-5-skills-herald-of-ice`). **디렉터리 이름을 고치지 말 것** —
+  원시는 그 이름으로 이미 쌓였다.
+- 검증에 걸리면 **파일을 쓰지 않고** `{"error": …}`와 종료 1을 낸다. 되돌릴 것이
+  없으니 사유를 **그대로 보고**하고 다음 컨셉으로 넘어가지 말 것.
 - 출력의 **클래스 구성을 반드시 보고**한다. 한 어센던시가 8/10 이상을 차지하면
   「클래스를 넘는 공통점」이 아니므로 그 사실을 함께 적는다.
 
-3-A를 했으면 4로 간다(3-B는 건너뛴다).
+3-A를 했으면 4로 간다(3-B·3-C는 건너뛴다).
+
+### 3-C. C군 — 어센던시 축 UsageProfile (`profile`, 3-A와 같은 명령)
+
+**왜 별도 갈래인가**: A군은 클래스를 섞는 것이 요점이라 **전원 공통 노드가 원리상 0**이다
+(실측 2026-08-12: 10벌에 노드 564종인데 10/10은 0개 — 어센던시마다 트리 시작점이 다르다).
+「이 빌드에 꼭 필요한 노드」는 **시작점이 같은 표본**에서만 나온다. 그게 이 갈래다.
+
+절차는 3-A와 완전히 같고 `--filter`·`--anchor`만 다르다:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
+  --season 0-5 --concept class-Blood_Mage \
+  --anchor passive.blood-mage-59822 --label "블러드 메이지 (Blood Mage)" \
+  --filter "class=Blood Mage" --min-sample 10 --write
+```
+
+- ⚠ **클래스 구성이 10/10 한 클래스로 나오는 것이 정상이다.** 3-A의 「한 어센던시가
+  절반 이상이면 주의」 경고는 여기 적용되지 않는다 — 그게 이 갈래의 정의다.
+- `--anchor`는 그 전직의 **시작 노드 레코드**다(아래 표, 전부 실존 확인 2026-08-12).
+
+  | `--filter` | `--concept` | `--anchor` | `--label` |
+  |---|---|---|---|
+  | `class=Acolyte of Chayula` | `class-Acolyte_of_Chayula` | `passive.acolyte-of-chayula-74` | `애컬라이트 오브 차율라 (Acolyte of Chayula)` |
+  | `class=Amazon` | `class-Amazon` | `passive.amazon-41736` | `아마존 (Amazon)` |
+  | `class=Blood Mage` | `class-Blood_Mage` | `passive.blood-mage-59822` | `블러드 메이지 (Blood Mage)` |
+  | `class=Chronomancer` | `class-Chronomancer` | `passive.chronomancer-22147` | `크로노맨서 (Chronomancer)` |
+  | `class=Deadeye` | `class-Deadeye` | `passive.deadeye-46990` | `데드아이 (Deadeye)` |
+  | `class=Disciple of Varashta` | `class-Disciple_of_Varashta` | `passive.disciple-of-varashta-8305` | `디사이플 오브 바라시타 (Disciple of Varashta)` |
+  | `class=Gemling Legionnaire` | `class-Gemling_Legionnaire` | `passive.gemling-legionnaire-55536` | `젬링 리저네어 (Gemling Legionnaire)` |
+  | `class=Infernalist` | `class-Infernalist` | `passive.infernalist-32699` | `인퍼널리스트 (Infernalist)` |
+  | `class=Invoker` | `class-Invoker` | `passive.invoker-9994` | `인보커 (Invoker)` |
+  | `class=Lich` | `class-Lich` | `passive.lich-23710` | `리치 (Lich)` |
+  | `class=Martial Artist` | `class-Martial_Artist` | `passive.martial-artist-11495` | `마셜 아티스트 (Martial Artist)` |
+  | `class=Oracle` | `class-Oracle` | `passive.oracle-42761` | `오라클 (Oracle)` |
+  | `class=Pathfinder` | `class-Pathfinder` | `passive.pathfinder-1583` | `패스파인더 (Pathfinder)` |
+  | `class=Ritualist` | `class-Ritualist` | `passive.ritualist-36365` | `리추얼리스트 (Ritualist)` |
+  | `class=Shaman` | `class-Shaman` | `passive.shaman-35535` | `샤먼 (Shaman)` |
+  | `class=Smith of Kitava` | `class-Smith_of_Kitava` | `passive.smith-of-kitava-5852` | `스미스 오브 키타바 (Smith of Kitava)` |
+  | `class=Spirit Walker` | `class-Spirit_Walker` | `passive.spirit-walker-63493` | `스피릿 워커 (Spirit Walker)` |
+  | `class=Stormweaver` | `class-Stormweaver` | `passive.stormweaver-40721` | `스톰위버 (Stormweaver)` |
+  | `class=Tactician` | `class-Tactician` | `passive.tactician-36252` | `택티션 (Tactician)` |
+  | `class=Titan` | `class-Titan` | `passive.titan-32534` | `타이탄 (Titan)` |
+  | `class=Warbringer` | `class-Warbringer` | `passive.warbringer-33812` | `워브링어 (Warbringer)` |
+  | `class=Witchhunter` | `class-Witchhunter` | `passive.witchhunter-7120` | `위치헌터 (Witchhunter)` |
+
+- ⚠ **Abyssal Lich(심연의 리치)는 표에 없다** — 0.5 어센던시 23종 중 유일하게 KB에
+  트리 노드가 없다(수집 갭). 원시는 모으되 프로파일은 만들지 말고 **「앵커없음」으로
+  보고**한다. 앵커를 지어내지 말 것.
+
+3-C를 했으면 4로 간다.
 
 ### 3-B. B군 — 기존 Build 레코드에 싣기
 
@@ -123,7 +187,8 @@ push한다 — 몰아서 하면 중간에 끊겼을 때 통째로 잃는다.
 ### 5. 검증 — 반드시 통과시킬 것
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/unit/test_build_entity.py -q
+PYTHONPATH=src .venv/bin/python -m pytest \
+  tests/unit/test_build_entity.py tests/unit/test_ladder_collector.py -q
 ```
 
 실패하면 되돌리고 사유와 함께 보고한다.

@@ -18,12 +18,17 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from pok.engine.objective import Target, TargetResult, evaluate_targets
 from pok.engine.tree.clusters import Cluster, find_clusters
 from pok.engine.tree.deltas import NodeDelta, evaluate_node_deltas
 from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import BuildSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
 from pok.pob.runner import PobResult
+
+# 사전식 목표가 있을 때 **부차 축**에 남기는 몫. 0으로 두면 병목에 기여하지
+# 않는 수가 전부 점수 0이 되어(그리디는 s>0만 채택) 예산이 남은 채 멈춘다.
+_TIEBREAK = 1e-3
 
 
 @dataclass(frozen=True)
@@ -32,18 +37,70 @@ class Objective:
 
     상대화(기준 대비 %)로 스탯 간 스케일 차이를 흡수한다. floor는 기준값이
     0에 가까울 때의 폭주 방지(예: ES 0인 빌드에서 ES 델타).
+
+    **`targets`를 주면 가중 합산이 아니라 사전식(D28)으로 돈다.** 가중 합산은
+    한 축이 지배한다 — DPS 가중치가 크면 EHP가 바닥이어도 DPS를 계속 올리는 수가
+    항상 이긴다. "한쪽으로 쏠리지 않게"는 가중치를 손으로 맞춰서가 아니라
+    **경계를 채우면 다음 축으로 넘어가게** 해서 얻는다(사용자 정리 2026-08-12).
+
+    - 매 수마다 **현재 실측값**으로 병목을 다시 잡는다(고정이 아니다).
+    - **이미 충족한 목표를 깨뜨리는 수는 배제한다** — 이게 없으면 그리디가
+      EHP 경계를 헐어 DPS로 옮기는 짓을 한다.
+    - 병목 축을 **못 재면**(measured None) 그 목표로는 그리디를 몰 수 없다 —
+      건너뛰고 다음 목표를 본다. 안 그러면 델타가 전부 0이라 즉시 멈춘다
+      (BACKLOG 형태 ②: 축이 측정에 없으면 점수 0).
     """
 
     weights: dict[str, float]  # 예: {"CombinedDPS": 1.0, "Life": 0.7, "TotalEHP": 0.5}
     floors: dict[str, float] = field(default_factory=dict)
+    targets: tuple[Target, ...] = ()
+
+    def _relative(self, stat: str, value: float, base_stats: dict[str, float]) -> float:
+        denom = max(abs(base_stats.get(stat, 0.0)), self.floors.get(stat, 1.0))
+        return value / denom
+
+    def _weighted(self, delta: NodeDelta, base_stats: dict[str, float]) -> float:
+        return sum(
+            w * self._relative(stat, delta.deltas.get(stat, 0.0), base_stats)
+            for stat, w in self.weights.items()
+        )
+
+    def focus(self, base_stats: dict[str, float]) -> TargetResult | None:
+        """지금 몰아야 할 목표 — 첫 미충족이되 **잴 수 있는** 것."""
+        if not self.targets:
+            return None
+        report = evaluate_targets(self.targets, base_stats)
+        for result in report.results:
+            if not result.satisfied and result.measured is not None:
+                return result
+        return None
+
+    def _breaks_floor(self, delta: NodeDelta, base_stats: dict[str, float]) -> bool:
+        """이미 충족한 경계를 이 수가 무너뜨리는가."""
+        for result in evaluate_targets(self.targets, base_stats).results:
+            if not result.satisfied or result.measured is None:
+                continue
+            after = result.measured + delta.deltas.get(result.metric, 0.0)
+            if (result.op == ">=" and after < result.value) or (
+                result.op == "<=" and after > result.value
+            ):
+                return True
+        return False
 
     def score(self, delta: NodeDelta, base_stats: dict[str, float]) -> float:
-        total = 0.0
-        for stat, w in self.weights.items():
-            base = abs(base_stats.get(stat, 0.0))
-            denom = max(base, self.floors.get(stat, 1.0))
-            total += w * (delta.deltas.get(stat, 0.0) / denom)
-        return total / max(delta.points, 1)
+        if not self.targets:
+            return self._weighted(delta, base_stats) / max(delta.points, 1)
+        if self._breaks_floor(delta, base_stats):
+            return float("-inf")  # 채택 조건이 s > 0이라 확실히 배제된다
+        target = self.focus(base_stats)
+        if target is None:
+            # 전부 충족했거나 남은 목표를 못 잰다 → 원래 가중 합산으로 돌아간다
+            return self._weighted(delta, base_stats) / max(delta.points, 1)
+        sign = 1.0 if target.op == ">=" else -1.0
+        primary = sign * self._relative(
+            target.metric, delta.deltas.get(target.metric, 0.0), base_stats
+        )
+        return (primary + _TIEBREAK * self._weighted(delta, base_stats)) / max(delta.points, 1)
 
 
 @dataclass(frozen=True)
@@ -138,6 +195,7 @@ def optimize_tree(
     unconnected_regions: tuple[Mapping[str, Any], ...] = (),
     cluster_include: tuple[tuple[str, float], ...] = (),
     cluster_exclude: tuple[str, ...] = (),
+    required_anchors: tuple[int, ...] = (),
 ) -> OptimizeResult:
     """포인트 예산 안에서 정책 점수가 양수인 최선 수를 반복 채택한다.
 
@@ -149,7 +207,13 @@ def optimize_tree(
     채택 시 spec.jewels에 해당 JewelSpec을 편입한다. 가지치기가 소켓을
     제거하면 주얼도 함께 제거된다.
     """
-    measure = tuple(stats or objective.weights.keys())
+    # 목표 축이 측정 목록에 없으면 델타에 안 들어와 **병목을 밀 수단이 없다**.
+    # 가중치 키만 재던 옛 코드에 targets를 얹으면 조용히 그렇게 된다.
+    measure = tuple(
+        dict.fromkeys(
+            [*(stats or objective.weights.keys()), *(t.metric for t in objective.targets)]
+        )
+    )
     steps: list[Step] = []
     pruned: list[Pruned] = []
     # 죽음이 실증된 끝단(재채택 금지 — 종료 보장) + 호출자가 설계 판단으로 뺀 노드
@@ -169,8 +233,15 @@ def optimize_tree(
                 return 1
         return walked
 
+    # ── 필수 앵커 먼저 박는다 (점수 경쟁과 분리) ──
+    #
+    # 메커니즘에 반드시 필요한 노드에 **높은 가중치**를 주는 방식은 틀렸다 — 가중치는
+    # 여전히 경쟁이라, 점수가 더 높은 다른 노드에 밀린다. 필수는 경쟁 대상이 아니라
+    # **통과점**이다(사용자 정리 2026-08-12). 그리고 PoB가 못 재는 메커니즘 노드는
+    # 델타가 0이라 그리디가 **절대** 안 뽑는다 — 여기서 박지 않으면 영영 안 들어온다.
+    spec, anchor_notes, anchor_cost = _seed_anchors(spec, graph, required_anchors, point_budget)
     current = spec
-    budget = point_budget
+    budget = max(0, point_budget - anchor_cost)
     rejected = 0
     with PobDaemon() as daemon:
         best_solution: tuple[BuildSpec, PobResult] | None = None  # 단조성 안전장치
@@ -249,6 +320,7 @@ def optimize_tree(
     far, notes = _scan_far_clusters(
         graph, current, cluster_include, cluster_exclude, candidate_radius
     )
+    notes = (*anchor_notes, *notes, *_target_notes(objective, final.stats))
     return OptimizeResult(
         current,
         final,
@@ -258,6 +330,83 @@ def optimize_tree(
         far_clusters=far,
         notes=notes,
     )
+
+
+def _seed_anchors(
+    spec: BuildSpec, graph: TreeGraph, anchors: tuple[int, ...], budget: int
+) -> tuple[BuildSpec, tuple[str, ...], int]:
+    """필수 앵커를 트리에 먼저 연결하고, 그 결과를 **보호 대상 기준선**으로 만든다.
+
+    반환한 스펙이 `optimize_tree`의 `spec`(= 가지치기가 건드리지 않는 원래 트리)이
+    되므로, 앵커와 그 경로는 **델타가 0이어도 잘려 나가지 않는다.** 이게 핵심이다 —
+    메커니즘 노드는 PoB가 못 재는 경우가 많아(트리거·일부 DoT) 델타 0으로 잡히고,
+    보호하지 않으면 가지치기가 곧바로 회수해 버린다.
+    """
+    if not anchors:
+        return spec, (), 0
+    tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
+    added: list[int] = []
+    unreachable: list[int] = []
+    for node_id in anchors:
+        path = graph.shortest_path(tree, node_id)
+        if path is None:
+            unreachable.append(node_id)
+            continue
+        tree.update(path)
+        # 전직 시작 노드는 통행만 하고 스펙에는 안 싣는다(위 graph.connect_anchors와 같은
+        # 이유 — 넣으면 PoB가 잘라내고 그 트리의 측정이 전부 무효가 된다).
+        added.extend(
+            n
+            for n in path
+            if not (graph.nodes.get(n) is not None and graph.nodes[n].kind == "ascendancy-start")
+        )
+    notes: list[str] = []
+    if added:
+        notes.append(
+            f"필수 앵커 {len(anchors) - len(unreachable)}개를 먼저 연결했다 — "
+            f"{len(added)}포인트. 점수 경쟁에서 제외되고 가지치기도 건드리지 않는다"
+        )
+    if unreachable:
+        # 조용히 빼면 "앵커를 넣었다"고 믿은 채 없는 트리를 받는다.
+        notes.append(f"⚠ 연결 불가 앵커 {unreachable} — 트리에 들어가지 않았다")
+    if len(added) > budget:
+        notes.append(
+            f"⚠ 필수 앵커만으로 예산을 {len(added) - budget}포인트 **초과**했다 — "
+            "그리디에 남은 예산이 없다. 앵커를 줄이거나 예산을 늘릴 것"
+        )
+    return (
+        dataclasses.replace(spec, tree_nodes=tuple(spec.tree_nodes) + tuple(added)),
+        tuple(notes),
+        len(added),
+    )
+
+
+def _target_notes(objective: Objective, stats: dict[str, float]) -> tuple[str, ...]:
+    """목표 충족 상태를 문장으로 — **못 잰 축은 반드시 말한다**.
+
+    PoB가 못 재는 축(트리거 발동률·일부 DoT)을 목표로 걸면 델타가 전부 0이라
+    그리디가 그 축을 **한 걸음도 못 민다**. 조용히 넘어가면 "최적화했는데 안
+    올랐다"로 읽힌다 — 안 오른 게 아니라 안 재진 것이다(BACKLOG 형태 ②·#44).
+    """
+    if not objective.targets:
+        return ()
+    report = evaluate_targets(objective.targets, stats)
+    out: list[str] = []
+    if report.unmeasured:
+        out.append(
+            f"⚠ 목표 축 {list(report.unmeasured)}을 **재지 못했다** — 그 축으로는 "
+            "그리디를 한 걸음도 못 밀었다(값이 0이 아니라 측정이 없다). "
+            "PoB가 못 재는 축이면 별도 측정기(예: compute_trigger_rate)로 확인할 것"
+        )
+    unmet = [r for r in report.results if not r.satisfied and r.measured is not None]
+    if unmet:
+        out.append(
+            "미충족 목표: "
+            + " · ".join(
+                f"{r.label or r.metric} {r.measured:.0f} {r.op} {r.value:.0f}" for r in unmet
+            )
+        )
+    return tuple(out)
 
 
 def _scan_far_clusters(

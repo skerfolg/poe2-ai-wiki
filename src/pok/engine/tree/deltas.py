@@ -130,6 +130,11 @@ class BundleDelta:
     # 같은 노드들을 하나씩 넣었을 때 델타의 합 — 묶음 효과를 드러내는 대조군
     sum_of_parts: dict[str, float]
     unreachable: tuple[int, ...] = ()
+    # **가는 길에 주운 것** — 경로에 딸려 들어온 목적지(요청 타깃이 아닌 노터블·
+    # 키스톤·주얼 소켓). 유저가 길을 고를 때 실제로 세는 값이 이것이다(사용자 정리
+    # 2026-08-12: "하나의 길에서 찍을 수 있는 노드가 많은 게 가치가 높은 길").
+    # 포인트와 델타만 보면 같아 보이는 두 길이 여기서 갈린다.
+    incidental: tuple[tuple[int, str], ...] = ()
 
     def per_point(self, stat: str) -> float:
         return self.deltas.get(stat, 0.0) / max(self.points, 1)
@@ -210,6 +215,13 @@ def evaluate_bundles(
                     deltas={k: result.stats.get(k, 0.0) - base.stats.get(k, 0.0) for k in stats},
                     sum_of_parts=sum_of_parts,
                     unreachable=tuple(unreachable),
+                    incidental=tuple(
+                        (nid, graph.nodes[nid].name_en)
+                        for nid in reached
+                        if nid not in nodes
+                        and nid in graph.nodes
+                        and graph.nodes[nid].kind in ("notable", "keystone", "jewel-socket")
+                    ),
                 )
             )
     finally:

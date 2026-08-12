@@ -1,0 +1,703 @@
+{
+  "id": "usage-profile.0-5-keypassives-pain-attunement",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "고통의 조율 동반 프로파일 (0-5)",
+    "en": "고통의 조율 usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.pain-attunement",
+      "label": "고통의 조율"
+    },
+    "query": {
+      "keypassives": "Pain Attunement"
+    },
+    "class_spread": [
+      {
+        "ref": "Abyssal Lich",
+        "share": 20.0,
+        "count": 2
+      },
+      {
+        "ref": "Pathfinder",
+        "share": 20.0,
+        "count": 2
+      },
+      {
+        "ref": "Deadeye",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Infernalist",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Lich",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Martial Artist",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Shaman",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Titan",
+        "share": 10.0,
+        "count": 1
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 129,
+          "median": 157,
+          "max": 166
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 3,
+          "median": 7,
+          "max": 11
+        },
+        "keystone": {
+          "min": 1,
+          "median": 2,
+          "max": 3
+        },
+        "notable": {
+          "min": 25,
+          "median": 33,
+          "max": 41
+        },
+        "small": {
+          "min": 87,
+          "median": 112,
+          "max": 125
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/keypassives-Pain_Attunement 10벌",
+        "min_count": 3
+      },
+      "gems": [
+        {
+          "ref": "Atziri's Communion",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Execute III",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Direstrike I",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Elemental Armament II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Eternal Rage",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Herald of Ice",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Uhtred's Omen",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Convalescence",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Direstrike II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Elemental Focus",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Garukhan's Resolve",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Overabundance II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Rapid Attacks III",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Slow Potency",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Temporal Chains",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uhtred's Augury",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Armour Demolisher II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Armour Explosion",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Barrage",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Berserk",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cast on Critical",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Charged Mark",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Clarity I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Clarity II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cold Penetration",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Concentrated Area",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Elemental Conflux",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Entangle",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Eternal Mark",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ghost Dance",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Her Declaration",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ice Shot",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Knockback",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Longshot II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Physical Mastery",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Pounce",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Projectile Acceleration III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Rapid Attacks II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Thunderstorm",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Trinity",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Uruk's Smelting",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Uul-Netol's Embrace",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Vitality II",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Nascent Hope",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Mageblood",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Voices",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Against the Darkness",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "From Nothing",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Headhunter",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Prism of Belief",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.pain-attunement",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.true-strike-61601",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.heartbreaking-13407",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.heartstopping-38537",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-46882",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-55190",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-60735",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.struck-through-39369",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.enhanced-barrier-44299",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.escape-velocity-17854",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.final-barrage-2999",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.killer-instinct-56453",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.spectral-ward-34324",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.throatseeker-56265",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.careful-assassin-46197",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.controlling-magic-13823",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.cooked-56776",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.crashing-wave-34168",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.critical-exploit-57204",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.crystalline-phylactery-17788",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.deadly-force-13724",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.desensitisation-28267",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.eternal-life-28431",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.flow-like-water-49220",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.heavy-buffer-27491",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-2491",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-54127",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.marked-agility-44756",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.marked-for-sickness-63830",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.soulless-form-33570",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.stand-and-deliver-5802",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.sudden-escalation-10398",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.tenfold-attacks-25971",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.the-wild-cat-22811",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.pain-attunement"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'keypassives': 'Pain Attunement'}"
+    }
+  ]
+}

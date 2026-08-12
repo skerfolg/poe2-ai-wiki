@@ -528,8 +528,13 @@ def _gem_xml(gem: GemSpec) -> str:
     속성으로 주면 조용히 무시되고 파트 1·2·3이 소수점까지 같은 값으로 나온다
     (보고자 실측 + 재현). 소비처는 `CalcSetup.lua:1888,1890`이며 키는 `grantedEffect.id`다.
     """
+    from pok.pob.catalog import canonical_gem_id
+
     head = (
-        f"        <Gem gemId={quoteattr(gem.gem_id)} variantId={quoteattr(gem.name)} "
+        # 게임 id로 들어온 것은 **PoB 내부 id로 바꿔** 내보낸다 — 래더 코드가
+        # 게임 id를 쓰는데, 우리 도구들(gempool·statSet 게이트)은 내부 id로 키를 잡는다.
+        f"        <Gem gemId={quoteattr(canonical_gem_id(gem.gem_id))} "
+        f"variantId={quoteattr(gem.name)} "
         f'level="{gem.level}" quality="{gem.quality}" '
         + (
             f'skillStageCount="{gem.stages}" skillStageCountCalcs="{gem.stages}" '

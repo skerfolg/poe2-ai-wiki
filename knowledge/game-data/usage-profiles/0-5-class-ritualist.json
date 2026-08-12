@@ -1,0 +1,568 @@
+{
+  "id": "usage-profile.0-5-class-ritualist",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "리추얼리스트 (Ritualist) 동반 프로파일 (0-5)",
+    "en": "리추얼리스트 (Ritualist) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.ritualist-36365",
+      "label": "리추얼리스트 (Ritualist)"
+    },
+    "query": {
+      "class": "Ritualist"
+    },
+    "class_spread": [
+      {
+        "ref": "Ritualist",
+        "share": 100.0,
+        "count": 10
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 131,
+          "median": 134,
+          "max": 160
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 3,
+          "median": 5,
+          "max": 9
+        },
+        "keystone": {
+          "min": 0,
+          "median": 1,
+          "max": 3
+        },
+        "notable": {
+          "min": 19,
+          "median": 29,
+          "max": 36
+        },
+        "small": {
+          "min": 95,
+          "median": 98,
+          "max": 114
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/class-Ritualist 10벌",
+        "min_count": 3
+      },
+      "gems": [
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Convalescence",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Warm Blooded",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Brutus' Brain",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Charge Profusion II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Clarity II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Embitter",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Ghost Dance",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Physical Mastery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Romira's Requital",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Barkskin",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Blink",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Blood Boil",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Chaos Mastery",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Companion: Diretusk Boar",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Concentrated Area",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cool Headed",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Durability",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Elemental Armament II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Elemental Focus",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Garukhan's Resolve",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Herald of Ice",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ice Shot",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Oisin's Oath",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Overabundance II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Profane Ritual",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Strong Hearted",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Tornado Shot",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Mageblood",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Alpha's Howl",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Andvarius",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Evergrasping Ring",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Fixation of Yix",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Kalandra's Touch",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Blood of the Warrior",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cadiro's Gambit",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "From Nothing",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Morior Invictus",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.mystic-attunement-7068",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.unfurled-finger-34785",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.intricate-sigils-4891",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.jewel-socket-60735",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.mindful-awareness-62984",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.step-like-mist-48198",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.blur-35987",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.first-principle-of-the-hollow-49356",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.flow-like-water-49220",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.heartbreaking-13407",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-46882",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.mind-phylacteries-18280",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.spectral-ward-34324",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.struck-through-39369",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.cooked-56776",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.enhanced-barrier-44299",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.enhanced-reflexes-51707",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.heartstopping-38537",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.quick-fingers-33542",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.throatseeker-56265",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.true-strike-61601",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.beastial-skin-59720",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.catalysis-31433",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.corrupted-lifeforce-37046",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.dizzying-hits-47514",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.honed-instincts-28992",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.ingenuity-39567",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.insightfulness-116",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.profane-commander-54814",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.shimmering-53941",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.stupefy-38342",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.ritualist-36365"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'class': 'Ritualist'}"
+    }
+  ]
+}

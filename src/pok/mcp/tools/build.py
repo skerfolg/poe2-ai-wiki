@@ -426,6 +426,12 @@ def assemble_pob(
     from pok.engine.constraints.axes import check_axes
 
     axes_report = check_axes(build_spec)
+    # 같은 원리로 **트리 대조**도 여기 얹는다 (#67 6차). 설계 시점(connect_anchors)에
+    # 이미 붙지만, 그 도구를 안 거치고 노드 목록을 손으로 써서 바로 조립하는 경로가
+    # 있다. 트리가 산출물에 들어가는 지점은 여기뿐이라 여기가 마지막 관문이다.
+    # 차단하지 않는다 — 표본과 다르다는 것이 곧 결함은 아니다(AD-3, 보고).
+    from pok.engine.tree.corpus import compare_build_spec
+
     return {
         "ok": True,
         "build_id": built.build_id,
@@ -437,6 +443,7 @@ def assemble_pob(
             "unmeasured": list(axes_report.unmeasured_axes),
             "notes": list(axes_report.notes),
         },
+        "corpus": compare_build_spec(build_spec),
         # 차단은 안 되지만 **상시 참으로 가정한 config** — 공급원은 있으나 항상 켜져
         # 있지는 않다. 유지율을 적지 않으면 평시에 안 나오는 수치를 출고하는 것이다.
         # 필수 절차 미이행 — **출고 반환에만** 싣는다 (#58 ④). manifest에도 각인된다.

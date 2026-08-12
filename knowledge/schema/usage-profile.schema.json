@@ -39,6 +39,58 @@
    "$ref": "build.schema.json#/$defs/frequencyList",
    "description": "표본이 어느 어센던시들로 이뤄졌나. **이게 없으면 프로파일이 거짓말을 한다** — 한 클래스가 표본을 독점했는데 「클래스를 넘는 공통점」으로 읽히기 때문이다"
   },
+  "tree_shape": {
+   "type": "object",
+   "description": "표본이 트리를 **어떤 모양으로** 썼나 (사용자 정리 2026-08-12). 유저는 목적지(노터블·키스톤·주얼)를 고르고 동선(스몰)으로 잇는데, `observed.passives`에는 목적지만 싣는다 — 스몰까지 넣으면 표가 동선으로 뒤덮여 앵커 후보로 못 쓴다. 그 대신 종류별 개수를 여기 남긴다. 우리가 짠 트리가 **동선에 과하게 썼는지** 보는 기준선이자, `passives`가 전량이 아니라는 **선언**이다(안 밝히면 전량으로 읽힌다)",
+   "properties": {
+    "counted": {
+     "enum": [
+      "destinations-only"
+     ]
+    },
+    "destination_kinds": {
+     "type": "array",
+     "items": {
+      "type": "string",
+      "minLength": 1
+     },
+     "minItems": 1
+    },
+    "per_build": {
+     "type": "object",
+     "description": "종류별 **빌드당 개수**의 분포. 평균이 아니라 최소·중앙·최대다 — 표본이 작아 한 벌이 평균을 끌고 간다. `unmapped`는 KB에 없는 노드 번호로, 0이 아니면 트리 수집 갭이다",
+     "additionalProperties": {
+      "type": "object",
+      "properties": {
+       "min": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "median": {
+        "type": "integer",
+        "minimum": 0
+       },
+       "max": {
+        "type": "integer",
+        "minimum": 0
+       }
+      },
+      "required": [
+       "min",
+       "median",
+       "max"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   "required": [
+    "counted",
+    "destination_kinds",
+    "per_build"
+   ],
+   "additionalProperties": false
+  },
   "observed": {
    "type": "object",
    "description": "Build.data.observed와 **같은 모양**이다. 해상도만 다르고 읽는 법은 같다",
@@ -59,12 +111,18 @@
       "basis": {
        "type": "string",
        "minLength": 1
+      },
+      "min_count": {
+       "type": "integer",
+       "minimum": 1,
+       "description": "이 개수 미만으로 겹친 항목은 **실리지 않았다**. 1이면 전량이다. ⚠ 이 선언이 없으면 목록이 전량으로 읽힌다 — 실측 2026-08-12: min_count=3에 잘린 목록(106종 중 53종)을 전량으로 읽은 대조기가 멀쩡한 래더 빌드의 목적지 절반을 「표본 밖」으로 찍었다"
       }
      },
      "required": [
       "n",
       "unit",
-      "basis"
+      "basis",
+      "min_count"
      ],
      "additionalProperties": false
     }
@@ -85,6 +143,7 @@
   "anchor",
   "query",
   "class_spread",
+  "tree_shape",
   "observed"
  ],
  "additionalProperties": false

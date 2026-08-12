@@ -1,0 +1,738 @@
+{
+  "id": "usage-profile.0-5-class-tactician",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "택티션 (Tactician) 동반 프로파일 (0-5)",
+    "en": "택티션 (Tactician) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.tactician-36252",
+      "label": "택티션 (Tactician)"
+    },
+    "query": {
+      "class": "Tactician"
+    },
+    "class_spread": [
+      {
+        "ref": "Tactician",
+        "share": 100.0,
+        "count": 10
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 133,
+          "median": 134,
+          "max": 159
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 5,
+          "median": 6,
+          "max": 8
+        },
+        "keystone": {
+          "min": 1,
+          "median": 2,
+          "max": 5
+        },
+        "notable": {
+          "min": 16,
+          "median": 22,
+          "max": 36
+        },
+        "small": {
+          "min": 97,
+          "median": 105,
+          "max": 115
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/class-Tactician 10벌",
+        "min_count": 3
+      },
+      "gems": [
+        {
+          "ref": "Magnified Area II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Daresso's Passion",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "War Banner",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Defiance Banner",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Blind II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Dread Banner",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Eternal Rage",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Refraction II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Vitality II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Berserk",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Charge Profusion II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Close Combat II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Combat Frenzy",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Crossbow Shot",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Deliberation",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Elemental Armament II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Fork",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Galvanic Shards",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Garukhan's Resolve",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Her Declaration",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Herald of Thunder",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Molten Crash",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Rapid Attacks II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Remnant Potency III",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Trinity",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Vitality I",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Wind Dancer",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Armour Explosion",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cannibalism I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Concentrated Area",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Deadly Herald",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Dominus' Grasp",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Elemental Focus",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Fire Mastery",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ghost Dance",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Khatal's Rejuvenation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mobility",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Nova Projectiles I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Overwhelming Presence",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Precision II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Rigwald's Ferocity",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Time of Need",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Uhtred's Omen",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Morior Invictus",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Mageblood",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Undying Hate",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Fury of the King",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Voices",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Alpha's Howl",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Heroic Tragedy",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Kalandra's Touch",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.a-solid-plan-15044",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-2491",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.polish-that-gear-44371",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-54127",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.jewel-socket-26725",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.rallying-icon-43791",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.symbol-of-defiance-53367",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.warlord-leader-14761",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.watch-how-i-do-it-16249",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.whoever-pays-best-10371",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.bannerman-62455",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.bolstering-presence-64299",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-55190",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.knight-of-izaro-9863",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.knight-of-tarcus-1861",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.acceleration-43082",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.battle-hardened-56910",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.catalysis-31433",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.cooked-56776",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.crystal-elixir-38895",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.dizzying-hits-47514",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.efficient-loading-53683",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.enveloping-presence-65243",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.escape-velocity-17854",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.everlasting-glory-13524",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.freedom-of-movement-51606",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.gem-enthusiast-32976",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.giantslayer-9020",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.harness-the-elements-12611",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.heartbreaking-13407",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.heartstopping-38537",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-46882",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-60735",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.light-on-your-feet-55131",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.lord-of-the-wilds-61942",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.momentum-63579",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.profane-commander-54814",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.reusable-ammunition-7062",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.right-where-we-want-them-54838",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.spray-and-pray-23736",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.stand-and-deliver-5802",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.struck-through-39369",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.stupefy-38342",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.suppressing-fire-44746",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.vaal-pact-33369",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.ancient-aegis-5728",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.bond-of-the-cat-1448",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.forces-of-nature-3985",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.frazzled-32301",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.inspiring-leader-4661",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.maiming-strike-41580",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.remorseless-44605",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.run-and-gun-53566",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.sand-in-the-eyes-25619",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.unhindered-32543",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.tactician-36252"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'class': 'Tactician'}"
+    }
+  ]
+}

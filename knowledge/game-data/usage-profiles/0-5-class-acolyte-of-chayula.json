@@ -1,0 +1,658 @@
+{
+  "id": "usage-profile.0-5-class-acolyte-of-chayula",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "애컬라이트 오브 차율라 (Acolyte of Chayula) 동반 프로파일 (0-5)",
+    "en": "애컬라이트 오브 차율라 (Acolyte of Chayula) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.acolyte-of-chayula-74",
+      "label": "애컬라이트 오브 차율라 (Acolyte of Chayula)"
+    },
+    "query": {
+      "class": "Acolyte of Chayula"
+    },
+    "class_spread": [
+      {
+        "ref": "Acolyte of Chayula",
+        "share": 100.0,
+        "count": 10
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 132,
+          "median": 136,
+          "max": 159
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 4,
+          "median": 5,
+          "max": 10
+        },
+        "keystone": {
+          "min": 0,
+          "median": 2,
+          "max": 5
+        },
+        "notable": {
+          "min": 18,
+          "median": 26,
+          "max": 38
+        },
+        "small": {
+          "min": 92,
+          "median": 103,
+          "max": 118
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/class-Acolyte_of_Chayula 10벌",
+        "min_count": 3
+      },
+      "gems": [
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Into the Breach",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Remnant Potency III",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Khatal's Rejuvenation",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Blink",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Cool Headed",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Selfless Remnants",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Arctic Armour",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Barkskin",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Comet",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Convalescence",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Lightning Mastery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Overwhelming Presence",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Projectile Acceleration III",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Purity of Fire",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Raise Shield",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Spell Cascade",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uhtred's Augury",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uhtred's Omen",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Vorana's Siege",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Warm Blooded",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Archmage",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cast on Elemental Ailment",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Considered Casting",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Enfeeble",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Lightning Exposure",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mobility",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Powered by Verisium",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Refutation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Remnant Potency I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Second Wind III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Shock",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Spark",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "The Stars Answer",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Unleash",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Vitality II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Zenith II",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "From Nothing",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Alpha's Howl",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "The Black Cat",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Kalandra's Touch",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Lesser Mana Flask",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Mageblood",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Sacred Flame",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Voices",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Controlled Metamorphosis",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Doryani's Prototype",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Heroic Tragedy",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Runeseeker's Call",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Ventor's Gamble",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.lucid-dreaming-52395",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.waking-dream-50098",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.chayulas-gift-59759",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.remnant-attraction-1506",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.inner-turmoil-18826",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.crashing-wave-34168",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.dreamcatcher-11838",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.empowering-remnants-40985",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.enveloping-presence-65243",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.flow-like-water-49220",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.heartbreaking-13407",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-26725",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.throatseeker-56265",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.true-strike-61601",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.arcane-intensity-19044",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.brain-storm-50498",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.conduit-33979",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.conservative-casting-34300",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.eldritch-battery",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.enhanced-barrier-44299",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.evocational-practitioner-41753",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.heartstopping-38537",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.immortal-infamy-24062",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.immortal-thirst-51871",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.ingenuity-39567",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-2491",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-55190",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-60735",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.preservation-32951",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.prism-guard-62034",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.spiral-into-depression-1546",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.warlord-leader-14761",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.acolyte-of-chayula-74"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'class': 'Acolyte of Chayula'}"
+    }
+  ]
+}

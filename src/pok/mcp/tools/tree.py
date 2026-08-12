@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from pok.common.paths import knowledge_dir
+from pok.engine.objective import Target
+from pok.engine.tree.corpus import compare_tree
 from pok.engine.tree.graph import TreeGraph
 from pok.engine.tree.optimize import Objective
 from pok.engine.tree.optimize import optimize_tree as _optimize
@@ -20,14 +22,28 @@ def _get_graph() -> TreeGraph:
     return _graph
 
 
-def connect_anchors(class_name: str, targets: list[int]) -> dict[str, Any]:
+def connect_anchors(
+    class_name: str, targets: list[int], ascendancy: str | None = None
+) -> dict[str, Any]:
     """타깃 노드들(KB node_id)을 클래스 시작점에서 최소 포인트로 연결
-    (그리디 슈타이너 — 근사). 반환: 할당 노드 전체와 타깃별 경로·총 포인트."""
-    allocated, paths = _get_graph().connect_anchors(class_name, targets)
+    (그리디 슈타이너 — 근사). 반환: 할당 노드 전체와 타깃별 경로·총 포인트.
+
+    `class_name`은 **기본 클래스**다("Monk"·"Witch"). `ascendancy`("Martial Artist")를
+    함께 주면 반환값에 **래더 표본과의 대조**(`corpus`)가 붙는다 — 표본 전원이 찍는
+    목적지를 빠뜨렸으면 `missing_unanimous`에 나온다(실측 2026-08-12: 어센던시 22종
+    전부에 전원 공통 노드가 1~11개 있고 주얼 소켓이 거기 자주 낀다). 안 주면
+    트리의 전직 전용 노드로 추론하고, 그마저 없으면 **대조하지 않았다고 밝힌다**.
+    ⛔ 대조이지 판정이 아니다(빼려면 근거를 남길 것).
+    """
+    graph = _get_graph()
+    allocated, paths = graph.connect_anchors(class_name, targets)
     return {
         "allocated": allocated,
         "points": len(allocated),
         "paths": {str(t): p for t, p in paths.items()},
+        # 자동 부착 — 세션이 프로파일·passed_over의 존재를 몰라도 여기서 본다.
+        # 문서에만 적는 방식은 이 레포에서 실패가 증명됐다(철칙 5).
+        "corpus": compare_tree(graph, class_name, set(allocated), ascendancy=ascendancy),
     }
 
 
@@ -68,6 +84,8 @@ def optimize_tree(
     unconnected_regions: list[dict[str, Any]] | None = None,
     cluster_include: list[list[Any]] | None = None,
     cluster_exclude: list[str] | None = None,
+    targets: list[dict[str, Any]] | None = None,
+    required_anchors: list[int] | None = None,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
@@ -79,6 +97,23 @@ def optimize_tree(
     빌드와 무관한 노터블뿐이면(예: 물리 공격 빌드의 마녀 권역) 40개가 전부 델타 <= 0이라
     `stopped_no_positive`로 즉시 멈춘다 — 그럴 때 늘려서 더 먼 후보까지 본다.
     소요: 라운드당 후보 수 x ~0.1초 — 예산 30이면 수 분.
+
+    `targets` = **사전식 목표**(D28) — `[{"metric":"TotalEHP","op":">=","value":8000,
+    "label":"EHP 하한"}, {"metric":"CombinedDPS","op":">=","value":2e6}]`. 주면
+    weights 가중 합산 대신 **순서대로** 민다: 첫 미충족 목표가 병목이고 그 축에
+    점수를 몰아주며, 충족되는 순간 다음 목표로 넘어간다. **이미 충족한 경계를
+    깨뜨리는 수는 채택하지 않는다.** 가중 합산은 한 축이 지배해 "한쪽으로 쏠리지
+    않게"를 표현하지 못한다 — 균형은 가중치를 손으로 맞춰서가 아니라 경계 충족으로
+    얻는다. ⚠ PoB가 못 재는 축을 목표로 걸면 그 축으로는 한 걸음도 못 민다
+    (델타가 0이 아니라 측정이 없다) — `notes`에 그 사실이 실린다.
+
+    `required_anchors` = **메커니즘상 반드시 필요한 노드**(KB node_id). 그리디를 돌리기
+    전에 먼저 연결하고 그 포인트를 예산에서 뺀다. 가중치를 크게 주는 방식과 다르다 —
+    가중치는 여전히 경쟁이라 점수 높은 다른 노드에 밀린다. 필수는 경쟁 대상이 아니라
+    **통과점**이다. 특히 **PoB가 못 재는 메커니즘 노드는 델타 0이라 그리디가 절대
+    안 뽑는다** — 여기 넣지 않으면 영영 안 들어온다. 연결된 앵커와 그 경로는
+    가지치기도 건드리지 않는다. 후보는 `corpus.missing_unanimous`(표본 전원이 찍는
+    목적지)와 컨셉상 필수 노드에서 고른다.
 
     `exclude_nodes` = **설계 판단으로 뺀 노드**. 그리디는 배타 관계를 모르므로 손으로
     빼도 그냥 다시 뽑는다 — 실측 2026-08-09: 원소 집정관 축을 위해 「검은화염 계약」
@@ -100,7 +135,18 @@ def optimize_tree(
     out = _optimize(
         spec,
         _get_graph(),
-        Objective(weights=weights),
+        Objective(
+            weights=weights,
+            targets=tuple(
+                Target(
+                    metric=str(t["metric"]),
+                    op=str(t.get("op", ">=")),
+                    value=float(t["value"]),
+                    label=str(t.get("label", "")),
+                )
+                for t in (targets or [])
+            ),
+        ),
         point_budget=point_budget,
         candidate_radius=candidate_radius,
         max_candidates_per_round=max_candidates_per_round,
@@ -109,6 +155,7 @@ def optimize_tree(
         unconnected_regions=tuple(unconnected_regions or ()),
         cluster_include=tuple((str(k), float(w)) for k, w in (cluster_include or ())),
         cluster_exclude=tuple(cluster_exclude or ()),
+        required_anchors=tuple(required_anchors or ()),
     )
     return {
         # 후보 반경 **밖**의 관련 뭉치 — 효과 문구째로 낸다. 점수만 내면 두 축을
@@ -149,6 +196,14 @@ def optimize_tree(
             for s in out.steps
         ],
         "jewels": [{"socket_node_id": j.socket_node_id, "text": j.text} for j in out.spec.jewels],
+        # connect_anchors와 같은 이유로 자동 부착 — 최적화가 끝난 트리에서
+        # 「표본 전원이 찍는 목적지」가 빠져 있으면 여기서 드러난다(철칙 5).
+        "corpus": compare_tree(
+            _get_graph(),
+            spec.class_name,
+            set(out.spec.tree_nodes),
+            ascendancy=spec.ascendancy,
+        ),
         # 이 트리가 **어느 문맥에서 나왔나** — 스펙에 그대로 옮겨 두면 다음 세션의
         # `compute_pob`이 낡음을 문장으로 알려 준다(#58 ③)
         "derived_from": _stamp(
@@ -217,10 +272,31 @@ def evaluate_bundles(
                 "sum_of_parts": b.sum_of_parts,
                 "synergy": {k: b.synergy(k) for k in keys},
                 "per_point": {k: round(b.per_point(k), 4) for k in keys},
+                # 가는 길에 딸려 온 목적지 — 유저가 길을 고를 때 실제로 세는 값이다.
+                # 포인트와 델타가 같아 보이는 두 길이 여기서 갈린다.
+                "incidental": [{"node": n, "name": nm} for n, nm in b.incidental],
                 "unreachable": list(b.unreachable),
             }
             for b in results
-        ]
+        ],
+        # **길의 가치 비교** — 묶음을 나란히 놓지 않으면 "포기하고 대안" 판단이 안 된다.
+        # 순위는 첫 stat의 포인트당 효율이고, 부수 획득은 순위에 **안** 넣는다
+        # (그 값어치는 이미 델타에 들어 있거나 나중 축이라 이중 계산이 된다).
+        "comparison": {
+            "ranked_by": f"per_point[{keys[0]}]",
+            "rows": [
+                {
+                    "name": b.name,
+                    "points": b.points,
+                    "delta": round(b.deltas.get(keys[0], 0.0), 2),
+                    "per_point": round(b.per_point(keys[0]), 4),
+                    "incidental": len(b.incidental),
+                }
+                for b in sorted(results, key=lambda x: -x.per_point(keys[0]))
+            ],
+            "note": "포인트당 효율 순. 델타가 큰 쪽이 아니라 **싼 쪽**이 이길 수 있다 — "
+            "포기 판단은 여기서 나온다. 부수 획득 수는 참고이고 순위에 넣지 않았다",
+        },
     }
 
 
@@ -648,3 +724,89 @@ def list_implicits(base_type: str, root_dir: str | None = None) -> dict[str, Any
         "certain_count": sum(1 for o in options if o.slot_certain),
         "notes": notes,
     }
+
+
+def passed_over_nodes(
+    concept: str,
+    include: list[list[Any]],
+    season: str = "0-5",
+    within: int = 3,
+    top: int = 25,
+) -> dict[str, Any]:
+    """래더 표본이 **닿는 거리에 두고도 안 찍은** 목적지 노드 (포기 판단의 근거).
+
+    채택률 표는 찍은 것만 보여 준다. 그런데 트리 설계의 절반은 「필수처럼 보이는데
+    동선 비용이 가치를 넘어서 포기한 것」이고, **부재는 세어지지 않아** 그 판단의
+    근거가 어디에도 없었다. 이 도구가 그 반대편을 센다.
+
+    `passed_by`가 표본 수에 가깝고 `taken_by`가 0이면 **전원이 코앞에서 지나쳤다** —
+    앵커로 삼으려던 노드가 거기 있으면 앵커를 다시 고르라는 신호다. 반대로
+    `taken_by`가 높은데 `passed_by`도 높으면 **갈리는 선택**이라 자유석에 가깝다.
+
+    `within`은 이미 찍은 노드에서의 BFS 거리(= 더 써야 할 포인트). 기본 3은 실측으로
+    정했다 — 2는 좁아 놓치고 4부터는 「닿는 거리」가 아닌 것이 섞인다.
+    `include` = `[["Totem", 2.0], ["Spirit", 1.0]]` 꼴. ⚠ **필수다** — 관련성 필터가
+    없으면 무관한 노터블이 표를 덮는다(토템 표본이 소환수 노터블을 지나친 것은
+    포기가 아니라 무관이다).
+
+    `concept`은 수집 디렉터리 이름이다(`skillmodes-Totem`·`class-Blood_Mage`).
+    ⛔ 왜 지나쳤는지는 **판정하지 않는다** — 비용인지 중복인지 조건 미달인지는
+    해석이고, 표본이 작을 때 조용히 틀린다.
+    """
+    from pok.artifacts.ladder import LadderError
+    from pok.engine.ladder_aggregate import passed_over as _passed
+
+    if not include:
+        raise ValueError(
+            "include가 비었다 — 관련성 필터 없이는 무관한 노터블이 표를 덮는다"
+            "(실측: 토템 표본 상위에 소환수 노터블이 올라왔다)"
+        )
+    try:
+        out = _passed(
+            season,
+            concept,
+            within=within,
+            include=[(str(k), float(w)) for k, w in include],
+        )
+    except LadderError as exc:
+        return {"error": str(exc), "how": "수집 디렉터리 이름을 확인할 것(공백은 `_`)"}
+    total = len(out["rows"])
+    out["rows"] = out["rows"][:top]
+    out["truncated"] = {"shown": len(out["rows"]), "total": total}
+    return out
+
+
+def suggest_anchors(
+    ascendancy: str,
+    include: list[list[Any]] | None = None,
+    top: int = 20,
+) -> dict[str, Any]:
+    """트리를 짜기 전에 **목적지 후보를 한 번에 모은다** (#67 6차).
+
+    이걸 먼저 부르고 `required`를 `optimize_tree(required_anchors=…)`에 넣는 것이
+    표준 순서다. 안 부르면 앵커 없이 그리디만 돌게 되고, 그게 「필요한 노드를 안
+    찍는」 결과로 돌아온다(실측: 어센던시 22종 전부에 전원 공통 노드가 1~11개 있다).
+
+    출처가 넷이고 **성격이 달라 섞으면 안 된다**:
+
+    - `required` — 래더 표본 **전원**이 찍은 목적지. 임계값이 아니라 정의(count == n).
+    - `common` — 나머지를 채택 순으로. 자유석 후보이고 넣을지는 판단이다.
+    - `off_corpus` — 표본이 안 갔지만 관련 노터블이 촘촘한 곳(`find_clusters`).
+      **새 선택의 재료**다. `include`를 줘야 나온다.
+    - `cautions` — 표본이 **코앞에 두고도 버린** 노드(`passed_over`). 앵커로 삼으려던
+      게 여기 있으면 다시 생각할 것. 실측: 마셜 아티스트 표본 10벌이 Hollow Palm
+      Technique을 전원 지나쳤다 — 문구만 보면 1순위로 보이는 키스톤이다.
+
+    `include` = `[["Critical", 2.0], ["Attack Speed", 1.0]]` 꼴(효과 문구 키워드x가중치).
+    ⛔ 코퍼스는 탐색 **순서**이지 **범위**가 아니다 — `common`에 없다고 배제 근거가
+    되지 않는다. `tree_shape`는 표본의 목적지:동선 비율이라 우리 트리가 동선에
+    과하게 썼는지 보는 기준선이다.
+    """
+    from pok.engine.tree.corpus import suggest_anchors as _suggest
+
+    return _suggest(
+        _get_graph(),
+        ascendancy,
+        include=[(str(k), float(w)) for k, w in (include or [])],
+        top=top,
+    )

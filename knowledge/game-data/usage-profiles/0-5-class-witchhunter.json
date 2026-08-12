@@ -1,0 +1,753 @@
+{
+  "id": "usage-profile.0-5-class-witchhunter",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "위치헌터 (Witchhunter) 동반 프로파일 (0-5)",
+    "en": "위치헌터 (Witchhunter) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.witchhunter-7120",
+      "label": "위치헌터 (Witchhunter)"
+    },
+    "query": {
+      "class": "Witchhunter"
+    },
+    "class_spread": [
+      {
+        "ref": "Witchhunter",
+        "share": 100.0,
+        "count": 10
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 142,
+          "median": 155,
+          "max": 158
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 3,
+          "median": 5,
+          "max": 6
+        },
+        "keystone": {
+          "min": 0,
+          "median": 0,
+          "max": 1
+        },
+        "notable": {
+          "min": 36,
+          "median": 39,
+          "max": 43
+        },
+        "small": {
+          "min": 97,
+          "median": 108,
+          "max": 113
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/class-Witchhunter 10벌",
+        "min_count": 3
+      },
+      "gems": [
+        {
+          "ref": "Elemental Armament II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Sorcery Ward",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Eternal Rage",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Explosive Shot",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Multishot II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Wind Dancer",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Blind II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Concentrated Area",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Defy II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Explosive Grenade",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Fire Mastery",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Herald of Ash",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rageforged II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Ratha's Assault",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Close Combat II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Flash Grenade",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Herald of Thunder",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Knockback",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Arjun's Medal",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Charged Mark",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Crossbow Shot",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Freeze",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Longshot II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Mortar Cannon",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Bhatair's Vengeance",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Cluster Grenade",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Elemental Focus",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Herald of Ice",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Innervate",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Mark of Siphoning II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Vorana's Siege",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Armour Demolisher II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Berserk",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Blazing Critical",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Deliberation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Embitter",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Eternal Mark",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Freezing Mark",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Gas Grenade",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Inexorable Critical II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Life Leech III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Lightning Mastery",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Lightning Penetration",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Maim",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Oil Grenade",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Persistent Ground III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Precision I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Rigwald's Ferocity",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Short Fuse I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Thrill of the Kill II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Trinity",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Uhtred's Augury",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Voltaic Grenade",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Mageblood",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Constricting Command",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Against the Darkness",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Hyrri's Ire",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Prism of Belief",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Voices",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Combat Arm",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "From Nothing",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Surefooted Leg",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Atziri's Step",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Evasive Leg",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.ceremonial-ablution-6935",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-2491",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-46882",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-54127",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.obsessive-rituals-38601",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.remorseless-44605",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.adrenaline-rush-17340",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.battle-hardened-56910",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.battle-trance-37276",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.feel-no-pain-44836",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.forces-of-nature-3985",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.frantic-fighter-59208",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.paranoia-24766",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.sand-in-the-eyes-25619",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.spray-and-pray-23736",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.tactical-retreat-17825",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.thrill-of-battle-25711",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.cluster-bombs-29514",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.crystal-elixir-38895",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.crystallised-immunities-5332",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.giantslayer-9020",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.grenadier-58714",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.last-stand-2397",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.run-and-gun-53566",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.afterimage-4716",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.catalysis-31433",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.escape-velocity-17854",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.jewel-socket-60735",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.pitiless-killer-61973",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.authority-20397",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.crushing-judgement-35739",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.demolitionist-38570",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.distracting-presence-44765",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.repeating-explosives-65468",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.zealous-inquisition-37078",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.careful-consideration-17955",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.escape-strategy-5227",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.favourable-odds-19546",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.flash-storm-12337",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.multitasking-8810",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.no-mercy-46535",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.overwhelm-25513",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.ricochet-41210",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.the-wild-cat-22811",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.volatile-catalyst-11037",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.witchbane-3704",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.blinding-flash-42354",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.colossal-weapon-47363",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.crushing-verdict-18505",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.freedom-of-movement-51606",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-26725",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.leather-bound-gauntlets-51446",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.natural-immunity-934",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.reusable-ammunition-7062",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.witchhunter-7120"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'class': 'Witchhunter'}"
+    }
+  ]
+}
