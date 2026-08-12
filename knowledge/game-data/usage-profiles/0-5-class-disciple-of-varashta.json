@@ -1,0 +1,717 @@
+{
+  "id": "usage-profile.0-5-class-disciple-of-varashta",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "디사이플 오브 바라시타 (Disciple of Varashta) 동반 프로파일 (0-5)",
+    "en": "디사이플 오브 바라시타 (Disciple of Varashta) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.disciple-of-varashta-8305",
+      "label": "디사이플 오브 바라시타 (Disciple of Varashta)"
+    },
+    "query": {
+      "class": "Disciple of Varashta"
+    },
+    "class_spread": [
+      {
+        "ref": "Disciple of Varashta",
+        "share": 100.0,
+        "count": 10
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 134,
+          "median": 135,
+          "max": 158
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 3,
+          "median": 4,
+          "max": 6
+        },
+        "keystone": {
+          "min": 1,
+          "median": 1,
+          "max": 2
+        },
+        "notable": {
+          "min": 26,
+          "median": 32,
+          "max": 49
+        },
+        "small": {
+          "min": 82,
+          "median": 99,
+          "max": 114
+        }
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/class-Disciple_of_Varashta 10벌"
+      },
+      "gems": [
+        {
+          "ref": "Magnified Area II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Bidding II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Brutus' Brain",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Kelari, the Tainted Sands",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Muster",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Skeletal Frost Mage",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Skeletal Reaver",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Skeletal Sniper",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Skeletal Storm Mage",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Feeding Frenzy II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Kurgal's Leash",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Skeletal Cleric",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Amanamu's Tithe",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Heft",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Ruzhan, the Blazing Sword",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Skeletal Brute",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Skeletal Warrior",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Temporal Chains",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Wolf Pack",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Bidding III",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Hulking Minions",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Kelari's Deception",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Last Gasp",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Long Fuse II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Minion Mastery",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Navira, the Last Mirage",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Pierce III",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Romira's Requital",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Skeletal Arsonist",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Convalescence",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Minion Instability",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Projectile Acceleration III",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Shock",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Tecrod's Revenge",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uul-Netol's Embrace",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Xoph's Pyre",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Armour Break III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Boundless Energy II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Clarity I",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Frost Nexus",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Heightened Curse",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Infernal Legion II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Multishot II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Navira's Fracturing",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Overcharge",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Spectre: Powered Zealot",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Uruk's Smelting",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Vorana's Siege",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Wildshards II",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Nascent Hope",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Beira's Anguish",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Mageblood",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "From Nothing",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Uhtred's Chalice",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Kalandra's Touch",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Voices",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.the-fourth-teaching-46091",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.enhanced-barrier-44299",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.invigorating-archon-41394",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "passive.archon-of-undeath-26926",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.at-your-command-35560",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.barya-of-kelari-13289",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.entropic-incarnation-30720",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.grip-of-evil-31175",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.ingenuity-39567",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.insightfulness-116",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.kelaris-deception-23265",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.lord-of-horrors-33240",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.necrotic-touch-11376",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.puppet-master-chance-14258",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.sacred-rituals-56857",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.puppet-master-chance-62210",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.energising-archon-43633",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.growing-swarm-14945",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.illuminated-crown-1823",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.right-hand-of-darkness-8957",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.barya-of-navira-32705",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.dreamcatcher-11838",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.barya-of-ruzhan-34207",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.mental-alacrity-16466",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.restless-dead-38972",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.ruzhans-trap-64591",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.storm-driven-1603",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.tempered-mind-8831",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.abasement-7338",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.baryanic-leylines-36891",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.bone-chains-26563",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.brain-freeze-24721",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.brain-storm-50498",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.chakra-of-elements-63400",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.frozen-limit-50715",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.haemorrhaging-cuts-33229",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.ice-walls-55847",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.infernal-limit-61354",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.naviras-fracturing-10561",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.rapid-recharge-17973",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.remnant-attraction-1506",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.rupturing-pins-7782",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.sanguine-tolerance-4810",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.shimmering-mirage-5335",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.shocking-limit-29800",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.utmost-offering-41033",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.disciple-of-varashta-8305"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'class': 'Disciple of Varashta'}"
+    }
+  ]
+}
