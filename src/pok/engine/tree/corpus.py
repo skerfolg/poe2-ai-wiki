@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pok.engine.tree.graph import TreeGraph
@@ -97,11 +97,144 @@ def _cautions(data: dict[str, Any], include: Sequence[tuple[str, float]]) -> Any
     ][:10]
 
 
+def _base_class(graph: TreeGraph, ascendancy: str) -> str | None:
+    """전직 실명 → 기본 클래스("Martial Artist" → "Monk").
+
+    `connect_anchors`는 기본 클래스에서 출발하는데 컨셉 논의는 전직 이름으로 한다.
+    전직 시작 노드의 내부 코드("Monk1")에서 숫자를 떼면 그게 기본 클래스다.
+    """
+    from pok.engine.tree.graph import CLASS_START
+
+    want = str(graph.resolve_ascendancy(ascendancy)).casefold()
+    for node in graph.nodes.values():
+        if node.kind != "ascendancy-start" or not node.ascendancy:
+            continue
+        if node.name_en.casefold() != want:
+            continue
+        base = str(node.ascendancy).rstrip("0123456789")
+        return base if base in CLASS_START else None
+    return None
+
+
+def anchors_for_axes(
+    graph: TreeGraph,
+    ascendancy: str,
+    axes: Mapping[str, Any],
+    *,
+    per_axis: int = 3,
+) -> dict[str, Any]:
+    """**컨셉 키워드 → 앵커 후보.** 축마다 따로 찾아 하나도 빠뜨리지 않는다.
+
+    사용자 지적 2026-08-12: "유저가 매번 어떤 노드를 포함하라고 직접 알려줄 수는
+    없다. 컨셉 논의에서 「치명타」·「회피」·「로우라이프」가 나왔으면 그걸로 필수
+    노드를 잡을 수 없나."
+
+    할 수 있고, 이게 그 층이다. **경계는 지킨다** — *어떤 축이 중요한가*는 판단
+    (컨셉 논의)이라 호출자가 주고, *그 축이 트리 어디에 있나*는 결정적 계산이라
+    여기서 한다(AD-3).
+
+    ⚠ **축마다 따로 찾는 것이 요점이다.** 한 뭉치로 섞어 점수순으로 자르면 점수가
+    높은 축이 목록을 독점하고 나머지 축은 앵커를 못 받는다 — 그리디가 시작점
+    근처만 훑던 것과 같은 실패가 후보 단계에서 재현된다.
+
+    축은 두 꼴을 받는다:
+    - `{"치명타": [("critical", 2.0)]}` — 포함어만
+    - `{"치명타": {"include": [("critical", 2.0)], "exclude": ["attack", "melee"]}}`
+
+    **제외어가 있어야 쓸 만해진다.** 실측 2026-08-12: 주문 빌드(블러드 메이지)에
+    「치명타」만 주니 근접 공격 노터블(Blade Flurry·Martial Artistry)이 상위를
+    차지했다 — 문구 매칭은 빌드의 피해 유형을 모른다.
+
+    ⛔ 효과 문구는 **영어로만** 매칭된다(KB 한글 보유율: Passive 19%). 키워드는
+    게임 표기 영어로 줄 것.
+    """
+    who = str(graph.resolve_ascendancy(ascendancy))
+    from pok.engine.tree.clusters import find_clusters
+
+    per_axis_hits: dict[str, list[dict[str, Any]]] = {}
+    chosen: list[int] = []
+    empty: list[str] = []
+    for axis, spec in axes.items():
+        terms = spec.get("include", ()) if isinstance(spec, Mapping) else spec
+        exclude = tuple(spec.get("exclude", ())) if isinstance(spec, Mapping) else ()
+        if not terms:
+            empty.append(axis)
+            continue
+        seen: dict[int, dict[str, Any]] = {}
+        for cluster in find_clusters(
+            graph,
+            include=[(str(k), float(w)) for k, w in terms],
+            exclude=exclude,
+            top=3,
+            for_ascendancy=who,
+            min_score=0.5,
+        ):
+            for hit in cluster.hits:
+                seen.setdefault(
+                    hit.node_id,
+                    {"node": hit.node_id, "name": hit.name_en, "score": hit.score},
+                )
+        ranked = sorted(seen.values(), key=lambda h: (-h["score"], h["node"]))[:per_axis]
+        per_axis_hits[axis] = ranked
+        if not ranked:
+            empty.append(axis)
+        chosen.extend(h["node"] for h in ranked if h["node"] not in chosen)
+
+    out: dict[str, Any] = {
+        "ascendancy": who,
+        "per_axis": per_axis_hits,
+        "proposed_anchors": chosen,
+    }
+    if empty:
+        # 조용히 빠지면 "그 축은 트리에 없다"로 읽힌다 — 키워드가 안 맞은 것일 수 있다.
+        out["axes_with_no_hit"] = empty
+    base = _base_class(graph, who)
+    if base and chosen:
+        # **값을 매겨서 준다.** 몇 포인트가 드는지 모르면 앵커를 고를 수 없다 —
+        # 실측: 치명타 3계열 6개가 86포인트(래더 중앙 폭과 동급)였다.
+        allocated, _paths = graph.connect_anchors(base, chosen)
+        points = [
+            graph.nodes[n].position
+            for n in allocated
+            if graph.nodes.get(n) is not None and graph.nodes[n].position is not None
+        ]
+        out["cost"] = {
+            "class": base,
+            "points": len(allocated),
+            "diagonal": (
+                int(
+                    math.dist(
+                        (min(p[0] for p in points), min(p[1] for p in points)),
+                        (max(p[0] for p in points), max(p[1] for p in points)),
+                    )
+                )
+                if len(points) >= 2
+                else 0
+            ),
+            "incidental_destinations": sum(
+                1
+                for n in allocated
+                if n not in chosen
+                and graph.nodes.get(n) is not None
+                and graph.nodes[n].kind in ("notable", "keystone", "jewel-socket")
+            ),
+        }
+    out["note"] = (
+        "`proposed_anchors`를 `optimize_tree(required_anchors=…)`에 넣으면 축마다 "
+        "목적지가 보장된다 — 그리디는 먼 목적지로 **출발하지 않으므로**(첫 걸음 점수가 "
+        "낮다) 이 단계를 건너뛰면 시작점 근처만 찍는다. `cost.points`가 예산에서 "
+        "먼저 나가고, 남은 예산이 그리디 몫이다. 축 선정은 판단이니 그대로 쓰지 말고 "
+        "컨셉과 대조할 것"
+    )
+    return out
+
+
 def suggest_anchors(
     graph: TreeGraph,
     ascendancy: str,
     *,
     include: Sequence[tuple[str, float]] = (),
+    axes: Mapping[str, Sequence[tuple[str, float]]] | None = None,
     top: int = 20,
     root: Any = None,
 ) -> dict[str, Any]:
@@ -188,6 +321,8 @@ def suggest_anchors(
         )
 
     out.pop("_sampled", None)
+    if axes:
+        out["by_axis"] = anchors_for_axes(graph, who, axes)
     out["note"] = (
         "`required`만 optimize_tree(required_anchors=…) 후보다(전원 채택 = 정의). "
         "`common`·`off_corpus`는 **판단 대상**이지 목록이 아니다 — 특히 코퍼스는 탐색 "

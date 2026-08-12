@@ -786,6 +786,7 @@ def passed_over_nodes(
 def suggest_anchors(
     ascendancy: str,
     include: list[list[Any]] | None = None,
+    axes: dict[str, Any] | None = None,
     top: int = 20,
 ) -> dict[str, Any]:
     """트리를 짜기 전에 **목적지 후보를 한 번에 모은다** (#67 6차).
@@ -804,6 +805,26 @@ def suggest_anchors(
       게 여기 있으면 다시 생각할 것. 실측: 마셜 아티스트 표본 10벌이 Hollow Palm
       Technique을 전원 지나쳤다 — 문구만 보면 1순위로 보이는 키스톤이다.
 
+    **`axes` = 컨셉 논의에서 나온 축을 그대로 넘긴다** — 이게 「먼 노드를 못 찍는」
+    문제의 답이다. 그리디는 먼 목적지로 **출발하지 않으므로**(첫 걸음 점수가 낮다)
+    축마다 앵커를 미리 잡아 줘야 한다. 축을 **따로** 찾는 것이 요점이다 — 한 뭉치로
+    섞으면 점수 높은 축이 목록을 독점하고 나머지 축은 앵커를 못 받는다.
+
+    ```
+    axes = {
+      "주문 치명타": {"include": [["critical", 2.0], ["spell", 1.5]],
+                     "exclude": ["attack", "melee", "bow"]},
+      "회피":        {"include": [["evasion", 2.0]]},
+      "로우라이프":  {"include": [["low life", 3.0], ["reserved", 1.0]]},
+    }
+    ```
+    → `by_axis.proposed_anchors`를 `optimize_tree(required_anchors=…)`에 그대로 넣는다.
+    `by_axis.cost`가 **몇 포인트가 드는지**를 미리 알려 준다(실측: 위 3축 74포인트 ·
+    대각선 22,730 · 경유 목적지 4개 덤).
+    ⚠ **제외어가 있어야 쓸 만하다** — 주문 빌드에 「치명타」만 주면 근접 공격
+    노터블이 상위를 차지한다(문구 매칭은 피해 유형을 모른다). 축 선정 자체는
+    **판단**이라 컨셉과 대조해 쓸 것.
+
     `include` = `[["Critical", 2.0], ["Attack Speed", 1.0]]` 꼴(효과 문구 키워드x가중치).
     ⛔ 코퍼스는 탐색 **순서**이지 **범위**가 아니다 — `common`에 없다고 배제 근거가
     되지 않는다. `tree_shape`는 표본의 목적지:동선 비율이라 우리 트리가 동선에
@@ -815,5 +836,6 @@ def suggest_anchors(
         _get_graph(),
         ascendancy,
         include=[(str(k), float(w)) for k, w in (include or [])],
+        axes=axes,
         top=top,
     )

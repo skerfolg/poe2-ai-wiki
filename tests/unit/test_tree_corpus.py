@@ -259,3 +259,48 @@ def test_폭_기준선이_프로파일에_실려_있다() -> None:
         diag = record.raw["data"]["tree_shape"]["diagonal"]
         assert diag["min"] <= diag["median"] <= diag["max"], record.id
         assert diag["min"] > 0, f"{record.id}: 폭이 0이면 기준선으로 못 쓴다"
+
+
+def test_컨셉_키워드를_축별_앵커로_바꾼다() -> None:
+    """사용자 지적 2026-08-12: "유저가 매번 어떤 노드를 포함하라고 알려줄 수는 없다.
+    컨셉 논의에서 「치명타」·「회피」·「로우라이프」가 나왔으면 그걸로 잡을 수 없나."
+
+    ⚠ **축을 따로 찾는 것이 요점**이다. 한 뭉치로 섞어 점수순으로 자르면 점수 높은
+    축이 목록을 독점하고 나머지 축은 앵커를 못 받는다 — 그리디가 시작점 근처만
+    훑던 실패가 후보 단계에서 재현된다.
+    """
+    from pok.engine.tree.corpus import anchors_for_axes
+
+    axes = {
+        "주문 치명타": {
+            "include": [("critical", 2.0), ("spell", 1.5)],
+            "exclude": ["attack", "melee", "bow"],
+        },
+        "회피": {"include": [("evasion", 2.0)]},
+        "로우라이프": {"include": [("low life", 3.0)]},
+    }
+    out = anchors_for_axes(_graph, "Blood Mage", axes)
+    assert set(out["per_axis"]) == set(axes), "축 하나라도 빠지면 그 축은 앵커가 없다"
+    for axis, hits in out["per_axis"].items():
+        assert hits, f"{axis}에 후보가 없는데 조용하다"
+    assert out.get("axes_with_no_hit") is None
+    # **값을 매겨서 준다** — 몇 포인트 드는지 모르면 앵커를 고를 수 없다
+    assert out["cost"]["points"] > 0 and out["cost"]["diagonal"] > 0
+    assert out["cost"]["class"] == "Witch", "전직 실명에서 기본 클래스를 못 풀었다"
+
+
+def test_제외어가_피해_유형을_가른다() -> None:
+    """문구 매칭은 빌드의 피해 유형을 모른다 — 주문 빌드에 「치명타」만 주면
+    근접 공격 노터블이 상위를 차지한다(실측 2026-08-12: Blade Flurry·Martial Artistry)."""
+    from pok.engine.tree.corpus import anchors_for_axes
+
+    plain = anchors_for_axes(_graph, "Blood Mage", {"치명타": [("critical", 2.0)]}, per_axis=6)
+    filtered = anchors_for_axes(
+        _graph,
+        "Blood Mage",
+        {"치명타": {"include": [("critical", 2.0)], "exclude": ["attack", "melee", "bow"]}},
+        per_axis=6,
+    )
+    assert {h["node"] for h in plain["per_axis"]["치명타"]} != {
+        h["node"] for h in filtered["per_axis"]["치명타"]
+    }, "제외어가 후보를 전혀 바꾸지 못했다"
