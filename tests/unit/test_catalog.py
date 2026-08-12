@@ -235,3 +235,25 @@ def test_short_explicit_is_matched_by_line_not_length() -> None:
             }
         )
     assert "옵션 줄이 하나도 없다" in str(err.value)
+
+
+def test_게임_id도_유효한_gem_id로_받는다() -> None:
+    """PoB 항목은 id를 **둘** 갖는다: 테이블 키(내부 id)와 `gameId`(게임 id).
+
+    래더에서 받는 PoB 코드는 **게임 id로 적혀 있다**. 키만 색인하면 코퍼스의 젬이
+    전부 "PoB에 없다"로 거부된다 — 실측 2026-08-12: 마셜 아티스트 10벌에서 501건이
+    거부돼 **한 벌도 우리 스펙으로 못 되돌렸다**. 게임 id는 단수형 `Items/Gem/`도
+    쓴다(PoB 데이터에 498건) — poe.ninja 버그가 아니라 게임 표기다.
+    """
+    from pok.pob.catalog import canonical_gem_id, gem_aliases, gem_ids
+
+    aliases = gem_aliases()
+    assert aliases, "gameId 별칭이 하나도 안 잡혔다"
+    assert any("/Items/Gem/" in k for k in aliases), "단수형 게임 id를 못 잡는다"
+    ids = gem_ids()
+    for game_id, pob_id in list(aliases.items())[:20]:
+        assert game_id in ids, f"게임 id {game_id}가 유효 목록에 없다"
+        assert canonical_gem_id(game_id) == pob_id
+    # 내부 id는 그대로 통과해야 한다
+    sample = next(iter(aliases.values()))
+    assert canonical_gem_id(sample) == sample

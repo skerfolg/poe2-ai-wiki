@@ -33,6 +33,13 @@ from pathlib import Path
 from pok.kb.pob_pin import pob_src_dir
 
 _GEM_ID = re.compile(r'\["(Metadata/Items/Gems/[^"]+)"\]')
+# PoB 항목은 **id를 둘** 갖는다: 테이블 키(PoB 내부 id)와 `gameId`(게임 쪽 id).
+# poe.ninja가 내보내는 PoB 코드는 **gameId를 쓴다** — 그래서 키만 색인하면 래더
+# 코드의 젬이 전부 "PoB에 없다"로 거부된다(실측 2026-08-12: 마셜 아티스트 10벌
+# 전량 복원 실패, 거부 501건). 게임 id는 단수형 `Items/Gem/`도 쓴다(PoB 데이터에
+# 498건) — poe.ninja 버그가 아니라 게임 표기다.
+_GEM_BLOCK = re.compile(r'\["(Metadata/Items/Gems/[^"]+)"\]\s*=\s*\{(.*?)\n\t\}', re.S)
+_GAME_ID = re.compile(r'gameId\s*=\s*"(Metadata/Items/Gems?/[^"]+)"')
 _NAME_SPEC = re.compile(r'name\s*=\s*"([^"]+)"')
 # 항목 시작만 잡고 **다음 항목 시작 직전까지**를 본문으로 삼는다. 블록을 정규식으로
 # 닫으려 하면 중첩 `{}`(apply 함수 본문)에서 어긋나 절반을 놓친다 — 실측 2026-08-05:
@@ -73,10 +80,31 @@ class ConfigOption:
 
 
 @lru_cache(maxsize=4)
-def gem_ids(root: Path | None = None) -> frozenset[str]:
-    """PoB가 아는 `gem_id` 전량 (`Data/Gems.lua`)."""
+def gem_aliases(root: Path | None = None) -> dict[str, str]:
+    """게임 id(`gameId`) → PoB 내부 id.
+
+    래더에서 받은 PoB 코드는 게임 id로 적혀 있다. 이 표가 없으면 코퍼스를 우리
+    스펙으로 되돌릴 수 없다 — 실측 2026-08-12: 10벌 전량 실패.
+    """
     text = (pob_src(root) / "Data" / "Gems.lua").read_text(encoding="utf-8", errors="replace")
-    return frozenset(_GEM_ID.findall(text))
+    out: dict[str, str] = {}
+    for key, body in _GEM_BLOCK.findall(text):
+        game = _GAME_ID.search(body)
+        if game and game.group(1) != key:
+            out.setdefault(game.group(1), key)
+    return out
+
+
+def canonical_gem_id(gem_id: str, root: Path | None = None) -> str:
+    """게임 id면 PoB 내부 id로 바꾼다. 이미 내부 id면 그대로."""
+    return gem_aliases(root).get(gem_id, gem_id)
+
+
+@lru_cache(maxsize=4)
+def gem_ids(root: Path | None = None) -> frozenset[str]:
+    """PoB가 아는 `gem_id` 전량 (`Data/Gems.lua`) — 내부 id와 게임 id 둘 다."""
+    text = (pob_src(root) / "Data" / "Gems.lua").read_text(encoding="utf-8", errors="replace")
+    return frozenset(_GEM_ID.findall(text)) | frozenset(gem_aliases(root))
 
 
 @lru_cache(maxsize=4)
