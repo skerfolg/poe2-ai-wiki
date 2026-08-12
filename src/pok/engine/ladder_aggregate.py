@@ -180,14 +180,16 @@ def passed_over(
     concept: str,
     *,
     base: Path | None = None,
-    within: int = 2,
+    within: int = 3,
     kinds: tuple[str, ...] = ("notable", "keystone"),
     include: Sequence[tuple[str, float]] = (),
 ) -> dict[str, Any]:
     """표본이 **닿을 수 있었는데 안 찍은** 목적지를 센다.
 
-    `within`은 이미 찍은 노드 집합에서의 BFS 거리다 — 2면 "스몰 한두 개만 더 쓰면
-    닿는" 자리. 거리를 넓히면 후보가 폭발하므로 기본을 좁게 둔다.
+    `within`은 이미 찍은 노드 집합에서의 BFS 거리다(= 추가로 써야 할 포인트 수).
+    기본 3은 실측으로 정했다 — 얼음의 전령 10벌에서 후보가 1→2종, 2→7종, 3→14종,
+    4→30종으로 늘고 **신호는 3에서 나왔다**(Deep Freeze 9지나침/0채택). 2는 너무
+    좁아 놓치고, 4부터는 "닿는 거리"라 부르기 어려운 것이 섞인다.
 
     해금 조건은 `TreeGraph.candidates`가 건다(다른 전직 전용 노드를 넣으면
     「지나쳤다」가 아니라 **애초에 못 찍는 것**인데 그게 포기로 읽힌다 — B-13).
@@ -306,7 +308,7 @@ def _cli(argv: list[str] | None = None) -> int:
     )
     po.add_argument("--season", required=True)
     po.add_argument("--concept", required=True)
-    po.add_argument("--within", type=int, default=2, help="이미 찍은 노드에서의 BFS 거리")
+    po.add_argument("--within", type=int, default=3, help="이미 찍은 노드에서의 BFS 거리")
     po.add_argument("--top", type=int, default=25)
     po.add_argument(
         "--include",

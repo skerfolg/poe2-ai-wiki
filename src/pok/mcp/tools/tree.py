@@ -654,7 +654,7 @@ def passed_over_nodes(
     concept: str,
     include: list[list[Any]],
     season: str = "0-5",
-    within: int = 2,
+    within: int = 3,
     top: int = 25,
 ) -> dict[str, Any]:
     """래더 표본이 **닿는 거리에 두고도 안 찍은** 목적지 노드 (포기 판단의 근거).
@@ -667,7 +667,8 @@ def passed_over_nodes(
     앵커로 삼으려던 노드가 거기 있으면 앵커를 다시 고르라는 신호다. 반대로
     `taken_by`가 높은데 `passed_by`도 높으면 **갈리는 선택**이라 자유석에 가깝다.
 
-    `within`은 이미 찍은 노드 집합에서의 BFS 거리다(2 = 스몰 한두 개만 더 쓰면 닿음).
+    `within`은 이미 찍은 노드에서의 BFS 거리(= 더 써야 할 포인트). 기본 3은 실측으로
+    정했다 — 2는 좁아 놓치고 4부터는 「닿는 거리」가 아닌 것이 섞인다.
     `include` = `[["Totem", 2.0], ["Spirit", 1.0]]` 꼴. ⚠ **필수다** — 관련성 필터가
     없으면 무관한 노터블이 표를 덮는다(토템 표본이 소환수 노터블을 지나친 것은
     포기가 아니라 무관이다).
