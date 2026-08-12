@@ -400,9 +400,7 @@ def _cli(argv: list[str] | None = None) -> int:
             )
         )
         return 1
-    for key in list(observed):
-        if key != "sample":
-            observed[key] = [e for e in observed[key] if e["count"] >= args.min_count]
+    _truncate(observed, args.min_count)
     print(json.dumps(observed, ensure_ascii=False, indent=2))
     print("\n# ↓ 참고 — Build 레코드에는 넣지 않는다(스키마에 자리 없음)")
     print(json.dumps({"tree_shape": tree_shape}, ensure_ascii=False, indent=2))
@@ -423,6 +421,20 @@ def profile_id_slug(concept: str) -> str:
     쌓였고 편집·삭제가 금지다. 변환은 **id를 만드는 이 지점에서만** 한다.
     """
     return re.sub(r"[^a-z0-9]+", "-", concept.lower()).strip("-")
+
+
+def _truncate(observed: dict[str, Any], min_count: int) -> None:
+    """꼬리를 자르고 **잘랐다는 사실을 레코드에 남긴다**.
+
+    ⚠ 이걸 안 밝히면 목록이 전량으로 읽힌다. 실측 2026-08-12: 마셜 아티스트 표본의
+    목적지는 실제로 106종인데 `min_count=3`으로 53종만 실렸고, 그것을 전량으로 읽은
+    대조기가 멀쩡한 래더 빌드의 목적지 41개 중 **20개를 「표본 밖」으로 찍었다**.
+    잘린 사실이 레코드에 없으면 읽는 쪽이 알 방법이 없다(BACKLOG 형태 ①).
+    """
+    observed["sample"]["min_count"] = min_count
+    for key in list(observed):
+        if key != "sample":
+            observed[key] = [e for e in observed[key] if e["count"] >= min_count]
 
 
 def _parse_filters(items: list[str]) -> dict[str, str] | None:
@@ -505,11 +517,7 @@ def _cli_profile(args) -> int:
         )
         return 1
 
-    for key in list(data["observed"]):
-        if key != "sample":
-            data["observed"][key] = [
-                e for e in data["observed"][key] if e["count"] >= args.min_count
-            ]
+    _truncate(data["observed"], args.min_count)
 
     if args.write:
         # 파일명은 id와 같은 슬러그다 — 둘이 갈리면 나중에 id로 파일을 못 찾는다.

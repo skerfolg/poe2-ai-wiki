@@ -140,3 +140,27 @@ def test_실제_경로에서_부수_획득을_뽑는다(monkeypatch) -> None:
     got = {n for n, _ in out[0].incidental}
     assert socket not in got, "요청한 타깃 자신은 부수 획득이 아니다"
     assert got <= set(out[0].path), "경로 밖 노드가 부수 획득으로 잡혔다"
+
+
+def test_표본_밖_목적지를_지적하지_않는다() -> None:
+    """한때 넣었다가 뺀 필드다 — 되돌아오면 정상 트리를 깎는 압력이 된다.
+
+    프로파일 목록은 `min_count`(기본 3)로 꼬리가 잘려 있어 「표본에 없다」를 판정할 수
+    없다. 실측 2026-08-12: 잘린 목록으로 대조하니 **표본 밖의 멀쩡한 래더 빌드가
+    목적지 41개 중 20개(49%)**를 「표본 밖」으로 찍혔다. 경고 꼴 필드는 지워서 없애고
+    싶어지는 법이라, 그 상태로 뒀으면 좋은 노드를 빼는 방향으로 작동했을 것이다.
+    """
+    out = compare_tree(_graph, "Monk", {13828, 10131}, ascendancy="Martial Artist")
+    assert "off_corpus_destinations" not in out
+    assert "범위" in out["note"], "코퍼스가 범위가 아니라는 선언이 사라졌다"
+
+
+def test_잘린_목록임을_레코드가_밝힌다() -> None:
+    """안 밝히면 읽는 쪽이 전량으로 읽는다(BACKLOG 형태 ①). 스키마가 강제하지만,
+    **왜** 필수인지는 여기 남긴다 — 스키마만 보면 지워도 되는 필드처럼 보인다."""
+    from pok.kb.store import load
+
+    profiles = [r for r in load().records.values() if r.type == "UsageProfile"]
+    assert profiles
+    for record in profiles:
+        assert "min_count" in record.raw["data"]["observed"]["sample"], record.id

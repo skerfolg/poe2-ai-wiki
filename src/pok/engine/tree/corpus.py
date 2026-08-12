@@ -139,15 +139,17 @@ def compare_tree(
         }
         (covered if nid in allocated else unanimous).append(row)
 
-    # 표본이 어느 하나도 안 찍은 것을 우리가 찍었나 — 반대 방향의 신호.
-    sampled = {node_of[e["ref"]] for e in data["observed"]["passives"] if e["ref"] in node_of}
-    off_corpus = [
-        nid
-        for nid in sorted(allocated)
-        if nid in graph.nodes
-        and graph.nodes[nid].kind in ("notable", "keystone")
-        and nid not in sampled
-    ]
+    # ⛔ 「표본 밖 목적지」는 **내지 않는다.** 한때 넣었다가 뺐다(2026-08-12).
+    #
+    # 프로파일의 목록은 `min_count`로 꼬리가 잘려 있다(기본 3). 그래서 "목록에 없다"가
+    # "아무도 안 찍었다"가 아니라 "1~2벌만 찍었다"까지 포함한다. 실측: 마셜 아티스트
+    # 표본의 목적지는 실제 106종인데 레코드엔 53종뿐이었고, 그 목록으로 대조하니
+    # **표본 밖의 멀쩡한 래더 빌드가 목적지 41개 중 20개(49%)**를 「표본 밖」으로
+    # 찍혔다. 경고 꼴로 생긴 필드는 지워서 없애고 싶어지는 법이라, 그대로 뒀으면
+    # 정상 트리를 깎는 압력이 됐을 것이다.
+    #
+    # 잘리지 않은 목록이 생기면(min_count=1) 그때 다시 넣을 수 있다.
+    truncated = int(data["observed"]["sample"].get("min_count", 1))
     return {
         "compared": True,
         "profile": profile.id,
@@ -156,14 +158,13 @@ def compare_tree(
         # 「꼭 필요한 노드를 안 찍는다」가 정확히 이 형태로 나타난다.
         "missing_unanimous": unanimous,
         "has_unanimous": len(covered),
-        "off_corpus_destinations": [
-            {"node": nid, "name": graph.nodes[nid].name_en} for nid in off_corpus
-        ],
         "note": (
             "대조이지 판정이 아니다. `missing_unanimous`는 표본 전원이 찍는데 이 트리엔 "
-            "없는 목적지다 — 빼려면 근거를 남길 것. `off_corpus_destinations`는 표본 중 "
-            "아무도 안 찍은 목적지로, **금지가 아니라 근거 요구**다(새 선택일 수도 있고 "
-            "헛다리일 수도 있다 — `passed_over_nodes`로 「코앞에서 버려진 것」인지 확인하고, "
-            "PoB 델타로 값을 재라)"
+            "없는 목적지다 — 빼려면 근거를 남길 것. **표본에 없는 노드를 찍은 것은 "
+            "여기서 지적하지 않는다**: 목록이 count≥"
+            f"{truncated}로 잘려 있어 「표본에 없다」를 판정할 수 없고, 애초에 표본 밖 "
+            "선택은 결함이 아니다(코퍼스는 탐색 **순서**이지 **범위**가 아니다). "
+            "특정 노드가 미심쩍으면 `passed_over_nodes`로 「코앞에서 버려진 것」인지 "
+            "확인하고 PoB 델타로 값을 재라"
         ),
     }

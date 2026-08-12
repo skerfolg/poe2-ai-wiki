@@ -111,12 +111,18 @@
       "basis": {
        "type": "string",
        "minLength": 1
+      },
+      "min_count": {
+       "type": "integer",
+       "minimum": 1,
+       "description": "이 개수 미만으로 겹친 항목은 **실리지 않았다**. 1이면 전량이다. ⚠ 이 선언이 없으면 목록이 전량으로 읽힌다 — 실측 2026-08-12: min_count=3에 잘린 목록(106종 중 53종)을 전량으로 읽은 대조기가 멀쩡한 래더 빌드의 목적지 절반을 「표본 밖」으로 찍었다"
       }
      },
      "required": [
       "n",
       "unit",
-      "basis"
+      "basis",
+      "min_count"
      ],
      "additionalProperties": false
     }
