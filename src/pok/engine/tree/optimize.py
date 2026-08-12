@@ -26,6 +26,11 @@ from pok.pob.buildxml import BuildSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
 from pok.pob.runner import PobResult
 
+# 마른 라운드에서 넓힐 상한. 트리 지름을 넘겨 봐야 무의미하고, 라운드 비용이
+# 후보 수에 비례해 늘어난다(후보 하나 = PoB 계산 1회).
+_MAX_REACH = 24
+_MAX_SLICE = 160
+
 # 사전식 목표가 있을 때 **부차 축**에 남기는 몫. 0으로 두면 병목에 기여하지
 # 않는 수가 전부 점수 0이 되어(그리디는 s>0만 채택) 예산이 남은 채 멈춘다.
 _TIEBREAK = 1e-3
@@ -243,6 +248,9 @@ def optimize_tree(
     current = spec
     budget = max(0, point_budget - anchor_cost)
     rejected = 0
+    # 마른 라운드에서 **넓혀 보고** 멈춘다 — 아래 주석 참고.
+    reach, slice_size = candidate_radius, max_candidates_per_round
+    widened: list[str] = []
     with PobDaemon() as daemon:
         best_solution: tuple[BuildSpec, PobResult] | None = None  # 단조성 안전장치
         while True:
@@ -255,7 +263,7 @@ def optimize_tree(
                     for nid, _, d in _with_free_zones(
                         graph.candidates(
                             tree_now,
-                            max_dist=candidate_radius,
+                            max_dist=reach,
                             # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
                             # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
                             # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
@@ -264,7 +272,7 @@ def optimize_tree(
                         reachable_cost,
                     )
                     if d <= budget and nid not in banned
-                ][:max_candidates_per_round]
+                ][:slice_size]
                 if not cands:
                     break
                 base = daemon.compute_build(current)
@@ -284,6 +292,17 @@ def optimize_tree(
                 )
                 affordable = [(s, nd) for s, nd in scored if nd.points <= budget and s > 0]
                 if not affordable:
+                    # ⛔ 예전엔 여기서 그냥 멈췄다 — **예산을 남긴 채**. 그리디는 반경
+                    # 안의 가까운 후보만 보므로, 근처가 빌드와 무관한 권역이면 한 수도
+                    # 못 두고 끝난다. 독스트링은 "반경·후보 수를 늘려라"라고 안내했지만
+                    # 그건 문서에만 있는 규율이라 안 지켜졌다(실측 2026-08-12 e2e:
+                    # 예산 30 중 8만 쓰고 종료). **도구가 스스로 넓혀 보고** 그래도
+                    # 없을 때만 멈춘다 — 넓힌 사실은 notes로 남긴다.
+                    if budget > 0 and reach < _MAX_REACH:
+                        reach = min(_MAX_REACH, reach * 2)
+                        slice_size = min(_MAX_SLICE, slice_size * 2)
+                        widened.append(f"반경 {reach}·후보 {slice_size}")
+                        continue
                     rejected = 1
                     break
                 best_score, best = affordable[0]
@@ -321,6 +340,19 @@ def optimize_tree(
         graph, current, cluster_include, cluster_exclude, candidate_radius
     )
     notes = (*anchor_notes, *notes, *_target_notes(objective, final.stats))
+    if widened:
+        notes = (
+            *notes,
+            f"후보가 말라 탐색을 넓혔다: {' → '.join(widened)} — "
+            "시작 반경이 이 빌드에 좁았다는 뜻이다(다음엔 candidate_radius를 올려 시작할 것)",
+        )
+    if budget > 0:
+        notes = (
+            *notes,
+            f"⚠ 예산 {budget}포인트를 **쓰지 못하고 끝났다** — 최대 반경까지 넓혀도 "
+            "점수가 양수인 후보가 없었다. 목적(weights·targets)이 이 빌드에서 오르지 "
+            "않는 축이거나, 남은 예산으로 닿을 곳이 없다",
+        )
     return OptimizeResult(
         current,
         final,
