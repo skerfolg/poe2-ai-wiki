@@ -5,6 +5,17 @@
 > 전제: 레포 루트에서 실행 · `PYTHONPATH=src` · `.venv/bin/python`.
 > 설계 배경: [BACKLOG](../../docs/BACKLOG.md) #67 4·5차 절.
 
+## 두 갈래가 있다 — 먼저 어느 쪽인지 확인할 것
+
+| 갈래 | 컨셉 예 | 만드는 것 | 3단계에서 |
+|---|---|---|---|
+| **A군 (메커니즘 축)** | `skillmodes=Totem` | `UsageProfile` 레코드 | `profile` 명령이 **파일까지 쓴다** |
+| **B군 (어센던시 빌드)** | `class=Blood Mage` | 기존 Build 레코드의 `data.observed` | 사람이 **손으로** 넣는다 |
+
+A군은 표본에 여러 어센던시가 섞인다 — **그게 요점이다.** 클래스를 넘어 따라붙는
+것이 곧 이식 가능한 문법이다(실측: `skillmodes=Totem` 10벌이 6개 어센던시에
+걸쳐 있는데 8/10이 Archmage를 든다).
+
 ## 이 절차가 만드는 것
 
 한 **컨셉**(= poe.ninja 질의 필터)의 상위 N명 PoB 코드를 모아 겹쳐서, 축마다
@@ -43,9 +54,30 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate aggregate \
   `--limit`을 올려 더 모으거나, 사람에게 보고한다. **`--min-sample`을 임의로 낮추지 말 것.**
 - 성공하면 `data.observed` 꼴 JSON이 stdout으로 나온다.
 
-### 3. 레코드에 싣기
+### 3-A. A군 — UsageProfile 만들기 (`profile`)
 
-2의 출력을 해당 Build 레코드의 `data.observed`에 넣는다
+```bash
+PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
+  --season 0-5 --concept skillmodes-Totem \
+  --anchor mechanic.totems --label "토템 (Totem)" \
+  --filter skillmodes=Totem --min-sample 10 --write
+```
+
+- `--concept`은 1에서 만들어진 디렉터리 이름과 **정확히 같아야 한다**
+  (`artifacts/ladder/<시즌>/` 아래를 보고 확인할 것).
+- `--filter`는 1에서 쓴 것과 **똑같이** 준다(레코드의 `query`가 된다 — 재현용).
+- `--anchor`는 **KB 실존 id**다. `pok` MCP의 `search_kb`로 확인해서 넣는다.
+  못 찾으면 **지어내지 말고 사람에게 보고**한다. 없는 id면 명령이 거부한다.
+- `--write`가 있으면 `knowledge/game-data/usage-profiles/`에 파일을 쓴다.
+  없으면 stdout으로만 낸다(확인용).
+- 출력의 **클래스 구성을 반드시 보고**한다. 한 어센던시가 8/10 이상을 차지하면
+  「클래스를 넘는 공통점」이 아니므로 그 사실을 함께 적는다.
+
+3-A를 했으면 4로 간다(3-B는 건너뛴다).
+
+### 3-B. B군 — 기존 Build 레코드에 싣기
+
+2(`aggregate`)의 출력을 해당 Build 레코드의 `data.observed`에 넣는다
 (`knowledge/game-data/builds/<시즌>/<빌드id>.json`).
 
 - 넣을 자리는 `data` 안, `defense` **다음**이다.
@@ -67,8 +99,13 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/unit/test_build_entity.py -q
 - ⛔ **`--min-sample`을 스스로 낮추지 말 것.** 표본 크기 판단은 사람 몫이다.
 - ⛔ **`facets.tier` 금지.** 순위 주장은 시험(`test_no_build_claims_a_tier`)이 막는다.
 - ⛔ 8축(`offense`/`defense`) 수정 금지 — 이 절차는 **관측만** 싣는다.
+- ⛔ **앵커 id를 지어내지 말 것.** `search_kb`로 실존 확인, 없으면 사람에게 보고.
+- ⛔ A군 결과를 Build 레코드에 넣지 말 것(클래스가 섞여 있어 빌드가 아니다).
 - ⛔ 스크립트를 우회한 직접 스크래핑 금지.
 
 ## 보고 형식
 
-컨셉마다 한 줄로: `<컨셉> · 수집 N벌 · 집계 <성공|표본부족(have/need)> · 레코드 <반영|없음>`
+컨셉마다 한 줄로:
+
+- A군: `<컨셉> · 수집 N벌 · 클래스구성 [Oracle 4, Shaman 2, …] · 프로파일 <기록|표본부족(have/need)|앵커없음>`
+- B군: `<컨셉> · 수집 N벌 · 집계 <성공|표본부족(have/need)> · 레코드 <반영|없음>`

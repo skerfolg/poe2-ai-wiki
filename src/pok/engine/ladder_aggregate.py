@@ -124,6 +124,16 @@ def _cli(argv: list[str] | None = None) -> int:
         help="이 개수 미만으로 겹친 항목은 싣지 않는다(작은 표본의 꼬리는 노이즈다)",
     )
 
+    pr = sub.add_parser("profile", help="A군 — 메커니즘 동반 프로파일(UsageProfile)을 만든다")
+    pr.add_argument("--season", required=True)
+    pr.add_argument("--concept", required=True)
+    pr.add_argument("--anchor", required=True, help="KB 실존 id (예: mechanic.totems)")
+    pr.add_argument("--label", required=True, help="사람이 읽을 이름 (예: 토템 (Totem))")
+    pr.add_argument("--filter", action="append", default=[], metavar="KEY=VALUE")
+    pr.add_argument("--min-sample", type=int, required=True)
+    pr.add_argument("--min-count", type=int, default=3)
+    pr.add_argument("--write", action="store_true", help="정본에 파일로 쓴다(없으면 stdout만)")
+
     args = p.parse_args(argv)
 
     if args.cmd == "collect":
@@ -138,7 +148,11 @@ def _cli(argv: list[str] | None = None) -> int:
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
         return 0
 
+    if args.cmd == "profile":
+        return _cli_profile(args)
+
     observed = aggregate_concept(args.season, args.concept)
+    observed.pop("_class_spread", None)
     n = observed["sample"]["n"]
     if n < args.min_sample:
         print(
@@ -162,8 +176,82 @@ def _cli(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":
-    raise SystemExit(_cli())
+def _parse_filters(items: list[str]) -> dict[str, str] | None:
+    out: dict[str, str] = {}
+    for item in items:
+        if "=" not in item:
+            print(f"오류: --filter는 KEY=VALUE 꼴이어야 한다: {item!r}")
+            return None
+        k, v = item.split("=", 1)
+        out[k] = v
+    return out
+
+
+def _cli_profile(args) -> int:
+    from pok.kb.store import load
+
+    # 앵커가 KB에 없으면 **여기서 멈춘다**. 파일을 쓴 뒤에 알면 정본이 잠깐 깨지고,
+    # 코덱스는 그 실패를 보고 되돌릴 판단을 못 한다.
+    if args.anchor not in load().records:
+        print(
+            json.dumps(
+                {
+                    "error": "앵커가 KB에 없다",
+                    "anchor": args.anchor,
+                    "how": "search_kb로 실존 id를 확인할 것. "
+                    "못 찾으면 사람에게 보고(임의 생성 금지)",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1
+
+    query = _parse_filters(args.filter)
+    if query is None:
+        return 2
+
+    record = build_usage_profile(
+        args.season,
+        args.concept,
+        anchor_ref=args.anchor,
+        anchor_label=args.label,
+        query=query,
+    )
+    data = record["data"]
+    n = data["observed"]["sample"]["n"]
+    if n < args.min_sample:
+        print(
+            json.dumps(
+                {"error": "표본 부족", "have": n, "need": args.min_sample},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1
+
+    for key in list(data["observed"]):
+        if key != "sample":
+            data["observed"][key] = [
+                e for e in data["observed"][key] if e["count"] >= args.min_count
+            ]
+
+    if args.write:
+        out = (
+            Path(__file__).resolve().parents[3]
+            / "knowledge"
+            / "game-data"
+            / "usage-profiles"
+            / f"{args.season}-{args.concept}.json".lower()
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(f"기록: {out}")
+        print(f"클래스 구성: {[(e['ref'], e['count']) for e in data['class_spread']]}")
+        return 0
+
+    print(json.dumps(record, ensure_ascii=False, indent=2))
+    return 0
 
 
 def build_usage_profile(
@@ -212,3 +300,7 @@ def build_usage_profile(
             }
         ],
     }
+
+
+if __name__ == "__main__":
+    raise SystemExit(_cli())
