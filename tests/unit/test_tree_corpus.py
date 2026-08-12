@@ -226,3 +226,36 @@ def test_전직_시작_노드는_스펙에_싣지_않는다() -> None:
         "connect_anchors의 allocated에도 섞이면 안 된다 — "
         "그걸 스펙에 넣는 세션이 같은 함정에 빠진다"
     )
+
+
+def test_표본보다_좁은_트리를_알린다() -> None:
+    """사용자 지적 2026-08-12: "빌드에 따라 좌측 끝과 우측 끝으로 넓게 찍어야 하는
+    경우가 있다"(로우라이프 「고통의 조율」 + 회피 「강화 반사신경」은 좌표상
+    (-8288,-6379)과 (+9390,+580) — 정반대다. 주문·공격·일반 치명타 3계열도 마찬가지).
+
+    그리디는 도중 노드 점수가 낮으면 **출발하지 않으므로** 시작점 근처만 훑는다.
+    실측: 래더 대각선 중앙 27,041인데 우리 산출물은 20,005였고, 그리디는 30포인트를
+    더 쓰고 폭을 11%만 늘렸다. 좁다고 틀린 건 아니지만 **말은 해야 한다**.
+    """
+    tiny = {13828, 10131, 21984}
+    out = compare_tree(_graph, "Monk", tiny, ascendancy="Martial Artist")
+    assert out["compared"] is True
+    width = out["width"]
+    assert width["ours"] < width["sample"]["min"], "표본보다 좁은 트리를 골랐어야 한다"
+    assert "narrower_than_every_sample" in width
+    assert "required_anchors" in width["narrower_than_every_sample"], (
+        "좁다고만 하면 뭘 해야 할지 모른다 — 먼 목적지는 앵커로 지정해야 한다고 알려야 한다"
+    )
+
+
+def test_폭_기준선이_프로파일에_실려_있다() -> None:
+    """`tree_shape.diagonal`이 없으면 대조기가 폭을 판정할 수 없다 —
+    스키마가 강제하지만 **왜** 필요한지는 여기 남긴다."""
+    from pok.kb.store import load
+
+    for record in load().records.values():
+        if record.type != "UsageProfile":
+            continue
+        diag = record.raw["data"]["tree_shape"]["diagonal"]
+        assert diag["min"] <= diag["median"] <= diag["max"], record.id
+        assert diag["min"] > 0, f"{record.id}: 폭이 0이면 기준선으로 못 쓴다"

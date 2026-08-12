@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from typing import Any
 
@@ -272,6 +273,35 @@ def compare_tree(
         }
         (covered if nid in allocated else unanimous).append(row)
 
+    # 트리 **폭** 대조 — 사용자 지적 2026-08-12: "빌드에 따라 좌측 끝과 우측 끝으로
+    # 넓게 찍어야 하는 경우가 있다"(로우라이프 고통의 조율 + 회피 강화 반사신경,
+    # 주문·공격·일반 치명타 3계열…). 그리디는 시작점 근처만 훑으므로 **좁은 트리를
+    # 정상으로 착각**한다. 실측: 래더 중앙 27,041인데 우리 산출물은 20,005였고,
+    # 그리디는 30포인트를 더 쓰고도 폭을 11%만 늘렸다.
+    #
+    # ⚠ 좁다고 틀린 건 아니다 — 컨셉에 따라 좁은 게 맞을 수도 있다. **표본 최소보다
+    #   좁으면 알린다**까지가 여기 몫이고, 넓힐지는 설계 판단이다.
+    width: dict[str, Any] = {}
+    baseline = (data.get("tree_shape") or {}).get("diagonal") or {}
+    if baseline:
+        points = [
+            graph.nodes[n].position
+            for n in allocated
+            if graph.nodes.get(n) is not None and graph.nodes[n].position is not None
+        ]
+        if len(points) >= 2:
+            xs = [p[0] for p in points]
+            ys = [p[1] for p in points]
+            ours = int(math.dist((min(xs), min(ys)), (max(xs), max(ys))))
+            width = {"ours": ours, "sample": baseline}
+            if ours < int(baseline.get("min", 0)):
+                width["narrower_than_every_sample"] = (
+                    f"표본 {n}벌 중 가장 좁은 것보다도 좁다({ours:,} < "
+                    f"{int(baseline['min']):,}) — 앵커 없이 그리디만 돌리면 시작점 "
+                    "근처에 머문다. 멀리 있는 목적지는 `required_anchors`로 직접 "
+                    "지정해야 연결된다(그리디는 도중 노드 점수가 낮아 출발하지 않는다)"
+                )
+
     # ⛔ 「표본 밖 목적지」는 **내지 않는다.** 한때 넣었다가 뺐다(2026-08-12).
     #
     # 프로파일의 목록은 `min_count`로 꼬리가 잘려 있다(기본 3). 그래서 "목록에 없다"가
@@ -291,6 +321,7 @@ def compare_tree(
         # 「꼭 필요한 노드를 안 찍는다」가 정확히 이 형태로 나타난다.
         "missing_unanimous": unanimous,
         "has_unanimous": len(covered),
+        "width": width,
         "note": (
             "대조이지 판정이 아니다. `missing_unanimous`는 표본 전원이 찍는데 이 트리엔 "
             "없는 목적지다 — 빼려면 근거를 남길 것. **표본에 없는 노드를 찍은 것은 "

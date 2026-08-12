@@ -82,12 +82,37 @@
       ],
       "additionalProperties": false
      }
+    },
+    "diagonal": {
+     "type": "object",
+     "description": "할당 노드 경계 상자의 **대각선** 분포(좌표 단위) — 표본이 트리를 얼마나 넓게 썼나. 그리디는 시작점 근처만 훑어 좁은 트리를 정상으로 착각한다(실측 2026-08-12: 래더 중앙 27,041인데 우리 산출물은 20,005). 로우라이프+회피처럼 좌우 끝을 오가는 조합이 실제로 흔하다",
+     "properties": {
+      "min": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "median": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "max": {
+       "type": "integer",
+       "minimum": 0
+      }
+     },
+     "required": [
+      "min",
+      "median",
+      "max"
+     ],
+     "additionalProperties": false
     }
    },
    "required": [
     "counted",
     "destination_kinds",
-    "per_build"
+    "per_build",
+    "diagonal"
    ],
    "additionalProperties": false
   },
