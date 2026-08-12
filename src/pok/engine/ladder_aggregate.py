@@ -229,13 +229,38 @@ def _cli_profile(args) -> int:
     if query is None:
         return 2
 
-    record = build_usage_profile(
-        args.season,
-        args.concept,
-        anchor_ref=args.anchor,
-        anchor_label=args.label,
-        query=query,
-    )
+    # 컨셉 이름은 손으로 옮겨 적는 값이라 어긋나기 쉽다(디렉터리는 공백이 `_`다).
+    # 역추적 붙임 없이 트레이스백만 내면 저비용 에이전트가 「수집이 실패했다」로 읽는다.
+    try:
+        record = build_usage_profile(
+            args.season,
+            args.concept,
+            anchor_ref=args.anchor,
+            anchor_label=args.label,
+            query=query,
+        )
+    except LadderError as exc:
+        season_dir = ladder_dir() / args.season
+        have = (
+            sorted(p.name for p in season_dir.iterdir() if p.is_dir())
+            if (season_dir.exists())
+            else []
+        )
+        print(
+            json.dumps(
+                {
+                    "error": str(exc),
+                    "concept": args.concept,
+                    "available": have,
+                    "how": "--concept은 수집 디렉터리 이름과 **정확히** 같아야 한다 "
+                    "(공백은 `_`다 — 예: skills-Herald_of_Ice). "
+                    "목록에 없으면 1단계 collect부터 다시 할 것",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1
     data = record["data"]
     n = data["observed"]["sample"]["n"]
     if n < args.min_sample:
