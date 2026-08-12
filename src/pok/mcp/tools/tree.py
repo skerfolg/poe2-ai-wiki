@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from pok.common.paths import knowledge_dir
+from pok.engine.objective import Target
 from pok.engine.tree.corpus import compare_tree
 from pok.engine.tree.graph import TreeGraph
 from pok.engine.tree.optimize import Objective
@@ -83,6 +84,7 @@ def optimize_tree(
     unconnected_regions: list[dict[str, Any]] | None = None,
     cluster_include: list[list[Any]] | None = None,
     cluster_exclude: list[str] | None = None,
+    targets: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
@@ -94,6 +96,15 @@ def optimize_tree(
     빌드와 무관한 노터블뿐이면(예: 물리 공격 빌드의 마녀 권역) 40개가 전부 델타 <= 0이라
     `stopped_no_positive`로 즉시 멈춘다 — 그럴 때 늘려서 더 먼 후보까지 본다.
     소요: 라운드당 후보 수 x ~0.1초 — 예산 30이면 수 분.
+
+    `targets` = **사전식 목표**(D28) — `[{"metric":"TotalEHP","op":">=","value":8000,
+    "label":"EHP 하한"}, {"metric":"CombinedDPS","op":">=","value":2e6}]`. 주면
+    weights 가중 합산 대신 **순서대로** 민다: 첫 미충족 목표가 병목이고 그 축에
+    점수를 몰아주며, 충족되는 순간 다음 목표로 넘어간다. **이미 충족한 경계를
+    깨뜨리는 수는 채택하지 않는다.** 가중 합산은 한 축이 지배해 "한쪽으로 쏠리지
+    않게"를 표현하지 못한다 — 균형은 가중치를 손으로 맞춰서가 아니라 경계 충족으로
+    얻는다. ⚠ PoB가 못 재는 축을 목표로 걸면 그 축으로는 한 걸음도 못 민다
+    (델타가 0이 아니라 측정이 없다) — `notes`에 그 사실이 실린다.
 
     `exclude_nodes` = **설계 판단으로 뺀 노드**. 그리디는 배타 관계를 모르므로 손으로
     빼도 그냥 다시 뽑는다 — 실측 2026-08-09: 원소 집정관 축을 위해 「검은화염 계약」
@@ -115,7 +126,18 @@ def optimize_tree(
     out = _optimize(
         spec,
         _get_graph(),
-        Objective(weights=weights),
+        Objective(
+            weights=weights,
+            targets=tuple(
+                Target(
+                    metric=str(t["metric"]),
+                    op=str(t.get("op", ">=")),
+                    value=float(t["value"]),
+                    label=str(t.get("label", "")),
+                )
+                for t in (targets or [])
+            ),
+        ),
         point_budget=point_budget,
         candidate_radius=candidate_radius,
         max_candidates_per_round=max_candidates_per_round,
