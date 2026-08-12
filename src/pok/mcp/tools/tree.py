@@ -86,6 +86,7 @@ def optimize_tree(
     cluster_exclude: list[str] | None = None,
     targets: list[dict[str, Any]] | None = None,
     required_anchors: list[int] | None = None,
+    time_budget_s: float | None = 600.0,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
@@ -114,6 +115,11 @@ def optimize_tree(
     안 뽑는다** — 여기 넣지 않으면 영영 안 들어온다. 연결된 앵커와 그 경로는
     가지치기도 건드리지 않는다. 후보는 `corpus.missing_unanimous`(표본 전원이 찍는
     목적지)와 컨셉상 필수 노드에서 고른다.
+
+    `time_budget_s` = **시간 상한(기본 600초)**. 후보 하나가 PoB 계산 1회(실측 0.16초)라
+    예산·후보 수에 비례해 는다 — 실측 2026-08-12: 예산 156·후보 40이 가지치기 재실행까지
+    합쳐 **40분을 넘겼다**(진행 표시도 없었다). 넘기면 그 자리에서 멈추고 **남은 예산과
+    함께 notes에 밝힌다** — 덜 최적화된 트리이지 완성된 트리가 아니다. `None`이면 무제한.
 
     `exclude_nodes` = **설계 판단으로 뺀 노드**. 그리디는 배타 관계를 모르므로 손으로
     빼도 그냥 다시 뽑는다 — 실측 2026-08-09: 원소 집정관 축을 위해 「검은화염 계약」
@@ -156,6 +162,7 @@ def optimize_tree(
         cluster_include=tuple((str(k), float(w)) for k, w in (cluster_include or ())),
         cluster_exclude=tuple(cluster_exclude or ()),
         required_anchors=tuple(required_anchors or ()),
+        time_budget_s=time_budget_s,
     )
     return {
         # 후보 반경 **밖**의 관련 뭉치 — 효과 문구째로 낸다. 점수만 내면 두 축을
@@ -779,6 +786,7 @@ def passed_over_nodes(
 def suggest_anchors(
     ascendancy: str,
     include: list[list[Any]] | None = None,
+    axes: dict[str, Any] | None = None,
     top: int = 20,
 ) -> dict[str, Any]:
     """트리를 짜기 전에 **목적지 후보를 한 번에 모은다** (#67 6차).
@@ -797,6 +805,26 @@ def suggest_anchors(
       게 여기 있으면 다시 생각할 것. 실측: 마셜 아티스트 표본 10벌이 Hollow Palm
       Technique을 전원 지나쳤다 — 문구만 보면 1순위로 보이는 키스톤이다.
 
+    **`axes` = 컨셉 논의에서 나온 축을 그대로 넘긴다** — 이게 「먼 노드를 못 찍는」
+    문제의 답이다. 그리디는 먼 목적지로 **출발하지 않으므로**(첫 걸음 점수가 낮다)
+    축마다 앵커를 미리 잡아 줘야 한다. 축을 **따로** 찾는 것이 요점이다 — 한 뭉치로
+    섞으면 점수 높은 축이 목록을 독점하고 나머지 축은 앵커를 못 받는다.
+
+    ```
+    axes = {
+      "주문 치명타": {"include": [["critical", 2.0], ["spell", 1.5]],
+                     "exclude": ["attack", "melee", "bow"]},
+      "회피":        {"include": [["evasion", 2.0]]},
+      "로우라이프":  {"include": [["low life", 3.0], ["reserved", 1.0]]},
+    }
+    ```
+    → `by_axis.proposed_anchors`를 `optimize_tree(required_anchors=…)`에 그대로 넣는다.
+    `by_axis.cost`가 **몇 포인트가 드는지**를 미리 알려 준다(실측: 위 3축 74포인트 ·
+    대각선 22,730 · 경유 목적지 4개 덤).
+    ⚠ **제외어가 있어야 쓸 만하다** — 주문 빌드에 「치명타」만 주면 근접 공격
+    노터블이 상위를 차지한다(문구 매칭은 피해 유형을 모른다). 축 선정 자체는
+    **판단**이라 컨셉과 대조해 쓸 것.
+
     `include` = `[["Critical", 2.0], ["Attack Speed", 1.0]]` 꼴(효과 문구 키워드x가중치).
     ⛔ 코퍼스는 탐색 **순서**이지 **범위**가 아니다 — `common`에 없다고 배제 근거가
     되지 않는다. `tree_shape`는 표본의 목적지:동선 비율이라 우리 트리가 동선에
@@ -808,5 +836,6 @@ def suggest_anchors(
         _get_graph(),
         ascendancy,
         include=[(str(k), float(w)) for k, w in (include or [])],
+        axes=axes,
         top=top,
     )

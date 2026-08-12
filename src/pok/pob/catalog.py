@@ -148,8 +148,32 @@ def config_options(root: Path | None = None) -> tuple[ConfigOption, ...]:
 
 
 @lru_cache(maxsize=4)
+def quest_config_vars(root: Path | None = None) -> frozenset[str]:
+    """퀘스트 보상 설정 키 — PoB가 **동적으로 만든다**.
+
+    `ConfigOptions.lua`에는 리터럴로 없고 `"quest" .. Description .. Area .. Info`로
+    조립된다(`data.questRewards` 순회). 그래서 리터럴만 훑던 카탈로그는 이 키들을
+    모르고, 래더에서 받은 코드를 **정상인데 거부**했다(실측 2026-08-12: 코퍼스
+    복원이 여기서 전량 막혔다 — BACKLOG 형태 ⑤ 「게이트가 정상을 막는다」).
+    """
+    text = (pob_src(root) / "Data" / "QuestRewards.lua").read_text(
+        encoding="utf-8", errors="replace"
+    )
+    out: set[str] = set()
+    for block in re.split(r"\n\t\},?", text):
+        fields = dict(re.findall(r'\["(\w+)"\]\s*=\s*"([^"]*)"', block))
+        if not fields.get("Description"):
+            continue
+        # `useConfig = false`인 항목은 PoB가 설정을 만들지 않는다(포인트 보상 등).
+        if re.search(r'\["useConfig"\]\s*=\s*false', block):
+            continue
+        out.add("quest" + fields["Description"] + fields.get("Area", "") + fields.get("Info", ""))
+    return frozenset(out)
+
+
+@lru_cache(maxsize=4)
 def config_vars(root: Path | None = None) -> frozenset[str]:
-    return frozenset(o.var for o in config_options(root))
+    return frozenset(o.var for o in config_options(root)) | quest_config_vars(root)
 
 
 def _similar(name: str, pool: list[str], limit: int = 5) -> list[str]:

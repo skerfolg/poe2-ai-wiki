@@ -226,3 +226,123 @@ def test_전직_시작_노드는_스펙에_싣지_않는다() -> None:
         "connect_anchors의 allocated에도 섞이면 안 된다 — "
         "그걸 스펙에 넣는 세션이 같은 함정에 빠진다"
     )
+
+
+def test_표본보다_좁은_트리를_알린다() -> None:
+    """사용자 지적 2026-08-12: "빌드에 따라 좌측 끝과 우측 끝으로 넓게 찍어야 하는
+    경우가 있다"(로우라이프 「고통의 조율」 + 회피 「강화 반사신경」은 좌표상
+    (-8288,-6379)과 (+9390,+580) — 정반대다. 주문·공격·일반 치명타 3계열도 마찬가지).
+
+    그리디는 도중 노드 점수가 낮으면 **출발하지 않으므로** 시작점 근처만 훑는다.
+    실측: 래더 대각선 중앙 27,041인데 우리 산출물은 20,005였고, 그리디는 30포인트를
+    더 쓰고 폭을 11%만 늘렸다. 좁다고 틀린 건 아니지만 **말은 해야 한다**.
+    """
+    tiny = {13828, 10131, 21984}
+    out = compare_tree(_graph, "Monk", tiny, ascendancy="Martial Artist")
+    assert out["compared"] is True
+    width = out["width"]
+    assert width["ours"] < width["sample"]["min"], "표본보다 좁은 트리를 골랐어야 한다"
+    assert "narrower_than_every_sample" in width
+    assert "required_anchors" in width["narrower_than_every_sample"], (
+        "좁다고만 하면 뭘 해야 할지 모른다 — 먼 목적지는 앵커로 지정해야 한다고 알려야 한다"
+    )
+
+
+def test_폭_기준선이_프로파일에_실려_있다() -> None:
+    """`tree_shape.diagonal`이 없으면 대조기가 폭을 판정할 수 없다 —
+    스키마가 강제하지만 **왜** 필요한지는 여기 남긴다."""
+    from pok.kb.store import load
+
+    for record in load().records.values():
+        if record.type != "UsageProfile":
+            continue
+        diag = record.raw["data"]["tree_shape"]["diagonal"]
+        assert diag["min"] <= diag["median"] <= diag["max"], record.id
+        assert diag["min"] > 0, f"{record.id}: 폭이 0이면 기준선으로 못 쓴다"
+
+
+def test_컨셉_키워드를_축별_앵커로_바꾼다() -> None:
+    """사용자 지적 2026-08-12: "유저가 매번 어떤 노드를 포함하라고 알려줄 수는 없다.
+    컨셉 논의에서 「치명타」·「회피」·「로우라이프」가 나왔으면 그걸로 잡을 수 없나."
+
+    ⚠ **축을 따로 찾는 것이 요점**이다. 한 뭉치로 섞어 점수순으로 자르면 점수 높은
+    축이 목록을 독점하고 나머지 축은 앵커를 못 받는다 — 그리디가 시작점 근처만
+    훑던 실패가 후보 단계에서 재현된다.
+    """
+    from pok.engine.tree.corpus import anchors_for_axes
+
+    axes = {
+        "주문 치명타": {
+            "include": [("critical", 2.0), ("spell", 1.5)],
+            "exclude": ["attack", "melee", "bow"],
+        },
+        "회피": {"include": [("evasion", 2.0)]},
+        "로우라이프": {"include": [("low life", 3.0)]},
+    }
+    out = anchors_for_axes(_graph, "Blood Mage", axes)
+    assert set(out["per_axis"]) == set(axes), "축 하나라도 빠지면 그 축은 앵커가 없다"
+    for axis, hits in out["per_axis"].items():
+        assert hits, f"{axis}에 후보가 없는데 조용하다"
+    assert out.get("axes_with_no_hit") is None
+    # **값을 매겨서 준다** — 몇 포인트 드는지 모르면 앵커를 고를 수 없다
+    assert out["cost"]["points"] > 0 and out["cost"]["diagonal"] > 0
+    assert out["cost"]["class"] == "Witch", "전직 실명에서 기본 클래스를 못 풀었다"
+
+
+def test_제외어가_피해_유형을_가른다() -> None:
+    """문구 매칭은 빌드의 피해 유형을 모른다 — 주문 빌드에 「치명타」만 주면
+    근접 공격 노터블이 상위를 차지한다(실측 2026-08-12: Blade Flurry·Martial Artistry)."""
+    from pok.engine.tree.corpus import anchors_for_axes
+
+    plain = anchors_for_axes(_graph, "Blood Mage", {"치명타": [("critical", 2.0)]}, per_axis=6)
+    filtered = anchors_for_axes(
+        _graph,
+        "Blood Mage",
+        {"치명타": {"include": [("critical", 2.0)], "exclude": ["attack", "melee", "bow"]}},
+        per_axis=6,
+    )
+    assert {h["node"] for h in plain["per_axis"]["치명타"]} != {
+        h["node"] for h in filtered["per_axis"]["치명타"]
+    }, "제외어가 후보를 전혀 바꾸지 못했다"
+
+
+def test_축을_코퍼스에서_스스로_찾는다() -> None:
+    """사용자 지적 2026-08-12: "결국 사용자가 어떤 노드를 찍어라 지시해야만 동작하고
+    자발적으로 찾지는 못하는 것 아닌가."
+
+    맞는 지적이었다 — `anchors_for_axes`는 축을 **선언하면** 노드로 바꾸는 변환기였다.
+    축 자체는 코퍼스에 있다: 표본이 찍은 목적지의 효과 문구를 채택 수로 가중해 세면
+    그 전직이 무엇을 챙기는지가 나온다(실측: 마셜 아티스트 → damage·critical·
+    speed·attack·evasion / 스톰위버 → mana·elemental·energy·shield).
+    """
+    from pok.engine.tree.corpus import discover_axes
+
+    out = discover_axes(_graph, "Martial Artist")
+    assert out["axes"], "축을 하나도 못 뽑았다"
+    assert "critical" in out["axes"], "표본이 명백히 챙기는 축이 빠졌다"
+    weights = [w for a in out["axes"].values() for _, w in a["include"]]
+    assert max(weights) > min(weights), "가중치가 평평하면 한 축이 후보를 독점한다"
+
+
+def test_피해_유형_제외어도_코퍼스가_준다() -> None:
+    """단어 하나짜리 축("critical")은 유형 문맥이 없어 주문 빌드에 근접 공격
+    노터블을 물어 온다(실측: 블러드 메이지의 critical 상위가 Blade Flurry였다).
+    표본이 spell을 챙기면 공격 계열을, attack을 챙기면 주문 계열을 뺀다."""
+    from pok.engine.tree.corpus import discover_axes
+
+    caster = discover_axes(_graph, "Blood Mage")["damage_kind_exclude"]
+    attacker = discover_axes(_graph, "Martial Artist")["damage_kind_exclude"]
+    assert "attack" in caster and "melee" in caster
+    assert "spell" in attacker
+    assert "attack" not in attacker
+
+
+def test_키워드_없이도_앵커까지_나온다() -> None:
+    """이게 「자발적으로 찾는다」의 실체다 — 전직 이름만 주면 앵커와 비용이 나온다."""
+    from pok.engine.tree.corpus import suggest_anchors
+
+    out = suggest_anchors(_graph, "Martial Artist")
+    assert "discovered_axes" in out, "축을 스스로 못 찾았다"
+    by_axis = out["by_axis"]
+    assert by_axis["proposed_anchors"], "앵커 제안이 비었다"
+    assert by_axis["cost"]["points"] > 0, "값을 안 매기면 앵커를 고를 수 없다"

@@ -14,6 +14,7 @@ from __future__ import annotations
 import dataclasses
 import functools
 import math
+import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -25,6 +26,11 @@ from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import BuildSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
 from pok.pob.runner import PobResult
+
+# 마른 라운드에서 넓힐 상한. 트리 지름을 넘겨 봐야 무의미하고, 라운드 비용이
+# 후보 수에 비례해 늘어난다(후보 하나 = PoB 계산 1회).
+_MAX_REACH = 24
+_MAX_SLICE = 160
 
 # 사전식 목표가 있을 때 **부차 축**에 남기는 몫. 0으로 두면 병목에 기여하지
 # 않는 수가 전부 점수 0이 되어(그리디는 s>0만 채택) 예산이 남은 채 멈춘다.
@@ -196,6 +202,7 @@ def optimize_tree(
     cluster_include: tuple[tuple[str, float], ...] = (),
     cluster_exclude: tuple[str, ...] = (),
     required_anchors: tuple[int, ...] = (),
+    time_budget_s: float | None = None,
 ) -> OptimizeResult:
     """포인트 예산 안에서 정책 점수가 양수인 최선 수를 반복 채택한다.
 
@@ -243,19 +250,33 @@ def optimize_tree(
     current = spec
     budget = max(0, point_budget - anchor_cost)
     rejected = 0
+    # ⏱ **시간 상한.** 후보 하나가 PoB 계산 1회(실측 0.16초)이고 라운드마다 후보
+    # 수만큼 돈다 — 예산 156·후보 40이면 가지치기 재실행까지 합쳐 **40분을 넘긴다**
+    # (실측 2026-08-12: 진행 표시도 없이 45분째 돌던 실행을 죽였다). 상한이 없으면
+    # 세션이 통째로 멈추고, 그 사이 무엇이 되고 있는지 알 방법도 없다.
+    started = time.monotonic()
+
+    def out_of_time() -> bool:
+        return time_budget_s is not None and (time.monotonic() - started) >= time_budget_s
+
+    # 마른 라운드에서 **넓혀 보고** 멈춘다 — 아래 주석 참고.
+    reach, slice_size = candidate_radius, max_candidates_per_round
+    widened: list[str] = []
     with PobDaemon() as daemon:
         best_solution: tuple[BuildSpec, PobResult] | None = None  # 단조성 안전장치
         while True:
             # ── 그리디 채택 ──
             rejected = 0
             while budget > 0:
+                if out_of_time():
+                    break
                 tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
                 cands = [
                     nid
                     for nid, _, d in _with_free_zones(
                         graph.candidates(
                             tree_now,
-                            max_dist=candidate_radius,
+                            max_dist=reach,
                             # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
                             # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
                             # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
@@ -264,7 +285,7 @@ def optimize_tree(
                         reachable_cost,
                     )
                     if d <= budget and nid not in banned
-                ][:max_candidates_per_round]
+                ][:slice_size]
                 if not cands:
                     break
                 base = daemon.compute_build(current)
@@ -284,6 +305,17 @@ def optimize_tree(
                 )
                 affordable = [(s, nd) for s, nd in scored if nd.points <= budget and s > 0]
                 if not affordable:
+                    # ⛔ 예전엔 여기서 그냥 멈췄다 — **예산을 남긴 채**. 그리디는 반경
+                    # 안의 가까운 후보만 보므로, 근처가 빌드와 무관한 권역이면 한 수도
+                    # 못 두고 끝난다. 독스트링은 "반경·후보 수를 늘려라"라고 안내했지만
+                    # 그건 문서에만 있는 규율이라 안 지켜졌다(실측 2026-08-12 e2e:
+                    # 예산 30 중 8만 쓰고 종료). **도구가 스스로 넓혀 보고** 그래도
+                    # 없을 때만 멈춘다 — 넓힌 사실은 notes로 남긴다.
+                    if budget > 0 and reach < _MAX_REACH:
+                        reach = min(_MAX_REACH, reach * 2)
+                        slice_size = min(_MAX_SLICE, slice_size * 2)
+                        widened.append(f"반경 {reach}·후보 {slice_size}")
+                        continue
                     rejected = 1
                     break
                 best_score, best = affordable[0]
@@ -308,8 +340,8 @@ def optimize_tree(
                 best_solution = _better(objective, best_solution, cand)
             pruned.extend(newly_pruned)
             banned.update(p.endpoint_id for p in newly_pruned)
-            if refund == 0:
-                break  # 죽은 가지 없음 — 안정
+            if refund == 0 or out_of_time():
+                break  # 죽은 가지 없음 — 안정 (또는 시간 상한)
             budget += refund  # 환급 포인트를 온전한 묶음에 재투자 (다음 루프)
         # 실측으로 가장 나은 해 반환 (동가치면 포인트 적게 쓴 쪽 — 스텁·죽은 끝단 배제)
         final = daemon.compute_build(current)
@@ -321,6 +353,26 @@ def optimize_tree(
         graph, current, cluster_include, cluster_exclude, candidate_radius
     )
     notes = (*anchor_notes, *notes, *_target_notes(objective, final.stats))
+    if widened:
+        notes = (
+            *notes,
+            f"후보가 말라 탐색을 넓혔다: {' → '.join(widened)} — "
+            "시작 반경이 이 빌드에 좁았다는 뜻이다(다음엔 candidate_radius를 올려 시작할 것)",
+        )
+    if time_budget_s is not None and out_of_time():
+        notes = (
+            *notes,
+            f"⏱ 시간 상한 {time_budget_s:.0f}초를 넘겨 **중단했다** — 예산 {budget}포인트가 "
+            f"남았다. 후보 하나가 PoB 계산 1회(약 0.16초)라 예산·후보 수에 비례해 는다. "
+            "덜 최적화된 트리이지 완성된 트리가 아니다",
+        )
+    elif budget > 0:
+        notes = (
+            *notes,
+            f"⚠ 예산 {budget}포인트를 **쓰지 못하고 끝났다** — 최대 반경까지 넓혀도 "
+            "점수가 양수인 후보가 없었다. 목적(weights·targets)이 이 빌드에서 오르지 "
+            "않는 축이거나, 남은 예산으로 닿을 곳이 없다",
+        )
     return OptimizeResult(
         current,
         final,

@@ -13,6 +13,7 @@ import-linter가 강제한다). 둘을 쓰는 조합은 한 층 위, 즉 여기�
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections.abc import Sequence
 from pathlib import Path
@@ -61,6 +62,22 @@ def _tally(rows: list[list[str]]) -> list[dict[str, Any]]:
 _DESTINATION_KINDS = ("notable", "keystone", "jewel-socket")
 
 
+def _diagonal(positions: list[tuple[float, float]]) -> int:
+    """할당 노드들의 **경계 상자 대각선** — 트리를 얼마나 넓게 썼나.
+
+    유저는 빌드에 따라 트리 좌우 끝을 오간다(사용자 예시 2026-08-12: 로우라이프
+    「고통의 조율」 + 회피 「강화 반사신경」, 또는 주문·공격·일반 치명타 3계열).
+    그리디는 시작점 근처만 훑으므로 **좁은 트리를 정상으로 착각**한다 — 표본의
+    폭을 기준선으로 들고 있어야 그 사실이 드러난다(실측: 래더 중앙 27,041인데
+    우리 산출물은 20,005였다).
+    """
+    if len(positions) < 2:
+        return 0
+    xs = [p[0] for p in positions]
+    ys = [p[1] for p in positions]
+    return int(math.dist((min(xs), min(ys)), (max(xs), max(ys))))
+
+
 def _tree_index() -> dict[int, tuple[str, str]]:
     """PoB 노드 번호 → (KB id, 종류). 정본 로더로만 읽는다.
 
@@ -90,6 +107,15 @@ def _tree_index() -> dict[int, tuple[str, str]]:
     return out
 
 
+def _node_positions() -> dict[int, tuple[float, float]]:
+    """노드 번호 → 좌표. 폭 계산용."""
+    from pok.common.paths import knowledge_dir
+    from pok.engine.tree.graph import TreeGraph
+
+    graph = TreeGraph(knowledge_dir())
+    return {nid: n.position for nid, n in graph.nodes.items() if n.position is not None}
+
+
 def _spread(values: list[int]) -> dict[str, int]:
     """최소·중앙·최대. 평균을 쓰지 않는 이유는 표본이 작아 한 벌이 끌고 가기 때문이다."""
     xs = sorted(values)
@@ -110,6 +136,8 @@ def aggregate_concept(
         raise LadderError(f"수집된 것이 없다: {folder}")
 
     tree = _tree_index()
+    positions = _node_positions()
+    diagonals: list[int] = []
     gems: list[list[str]] = []
     items: list[list[str]] = []
     ascendancies: list[list[str]] = []
@@ -135,6 +163,7 @@ def aggregate_concept(
             if hit and kind in _DESTINATION_KINDS:
                 picked.append(hit[0])
         destinations.append(picked)
+        diagonals.append(_diagonal([positions[n] for n in allocated if n in positions]))
         kinds["allocated"] = len(allocated)
         shape.append(kinds)
 
@@ -157,6 +186,8 @@ def aggregate_concept(
             "counted": "destinations-only",
             "destination_kinds": list(_DESTINATION_KINDS),
             "per_build": {k: _spread([s.get(k, 0) for s in shape]) for k in kind_keys},
+            # 트리 폭. 좁은 트리를 정상으로 착각하지 않으려면 기준선이 필요하다.
+            "diagonal": _spread(diagonals),
         },
     }
 
