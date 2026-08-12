@@ -13,6 +13,7 @@ import-linter가 강제한다). 둘을 쓰는 조합은 한 층 위, 즉 여기�
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -176,6 +177,22 @@ def _cli(argv: list[str] | None = None) -> int:
     return 0
 
 
+def profile_id_slug(concept: str) -> str:
+    """수집 디렉터리 이름 → **레코드 id로 쓸 수 있는** 슬러그.
+
+    둘은 같은 문자열이 될 수 없다. 디렉터리 이름은 `_safe()`가 만드는데 공백을
+    `_`로 바꾸고 필터 여러 개를 `__`로 잇는다(`skills-Herald_of_Ice`). 그런데
+    envelope의 `entityId`는 `[a-z0-9][a-z0-9-]*`만 받는다 — `_`가 없다.
+    그래서 **값이 두 단어 이상인 컨셉은 전부** id가 스키마에 걸린다(실측
+    2026-08-12: `skills=Herald of Ice`에서 정본이 깨져 수집이 중단됐다.
+    앵커 표 8종 중 5종이 여기 해당한다).
+
+    디렉터리 이름은 고치지 않는다 — 원시는 이미 그 이름으로 데이터 repo에
+    쌓였고 편집·삭제가 금지다. 변환은 **id를 만드는 이 지점에서만** 한다.
+    """
+    return re.sub(r"[^a-z0-9]+", "-", concept.lower()).strip("-")
+
+
 def _parse_filters(items: list[str]) -> dict[str, str] | None:
     out: dict[str, str] = {}
     for item in items:
@@ -188,7 +205,8 @@ def _parse_filters(items: list[str]) -> dict[str, str] | None:
 
 
 def _cli_profile(args) -> int:
-    from pok.kb.store import load
+    from pok.common.paths import knowledge_dir
+    from pok.kb.store import KBValidationError, KBWriteError, load, write_record
 
     # 앵커가 KB에 없으면 **여기서 멈춘다**. 파일을 쓴 뒤에 알면 정본이 잠깐 깨지고,
     # 코덱스는 그 실패를 보고 되돌릴 판단을 못 한다.
@@ -237,15 +255,39 @@ def _cli_profile(args) -> int:
             ]
 
     if args.write:
+        # 파일명은 id와 같은 슬러그다 — 둘이 갈리면 나중에 id로 파일을 못 찾는다.
         out = (
-            Path(__file__).resolve().parents[3]
-            / "knowledge"
+            knowledge_dir()
             / "game-data"
             / "usage-profiles"
-            / f"{args.season}-{args.concept}.json".lower()
+            / f"{profile_id_slug(f'{args.season}-{args.concept}')}.json"
         )
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        # 정본 쓰기는 store API로만 — 직접 write_text하면 스키마 검사가 **쓴 뒤**
+        # 남의 테스트에서 터진다. 실측 2026-08-12: 깨진 레코드가 정본에 남은 채
+        # 수집 작업이 통째로 중단됐다(되돌릴 판단까지 저비용 에이전트 몫이 됐다).
+        prior = out.read_text(encoding="utf-8") if out.exists() else None
+        try:
+            write_record(out, record)
+        except (KBValidationError, KBWriteError) as exc:
+            # 되돌린다 — 갱신이었다면 **이전 정본을 되살린다**(지우면 멀쩡하던 게 사라진다)
+            if prior is None:
+                out.unlink(missing_ok=True)
+            else:
+                out.write_text(prior, encoding="utf-8")
+            print(
+                json.dumps(
+                    {
+                        "error": "정본 검증 실패 — 쓰지 않았다",
+                        "id": record["id"],
+                        "detail": str(exc)[:800],
+                        "how": "원시는 그대로 있다. 사유를 그대로 사람에게 보고할 것",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+            return 1
         print(f"기록: {out}")
         print(f"클래스 구성: {[(e['ref'], e['count']) for e in data['class_spread']]}")
         return 0
@@ -275,7 +317,8 @@ def build_usage_profile(
     agg = aggregate_concept(season, concept, base=base)
     spread = agg.pop("_class_spread", [])
     return {
-        "id": f"usage-profile.{season}-{concept}".lower(),  # envelope는 소문자 id만 받는다
+        # envelope의 entityId는 `[a-z0-9-]`만 받는다 — 디렉터리 이름을 그대로 쓰면 안 된다
+        "id": f"usage-profile.{profile_id_slug(f'{season}-{concept}')}",
         "type": "UsageProfile",
         "name": {
             "ko": f"{anchor_label} 동반 프로파일 ({season})",

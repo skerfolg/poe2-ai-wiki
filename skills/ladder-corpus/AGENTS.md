@@ -95,6 +95,12 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
   못 찾으면 **지어내지 말고 사람에게 보고**한다. 없는 id면 명령이 거부한다.
 - `--write`가 있으면 `knowledge/game-data/usage-profiles/`에 파일을 쓴다.
   없으면 stdout으로만 낸다(확인용).
+- **레코드 id·파일명은 `--concept`과 글자가 다를 수 있다 — 정상이다.** 디렉터리
+  이름은 공백이 `_`인데(`skills-Herald_of_Ice`) id는 `-`만 받으므로 변환된다
+  (`usage-profile.0-5-skills-herald-of-ice`). **디렉터리 이름을 고치지 말 것** —
+  원시는 그 이름으로 이미 쌓였다.
+- 검증에 걸리면 **파일을 쓰지 않고** `{"error": …}`와 종료 1을 낸다. 되돌릴 것이
+  없으니 사유를 **그대로 보고**하고 다음 컨셉으로 넘어가지 말 것.
 - 출력의 **클래스 구성을 반드시 보고**한다. 한 어센던시가 8/10 이상을 차지하면
   「클래스를 넘는 공통점」이 아니므로 그 사실을 함께 적는다.
 
@@ -123,7 +129,8 @@ push한다 — 몰아서 하면 중간에 끊겼을 때 통째로 잃는다.
 ### 5. 검증 — 반드시 통과시킬 것
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest tests/unit/test_build_entity.py -q
+PYTHONPATH=src .venv/bin/python -m pytest \
+  tests/unit/test_build_entity.py tests/unit/test_ladder_collector.py -q
 ```
 
 실패하면 되돌리고 사유와 함께 보고한다.

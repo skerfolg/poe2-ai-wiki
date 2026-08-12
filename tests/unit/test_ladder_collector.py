@@ -187,3 +187,30 @@ def test_한_빌드_안의_중복은_한_번만_센다() -> None:
         {"ref": "A", "share": 66.7, "count": 2},
         {"ref": "B", "share": 66.7, "count": 2},
     ]
+
+
+def test_두_단어_컨셉도_id가_스키마를_통과한다() -> None:
+    """수집 디렉터리 이름은 **그대로 id가 될 수 없다**.
+
+    디렉터리는 `_safe()`가 공백을 `_`로 바꿔 만드는데(`skills-Herald_of_Ice`)
+    envelope의 entityId는 `[a-z0-9-]`만 받는다. 실측 2026-08-12: 그 차이로
+    정본이 깨져 수집 작업이 중단됐다 — 앵커 표 8종 중 5종이 두 단어 이상이라
+    **이 경로는 예외가 아니라 다수다**.
+    """
+    import re
+
+    from pok.common.paths import knowledge_dir
+    from pok.engine.ladder_aggregate import profile_id_slug
+
+    pattern = json.loads((knowledge_dir() / "schema" / "record.schema.json").read_text("utf-8"))[
+        "$defs"
+    ]["entityId"]["pattern"]
+
+    for concept in (
+        "skills-Herald_of_Ice",
+        "keypassives-Mind_Over_Matter",
+        "skills-Arc__skillmodes-Totem",
+        "skillmodes-Totem",
+    ):
+        rid = f"usage-profile.{profile_id_slug(f'0-5-{concept}')}"
+        assert re.match(pattern, rid), f"{concept} → {rid}가 entityId 패턴에 걸린다"

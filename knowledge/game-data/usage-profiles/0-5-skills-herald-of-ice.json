@@ -1,0 +1,510 @@
+{
+  "id": "usage-profile.0-5-skills-herald-of-ice",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "얼음의 전령 동반 프로파일 (0-5)",
+    "en": "얼음의 전령 usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "skill.herald-of-ice",
+      "label": "얼음의 전령"
+    },
+    "query": {
+      "skills": "Herald of Ice"
+    },
+    "class_spread": [
+      {
+        "ref": "Martial Artist",
+        "share": 50.0,
+        "count": 5
+      },
+      {
+        "ref": "Spirit Walker",
+        "share": 20.0,
+        "count": 2
+      },
+      {
+        "ref": "Deadeye",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Pathfinder",
+        "share": 10.0,
+        "count": 1
+      },
+      {
+        "ref": "Titan",
+        "share": 10.0,
+        "count": 1
+      }
+    ],
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/skills-Herald_of_Ice 10벌"
+      },
+      "gems": [
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Elemental Armament II",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Herald of Ice",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Barrage",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Rapid Attacks III",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Projectile Acceleration III",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Cannibalism II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Charge Profusion II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Combat Frenzy",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Heightened Charges",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Knockback",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Longshot II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Olroth's Conviction",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Overabundance II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Purity of Fire",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Rage III",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Rigwald's Ferocity",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Twister",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Vitality II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Whirling Slash",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Armour Break III",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Armour Explosion",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Charged Mark",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Cold Penetration",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Elemental Focus",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Fire Mastery",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Garukhan's Resolve",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Ghost Dance",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Heightened Accuracy II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Precision I",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Rapid Attacks II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Spear Throw",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Trinity",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Blazing Critical",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Blind II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Close Combat II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Concentrated Area",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Embitter",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Eternal Mark",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Execute II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Hollow Focus",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Ice Shot",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Righteous Descent",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uruk's Smelting",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Acrimony",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Clarity II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cold Attunement",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Direstrike II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Durability",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Elemental Army",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Execute III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Fork",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Freeze",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Freezing Mark",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Herald of Ash",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Herald of Thunder",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Meat Shield II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Perpetual Charge",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Pinpoint Critical",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Pounce",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Retreat III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Romira's Requital",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Sniper's Mark",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Swift Affliction II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Tornado Shot",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Wind Dancer",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Heart of the Well",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Headhunter",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "The Black Insignia",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "The Taming",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Beira's Anguish",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Mageblood",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Sacred Flame",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "The Ordained",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Cadiro's Gambit",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "From Nothing",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'skills': 'Herald of Ice'}"
+    }
+  ]
+}

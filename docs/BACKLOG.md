@@ -818,6 +818,32 @@ A군 8종의 `--anchor`를 KB 실존 id로 확정해 `skills/ladder-corpus/AGENT
   필터 없으면 `_all`. **컨셉 정의가 곧 필터**라 별도 이름표가 필요 없다.
 - 페이로드에 `season`·`concept` 필드 추가. 기수집 3건은 새 구조로 재수집해 옮겼다.
 
+##### ⛔ 6차 수집이 A3에서 멈췄다 — 디렉터리 이름을 그대로 id로 쓴다 (2026-08-12, 해소)
+
+코덱스가 A1·A2를 통과하고 **A3(`skills=Herald of Ice`)에서 정본을 깨뜨려 중단**했다.
+같은 절차·같은 명령인데 컨셉 값이 **두 단어**였던 것이 유일한 차이다.
+
+- **원인**: 수집 디렉터리 이름은 `ladder._safe()`가 만드는데 공백을 `_`로 바꾼다
+  (`skills-Herald_of_Ice`). `build_usage_profile`은 그 문자열을 `.lower()`만 해서
+  id로 썼고, envelope의 `entityId`는 `^[a-z0-9][a-z0-9-]*$`라 `_`를 받지 않는다.
+  → `usage-profile.0-5-skills-herald_of_ice`가 정본에 들어가 `store.load()`가
+  통째로 실패했다(그래서 **무관한 시험이 대신 터진다**).
+- **범위는 예외가 아니라 다수였다**: 앵커 표 8종 중 **5종**이 두 단어 이상
+  (Herald of Ice · Cast on Critical · Chaos Inoculation · Mind Over Matter ·
+  Pain Attunement). A1·A2가 통과한 건 값이 한 단어였기 때문일 뿐이다.
+- **왜 늦게 터졌나(철칙 5)**: `profile --write`가 `store.write_record`가 아니라
+  `write_text`로 직접 썼다. 검증 지점이 쓰기 경로 밖에 있으니 **깨진 레코드가
+  정본에 남은 채** 다음 단계로 갔고, 되돌릴 판단이 저비용 에이전트 몫이 됐다.
+- **조치**: ① `profile_id_slug()` — 디렉터리 이름 → id 슬러그 변환을 **id를 만드는
+  지점에서만** 한다(원시 디렉터리는 이미 데이터 repo에 그 이름으로 쌓였고 편집·삭제
+  금지다). 파일명도 같은 슬러그로 맞춘다. ② 쓰기를 `write_record`로 돌려 검증 실패 시
+  **쓰지 않고**(갱신이었으면 이전 정본 복구) 사유 JSON과 종료 1을 낸다.
+  ③ 회귀 시험 `test_두_단어_컨셉도_id가_스키마를_통과한다` — 실제 스키마 패턴을
+  읽어 맞춘다(패턴을 복사하면 스키마가 바뀔 때 조용히 갈린다).
+- **A3 재실행 확인**: `usage-profile.0-5-skills-herald-of-ice` 기록,
+  클래스 구성 Martial Artist 5 · Spirit Walker 2 · Deadeye/Pathfinder/Titan 각 1
+  (**한 클래스가 절반이라 「클래스를 넘는 공통점」으로 읽으면 안 된다**).
+
 #### 인사이트 승격 후보 — `[엔진]` 검증 결과 (2026-08-11)
 
 | 후보 | 판정 |
