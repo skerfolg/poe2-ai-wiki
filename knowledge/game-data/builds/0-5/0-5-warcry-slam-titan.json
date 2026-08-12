@@ -1,0 +1,161 @@
+{
+  "id": "build.0-5-warcry-slam-titan",
+  "type": "Build",
+  "name": {
+    "ko": "외침·강타 타이탄",
+    "en": "Warcry Slam Titan"
+  },
+  "tags": [
+    "physical",
+    "fire",
+    "melee",
+    "area"
+  ],
+  "data": {
+    "class_name": "Warrior",
+    "ascendancy": "Titan",
+    "ascendancy_name": {
+      "ko": "타이탄",
+      "en": "Titan"
+    },
+    "offense": {
+      "carrier": [
+        "skill.infernal-cry",
+        "skill.mace-strike",
+        "skill.earthshatter",
+        "skill.sunder",
+        "skill.boneshatter",
+        "skill.hammer-of-the-gods"
+      ],
+      "stack_source": [
+        "광역 크기 — Colossal Capacity(97.1%)+Magnified Area II(89.0%)가 이 어센던시의 실제 공통 스택",
+        "분노 (Rage III 63.9% · Berserk 37.1%)"
+      ],
+      "transfer": [
+        "다리 없음 — 강타가 곧 피해다. 외침(Infernal Cry 32.0%)이 표식을 얹어 폭발로 바꾸는 것이 유일한 변환"
+      ],
+      "amplifier": {
+        "more": [
+          "skill.berserk",
+          "skill.hammer-of-the-gods"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "support.heft",
+          "passive.crushing-impacts-59372"
+        ],
+        "gain": [
+          "skill.herald-of-ash",
+          "skill.herald-of-blood"
+        ]
+      },
+      "clear_engine": [
+        "skill.herald-of-ash",
+        "skill.herald-of-ice",
+        "skill.earthshatter"
+      ],
+      "loop": [
+        "Infernal Cry가 시체·표식을 만들고 강타가 기폭 → 전령(Herald of Ash 48.3%)이 연쇄"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "armour",
+        "life"
+      ],
+      "mitigation": [
+        "passive.stone-skin-24807",
+        "passive.iron-reflexes",
+        "skill.scavenged-plating"
+      ],
+      "recovery": [
+        "skill.time-of-need"
+      ],
+      "caps_immunities": [
+        "Blood Magic 21.5% — 마나 축을 통째로 포기하는 갈래"
+      ],
+      "weakness_accepted": [
+        "회피·에너지 실드를 포기하고 방어도 단일 축에 건다"
+      ]
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": "공격은 강타, 방어는 방어도로 서로 먹이지 않는다. 다만 Scavenged Plating(37.2%)·Berserk(37.1%) 갈래는 교전 행동이 양쪽을 동시에 움직인다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "low",
+    "usage": {
+      "ascendancy_pct": 3.6,
+      "sample_characters": 4465,
+      "dominance": "주력이 흩어져 있다 — 최다가 Infernal Cry 32.0%. 어센던시만 수렴(Colossal Capacity 97.1% · Hulking Form 96.2%)",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.infernal-cry"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.mace-strike"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.earthshatter"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.sunder"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ash"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.berserk"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.scavenged-plating"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.colossal-capacity-60634"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.hulking-form-30115"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.stone-skin-24807"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.blood-magic"
+    },
+    {
+      "rel": "uses",
+      "target": "item.the-fall-of-the-axe"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

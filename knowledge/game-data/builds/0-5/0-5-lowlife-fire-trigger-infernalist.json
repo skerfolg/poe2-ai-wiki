@@ -1,0 +1,161 @@
+{
+  "id": "build.0-5-lowlife-fire-trigger-infernalist",
+  "type": "Build",
+  "name": {
+    "ko": "화염 로우라이프 트리거 인퍼널리스트",
+    "en": "Low-Life Fire Trigger Infernalist"
+  },
+  "tags": [
+    "fire",
+    "spell",
+    "trigger",
+    "low-life"
+  ],
+  "data": {
+    "class_name": "Witch",
+    "ascendancy": "Infernalist",
+    "ascendancy_name": {
+      "ko": "인퍼널리스트",
+      "en": "Infernalist"
+    },
+    "offense": {
+      "carrier": [
+        "skill.comet",
+        "skill.spark",
+        "skill.arc",
+        "skill.ball-lightning"
+      ],
+      "stack_source": [
+        "생명력 — Pyromantic Pact(70.2%)가 마나 대신 생명력으로 시전하게 만든다",
+        "화염 상태이상 (Bringer of Flame 64.5%)"
+      ],
+      "transfer": [
+        "skill.cast-on-elemental-ailment",
+        "skill.cast-on-critical",
+        "skill.cast-on-block",
+        "skill.spellslinger"
+      ],
+      "amplifier": {
+        "more": [
+          "passive.pain-attunement",
+          "passive.bringer-of-flame-18158"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "skill.pinnacle-of-power"
+        ],
+        "gain": [
+          "passive.grinning-immolation-34419",
+          "skill.remnants-of-kalguur"
+        ]
+      },
+      "clear_engine": [
+        "skill.living-bomb",
+        "skill.ball-lightning"
+      ],
+      "loop": [
+        "Pyromantic Pact가 시전 비용을 생명력으로 돌림 → 로우라이프 유지 → Pain Attunement(28.4%) 곱연산",
+        "Powered by Verisium 19.6% — 워드를 베리시움 주입으로 바꾸는 경로가 실사용되고 있다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "life",
+        "es"
+      ],
+      "mitigation": [
+        "item.the-brass-dome",
+        "passive.altered-flesh-18348"
+      ],
+      "recovery": [
+        "skill.convalescence"
+      ],
+      "caps_immunities": [
+        "CI 전환 43.5%(로우라이프와 배타 갈래)",
+        "Alpha's Howl 52.0% — 빙결 면역"
+      ],
+      "weakness_accepted": [
+        "생명력을 연료로 쓰므로 생명력 EHP가 얇다 — Brass Dome 55.2%로 물리를 대신 막는다"
+      ]
+    },
+    "coupling": {
+      "kind": "shared-resource",
+      "note": "Pyromantic Pact가 생명력을 시전 자원 겸 EHP로 묶는다. Beidat's Will 29.7% · Beidat's Hand 12.5%가 로우라이프 고정 담체 — 공급 경로가 실측으로 확인된다"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "medium",
+    "usage": {
+      "ascendancy_pct": 4.5,
+      "sample_characters": 5543,
+      "dominance": "Comet 64.5% · Spark 52.1%. Triggered 76.7%. 어센던시 코어 Altered Flesh 82.6% · Pyromantic Pact 70.2%",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.comet"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.spark"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.arc"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.ball-lightning"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.cast-on-elemental-ailment"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.spellslinger"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.powered-by-verisium"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.pyromantic-pact-13174"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.pain-attunement"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.beidats-will-46644"
+    },
+    {
+      "rel": "uses",
+      "target": "item.the-brass-dome"
+    },
+    {
+      "rel": "uses",
+      "target": "item.alphas-howl"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

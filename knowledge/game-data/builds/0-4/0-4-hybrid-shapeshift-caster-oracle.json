@@ -1,0 +1,158 @@
+{
+  "id": "build.0-4-hybrid-shapeshift-caster-oracle",
+  "type": "Build",
+  "name": {
+    "ko": "변신·주문 혼합 오라클",
+    "en": "Hybrid Shapeshift-Caster Oracle"
+  },
+  "tags": [
+    "shapeshift",
+    "spell",
+    "hybrid",
+    "cold"
+  ],
+  "data": {
+    "class_name": "Druid",
+    "ascendancy": "Oracle",
+    "ascendancy_name": {
+      "ko": "오라클",
+      "en": "Oracle"
+    },
+    "offense": {
+      "carrier": [
+        "skill.comet",
+        "skill.pounce",
+        "skill.lunar-assault",
+        "skill.shred",
+        "skill.thunderstorm",
+        "skill.entangle"
+      ],
+      "stack_source": [
+        "변신 형태 전환 — 형태가 스킬 묶음을 통째로 바꾼다",
+        "정신력·마나 (Mana Remnants 53.2%)"
+      ],
+      "transfer": [
+        "passive.forced-outcome-55135",
+        "skill.cast-on-critical"
+      ],
+      "amplifier": {
+        "more": [
+          "passive.blackflame-covenant-42680",
+          "passive.the-lesser-harm-34313"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "support.concentrated-area"
+        ],
+        "gain": [
+          "passive.wildsurge-incantation-49363"
+        ]
+      },
+      "clear_engine": [
+        "skill.herald-of-ice",
+        "support.spell-cascade"
+      ],
+      "loop": [
+        "The Unseen Path(98.7%)·Entwined Realities(91.2%)가 형태 전환 비용을 낮춰 변신↔주문 왕복을 만든다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "life",
+        "es"
+      ],
+      "mitigation": [
+        "passive.mind-over-matter"
+      ],
+      "recovery": [
+        "skill.life-remnants"
+      ],
+      "caps_immunities": [
+        "Eldritch Battery 33.7%",
+        "Ancestral Bond 30.1% — 직접 타격을 포기하고 토템에 맡기는 갈래"
+      ],
+      "weakness_accepted": [
+        "두 축을 겸해 어느 쪽도 완전히 투자받지 못한다"
+      ]
+    },
+    "coupling": {
+      "kind": "separate",
+      "note": "Blackflame Covenant 33.9% — 0.5에서 '숨은 키스톤'으로 지목됐던 노드가 0.4 Oracle에선 이미 주류였다"
+    }
+  },
+  "facets": {
+    "season": "0.4",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "low",
+    "usage": {
+      "ascendancy_pct": 15.6,
+      "sample_characters": 19402,
+      "dominance": "주력이 변신(Pounce 32.3% · Shred 26.5% · Lunar Assault 27.2%)과 주문(Comet 33.7% · Thunderstorm 26.0%)으로 **양분**돼 있다 — 0.5의 덩굴 지속피해 단일화와 다른 형태",
+      "basis": "https://poe.ninja/poe2/builds/vaal (Fate of the Vaal, 124,057 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.comet"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.pounce"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.lunar-assault"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.thunderstorm"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.entangle"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ice"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.the-unseen-path-5571"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.the-lesser-harm-34313"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.forced-outcome-55135"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.entwined-realities-32905"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.blackflame-covenant-42680"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.mind-over-matter"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/vaal (Fate of the Vaal, 124,057 캐릭터)",
+      "patch": "0.4",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}

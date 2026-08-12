@@ -108,3 +108,54 @@ def test_transfer_axis_is_recorded(builds: list) -> None:
     for record in builds:
         transfer = record.raw["data"]["offense"].get("transfer")
         assert transfer, f"{record.id}에 transfer 축이 비어 있다 — 없으면 없다고 적을 것"
+
+
+def test_관측은_표본을_밝힌다(builds: list) -> None:
+    """`data.observed`는 **관측치**라 표본 없이는 읽을 수 없다 (사용자 승인 2026-08-12).
+
+    「10명 중 10명이 혜성」과 「혜성을 쓴다」의 차이가 이 엔티티의 값어치다 —
+    전자는 **불변(필수)**, 후자는 그냥 등장. 그런데 `share: 100`만 적혀 있으면
+    3벌 중 3벌인지 1000명 중 1000명인지 알 수 없고, 그 둘은 신뢰도가 전혀 다르다.
+    그래서 스키마가 `sample`을 필수로 걸고, 여기서 한 번 더 확인한다.
+
+    8축(offense/defense)과 섞지 않는 것도 같은 이유다 — 그쪽은 해석이고 이쪽은 측정이다.
+    """
+    for record in builds:
+        observed = record.raw["data"].get("observed")
+        if observed is None:
+            continue
+        sample = observed["sample"]
+        assert sample["n"] >= 1 and sample["basis"]
+        for key, entries in observed.items():
+            if key == "sample":
+                continue
+            assert entries == sorted(entries, key=lambda e: -e["share"]), (
+                f"{record.id}의 {key}가 채택률 내림차순이 아니다"
+            )
+            for e in entries:
+                # 안층(표본 N벌)은 개수를 함께 실어야 "3/10"이 "30%"로 뭉개지지 않는다
+                if sample["unit"] == "sampled-builds":
+                    assert "count" in e, f"{record.id}: {e['ref']}에 count가 없다"
+                    assert e["count"] <= sample["n"]
+
+
+def test_동반_프로파일은_클래스_구성을_밝힌다() -> None:
+    """A군(메커니즘 축)은 표본에 **클래스가 섞여 있는 것이 요점**이다 —
+    클래스를 넘어 따라붙는 것이 곧 이식 가능한 문법이기 때문이다.
+
+    그런데 한 클래스가 표본을 독점했는데 「클래스를 넘는 공통점」으로 읽히면
+    프로파일이 조용히 거짓말을 한다. 그래서 `class_spread`를 스키마 필수로 걸고
+    앵커가 실존 id인지도 여기서 확인한다(없으면 무엇에 대한 프로파일인지 못 되짚는다).
+    """
+    kb = load()
+    profiles = [r for r in kb.records.values() if r.type == "UsageProfile"]
+    known = set(kb.records)
+    for record in profiles:
+        data = record.raw["data"]
+        assert data["class_spread"], f"{record.id}에 클래스 구성이 없다"
+        assert data["anchor"]["ref"] in known, (
+            f"{record.id}의 앵커 {data['anchor']['ref']}가 KB에 없다"
+        )
+        assert data["query"], f"{record.id}에 질의가 없다 — 같은 잣대로 다시 못 센다"
+        n = data["observed"]["sample"]["n"]
+        assert sum(e["count"] for e in data["class_spread"]) == n

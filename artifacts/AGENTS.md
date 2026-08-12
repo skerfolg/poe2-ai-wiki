@@ -1,6 +1,15 @@
 # artifacts/ (데이터) — 재생성 불가 산출물 (gitignore)
 
-- 빌드 산출물(`builds/`)·생성 세션(`sessions/`)·큐레이션 대기 피드백(`feedback/`)·시세 스냅샷(`live-snapshots/`).
+- 빌드 산출물(`builds/`)·생성 세션(`sessions/`)·큐레이션 대기 피드백(`feedback/`)·시세 스냅샷(`live-snapshots/`)·래더 PoB 코드(`ladder/`).
+- `ladder/<시즌>/<컨셉>/` = poe.ninja 래더에서 받은 **PoB 공유 코드 원본**
+  (`src/pok/artifacts/ladder.py`가 쓴다). 예: `ladder/0-5/class-Chronomancer/`.
+  ⚠ **리그 슬러그가 아니라 시즌으로 재운다** — 정본(`knowledge/game-data/builds/<시즌>/`)이
+  시즌으로 갈리므로 원시가 슬러그(`runesofaldur`·`vaal`)면 둘을 못 잇는다.
+  대응표는 `ladder._SEASON_BY_SLUG`이고, 모르는 리그는 **추측하지 않고 멈춘다**.
+  컨셉 디렉터리는 질의 필터에서 나온다 — **컨셉 정의가 곧 필터**다.
+  **append-only** — 코드는 나중에 다시 못 가져온다(스냅샷 갱신·리스펙·캐릭터 삭제).
+  같은 캐릭터라도 갱신본이 다르면 **새 파일**로 쌓아 시간축을 보존한다.
+  ⚠ 같은 빌드 여러 벌은 중복이 아니다 — 축의 **불변/가변**을 가르는 재료다.
 - ⚠️ **손으로 편집하지 말 것.** 오직 코드(`src/pok/artifacts/`)를 통해서만 쓰고 읽는다.
 - 삭제 시 **정보 손실**(재생성 불가). `var/`(파생 캐시)와 다르다.
 - 정본(`knowledge/`) 진입은 **승격(promote)으로만** — 임의로 knowledge/에 복사 금지.

@@ -1,0 +1,160 @@
+{
+  "id": "build.0-5-shield-fire-smith-of-kitava",
+  "type": "Build",
+  "name": {
+    "ko": "방패 화염 키타바의 대장장이",
+    "en": "Shield Fire Smith of Kitava"
+  },
+  "tags": [
+    "fire",
+    "shield",
+    "armour",
+    "melee"
+  ],
+  "data": {
+    "class_name": "Warrior",
+    "ascendancy": "Smith of Kitava",
+    "ascendancy_name": {
+      "ko": "스미스 오브 키타바",
+      "en": "Smith of Kitava"
+    },
+    "offense": {
+      "carrier": [
+        "skill.infernal-cry",
+        "skill.shield-wall",
+        "skill.resonating-shield",
+        "skill.sunder",
+        "skill.mace-strike"
+      ],
+      "stack_source": [
+        "방어도 — Smith's Masterwork(83.9%)와 Raise Shield(66.4%)가 방어 수치를 딜 재료로 만든다",
+        "화염 (Coal Stoker 74.5%)"
+      ],
+      "transfer": [
+        "skill.resonating-shield",
+        "skill.infernal-cry"
+      ],
+      "amplifier": {
+        "more": [
+          "passive.coal-stoker-57959",
+          "passive.molten-symbol-9997"
+        ],
+        "increased": [
+          "support.magnified-area-ii",
+          "support.rapid-attacks-ii"
+        ],
+        "gain": [
+          "skill.herald-of-ash",
+          "skill.fire-spell-on-hit"
+        ]
+      },
+      "clear_engine": [
+        "skill.herald-of-ash",
+        "skill.infernal-cry",
+        "skill.detonate-dead"
+      ],
+      "loop": [
+        "방패를 올려 방어도를 쌓고(Raise Shield 66.4%) Resonating Shield가 그 방어도를 피해로 되돌린다",
+        "Infernal Cry가 표식을 얹고 Fire Spell on Hit(34.9%)이 타격마다 주문을 얹는다"
+      ]
+    },
+    "defense": {
+      "ehp_form": [
+        "armour"
+      ],
+      "mitigation": [
+        "passive.heatproofing-25438",
+        "skill.scavenged-plating",
+        "skill.magma-barrier"
+      ],
+      "recovery": [
+        "skill.time-of-need"
+      ],
+      "caps_immunities": [
+        "Blood Magic 51.3% — 절반 이상이 마나 축을 통째로 버린다"
+      ],
+      "weakness_accepted": [
+        "회피·에너지 실드 전무. 원거리 대응이 얇다"
+      ]
+    },
+    "coupling": {
+      "kind": "defense-action-feeds-offense",
+      "note": "Resonating Shield·Raise Shield가 **방어 행동을 그대로 딜로 환산**한다 — 4유형 중 이 형태가 가장 순수하게 나타나는 사례"
+    }
+  },
+  "facets": {
+    "season": "0.5",
+    "role": [
+      "map",
+      "boss"
+    ],
+    "derivation": "poe.ninja 래더 집계에서 역산했다 — 한 캐릭터의 실제 구성이 아니라 그 어센던시의 **사용률 분포**다. 축 배치는 그 분포를 8축 틀로 읽은 해석이고, 수치만 실측이다",
+    "archetype_convergence": "high",
+    "usage": {
+      "ascendancy_pct": 1.0,
+      "sample_characters": 1225,
+      "dominance": "Infernal Cry 64.9% · Shield Wall 51.6%. Normal Body Armour 84.2% — 각인 담체로 흰 갑옷을 쓰는 것이 이 어센던시의 서명",
+      "basis": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "note": "어센던시 점유율이다 — 이 빌드 자체의 점유가 아니다"
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "skill.infernal-cry"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.shield-wall"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.resonating-shield"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.fortifying-cry"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.herald-of-ash"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.fire-spell-on-hit"
+    },
+    {
+      "rel": "uses",
+      "target": "skill.scavenged-plating"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.smiths-masterwork-9988"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.coal-stoker-57959"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.kitavan-engraving-60913"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.molten-symbol-9997"
+    },
+    {
+      "rel": "uses",
+      "target": "passive.blood-magic"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds/runesofaldur (Runes of Aldur, 124,246 캐릭터)",
+      "patch": "0.5.4b",
+      "note": "래더 실측 2026-08-11 — 사이드바 집계(React fiber 전량 추출)"
+    }
+  ]
+}
