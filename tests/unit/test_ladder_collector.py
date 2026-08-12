@@ -277,3 +277,42 @@ def test_일부만_지니면_거부가_아니라_경고다(monkeypatch) -> None:
         limit=10,
     )
     assert any("9/10" in w for w in warnings)
+
+
+def test_목적지와_동선을_갈라_센다(tmp_path, monkeypatch) -> None:
+    """유저는 목적지(노터블·키스톤·주얼)를 고르고 동선(스몰)으로 잇는다.
+
+    둘을 한 표에 넣으면 **동선이 표를 뒤덮어 앵커 후보로 못 쓴다** — 실측 2026-08-12:
+    빌드당 스몰 100여 개 대 노터블 36개다. 그래서 `observed.passives`에는 목적지만
+    싣고, 스몰의 몫은 `tree_shape.per_build`에 개수로 남긴다(안 밝히면 전량으로 읽힌다).
+    """
+    from pok.engine import ladder_aggregate as agg
+
+    idx = {
+        1: ("passive.notable-a", "notable"),
+        2: ("passive.keystone-b", "keystone"),
+        3: ("passive.small-c", "small"),
+        4: ("passive.jewel-d", "jewel-socket"),
+    }
+    monkeypatch.setattr(agg, "_tree_index", lambda: idx)
+
+    class _Fake:
+        skill_groups = ()
+        items = ()
+        ascendancy = "Oracle"
+        tree_nodes = (1, 2, 3, 4, 99)  # 99 = KB에 없는 번호
+
+    monkeypatch.setattr(agg, "parse_pob", lambda _code: _Fake())
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    (folder / "a.json").write_text(json.dumps({"pob_export": "x"}), encoding="utf-8")
+
+    out = agg.aggregate_concept("0-5", "x", base=tmp_path)
+    assert [e["ref"] for e in out["passives"]] == [
+        "passive.jewel-d",
+        "passive.keystone-b",
+        "passive.notable-a",
+    ], "스몰이 목적지 표에 섞였다"
+    per = out["_tree_shape"]["per_build"]
+    assert per["small"]["median"] == 1, "스몰이 어디에도 안 남으면 동선 비용을 못 본다"
+    assert per["unmapped"]["max"] == 1, "KB에 없는 번호를 조용히 버리면 수집 갭이 사라진다"

@@ -44,6 +44,57 @@ def _tally(rows: list[list[str]]) -> list[dict[str, Any]]:
     ]
 
 
+# ────────────────────── 트리 (목적지와 동선) ──────────────────────
+#
+# 유저는 트리를 이렇게 짠다: 메커니즘에 필요한 **목적지**(노터블·키스톤·주얼 소켓)를
+# 고르고, 거기까지 **동선**(스몰)으로 잇는다. 길의 가치는 「가는 길에 몇 개를 더 줍나」이고,
+# 동선 비용이 가치를 넘으면 그 목적지를 **포기하고 대안을 찾는다**(사용자 정리 2026-08-12).
+#
+# 최종 스냅샷에는 순서가 없지만 **목적지와 동선의 구분은 남는다** — 그래서 여기서
+# 그 둘을 갈라 센다. 목적지 채택률은 `connect_anchors`에 줄 **앵커 후보**가 되고,
+# 종류별 개수는 우리가 짠 트리가 동선에 과하게 썼는지 보는 **기준선**이 된다.
+#
+# ⚠ 「아무도 안 찍은 목적지」는 여기서 안 나온다 — 부재는 이 표에 없다. 그건
+#   그래프 이웃과 대조해야 나오는 별개 질문이다(포기 판단의 근거).
+
+_DESTINATION_KINDS = ("notable", "keystone", "jewel-socket")
+
+
+def _tree_index() -> dict[int, tuple[str, str]]:
+    """PoB 노드 번호 → (KB id, 종류). 정본 로더로만 읽는다.
+
+    번호를 그대로 싣지 않고 **KB id로 바꿔서** 싣는다 — 번호는 트리 개편이 오면
+    의미를 잃지만 id는 레코드로 되짚을 수 있고, 좌표·효과 문구·전직 소속이 전부
+    그 레코드에 이미 있다(중복 저장하지 않는 이유).
+    """
+    from pok.engine.tree.graph import CLASS_START
+    from pok.kb.store import load
+
+    # 클래스 시작 노드는 KB에 레코드가 없다(고를 수 있는 패시브가 아니라 **뿌리**다).
+    # 빼놓으면 `unmapped`로 잡혀 수집 갭으로 오독된다 — 실측: 48벌 전원이 1개씩 물고 있다.
+    out: dict[int, tuple[str, str]] = {
+        int(nid): (f"tree.class-start-{nid}", "class-start") for nid in CLASS_START.values()
+    }
+    for record in load().records.values():
+        if record.type != "Passive":
+            continue
+        data = record.raw.get("data") or {}
+        node_id, kind = data.get("node_id"), data.get("kind")
+        if node_id is None or not kind:
+            continue
+        try:
+            out[int(node_id)] = (record.id, str(kind))
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _spread(values: list[int]) -> dict[str, int]:
+    """최소·중앙·최대. 평균을 쓰지 않는 이유는 표본이 작아 한 벌이 끌고 가기 때문이다."""
+    xs = sorted(values)
+    return {"min": xs[0], "median": xs[len(xs) // 2], "max": xs[-1]} if xs else {}
+
+
 def aggregate_concept(
     season: str, concept: str, *, base: Path | None = None, basis: str = ""
 ) -> dict[str, Any]:
@@ -57,9 +108,12 @@ def aggregate_concept(
     if not files:
         raise LadderError(f"수집된 것이 없다: {folder}")
 
+    tree = _tree_index()
     gems: list[list[str]] = []
     items: list[list[str]] = []
     ascendancies: list[list[str]] = []
+    destinations: list[list[str]] = []
+    shape: list[dict[str, int]] = []
     for path in files:
         doc = json.loads(path.read_text(encoding="utf-8"))
         summary = parse_pob(doc["pob_export"])
@@ -68,6 +122,22 @@ def aggregate_concept(
         asc = getattr(summary, "ascendancy", None) or doc.get("raw", {}).get("class")
         ascendancies.append([str(asc)] if asc else [])
 
+        allocated = set(summary.tree_nodes or ())
+        kinds: dict[str, int] = {}
+        picked: list[str] = []
+        for node in allocated:
+            hit = tree.get(node)
+            # KB에 없는 번호는 **버리지 않고 센다**. 조용히 빼면 트리 수집 갭이
+            # "그런 노드는 없었다"로 읽힌다.
+            kind = hit[1] if hit else "unmapped"
+            kinds[kind] = kinds.get(kind, 0) + 1
+            if hit and kind in _DESTINATION_KINDS:
+                picked.append(hit[0])
+        destinations.append(picked)
+        kinds["allocated"] = len(allocated)
+        shape.append(kinds)
+
+    kind_keys = sorted({k for s in shape for k in s})
     return {
         "sample": {
             "n": len(files),
@@ -76,9 +146,17 @@ def aggregate_concept(
         },
         "gems": _tally(gems),
         "items": _tally([[i for i in row if i] for row in items]),
+        # 목적지만 싣는다(스몰 제외). 스몰까지 넣으면 표가 동선으로 뒤덮여
+        # **앵커 후보로 못 쓴다** — 스몰의 몫은 아래 `_tree_shape`의 개수로 남는다.
+        "passives": _tally(destinations),
         # 표본의 어센던시 구성. A군(메커니즘 축)에서 이게 없으면 한 클래스가 표본을
         # 독점했는데 「클래스를 넘는 공통점」으로 읽힌다 — 조용한 거짓말이다.
         "_class_spread": _tally([r for r in ascendancies if r]),
+        "_tree_shape": {
+            "counted": "destinations-only",
+            "destination_kinds": list(_DESTINATION_KINDS),
+            "per_build": {k: _spread([s.get(k, 0) for s in shape]) for k in kind_keys},
+        },
     }
 
 
@@ -170,6 +248,9 @@ def _cli(argv: list[str] | None = None) -> int:
 
     observed = aggregate_concept(args.season, args.concept)
     observed.pop("_class_spread", None)
+    # B군은 사람이 Build 레코드에 손으로 넣는다. `tree_shape`는 Build 스키마에 자리가
+    # 없으므로 **관측 블록 밖으로 빼서** 따로 보여 준다(붙여넣다 스키마를 깨지 않게).
+    tree_shape = observed.pop("_tree_shape", {})
     n = observed["sample"]["n"]
     if n < args.min_sample:
         print(
@@ -190,6 +271,8 @@ def _cli(argv: list[str] | None = None) -> int:
         if key != "sample":
             observed[key] = [e for e in observed[key] if e["count"] >= args.min_count]
     print(json.dumps(observed, ensure_ascii=False, indent=2))
+    print("\n# ↓ 참고 — Build 레코드에는 넣지 않는다(스키마에 자리 없음)")
+    print(json.dumps({"tree_shape": tree_shape}, ensure_ascii=False, indent=2))
     return 0
 
 
@@ -357,6 +440,7 @@ def build_usage_profile(
     """
     agg = aggregate_concept(season, concept, base=base)
     spread = agg.pop("_class_spread", [])
+    tree_shape = agg.pop("_tree_shape", {})
     return {
         # envelope의 entityId는 `[a-z0-9-]`만 받는다 — 디렉터리 이름을 그대로 쓰면 안 된다
         "id": f"usage-profile.{profile_id_slug(f'{season}-{concept}')}",
@@ -371,6 +455,7 @@ def build_usage_profile(
             "anchor": {"ref": anchor_ref, "label": anchor_label},
             "query": query,
             "class_spread": spread,
+            "tree_shape": tree_shape,
             "observed": agg,
         },
         "relations": [{"rel": "uses", "target": anchor_ref}],

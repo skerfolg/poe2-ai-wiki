@@ -60,6 +60,51 @@
         "count": 1
       }
     ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 130,
+          "median": 155,
+          "max": 160
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 3,
+          "median": 4,
+          "max": 8
+        },
+        "keystone": {
+          "min": 1,
+          "median": 3,
+          "max": 8
+        },
+        "notable": {
+          "min": 21,
+          "median": 36,
+          "max": 58
+        },
+        "small": {
+          "min": 83,
+          "median": 101,
+          "max": 117
+        }
+      }
+    },
     "observed": {
       "sample": {
         "n": 10,
@@ -236,6 +281,173 @@
         },
         {
           "ref": "Mageblood",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.insightfulness-116",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.enhanced-barrier-44299",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.ingenuity-39567",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.careful-assassin-46197",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.conduit-33979",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.lingering-whispers-16499",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.preservation-32951",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.true-strike-61601",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.zone-of-control-50485",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.controlling-magic-13823",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.critical-exploit-57204",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.dreamcatcher-11838",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.efficient-casting-16790",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.flow-like-water-49220",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.invigorating-archon-41394",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.mindful-awareness-62984",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.moment-of-truth-17548",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.profane-commander-54814",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.raw-mana-3567",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.shimmering-mirage-5335",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.step-like-mist-48198",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.whispers-of-doom-47759",
           "share": 30.0,
           "count": 3
         }

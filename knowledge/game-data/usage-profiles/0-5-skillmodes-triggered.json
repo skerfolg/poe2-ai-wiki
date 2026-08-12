@@ -55,6 +55,51 @@
         "count": 1
       }
     ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 134,
+          "median": 157,
+          "max": 160
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 3,
+          "median": 5,
+          "max": 12
+        },
+        "keystone": {
+          "min": 1,
+          "median": 2,
+          "max": 10
+        },
+        "notable": {
+          "min": 22,
+          "median": 38,
+          "max": 58
+        },
+        "small": {
+          "min": 83,
+          "median": 97,
+          "max": 118
+        }
+      }
+    },
     "observed": {
       "sample": {
         "n": 10,
@@ -411,6 +456,288 @@
         },
         {
           "ref": "Uhtred's Chalice",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 100.0,
+          "count": 10
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.controlling-magic-13823",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.mental-alacrity-16466",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.brain-freeze-24721",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.brain-storm-50498",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.chakra-of-elements-63400",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.energising-archon-43633",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.invigorating-archon-41394",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.remnant-attraction-1506",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.tempered-mind-8831",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.arcane-intensity-19044",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.arcane-remnants-46124",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.dreamcatcher-11838",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.enhanced-barrier-44299",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.efficient-casting-16790",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.eldritch-battery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.raw-mana-3567",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.raw-power-51184",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.sudden-escalation-10398",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.true-strike-61601",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.turn-the-clock-forward-2335",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.wildsurge-incantation-49363",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.abasement-7338",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.bone-chains-26563",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.conservative-casting-34300",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.critical-exploit-57204",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.critical-overload-5501",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.crystalline-phylactery-17788",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.desensitisation-28267",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.eternal-life-28431",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.final-barrage-2999",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.heavy-buffer-27491",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.illuminated-crown-1823",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.insightfulness-116",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.invocated-efficiency-51934",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.lasting-boons-64659",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.pain-attunement",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.practiced-signs-36302",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.rupturing-pins-7782",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.sanguine-tolerance-4810",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.shimmering-mirage-5335",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.shredding-force-5284",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.soulless-form-33570",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.turn-the-clock-back-35564",
           "share": 30.0,
           "count": 3
         }

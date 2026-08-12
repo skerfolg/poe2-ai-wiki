@@ -50,6 +50,51 @@
         "count": 1
       }
     ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 134,
+          "median": 148,
+          "max": 159
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 3,
+          "median": 5,
+          "max": 7
+        },
+        "keystone": {
+          "min": 0,
+          "median": 3,
+          "max": 11
+        },
+        "notable": {
+          "min": 24,
+          "median": 36,
+          "max": 67
+        },
+        "small": {
+          "min": 52,
+          "median": 103,
+          "max": 112
+        }
+      }
+    },
     "observed": {
       "sample": {
         "n": 10,
@@ -316,6 +361,248 @@
         },
         {
           "ref": "Runeseeker's Call",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.ancestral-bond-45202",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "passive.ancestral-conduits-51820",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.controlling-magic-13823",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "passive.ancestral-reach-43396",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.arcane-intensity-19044",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.desensitisation-28267",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.eldritch-battery",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.jewel-socket-55190",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.raw-mana-3567",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.supportive-ancestors-19249",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "passive.ancestral-alacrity-2575",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.barbaric-strength-50562",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.ether-flow-16256",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.relentless-vindicator-6898",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "passive.brain-storm-50498",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.entwined-realities-32905",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.final-barrage-2999",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.grounded-in-the-earth-25429",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.invigorating-archon-41394",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.mind-eraser-45632",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.overzealous-10295",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.pain-attunement",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.remnant-attraction-1506",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.shredding-force-5284",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.the-lesser-harm-34313",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.the-unseen-path-5571",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "passive.blackflame-covenant-42680",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.brain-freeze-24721",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.chakra-of-elements-63400",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.chakra-of-thought-29306",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.efficient-inscriptions-42245",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.elemental-equilibrium-46742",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.energising-archon-43633",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.forced-outcome-55135",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.jewel-socket-26725",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.lasting-incantations-58096",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.mental-alacrity-16466",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.preservation-32951",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.tempered-mind-8831",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.true-strike-61601",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "passive.wasting-casts-61444",
           "share": 30.0,
           "count": 3
         }
