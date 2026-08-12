@@ -97,3 +97,46 @@ def test_시간_상한을_넘기면_멈추고_밝힌다(graph: TreeGraph) -> Non
     assert any("시간 상한" in n and "남았다" in n for n in out.notes), (
         "시간으로 잘린 트리를 완성본과 구별할 수 없다"
     )
+
+
+def test_주얼_소켓을_0으로_쟀으면_말한다(graph: TreeGraph) -> None:
+    """빈 소켓은 델타 0이라 그리디가 **영영 안 찍는다**. 래더 표본은 중앙 5개를 찍는데
+    우리 산출물은 앵커로 받은 것뿐이었다(실측 2026-08-12).
+
+    ⛔ 예전처럼 **고정 가중치를 가정하지 않는다**(AD-8 반프록시): 같은 소켓이 매직
+    주얼 +10.16 DPS, 레어 +21.07로 **2배 넘게 갈린다** — 상수로는 표현할 수 없다.
+    재려면 템플릿이 필요하고, 안 줬으면 **0으로 쟀다고 말한다**.
+    """
+    out = opt.optimize_tree(
+        spec_from_dict({"class_name": "Sorceress", "ascendancy": "Sorceress1", "level": 90}),
+        graph,
+        opt.Objective(weights={"TotalEHP": 1.0}),
+        point_budget=6,
+        candidate_radius=6,
+        max_candidates_per_round=10,
+        time_budget_s=60,
+    )
+    assert any("0으로 쟀다" in n for n in out.notes), "소켓을 0으로 재고도 조용하다"
+
+
+def test_반경_선언_없는_주얼_템플릿을_잡는다(graph: TreeGraph) -> None:
+    """반경 주얼(Time-Lost 계열)은 `Radius:` 선언이 없으면 **어느 소켓에서든 델타 0**
+    이다(실측 2026-08-09: 선언하면 CritChance 10.44 → 15.84). 오류가 아니라 조용한
+    과소 계상이라 소켓을 하나도 안 찍었어도 알려야 한다 — 안 그러면 다음 실행에서
+    같은 템플릿으로 또 0을 잰다.
+    """
+    bad = (
+        "Rarity: RARE\nFoo\nTime-Lost Diamond\nItem Level: 82\n"
+        "Notable Passive Skills in Radius also grant 10% increased Critical Hit Chance"
+    )
+    out = opt.optimize_tree(
+        spec_from_dict({"class_name": "Sorceress", "ascendancy": "Sorceress1", "level": 90}),
+        graph,
+        opt.Objective(weights={"TotalEHP": 1.0}),
+        point_budget=4,
+        candidate_radius=5,
+        max_candidates_per_round=8,
+        jewel_templates=(bad,),
+        time_budget_s=60,
+    )
+    assert any("반경 선언" in n for n in out.notes), "반경 누락을 놓쳤다"

@@ -250,6 +250,40 @@ def optimize_tree(
     current = spec
     budget = max(0, point_budget - anchor_cost)
     rejected = 0
+    # 주얼 소켓은 **빈 채로는 델타 0**이다 — 템플릿이 없으면 그리디가 영영 안 찍는다.
+    # 실측 2026-08-12: 같은 소켓이 템플릿 없이 0, 매직 주얼 +10.16 DPS, 레어 +21.07.
+    # 래더 표본은 소켓을 중앙 5개 찍는데 우리 산출물은 앵커로 받은 것뿐이었다.
+    # ⛔ 예전처럼 **고정 가중치를 가정하지 않는다**(AD-8 반프록시): 주얼 품질에 따라
+    #    값이 2배 넘게 갈리므로 상수로는 표현할 수 없다. 재려면 템플릿을 줘야 하고,
+    #    안 줬다면 **0으로 재고 있다는 사실을 말한다**.
+    # 소켓이 트리에 들어갔을 때만 뜨면 되는 것과, **입력 결함이라 항상 떠야 하는 것**을
+    # 가른다. 반경 선언 누락은 후자다 — 소켓을 하나도 안 찍었어도 템플릿이 망가진 건
+    # 망가진 것이고, 다음 실행에서 그대로 또 0을 잰다.
+    jewel_notes: list[str] = []
+    template_notes: list[str] = []
+    if not jewel_templates:
+        jewel_notes.append(
+            "주얼 템플릿이 없어 소켓을 **0으로 쟀다** — 빈 소켓은 델타가 0이라 "
+            "그리디가 영영 안 찍는다(래더 표본은 중앙 5개를 찍는다). 컨셉에서 나온 "
+            "주얼 raw 텍스트를 `jewel_templates`로 줄 것"
+        )
+    else:
+        from pok.engine.jewels import needs_radius_declaration
+
+        bad = [
+            (tpl.splitlines()[1] if len(tpl.splitlines()) > 1 else tpl[:30])
+            for tpl in jewel_templates
+            if needs_radius_declaration(tpl)
+        ]
+        if bad:
+            # 반경 주얼(Time-Lost 계열)은 `Radius:` 선언이 없으면 **어느 소켓에서든
+            # 델타 0**이다(실측: 선언하면 CritChance 10.44 → 15.84). 조용한 과소 계상.
+            template_notes.append(
+                f"⚠ 반경 선언(`Radius:`)이 없는 주얼 템플릿 {bad} — 반경이 안 정해져 "
+                "**어느 소켓에서든 델타 0**이다. `engine.jewels.render_radius_jewel`로 "
+                "그 주얼의 실제 반경 라벨을 붙일 것"
+            )
+
     # ⏱ **시간 상한.** 후보 하나가 PoB 계산 1회(실측 0.16초)이고 라운드마다 후보
     # 수만큼 돈다 — 예산 156·후보 40이면 가지치기 재실행까지 합쳐 **40분을 넘긴다**
     # (실측 2026-08-12: 진행 표시도 없이 45분째 돌던 실행을 죽였다). 상한이 없으면
@@ -353,6 +387,13 @@ def optimize_tree(
         graph, current, cluster_include, cluster_exclude, candidate_radius
     )
     notes = (*anchor_notes, *notes, *_target_notes(objective, final.stats))
+    # 템플릿 결함은 **입력의 문제**라 소켓을 하나도 안 찍었어도 알린다 — 안 그러면
+    # 다음 실행에서 같은 템플릿으로 또 0을 잰다.
+    notes = (*notes, *template_notes)
+    # ⚠ 이 경고에 조건을 걸었다가 **조용해졌다** — "소켓이 반경 안에 있을 때만"으로
+    #   좁혔더니 실제 실행에서 안 떴다. 침묵이 과잉보다 나쁘다(이 결함 자체가 조용해서
+    #   여러 회차를 살아남았다). 템플릿이 없으면 무조건 알린다.
+    notes = (*notes, *jewel_notes)
     if widened:
         notes = (
             *notes,
