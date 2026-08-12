@@ -538,4 +538,10 @@ def restore_pob_spec(build_code: str, assume_first_stat_set: bool = True) -> dic
         "notes": list(out.notes),
         "needs_decision": list(out.needs_decision),
         "faithful": out.faithful,
+        # 딜을 원본과 견주려면 이게 비어 있어야 한다 — 부여 그룹을 빼면 그 안의
+        # 보조 젬(주얼러 오브로 늘린 소켓)이 함께 빠져 낮게 나온다.
+        "dropped_item_granted": [
+            {"skill": name, "lost_supports": n} for name, n in out.dropped_item_granted
+        ],
+        "damage_comparable": out.damage_comparable,
     }

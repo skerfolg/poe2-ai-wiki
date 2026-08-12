@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
+from pok.pob.buildxml import _item_granted_skill
 from pok.pob.codec import decode
 
 # PoB 슬롯명 그대로 쓴다. 주얼은 슬롯이 아니라 `Spec/Sockets`에 있어 따로 처리한다.
@@ -34,6 +35,15 @@ class RestoredBuild:
     notes: tuple[str, ...] = ()
     # 게이트가 요구하는데 코드에 없는 값 — 호출자가 채워야 계산이 정직해진다
     needs_decision: tuple[str, ...] = ()
+    # 아이템이 부여해 뺀 스킬 그룹 (스킬명, 함께 빠진 보조 젬 수). **문자열 note로만
+    # 두면 걸러낼 수 없다** — 딜을 비교하려면 이게 빈 빌드만 써야 한다(실측
+    # 2026-08-12: 복원 256벌 중 203벌이 여기 걸리고, 그쪽 DPS는 원본보다 낮게 나온다).
+    dropped_item_granted: tuple[tuple[str, int], ...] = ()
+
+    @property
+    def damage_comparable(self) -> bool:
+        """딜 수치를 원본과 견줄 수 있나 — 부여 그룹을 뺐으면 보조가 빠져 낮게 나온다."""
+        return not self.dropped_item_granted
 
     @property
     def faithful(self) -> bool:
@@ -99,20 +109,36 @@ def _items_by_id(items_el: ET.Element) -> dict[str, str]:
 
 def _skills(
     root: ET.Element, assume_first_stat_set: bool, assume_stages: int | None
-) -> tuple[list[dict], list[str], int]:
+) -> tuple[list[dict], list[str], int, list[tuple[str, int]]]:
     holder = root.find("Skills")
     if holder is None:
-        return [], [], 0
+        return [], [], 0, []
     sset = holder.find("SkillSet")
     groups: list[dict[str, Any]] = []
     assumed: list[str] = []
     from_items = 0
+    granted_groups: list[tuple[str, int]] = []
     for skill in (sset if sset is not None else holder).findall("Skill"):
         # PoB는 **아이템이 준 스킬 그룹**에 `source`를 붙인다. 그걸 젬으로 다시 실으면
         # 이중 계산이고, 우리 게이트도 "젬으로 못 켠다"며 막는다. 아이템을 장착하면
         # PoB가 알아서 되살리므로 여기서는 싣지 않는다.
         if skill.get("source"):
             from_items += 1
+            continue
+        # PoB가 `source`를 안 붙였어도 **KB가 아이템 부여로 아는 스킬**이면 같다
+        # (사용자 판정 2026-08-12: "아이템을 착용해야 부여되는 스킬이라 스킬만 옮길
+        # 수는 없다"). 래더 코드의 그룹 상당수가 `source` 없이 이 꼴로 온다.
+        # 젬으로 실으면 게이트가 막고, 막지 않았다면 **두 번 세게 된다**.
+        granted = [
+            g.get("nameSpec") or ""
+            for g in skill.findall("Gem")
+            if _item_granted_skill(g.get("nameSpec") or "")
+        ]
+        if granted:
+            # ⚠ 이 그룹에 주얼러 오브로 늘린 **보조 젬이 함께 있다**(사용자 판정).
+            #    그룹째 빼면 그 보조가 사라져 원본보다 약하게 계산된다 — 반드시 밝힌다.
+            supports = len(skill.findall("Gem")) - len(granted)
+            granted_groups.append((granted[0], supports))
             continue
         gems = []
         for gem in skill.findall("Gem"):
@@ -147,7 +173,7 @@ def _skills(
                     "main_active_skill": _int(skill.get("mainActiveSkill"), 1),
                 }
             )
-    return groups, assumed, from_items
+    return groups, assumed, from_items, granted_groups
 
 
 def _config(root: ET.Element) -> list[list[Any]]:
@@ -253,7 +279,17 @@ def spec_from_pob_xml(
     if (spec_el.get("masteryEffects") or "").strip():
         notes.append("masteryEffects가 있는데 스펙에 자리가 없다 — 그만큼 빠진 채 계산된다")
 
-    groups, assumed, from_items = _skills(root, assume_first_stat_set, assume_stages)
+    groups, assumed, from_items, granted_groups = _skills(
+        root, assume_first_stat_set, assume_stages
+    )
+    if granted_groups:
+        lost = sum(s for _, s in granted_groups)
+        notes.append(
+            f"아이템 부여 스킬 그룹 {len(granted_groups)}개를 뺐다"
+            f"({', '.join(n for n, _ in granted_groups[:4])}) — 장착 아이템이 PoB에서 "
+            f"다시 부여한다. ⚠ 그 그룹의 **보조 젬 {lost}개는 함께 빠진다**"
+            "(주얼러 오브로 늘린 소켓) — 그만큼 원본보다 약하게 계산된다"
+        )
     if from_items:
         notes.append(
             f"아이템이 준 스킬 그룹 {from_items}개는 싣지 않았다 — 장착 아이템이 "
@@ -297,7 +333,12 @@ def spec_from_pob_xml(
             f"모드로 계산했는지 남기지 않는다. 모드가 둘 이상인 젬이면 수치가 크게 "
             f"달라진다(실측 20배). 대상: {assumed[:6]}{' …' if len(assumed) > 6 else ''}"
         )
-    return RestoredBuild(spec=spec, notes=tuple(notes), needs_decision=tuple(needs))
+    return RestoredBuild(
+        spec=spec,
+        notes=tuple(notes),
+        needs_decision=tuple(needs),
+        dropped_item_granted=tuple(granted_groups),
+    )
 
 
 def spec_from_pob(

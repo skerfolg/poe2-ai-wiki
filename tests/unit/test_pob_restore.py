@@ -120,3 +120,23 @@ def test_공유_코드로도_받는다() -> None:
 
     code = base64.urlsafe_b64encode(zlib.compress(_XML.encode())).decode()
     assert spec_from_pob(code).spec["ascendancy"] == "Monk1"
+
+
+def test_아이템_부여_그룹은_빼되_잃은_보조를_센다() -> None:
+    """사용자 판정 2026-08-12: 그 스킬들은 **아이템이 부여**하는 것이 맞고,
+    주얼러 오브로 소켓을 늘릴 수 있지만 **아이템 없이 스킬만 옮길 수는 없다**.
+
+    그래서 젬으로 실으면 안 된다(두 번 센다). 다만 그룹째 빼면 늘려 놓은 **보조
+    젬이 함께 사라져** 원본보다 약하게 계산된다 — 문자열 note로만 두면 걸러낼 수
+    없어서 구조로도 낸다(실측: 복원 256벌 중 203벌이 해당, 보조 884개 소실).
+    """
+    xml = _XML.replace(
+        '<Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Spark" level="20" quality="0"/>',
+        '<Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Purity of Fire" level="20"'
+        ' quality="0"/><Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Spark"'
+        ' level="20" quality="0"/>',
+    ).replace('source="Item" ', "")
+    r = spec_from_pob_xml(xml)
+    assert r.dropped_item_granted == (("Purity of Fire", 1),)
+    assert r.damage_comparable is False
+    assert any("보조 젬 1개는 함께 빠진다" in n for n in r.notes)
