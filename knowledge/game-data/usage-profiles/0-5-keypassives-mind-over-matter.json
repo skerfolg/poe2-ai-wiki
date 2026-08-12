@@ -1,0 +1,380 @@
+{
+  "id": "usage-profile.0-5-keypassives-mind-over-matter",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "정신의 승리 (MoM) 동반 프로파일 (0-5)",
+    "en": "정신의 승리 (MoM) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.mind-over-matter",
+      "label": "정신의 승리 (MoM)"
+    },
+    "query": {
+      "keypassives": "Mind Over Matter"
+    },
+    "class_spread": [
+      {
+        "ref": "Blood Mage",
+        "share": 40.0,
+        "count": 4
+      },
+      {
+        "ref": "Oracle",
+        "share": 30.0,
+        "count": 3
+      },
+      {
+        "ref": "Lich",
+        "share": 20.0,
+        "count": 2
+      },
+      {
+        "ref": "Stormweaver",
+        "share": 10.0,
+        "count": 1
+      }
+    ],
+    "observed": {
+      "sample": {
+        "n": 10,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/keypassives-Mind_Over_Matter 10벌"
+      },
+      "gems": [
+        {
+          "ref": "Magnified Area II",
+          "share": 90.0,
+          "count": 9
+        },
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Remnant Potency I",
+          "share": 80.0,
+          "count": 8
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Zenith II",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Clarity II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Comet",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "Archmage",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Boundless Energy II",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Cast on Critical",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Khatal's Rejuvenation",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Spellslinger",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Atalui's Bloodletting",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Clarity I",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Enfeeble",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Heightened Curse",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Life Remnants",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Lightning Mastery",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Prolonged Duration II",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Spark",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Spell Cascade",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Temporal Chains",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uhtred's Omen",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Arbiter's Ignition",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Blind II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Charge Profusion II",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Cursed Ground",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Elemental Conflux",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Explosive Transmutation",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Living Bomb",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Mobility",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Orb of Storms",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Pierce III",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Powered by Verisium",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Seraph's Heart",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Sigil of Power",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Sione's Temper",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Siphon Elements",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Strong Hearted",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Uhtred's Augury",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Vilenta's Propulsion",
+          "share": 30.0,
+          "count": 3
+        }
+      ],
+      "items": [
+        {
+          "ref": "Kalandra's Touch",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 70.0,
+          "count": 7
+        },
+        {
+          "ref": "Heart of the Well",
+          "share": 60.0,
+          "count": 6
+        },
+        {
+          "ref": "From Nothing",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Mageblood",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Voices",
+          "share": 50.0,
+          "count": 5
+        },
+        {
+          "ref": "Atziri's Splendour",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Uhtred's Chalice",
+          "share": 40.0,
+          "count": 4
+        },
+        {
+          "ref": "Alpha's Howl",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 30.0,
+          "count": 3
+        },
+        {
+          "ref": "Prism of Belief",
+          "share": 30.0,
+          "count": 3
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.mind-over-matter"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'keypassives': 'Mind Over Matter'}"
+    }
+  ]
+}
