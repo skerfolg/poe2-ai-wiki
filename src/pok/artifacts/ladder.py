@@ -338,7 +338,23 @@ def fetch_character(
 
 
 def ladder_dir(root: Path | None = None) -> Path:
-    return artifacts_dir(root) / "ladder"
+    """래더 원시는 **별도 데이터 repo**(poe2-ai-wiki-data)에 쌓는다 (KI-1, 사용자 승인 2026-08-12).
+
+    PoB 코드는 재취득 불가인데 `artifacts/`는 gitignore다 — 여기에만 두면 이 PC를
+    벗어나지 못하고 시즌이 넘어가면 소실된다. 지금 0.4를 소급할 수 있는 건 poe.ninja가
+    Time machine을 갖고 있어서지 우리가 보관해서가 아니다.
+
+    클론이 없으면 **조용히 다른 데 쌓지 않고 멈춘다.** 대체 경로로 흘려 두면 "수집됐다"고
+    믿은 채 그 PC에만 남고, 그게 KI-1이 막으려는 바로 그 상황이다.
+    """
+    clone = artifacts_dir(root) / "ingest-raw"
+    if not (clone / ".git").exists():
+        raise LadderError(
+            f"데이터 repo 클론이 없다: {clone} — "
+            "`gh repo clone skerfolg/poe2-ai-wiki-data artifacts/ingest-raw` 후 다시 시도할 것. "
+            "PoB 코드는 재취득 불가라 gitignore 폴더에만 쌓으면 소실된다(KI-1)"
+        )
+    return clone / "ladder"
 
 
 def _safe(part: str) -> str:
