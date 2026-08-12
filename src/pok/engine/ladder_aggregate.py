@@ -71,3 +71,88 @@ def aggregate_concept(
         "gems": _tally(gems),
         "items": _tally([[i for i in row if i] for row in items]),
     }
+
+
+# ──────────────────────────── CLI ────────────────────────────
+#
+# 저비용 에이전트(코덱스·저티어)가 재량 없이 돌릴 수 있어야 한다. 그래서 판단이
+# 필요한 값은 **기본값을 주지 않고 필수 인자로 만든다** — 기본값을 주면 그게
+# 조용히 판단이 되고, 표본이 모자란 채로 정본에 들어간다.
+
+
+def _cli(argv: list[str] | None = None) -> int:
+    import argparse
+
+    from pok.artifacts.ladder import collect
+
+    p = argparse.ArgumentParser(prog="python -m pok.engine.ladder_aggregate")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    c = sub.add_parser("collect", help="컨셉 하나의 상위 N명 PoB 코드를 쌓는다")
+    c.add_argument("--league", required=True, help="리그 슬러그 (예: runesofaldur)")
+    c.add_argument(
+        "--filter",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="컨셉 정의. 반복 가능 (예: --filter class=Chronomancer)",
+    )
+    c.add_argument("--limit", type=int, default=10)
+
+    a = sub.add_parser("aggregate", help="쌓인 코드를 겹쳐 data.observed를 낸다")
+    a.add_argument("--season", required=True, help="예: 0-5")
+    a.add_argument("--concept", required=True, help="예: class-Chronomancer")
+    a.add_argument(
+        "--min-sample",
+        type=int,
+        required=True,
+        help="이 표본 수 미만이면 **중단한다**. 기본값이 없다 — 표본이 몇 벌이어야 "
+        "믿을 만한가는 게임 지식 판단이라 호출자가 정한다",
+    )
+    a.add_argument(
+        "--min-count",
+        type=int,
+        default=2,
+        help="이 개수 미만으로 겹친 항목은 싣지 않는다(작은 표본의 꼬리는 노이즈다)",
+    )
+
+    args = p.parse_args(argv)
+
+    if args.cmd == "collect":
+        filters: dict[str, str] = {}
+        for item in args.filter:
+            if "=" not in item:
+                print(f"오류: --filter는 KEY=VALUE 꼴이어야 한다: {item!r}")
+                return 2
+            k, v = item.split("=", 1)
+            filters[k] = v
+        report = collect(args.league, filters=filters, limit=args.limit)
+        print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
+        return 0
+
+    observed = aggregate_concept(args.season, args.concept)
+    n = observed["sample"]["n"]
+    if n < args.min_sample:
+        print(
+            json.dumps(
+                {
+                    "error": "표본 부족",
+                    "have": n,
+                    "need": args.min_sample,
+                    "how": "collect를 --limit 올려 더 모으거나, "
+                    "--min-sample을 낮출 근거를 사람에게 확인할 것",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        return 1
+    for key in list(observed):
+        if key != "sample":
+            observed[key] = [e for e in observed[key] if e["count"] >= args.min_count]
+    print(json.dumps(observed, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_cli())
