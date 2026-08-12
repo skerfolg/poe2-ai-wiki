@@ -1,7 +1,9 @@
 # artifacts/ (데이터) — 재생성 불가 산출물 (gitignore)
 
-- 빌드 산출물(`builds/`)·생성 세션(`sessions/`)·큐레이션 대기 피드백(`feedback/`)·시세 스냅샷(`live-snapshots/`)·래더 PoB 코드(`ladder/`).
-- `ladder/<시즌>/<컨셉>/` = poe.ninja 래더에서 받은 **PoB 공유 코드 원본**
+- 빌드 산출물(`builds/`)·생성 세션(`sessions/`)·큐레이션 대기 피드백(`feedback/`)·시세 스냅샷(`live-snapshots/`)·래더 PoB 코드(`ingest-raw/ladder/`).
+- `ingest-raw/ladder/<시즌>/<컨셉>/` = poe.ninja 래더에서 받은 **PoB 공유 코드 원본**
+  ⚠ **별도 데이터 repo 안이다**(gitignore가 아니라 poe2-ai-wiki-data에 커밋된다) — PoB 코드는
+  재취득 불가라 이 PC에만 두면 시즌이 넘어갈 때 소실된다(KI-1). 수집 즉시 push.
   (`src/pok/artifacts/ladder.py`가 쓴다). 예: `ladder/0-5/class-Chronomancer/`.
   ⚠ **리그 슬러그가 아니라 시즌으로 재운다** — 정본(`knowledge/game-data/builds/<시즌>/`)이
   시즌으로 갈리므로 원시가 슬러그(`runesofaldur`·`vaal`)면 둘을 못 잇는다.

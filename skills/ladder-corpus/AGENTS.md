@@ -24,6 +24,17 @@ A군은 표본에 여러 어센던시가 섞인다 — **그게 요점이다.** 
 
 ## 절차
 
+### 0. 데이터 repo 동기화 — **수집 전 반드시**
+
+```bash
+git -C artifacts/ingest-raw pull
+```
+
+클론이 없으면 `gh repo clone skerfolg/poe2-ai-wiki-data artifacts/ingest-raw`.
+래더 PoB 코드는 여기(별도 데이터 repo)에 쌓인다 — `artifacts/`는 gitignore라
+거기에만 두면 **이 PC를 벗어나지 못하고 시즌이 넘어가면 소실된다**(KI-1).
+클론이 없으면 수집기가 멈춘다(조용히 다른 데 쌓지 않는다).
+
 ### 1. 수집 — 컨셉 하나당 1회
 
 ```bash
@@ -98,7 +109,18 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
 - `data.offense`·`data.defense`(8축)는 **건드리지 않는다.** 그쪽은 해석이고 이쪽은 관측이다.
 - 대상 레코드가 없으면 **만들지 말고 사람에게 보고**한다(8축 해석은 이 절차의 범위 밖).
 
-### 4. 검증 — 반드시 통과시킬 것
+### 4. 데이터 repo push — **수집 즉시**
+
+```bash
+git -C artifacts/ingest-raw add -A
+git -C artifacts/ingest-raw commit -m "ladder: <시즌>/<컨셉> N벌 수집"
+git -C artifacts/ingest-raw push
+```
+
+재생성 불가 데이터의 유일본이 한 PC에만 있으면 안 된다(KI-1). **컨셉 하나 끝날 때마다**
+push한다 — 몰아서 하면 중간에 끊겼을 때 통째로 잃는다.
+
+### 5. 검증 — 반드시 통과시킬 것
 
 ```bash
 PYTHONPATH=src .venv/bin/python -m pytest tests/unit/test_build_entity.py -q
@@ -109,7 +131,7 @@ PYTHONPATH=src .venv/bin/python -m pytest tests/unit/test_build_entity.py -q
 ## 금지 사항
 
 - ⛔ **중복 제거 금지.** 같은 빌드 여러 벌이 목적이다.
-- ⛔ **`artifacts/ladder/`를 손으로 편집·삭제 금지.** PoB 코드는 재취득 불가라 곧 소실이다.
+- ⛔ **`artifacts/ingest-raw/ladder/`를 손으로 편집·삭제 금지.** PoB 코드는 재취득 불가라 곧 소실이다.
 - ⛔ **`--min-sample`을 스스로 낮추지 말 것.** 표본 크기 판단은 사람 몫이다.
 - ⛔ **`facets.tier` 금지.** 순위 주장은 시험(`test_no_build_claims_a_tier`)이 막는다.
 - ⛔ 8축(`offense`/`defense`) 수정 금지 — 이 절차는 **관측만** 싣는다.
