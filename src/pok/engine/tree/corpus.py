@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 from pok.engine.tree.graph import TreeGraph
@@ -61,6 +62,138 @@ def compare_build_spec(build_spec: dict[str, Any]) -> dict[str, Any]:
         {int(n) for n in nodes},
         ascendancy=str(build_spec.get("ascendancy") or "") or None,
     )
+
+
+def _cautions(data: dict[str, Any], include: Sequence[tuple[str, float]]) -> Any:
+    """「코앞에 두고도 버려진 것」 — 앵커 후보에 헛다리가 섞이는 걸 막는다.
+
+    원시 코퍼스(`artifacts/`)를 읽으므로 다른 PC에는 없을 수 있다. 없다고 조용히
+    비우면 "경고 없음"으로 읽히므로 사유를 담아 돌려준다.
+    """
+    if not include:
+        return {"skipped": "include가 없어 관련성 필터를 못 걸었다"}
+    query = data.get("query") or {}
+    if not query:
+        return {"skipped": "프로파일에 질의가 없어 원시 폴더를 특정할 수 없다"}
+    key, value = next(iter(query.items()))
+    concept = f"{key}-{str(value).replace(' ', '_')}"
+    season = str(data.get("season", "")).replace(".", "-")
+    try:
+        from pok.engine.ladder_aggregate import passed_over
+
+        rows = passed_over(season, concept, include=list(include))["rows"]
+    except Exception as exc:  # 원시 없음·폴더명 불일치 등 — 조용히 비우지 않는다
+        return {"skipped": f"원시 코퍼스를 못 읽었다: {type(exc).__name__} {exc}"}
+    return [
+        {
+            "node": r["node"],
+            "name": r["name"],
+            "passed_by": r["passed_by"],
+            "taken_by": r["taken_by"],
+        }
+        for r in rows
+        if r["taken_by"] == 0
+    ][:10]
+
+
+def suggest_anchors(
+    graph: TreeGraph,
+    ascendancy: str,
+    *,
+    include: Sequence[tuple[str, float]] = (),
+    top: int = 20,
+    root: Any = None,
+) -> dict[str, Any]:
+    """트리를 짜기 전에 **목적지 후보를 한 번에 모은다**.
+
+    지금까지는 세션이 프로파일 JSON을 직접 열어 N/N 노드의 KB id를 찾고 그걸 다시
+    노드 번호로 바꿔야 했다 — 손이 많이 가는 일은 안 하게 되고, 안 하면 앵커 없이
+    그리디만 돌린다. 그게 「필요한 노드를 안 찍는」 결과로 돌아온다.
+
+    출처를 셋으로 갈라 낸다. **섞으면 안 된다** — 성격이 다르다:
+
+    - `required` — 표본 **전원**이 찍은 목적지. `optimize_tree(required_anchors=…)`에
+      그대로 넣는 후보다. 임계값이 아니라 정의(count == n)라 해석이 안 들어간다.
+    - `common` — 나머지를 채택 순으로. **자유석 후보**이고, 넣을지는 판단이다.
+    - `off_corpus` — 코퍼스와 무관하게 관련 노터블이 촘촘한 좌표(`find_clusters`).
+      **표본이 안 간 곳**이라 새 선택의 재료다. `include`를 줘야 나온다.
+
+    `cautions`는 「코앞에 두고도 버려진 것」이다(`passed_over`) — 앵커로 삼으려던
+    노드가 여기 있으면 다시 생각할 것. 원시 코퍼스가 없으면 못 내고, 그 사실을 밝힌다.
+    """
+    from pok.engine.tree.clusters import find_clusters
+    from pok.kb.store import load
+
+    records = load(root).records
+    who = str(graph.resolve_ascendancy(ascendancy))
+    profile = _profiles_by_class(records, graph).get(who.casefold())
+    out: dict[str, Any] = {"ascendancy": who}
+    if profile is None:
+        out["profile"] = None
+        out["why"] = f"'{who}'의 래더 프로파일이 KB에 없다 — 코퍼스 쪽 후보는 비어 있다"
+    else:
+        data = profile.raw["data"]
+        n = data["observed"]["sample"]["n"]
+        node_of = {
+            rid: int(r.raw["data"]["node_id"])
+            for rid, r in records.items()
+            if r.type == "Passive" and (r.raw.get("data") or {}).get("node_id") is not None
+        }
+        required, common = [], []
+        sampled_nodes: set[int] = set()
+        for entry in data["observed"]["passives"]:
+            nid = node_of.get(entry["ref"])
+            node = graph.nodes.get(nid) if nid else None
+            if node is None:
+                continue
+            row = {
+                "node": nid,
+                "name": node.name_en,
+                "kind": node.kind,
+                "count": f"{entry['count']}/{n}",
+            }
+            sampled_nodes.add(nid)
+            (required if entry["count"] == n else common).append(row)
+        out.update(
+            profile=profile.id,
+            sample_n=n,
+            # 목록은 min_count로 꼬리가 잘려 있다 — 안 밝히면 전량으로 읽힌다.
+            listed_from_count=data["observed"]["sample"].get("min_count", 1),
+            required=required,
+            common=common[:top],
+            common_total=len(common),
+            tree_shape=data.get("tree_shape", {}).get("per_build", {}),
+        )
+        out["_sampled"] = sampled_nodes
+        out["cautions"] = _cautions(data, include)
+
+    if include:
+        clusters = find_clusters(
+            graph, include=list(include), top=3, for_ascendancy=who, min_score=0.5
+        )
+        # 잘리기 전 전량으로 걸러야 한다 — `common[:top]`으로 거르면 꼬리가
+        # 「코퍼스 밖」으로 새어 나와 없던 신선함을 만든다.
+        seen = out.get("_sampled", set())
+        out["off_corpus"] = [
+            {"node": h.node_id, "name": h.name_en, "score": h.score, "stats": list(h.stats_en)[:2]}
+            for c in clusters
+            for h in c.hits
+            if h.node_id not in seen
+        ][:top]
+    else:
+        out["off_corpus_skipped"] = (
+            "include를 안 줘서 코퍼스 밖 후보를 스캔하지 않았다 — "
+            '관련성 필터 없는 밀집도는 쓰레기라서다. 예: [["Cold", 2.0], ["Freeze", 1.0]]'
+        )
+
+    out.pop("_sampled", None)
+    out["note"] = (
+        "`required`만 optimize_tree(required_anchors=…) 후보다(전원 채택 = 정의). "
+        "`common`·`off_corpus`는 **판단 대상**이지 목록이 아니다 — 특히 코퍼스는 탐색 "
+        "**순서**이지 범위가 아니다. 앵커로 삼기 전에 `passed_over_nodes`로 「코앞에서 "
+        "버려진 것」인지 보고, PoB 델타로 값을 재라"
+    )
+    return out
 
 
 def ascendancy_in(graph: TreeGraph, allocated: set[int]) -> str | None:

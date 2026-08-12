@@ -467,6 +467,7 @@ list_implicits = tool(_tree.list_implicits)
 optimize_runes = tool(_tree.optimize_runes)
 find_clusters = tool(_tree.find_clusters)
 passed_over_nodes = tool(_tree.passed_over_nodes)
+suggest_anchors = tool(_tree.suggest_anchors)
 
 # 능동 탐사 (P5) — tools/explore.py. 후보 생성만, 판정은 사람 게이트
 scan_synergies = tool(_explore.scan_synergies)

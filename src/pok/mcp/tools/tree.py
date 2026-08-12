@@ -774,3 +774,39 @@ def passed_over_nodes(
     out["rows"] = out["rows"][:top]
     out["truncated"] = {"shown": len(out["rows"]), "total": total}
     return out
+
+
+def suggest_anchors(
+    ascendancy: str,
+    include: list[list[Any]] | None = None,
+    top: int = 20,
+) -> dict[str, Any]:
+    """트리를 짜기 전에 **목적지 후보를 한 번에 모은다** (#67 6차).
+
+    이걸 먼저 부르고 `required`를 `optimize_tree(required_anchors=…)`에 넣는 것이
+    표준 순서다. 안 부르면 앵커 없이 그리디만 돌게 되고, 그게 「필요한 노드를 안
+    찍는」 결과로 돌아온다(실측: 어센던시 22종 전부에 전원 공통 노드가 1~11개 있다).
+
+    출처가 넷이고 **성격이 달라 섞으면 안 된다**:
+
+    - `required` — 래더 표본 **전원**이 찍은 목적지. 임계값이 아니라 정의(count == n).
+    - `common` — 나머지를 채택 순으로. 자유석 후보이고 넣을지는 판단이다.
+    - `off_corpus` — 표본이 안 갔지만 관련 노터블이 촘촘한 곳(`find_clusters`).
+      **새 선택의 재료**다. `include`를 줘야 나온다.
+    - `cautions` — 표본이 **코앞에 두고도 버린** 노드(`passed_over`). 앵커로 삼으려던
+      게 여기 있으면 다시 생각할 것. 실측: 마셜 아티스트 표본 10벌이 Hollow Palm
+      Technique을 전원 지나쳤다 — 문구만 보면 1순위로 보이는 키스톤이다.
+
+    `include` = `[["Critical", 2.0], ["Attack Speed", 1.0]]` 꼴(효과 문구 키워드x가중치).
+    ⛔ 코퍼스는 탐색 **순서**이지 **범위**가 아니다 — `common`에 없다고 배제 근거가
+    되지 않는다. `tree_shape`는 표본의 목적지:동선 비율이라 우리 트리가 동선에
+    과하게 썼는지 보는 기준선이다.
+    """
+    from pok.engine.tree.corpus import suggest_anchors as _suggest
+
+    return _suggest(
+        _get_graph(),
+        ascendancy,
+        include=[(str(k), float(w)) for k, w in (include or [])],
+        top=top,
+    )

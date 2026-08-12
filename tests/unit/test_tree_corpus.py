@@ -164,3 +164,35 @@ def test_잘린_목록임을_레코드가_밝힌다() -> None:
     assert profiles
     for record in profiles:
         assert "min_count" in record.raw["data"]["observed"]["sample"], record.id
+
+
+def test_앵커_후보를_출처별로_갈라_낸다() -> None:
+    """성격이 다른 넷을 한 목록으로 합치면 「표본이 찍은 것」과 「우리가 발굴한 것」이
+    구별되지 않는다 — 그러면 근거를 남길 수 없다."""
+    from pok.engine.tree.corpus import suggest_anchors
+
+    out = suggest_anchors(
+        _graph, "Martial Artist", include=[("Critical", 2.0), ("Attack Speed", 1.0)]
+    )
+    assert out["required"], "표본 전원이 찍는 목적지가 비었다"
+    assert all(r["count"].endswith(f"/{out['sample_n']}") for r in out["required"])
+    assert out["off_corpus"], "코퍼스 밖 후보가 비면 새 선택의 재료가 없다"
+    listed = {r["node"] for r in out["required"]} | {r["node"] for r in out["common"]}
+    assert not (listed & {r["node"] for r in out["off_corpus"]}), "표본 노드가 밖으로 샜다"
+    assert out["listed_from_count"] >= 1, "잘린 목록임을 안 밝히면 전량으로 읽힌다"
+
+
+def test_관련성_필터가_없으면_스캔하지_않고_말한다() -> None:
+    """관련성 없는 밀집도는 쓰레기다 — 조용히 빈 목록을 주면 「없다」로 읽힌다."""
+    from pok.engine.tree.corpus import suggest_anchors
+
+    out = suggest_anchors(_graph, "Martial Artist")
+    assert "off_corpus" not in out and "off_corpus_skipped" in out
+
+
+def test_원시가_없으면_경고를_비우지_않고_사유를_남긴다() -> None:
+    """`cautions`가 빈 배열이면 「지나친 것 없음」으로 읽힌다 — 못 읽은 것과 다르다."""
+    from pok.engine.tree.corpus import _cautions
+
+    out = _cautions({"query": {"class": "Nope"}, "season": "0.5"}, [("Cold", 1.0)])
+    assert isinstance(out, dict) and "skipped" in out
