@@ -304,3 +304,45 @@ def test_제외어가_피해_유형을_가른다() -> None:
     assert {h["node"] for h in plain["per_axis"]["치명타"]} != {
         h["node"] for h in filtered["per_axis"]["치명타"]
     }, "제외어가 후보를 전혀 바꾸지 못했다"
+
+
+def test_축을_코퍼스에서_스스로_찾는다() -> None:
+    """사용자 지적 2026-08-12: "결국 사용자가 어떤 노드를 찍어라 지시해야만 동작하고
+    자발적으로 찾지는 못하는 것 아닌가."
+
+    맞는 지적이었다 — `anchors_for_axes`는 축을 **선언하면** 노드로 바꾸는 변환기였다.
+    축 자체는 코퍼스에 있다: 표본이 찍은 목적지의 효과 문구를 채택 수로 가중해 세면
+    그 전직이 무엇을 챙기는지가 나온다(실측: 마셜 아티스트 → damage·critical·
+    speed·attack·evasion / 스톰위버 → mana·elemental·energy·shield).
+    """
+    from pok.engine.tree.corpus import discover_axes
+
+    out = discover_axes(_graph, "Martial Artist")
+    assert out["axes"], "축을 하나도 못 뽑았다"
+    assert "critical" in out["axes"], "표본이 명백히 챙기는 축이 빠졌다"
+    weights = [w for a in out["axes"].values() for _, w in a["include"]]
+    assert max(weights) > min(weights), "가중치가 평평하면 한 축이 후보를 독점한다"
+
+
+def test_피해_유형_제외어도_코퍼스가_준다() -> None:
+    """단어 하나짜리 축("critical")은 유형 문맥이 없어 주문 빌드에 근접 공격
+    노터블을 물어 온다(실측: 블러드 메이지의 critical 상위가 Blade Flurry였다).
+    표본이 spell을 챙기면 공격 계열을, attack을 챙기면 주문 계열을 뺀다."""
+    from pok.engine.tree.corpus import discover_axes
+
+    caster = discover_axes(_graph, "Blood Mage")["damage_kind_exclude"]
+    attacker = discover_axes(_graph, "Martial Artist")["damage_kind_exclude"]
+    assert "attack" in caster and "melee" in caster
+    assert "spell" in attacker
+    assert "attack" not in attacker
+
+
+def test_키워드_없이도_앵커까지_나온다() -> None:
+    """이게 「자발적으로 찾는다」의 실체다 — 전직 이름만 주면 앵커와 비용이 나온다."""
+    from pok.engine.tree.corpus import suggest_anchors
+
+    out = suggest_anchors(_graph, "Martial Artist")
+    assert "discovered_axes" in out, "축을 스스로 못 찾았다"
+    by_axis = out["by_axis"]
+    assert by_axis["proposed_anchors"], "앵커 제안이 비었다"
+    assert by_axis["cost"]["points"] > 0, "값을 안 매기면 앵커를 고를 수 없다"

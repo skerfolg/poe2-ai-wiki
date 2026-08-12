@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -95,6 +96,135 @@ def _cautions(data: dict[str, Any], include: Sequence[tuple[str, float]]) -> Any
         for r in rows
         if r["taken_by"] == 0
     ][:10]
+
+
+# 효과 문구에서 축을 뽑을 때 걸러낼 잡음. 게임 문구는 조사·연결어가 반복되는데
+# 그걸 놔두면 "to"·"of"가 최상위 축이 된다.
+_AXIS_STOP = frozenset(
+    [
+        "to",
+        "of",
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "increased",
+        "reduced",
+        "more",
+        "less",
+        "per",
+        "with",
+        "while",
+        "your",
+        "you",
+        "have",
+        "has",
+        "gain",
+        "gains",
+        "on",
+        "if",
+        "by",
+        "for",
+        "from",
+        "all",
+        "is",
+        "are",
+        "be",
+        "this",
+        "that",
+        "when",
+        "nearby",
+        "other",
+        "than",
+        "each",
+    ]
+)
+
+
+def discover_axes(
+    graph: TreeGraph,
+    ascendancy: str,
+    *,
+    top_terms: int = 6,
+    root: Any = None,
+) -> dict[str, Any]:
+    """**표본이 실제로 쫓은 축**을 코퍼스에서 뽑는다 — 사람이 키워드를 대지 않아도.
+
+    사용자 지적 2026-08-12: "결국 사용자가 어떤 노드를 찍어라 지시해야만 동작하고
+    자발적으로 찾지는 못하는 것 아닌가." 맞는 지적이었다 — `anchors_for_axes`는
+    **축을 선언하면** 노드로 바꿔 주는 변환기이지 축을 발견하지 못했다.
+
+    축은 코퍼스에 있다. 표본이 찍은 목적지들의 효과 문구를 **채택 수로 가중해**
+    세면 그 전직이 무엇을 챙기는지가 그대로 나온다(실측 2026-08-12):
+
+    - 마셜 아티스트 → damage · critical · chance · speed · attack · evasion
+    - 블러드 메이지 → damage · critical · mana · chance · life · spell
+    - 스톰위버     → damage · maximum · mana · critical · elemental · shield
+
+    피해 유형(attack/spell)까지 자연히 갈리므로 **제외어를 손으로 넣을 필요도 준다**.
+
+    ⛔ **이건 「표본이 쫓은 축」이지 「당신 컨셉의 축」이 아니다.** 그대로 쓰면 답지
+    복사다 — 출발점으로 쓰고 컨셉과 대조해 더하거나 뺄 것(코퍼스는 탐색 순서이지
+    범위가 아니다).
+    """
+    from pok.kb.store import load
+
+    records = load(root).records
+    profile = _profiles_by_class(records, graph).get(
+        str(graph.resolve_ascendancy(ascendancy)).casefold()
+    )
+    if profile is None:
+        return {"axes": {}, "why": f"'{ascendancy}'의 래더 프로파일이 KB에 없다"}
+    node_of = {
+        rid: int(r.raw["data"]["node_id"])
+        for rid, r in records.items()
+        if r.type == "Passive" and (r.raw.get("data") or {}).get("node_id") is not None
+    }
+    weight: dict[str, int] = {}
+    for entry in profile.raw["data"]["observed"]["passives"]:
+        node = graph.nodes.get(node_of.get(entry["ref"], -1))
+        if node is None or node.kind not in ("notable", "keystone"):
+            continue
+        words = {
+            w
+            for w in re.findall(r"[a-z]+", " ".join(node.stats_en).lower())
+            if len(w) > 3 and w not in _AXIS_STOP
+        }
+        for word in words:
+            weight[word] = weight.get(word, 0) + int(entry.get("count", 1))
+    ranked = sorted(weight.items(), key=lambda kv: (-kv[1], kv[0]))[:top_terms]
+    if not ranked:
+        return {"axes": {}, "why": "표본 목적지에서 축을 못 뽑았다"}
+    top = ranked[0][1]
+
+    # **피해 유형도 코퍼스가 말해 준다.** 단어 하나짜리 축("critical")은 유형 문맥이
+    # 없어 주문 빌드에 근접 공격 노터블을 물어 온다(실측 2026-08-12: 블러드 메이지의
+    # `critical` 축 상위가 Blade Flurry·Martial Artistry였다). 표본이 `spell`을 챙기면
+    # 공격 계열을, `attack`을 챙기면 주문 계열을 **전 축에서 뺀다** — 손으로 넣던
+    # 제외어가 여기서 나온다.
+    spell_w, attack_w = weight.get("spell", 0), weight.get("attack", 0)
+    kind_exclude: tuple[str, ...] = ()
+    if spell_w > attack_w * 1.2:
+        kind_exclude = ("attack", "melee", "bow", "crossbow", "strike")
+    elif attack_w > spell_w * 1.2:
+        kind_exclude = ("spell", "minion")
+
+    # 축 하나에 몰아 주면 그 축이 후보를 독점한다 — 상대 가중으로 편다.
+    return {
+        "axes": {
+            term: {
+                "include": [(term, round(count / top * 2, 2))],
+                # 유형 단어 자체가 축이면 자기를 빼면 안 된다
+                "exclude": [x for x in kind_exclude if x != term],
+            }
+            for term, count in ranked
+        },
+        "damage_kind_exclude": list(kind_exclude),
+        "basis": f"{profile.id} 표본 {profile.raw['data']['observed']['sample']['n']}벌의 "
+        "목적지 효과 문구를 채택 수로 가중",
+        "note": "표본이 쫓은 축이지 당신 컨셉의 축이 아니다 — 출발점으로 쓰고 대조할 것",
+    }
 
 
 def _base_class(graph: TreeGraph, ascendancy: str) -> str | None:
@@ -189,6 +319,15 @@ def anchors_for_axes(
         # 조용히 빠지면 "그 축은 트리에 없다"로 읽힌다 — 키워드가 안 맞은 것일 수 있다.
         out["axes_with_no_hit"] = empty
     base = _base_class(graph, who)
+    if base and chosen:
+        # 닿지 않는 후보가 섞일 수 있다(다른 전직 권역 등). 그대로 넘기면
+        # `connect_anchors`가 예외로 터져 **제안 전체가 날아간다** — 걸러 내고 밝힌다.
+        reachable = graph.distances_from({graph.start_of(base)}, 200)
+        unreachable = [n for n in chosen if n not in reachable]
+        if unreachable:
+            chosen = [n for n in chosen if n in reachable]
+            out["unreachable"] = unreachable
+            out["proposed_anchors"] = chosen
     if base and chosen:
         # **값을 매겨서 준다.** 몇 포인트가 드는지 모르면 앵커를 고를 수 없다 —
         # 실측: 치명타 3계열 6개가 86포인트(래더 중앙 폭과 동급)였다.
@@ -321,6 +460,13 @@ def suggest_anchors(
         )
 
     out.pop("_sampled", None)
+    if axes is None and profile is not None:
+        # **사람이 키워드를 대지 않아도** 축이 나오게 한다. 안 그러면 이 도구는
+        # "축을 선언하면 변환해 주는" 물건에 머문다(사용자 지적 2026-08-12).
+        found = discover_axes(graph, who, root=root)
+        if found.get("axes"):
+            out["discovered_axes"] = {k: v for k, v in found.items() if k != "axes"}
+            axes = found["axes"]
     if axes:
         out["by_axis"] = anchors_for_axes(graph, who, axes)
     out["note"] = (
