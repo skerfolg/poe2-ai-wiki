@@ -39,6 +39,30 @@ def _profiles_by_class(records: dict[str, Any], graph: TreeGraph) -> dict[str, A
     return {k: v[1] for k, v in out.items()}
 
 
+_graph: TreeGraph | None = None
+
+
+def _shared_graph() -> TreeGraph:
+    """대조용 그래프 1벌. 출고 경로에서 매번 새로 만들면 KB를 통째로 다시 읽는다."""
+    global _graph
+    if _graph is None:
+        from pok.common.paths import knowledge_dir
+
+        _graph = TreeGraph(knowledge_dir())
+    return _graph
+
+
+def compare_build_spec(build_spec: dict[str, Any]) -> dict[str, Any]:
+    """빌드 스펙(클래스·전직·트리)을 그대로 받아 대조한다 — 출고 지점용 얇은 입구."""
+    nodes = build_spec.get("tree_nodes") or ()
+    return compare_tree(
+        _shared_graph(),
+        str(build_spec.get("class_name") or ""),
+        {int(n) for n in nodes},
+        ascendancy=str(build_spec.get("ascendancy") or "") or None,
+    )
+
+
 def ascendancy_in(graph: TreeGraph, allocated: set[int]) -> str | None:
     """할당 노드에서 전직을 읽어낸다.
 

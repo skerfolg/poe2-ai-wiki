@@ -43,3 +43,28 @@ def test_connect_anchors가_대조를_자동으로_붙인다() -> None:
     out = connect_anchors("Monk", [13828, 10131], ascendancy="Martial Artist")
     assert "corpus" in out, "강제 지점에서 대조가 사라졌다"
     assert out["corpus"]["compared"] is True
+
+
+def test_출고_지점도_대조를_얹는다() -> None:
+    """설계 도구를 안 거치고 노드 목록을 손으로 써서 조립하는 경로가 있다.
+
+    트리가 산출물에 들어가는 지점은 `assemble_pob` 하나뿐이라 여기가 마지막 관문이다
+    (`check_axes`가 같은 이유로 이미 여기 붙어 있다).
+    """
+    from pok.engine.tree.corpus import compare_build_spec
+
+    out = compare_build_spec(
+        {"class_name": "Monk", "ascendancy": "Monk1", "tree_nodes": [13828, 10131]}
+    )
+    assert out["compared"] is True, "전직 코드(Monk1)를 실명으로 못 풀었다"
+    assert out["missing_unanimous"]
+
+
+def test_대조가_출고_반환에_실제로_실린다() -> None:
+    """부착 지점이 사라지면 규율이 조용히 없어진다 — 반환 계약으로 잠근다."""
+    import inspect
+
+    from pok.mcp.tools import build
+
+    src = inspect.getsource(build.assemble_pob)
+    assert '"corpus": compare_build_spec(build_spec)' in src
