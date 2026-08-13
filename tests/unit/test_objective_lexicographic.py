@@ -137,3 +137,47 @@ def test_앵커가_없으면_스펙이_그대로다() -> None:
     spec = _spec()
     seeded, notes, cost = _seed_anchors(spec, _graph(), (), 20)
     assert seeded is spec and notes == () and cost == (0, 0)
+
+
+def test_묶음도_노드와_같은_저울에_오른다() -> None:
+    """#70: 먼 뭉치가 그리디 후보로 들어가려면 `Objective`가 **둘 다** 받아야 한다.
+
+    실패 형태가 조용하다 — 타입을 `NodeDelta`로 좁혀 두면 뭉치를 재는 순간 막히고,
+    막히면 긴 점프가 통째로 빠진 채 "후보가 없어 멈췄다"로 읽힌다. 계약을 여기서 잠근다.
+    """
+    from pok.engine.tree.deltas import BundleDelta
+    from pok.engine.tree.optimize import Objective
+
+    obj = Objective(weights={"CombinedDPS": 1.0})
+    base = {"CombinedDPS": 1000.0}
+
+    # 같은 이득이면 **포인트가 적은 쪽**이 높다 — 묶음도 같은 규칙을 따른다
+    cheap = BundleDelta(
+        name="가까운 뭉치",
+        nodes=(1,),
+        path=(1, 2),
+        points=2,
+        deltas={"CombinedDPS": 100.0},
+        sum_of_parts={},
+    )
+    dear = BundleDelta(
+        name="먼 뭉치",
+        nodes=(3,),
+        path=(3, 4, 5, 6),
+        points=4,
+        deltas={"CombinedDPS": 100.0},
+        sum_of_parts={},
+    )
+    assert obj.score(cheap, base) > obj.score(dear, base) > 0
+
+    # 경로가 길어도 **도착지 값이 크면** 이긴다 — 이게 긴 점프가 성립하는 근거다.
+    # 노드 단위로는 첫 걸음(델타 0)에서 탈락해 여기까지 오지도 못한다.
+    far_but_rich = BundleDelta(
+        name="멀고 값진 뭉치",
+        nodes=(7,),
+        path=tuple(range(7, 17)),
+        points=10,
+        deltas={"CombinedDPS": 2000.0},
+        sum_of_parts={},
+    )
+    assert obj.score(far_but_rich, base) > obj.score(cheap, base)
