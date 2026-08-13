@@ -33,6 +33,33 @@ from pok.pob.parse import parse_pob
 # 박으면 그게 곧 해석이고, 표본이 작을 때 조용히 틀린다.
 
 
+_Z95 = 1.959963985  # 95% 양측
+
+
+def _wilson_low(count: int, n: int) -> float:
+    """채택률의 **95% 신뢰 하한**(백분율). 표본이 작으면 낮게, 커지면 올라간다.
+
+    왜 필요한가: `share`만으로는 **표본 크기가 사라진다**. 10/10과 50/50이 둘 다
+    `share: 100`인데 믿을 만한 정도는 전혀 다르다 — 하한은 10/10에서 72.2%,
+    50/50에서 92.9%다. `count`가 이미 실려 있지만 그건 읽는 쪽이 매번 손으로
+    환산해야 하는 값이고, **정렬·비교에 바로 쓸 수 있는 형태가 아니다**.
+
+    이것은 임계값이 아니라 **통계량**이다(철칙 3 — 세는 일). "몇 %부터 필수인가"는
+    여전히 해석 층의 몫이고, 여기서는 「이 수치를 얼마나 믿을 수 있나」만 붙인다.
+
+    부수 효과가 하나 더 있다: 표본을 늘려야 하는 이유가 **레코드 안에서 보인다**.
+    n이 10에서 50으로 늘면 같은 100%의 하한이 72.2 → 92.9로 오른다.
+    """
+    if n <= 0:
+        return 0.0
+    p = count / n
+    z2 = _Z95 * _Z95
+    denom = 1 + z2 / n
+    center = (p + z2 / (2 * n)) / denom
+    half = _Z95 * math.sqrt(p * (1 - p) / n + z2 / (4 * n * n)) / denom
+    return round(max(0.0, center - half) * 100, 1)
+
+
 def _tally(rows: list[list[str]]) -> list[dict[str, Any]]:
     """등장한 빌드 수를 센다. 한 빌드 안에서 여러 번 나와도 **1로 센다** —
     "몇 명이 쓰나"를 묻는 것이지 "몇 번 끼나"가 아니다."""
@@ -44,7 +71,12 @@ def _tally(rows: list[list[str]]) -> list[dict[str, Any]]:
         for name in {s.strip() for s in row if s and s.strip()}:
             counts[name] = counts.get(name, 0) + 1
     return [
-        {"ref": name, "share": round(cnt * 100 / n, 1), "count": cnt}
+        {
+            "ref": name,
+            "share": round(cnt * 100 / n, 1),
+            "count": cnt,
+            "ci_low": _wilson_low(cnt, n),
+        }
         for name, cnt in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
     ]
 
@@ -141,6 +173,7 @@ def aggregate_concept(
     tree = _tree_index()
     positions = _node_positions()
     diagonals: list[int] = []
+    levels: list[int] = []
     gems: list[list[str]] = []
     items: list[list[str]] = []
     ascendancies: list[list[str]] = []
@@ -153,6 +186,12 @@ def aggregate_concept(
         items.append([getattr(it, "name", "") or "" for it in (summary.items or [])])
         asc = getattr(summary, "ascendancy", None) or doc.get("raw", {}).get("class")
         ascendancies.append([str(asc)] if asc else [])
+        # 캐릭터 레벨. 표본을 **래더 아래로 늘릴 때** 미완성 캐릭터가 섞이는데,
+        # 그것과 「설계 선택」은 겉보기가 같다(수집기 모듈 주석의 경고). 레벨 분포를
+        # 레코드에 남기면 그 혼입이 읽는 쪽에서 보인다 — 안 남기면 알 방법이 없다.
+        lv = doc.get("raw", {}).get("level")
+        if isinstance(lv, int):
+            levels.append(lv)
 
         allocated = set(summary.tree_nodes or ())
         kinds: dict[str, int] = {}
@@ -176,6 +215,11 @@ def aggregate_concept(
             "n": len(files),
             "unit": "sampled-builds",
             "basis": basis or f"poe.ninja 래더 PoB 실측 — {season}/{concept} {len(files)}벌",
+            # 진행도 게이트의 강제 지점(철칙 5). `min`이 100에서 내려가기 시작하면
+            # 표본에 미완성 캐릭터가 섞였다는 뜻이고, 그때 「가변」 신호는 설계 선택이
+            # 아니라 **예산·진행도**를 재고 있을 수 있다. 값은 기계가 재므로 문서가
+            # 아니라 레코드에 둔다.
+            **({"level": _spread(levels)} if levels else {}),
         },
         "gems": _tally(gems),
         "items": _tally([[i for i in row if i] for row in items]),
@@ -333,8 +377,13 @@ def _cli(argv: list[str] | None = None) -> int:
     a.add_argument(
         "--min-count",
         type=int,
-        default=2,
-        help="이 개수 미만으로 겹친 항목은 싣지 않는다(작은 표본의 꼬리는 노이즈다)",
+        default=1,
+        help="이 개수 미만으로 겹친 항목은 싣지 않는다. **기본은 1 = 전량**이다 — "
+        "절단은 노이즈를 줄이는 대신 목록을 「범위」로 쓸 수 없게 만든다(실측: "
+        "count>=3으로 106종 중 53종만 실려 멀쩡한 래더 빌드의 목적지 49%%가 "
+        "「표본 밖」으로 찍혔다). 꼬리의 신뢰도는 자르지 말고 `ci_low`로 볼 것 "
+        "(⚠ argparse가 help에 %%-포매팅을 걸므로 리터럴 %%는 %%%%로 적어야 한다 — "
+        "안 그러면 `--help` 자체가 ValueError로 죽는다)",
     )
 
     po = sub.add_parser(
@@ -360,7 +409,13 @@ def _cli(argv: list[str] | None = None) -> int:
     pr.add_argument("--label", required=True, help="사람이 읽을 이름 (예: 토템 (Totem))")
     pr.add_argument("--filter", action="append", default=[], metavar="KEY=VALUE")
     pr.add_argument("--min-sample", type=int, required=True)
-    pr.add_argument("--min-count", type=int, default=3)
+    pr.add_argument(
+        "--min-count",
+        type=int,
+        default=1,
+        help="기본 1 = 전량. 절단하면 소수 채택(1~2벌)이 통째로 사라지는데 "
+        "**창의적 대안이 사는 곳이 정확히 거기다**(#62). 신뢰도는 `ci_low`로 본다",
+    )
     pr.add_argument("--write", action="store_true", help="정본에 파일로 쓴다(없으면 stdout만)")
 
     args = p.parse_args(argv)
@@ -464,6 +519,12 @@ def _truncate(observed: dict[str, Any], min_count: int) -> None:
     목적지는 실제로 106종인데 `min_count=3`으로 53종만 실렸고, 그것을 전량으로 읽은
     대조기가 멀쩡한 래더 빌드의 목적지 41개 중 **20개를 「표본 밖」으로 찍었다**.
     잘린 사실이 레코드에 없으면 읽는 쪽이 알 방법이 없다(BACKLOG 형태 ①).
+
+    **기본값은 1(전량)로 바꿨다** (2026-08-13). 선언을 붙이는 것으로는 위 사고가
+    막히지 않았다 — 읽는 쪽이 선언을 보고도 잘린 목록을 그대로 쓴다. 절단은
+    노이즈를 줄이는 게 아니라 **목록을 거짓으로 좁힌다**: 잘려 나간 1~2벌 항목은
+    「아무도 안 쓴다」가 아니라 「소수가 쓴다」이고, 그 구분이 창의의 재료다(#62).
+    꼬리의 신뢰도는 자르는 대신 항목마다 `ci_low`로 싣는다.
     """
     observed["sample"]["min_count"] = min_count
     for key in list(observed):
