@@ -96,7 +96,9 @@ def run_xml(
         if use_cache:
             cache.parent.mkdir(parents=True, exist_ok=True)
             cache.write_text(
-                json.dumps(payload, ensure_ascii=False, sort_keys=True), encoding="utf-8"
+                json.dumps(payload, ensure_ascii=False, sort_keys=True),
+                encoding="utf-8",
+                newline="\n",
             )
     allocated = tuple(int(n) for n in payload["alloc"])
     pruned = tuple(sorted(set(requested_nodes) - set(allocated)))
@@ -119,7 +121,7 @@ def _run_driver(xml_text: str, snap: PobSnapshot, timeout: float) -> dict[str, o
     digest = hashlib.sha256(xml_text.encode()).hexdigest()[:16]
     xml_file = var_dir() / "pob-cache" / f"_input-{digest}.xml"  # 해시명 = 동시 실행 안전
     xml_file.parent.mkdir(parents=True, exist_ok=True)
-    xml_file.write_text(xml_text, encoding="utf-8")
+    xml_file.write_text(xml_text, encoding="utf-8", newline="\n")
     env = {**os.environ, "LUA_PATH": _LUA_PATH}
     try:
         proc = subprocess.run(

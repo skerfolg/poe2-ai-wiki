@@ -169,7 +169,7 @@ def _probe(
         return {}
     payload = var_dir() / "pob-cache" / f"_item-gaps-{abs(hash(base)) % 10**8}.txt"
     payload.parent.mkdir(parents=True, exist_ok=True)
-    with payload.open("w", encoding="utf-8") as fh:
+    with payload.open("w", encoding="utf-8", newline="\n") as fh:
         for rid, lines in batch.items():
             fh.write(f"#REC\t{rid}\t{base}\n")
             fh.writelines(f"{line}\n" for line in lines)

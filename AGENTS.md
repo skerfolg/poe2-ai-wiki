@@ -87,6 +87,23 @@ type="Skill", maximum=40)`
 - 특정 모듈 작업 → 그 디렉터리의 **AGENTS.md** (자동 로드됨)
 - MCP 도구 추가 → docs/PROJECT_STRUCTURE.md §4(의존 방향)·§7, `src/pok/mcp/AGENTS.md`
 
+## 시험은 두 단계 — 평소엔 단위만
+
+```bash
+pytest                      # 기본 = tests/unit 만. 약 1분 30초
+pytest tests/integration    # PoB 부팅 — 파일당 수 분, 전량 30분~1시간
+```
+
+**평소 개발은 단위로만 돌린다**(사용자 지시 2026-08-13). 통합은 **지시받았을 때**와
+**PR 직전**에 돌린다 — 매 수정마다 돌리면 기능 개발이 멎는다.
+
+기본값은 `pyproject.toml`의 `testpaths`가 강제하고, **CI는 경로를 명시**해 통합까지
+돌린다(`pytest tests`). 그 대칭이 깨지면 커버리지가 줄었는데 초록불이 뜬다 —
+`tests/unit/test_ci_runs_integration.py`가 막는다.
+
+⚠ 통합에서만 드러나는 결함이 실재한다: 윈도우 CRLF 누출은 단위 480건이 전부 통과한
+상태에서 `test_item_parse_gaps`(통합)만 깨졌다. **PR 전에는 반드시 한 번 돌릴 것.**
+
 ## 스택 (요약)
 
 Python 3.12+ · FastMCP · git 텍스트 정본 + SQLite(FTS5) 인덱스 · PoB(LuaJIT, headless) 계산 오라클 · Windows+macOS.

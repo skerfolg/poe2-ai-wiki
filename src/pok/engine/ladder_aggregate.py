@@ -573,7 +573,7 @@ def _cli_profile(args: argparse.Namespace) -> int:
             if prior is None:
                 out.unlink(missing_ok=True)
             else:
-                out.write_text(prior, encoding="utf-8")
+                out.write_text(prior, encoding="utf-8", newline="\n")
             print(
                 json.dumps(
                     {
