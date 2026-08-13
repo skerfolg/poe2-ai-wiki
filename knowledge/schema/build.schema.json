@@ -118,6 +118,30 @@
       "basis": {
        "type": "string",
        "minLength": 1
+      },
+      "level": {
+       "type": "object",
+       "description": "표본 캐릭터의 레벨 분포(안층 전용). **표본을 래더 아래로 늘릴 때의 강제 지점이다** — `min`이 100에서 내려가면 미완성 캐릭터가 섞였다는 뜻이고, 그때 「소수만 쓴다」는 설계 선택이 아니라 예산·진행도를 재고 있을 수 있다. 겉보기가 같아서 이 필드 없이는 구분이 불가능하다(2026-08-13)",
+       "properties": {
+        "min": {
+         "type": "integer",
+         "minimum": 1
+        },
+        "median": {
+         "type": "integer",
+         "minimum": 1
+        },
+        "max": {
+         "type": "integer",
+         "minimum": 1
+        }
+       },
+       "required": [
+        "min",
+        "median",
+        "max"
+       ],
+       "additionalProperties": false
       }
      },
      "required": [
@@ -188,6 +212,12 @@
       "type": "integer",
       "minimum": 0,
       "description": "안층(표본 N명)에서는 개수가 비율보다 정직하다 — 3/10을 30%로만 적으면 표본 크기가 사라진다"
+     },
+     "ci_low": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "채택률의 95% 신뢰 **하한**. `share`만으로는 표본 크기가 사라진다 — 10/10과 50/50이 둘 다 100%인데 하한은 72.2 vs 92.9다. 꼬리를 **자르는 대신** 이 값으로 믿을 만한 정도를 싣는다(절단은 목록을 거짓으로 좁힌다 — 실측 49% 오탐). 임계값이 아니라 통계량이다"
      }
     },
     "required": [

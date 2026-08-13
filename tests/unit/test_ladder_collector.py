@@ -183,9 +183,11 @@ def test_한_빌드_안의_중복은_한_번만_센다() -> None:
     from pok.engine.ladder_aggregate import _tally
 
     out = _tally([["A", "A", "A", "B"], ["A"], ["B"]])
+    # `ci_low`는 표본 3벌에서 66.7%의 95% 하한이다 — `share`만 보면 표본 크기가
+    # 사라지므로 항목마다 함께 싣는다(2026-08-13).
     assert out == [
-        {"ref": "A", "share": 66.7, "count": 2},
-        {"ref": "B", "share": 66.7, "count": 2},
+        {"ref": "A", "share": 66.7, "count": 2, "ci_low": 20.8},
+        {"ref": "B", "share": 66.7, "count": 2, "ci_low": 20.8},
     ]
 
 

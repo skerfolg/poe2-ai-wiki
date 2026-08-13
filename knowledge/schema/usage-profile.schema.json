@@ -141,6 +141,30 @@
        "type": "integer",
        "minimum": 1,
        "description": "이 개수 미만으로 겹친 항목은 **실리지 않았다**. 1이면 전량이다. ⚠ 이 선언이 없으면 목록이 전량으로 읽힌다 — 실측 2026-08-12: min_count=3에 잘린 목록(106종 중 53종)을 전량으로 읽은 대조기가 멀쩡한 래더 빌드의 목적지 절반을 「표본 밖」으로 찍었다"
+      },
+      "level": {
+       "type": "object",
+       "description": "표본 캐릭터의 레벨 분포(안층 전용). **표본을 래더 아래로 늘릴 때의 강제 지점이다** — `min`이 100에서 내려가면 미완성 캐릭터가 섞였다는 뜻이고, 그때 「소수만 쓴다」는 설계 선택이 아니라 예산·진행도를 재고 있을 수 있다. 겉보기가 같아서 이 필드 없이는 구분이 불가능하다(2026-08-13)",
+       "properties": {
+        "min": {
+         "type": "integer",
+         "minimum": 1
+        },
+        "median": {
+         "type": "integer",
+         "minimum": 1
+        },
+        "max": {
+         "type": "integer",
+         "minimum": 1
+        }
+       },
+       "required": [
+        "min",
+        "median",
+        "max"
+       ],
+       "additionalProperties": false
       }
      },
      "required": [
