@@ -28,6 +28,15 @@ CLASS_START: dict[str, int] = {
     "Monk": 44683,
     "Druid": 61525,
 }
+# **기본 할당되는 전직 노드** — 포인트를 안 쓰고 처음부터 켜져 있다.
+# 사용자 판정 2026-08-12: "블러드 메이지는 기본으로 혈액술(Sanguimancy) 어센던시가
+# 할당되어 있다. 블러드 메이지만 유일하게 하나를 기본 할당하고 시작해 총 9포인트가 된다."
+# 실측이 뒷받침한다 — 래더 표본에서 블러드 메이지만 전직 **노터블 5개**(다른 전직 4개)이고
+# Sanguimancy는 10/10 보유다.
+GRANTED_ASCENDANCY_NODES: dict[str, tuple[int, ...]] = {
+    "Witch2": (8415,),  # Blood Mage → Sanguimancy
+}
+
 _START_LINKS: dict[int, tuple[int, ...]] = {
     # ⚠ 59822(블러드 메이지)를 빼 뒀었는데 **그게 결함이었다**(실측 2026-08-12).
     #    형제 전직 5종(인퍼널리스트·리치·스톰위버·크로노맨서·바라시타)은 전부 링크돼
@@ -180,16 +189,55 @@ class TreeGraph:
                     q.append(nb)
         return None
 
+    def granted_nodes(self, ascendancy: str | None) -> frozenset[int]:
+        """그 전직이 **공짜로 들고 시작하는** 노드 (없으면 빈 집합)."""
+        if not ascendancy:
+            return frozenset()
+        want = self.resolve_ascendancy(ascendancy)
+        out: set[int] = set()
+        for code, nodes in GRANTED_ASCENDANCY_NODES.items():
+            if self.resolve_ascendancy(code) == want:
+                out.update(nodes)
+        return frozenset(out)
+
     def connect_anchors(
-        self, class_name: str, targets: collections.abc.Iterable[int]
+        self,
+        class_name: str,
+        targets: collections.abc.Iterable[int],
+        *,
+        ascendancy: str | None = None,
     ) -> tuple[list[int], dict[int, list[int]]]:
         """그리디 슈타이너: 시작점에서 타깃들을 최소 포인트로 연결.
 
         매 라운드 '기존 트리에서 가장 싼 타깃'을 최단 경로로 붙인다(근사 —
         전역 최적 비보장, §10.3 한계 인정). 반환: (할당 노드 전체, 타깃별 경로).
+
+        `ascendancy`를 주면 **남의 전직 노드를 거부한다.** 그래프는 본 트리를 빙 돌아
+        다른 전직 권역으로 들어갈 수 있는데(실측 2026-08-12: `connect_anchors("Witch",
+        [11495])`가 마셜 아티스트 시작 노드에 성공한다) 인게임에서는 불가능하다.
+        후보 선정과 출고 게이트가 막고 있었지만 **이 함수를 직접 부르는 경로는
+        뚫려 있었다** — 앵커 id를 잘못 주면 인게임에서 못 만드는 트리가 나온다.
+
+        기본 할당 노드(블러드 메이지의 혈액술)는 **출발 시점에 이미 켜져 있는 것**으로
+        놓는다 — 포인트를 안 쓰므로 경로 비용에서 빠진다.
         """
-        tree: set[int] = {self.start_of(class_name)}
+        want = self.resolve_ascendancy(ascendancy) if ascendancy else None
         remaining = set(targets)
+        if want is not None:
+            foreign = sorted(
+                t
+                for t in remaining
+                if (node := self.nodes.get(t)) is not None
+                and node.ascendancy
+                and self.resolve_ascendancy(node.ascendancy) != want
+            )
+            if foreign:
+                raise ValueError(
+                    f"다른 전직의 노드는 연결할 수 없다: {foreign} — "
+                    f"이 빌드는 {want!r}다. 인게임에서 할당 불가한 트리가 된다"
+                )
+        # 공짜로 켜져 있는 노드는 **이미 트리에 있는 것**으로 출발한다.
+        tree: set[int] = {self.start_of(class_name), *self.granted_nodes(ascendancy)}
         paths: dict[int, list[int]] = {}
         while remaining:
             best_t, best_p = None, None
@@ -210,7 +258,7 @@ class TreeGraph:
         # 원인은 노드 하나였다(11495). 통행은 시켜도 산출물에는 싣지 않는다.
         allocated = sorted(
             n
-            for n in tree - {self.start_of(class_name)}
+            for n in tree - {self.start_of(class_name)} - self.granted_nodes(ascendancy)
             if not (self.nodes.get(n) is not None and self.nodes[n].kind == "ascendancy-start")
         )
         return allocated, paths

@@ -440,7 +440,23 @@ def _seed_anchors(
     """
     if not anchors:
         return spec, (), 0
-    tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
+    # 공짜로 켜져 있는 노드(블러드 메이지의 혈액술)는 출발 시점에 이미 트리에 있다.
+    tree = (
+        set(spec.tree_nodes)
+        | {graph.start_of(spec.class_name)}
+        | graph.granted_nodes(spec.ascendancy)
+    )
+    granted = graph.granted_nodes(spec.ascendancy)
+    foreign = [
+        n
+        for n in anchors
+        if (node := graph.nodes.get(n)) is not None
+        and node.ascendancy
+        and graph.resolve_ascendancy(node.ascendancy) != graph.resolve_ascendancy(spec.ascendancy)
+    ]
+    if foreign:
+        # 남의 전직 노드는 인게임에서 못 찍는다 — 조용히 넣으면 거짓 트리가 나간다.
+        return spec, (f"⛔ 다른 전직의 앵커 {foreign} — 빼고 진행했다",), 0
     added: list[int] = []
     unreachable: list[int] = []
     for node_id in anchors:
@@ -454,7 +470,8 @@ def _seed_anchors(
         added.extend(
             n
             for n in path
-            if not (graph.nodes.get(n) is not None and graph.nodes[n].kind == "ascendancy-start")
+            if n not in granted
+            and not (graph.nodes.get(n) is not None and graph.nodes[n].kind == "ascendancy-start")
         )
     notes: list[str] = []
     if added:

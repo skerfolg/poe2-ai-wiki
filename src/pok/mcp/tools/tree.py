@@ -33,10 +33,11 @@ def connect_anchors(
     목적지를 빠뜨렸으면 `missing_unanimous`에 나온다(실측 2026-08-12: 어센던시 22종
     전부에 전원 공통 노드가 1~11개 있고 주얼 소켓이 거기 자주 낀다). 안 주면
     트리의 전직 전용 노드로 추론하고, 그마저 없으면 **대조하지 않았다고 밝힌다**.
+    주면 **남의 전직 노드도 거부한다**(인게임 할당 불가 트리 방지).
     ⛔ 대조이지 판정이 아니다(빼려면 근거를 남길 것).
     """
     graph = _get_graph()
-    allocated, paths = graph.connect_anchors(class_name, targets)
+    allocated, paths = graph.connect_anchors(class_name, targets, ascendancy=ascendancy)
     return {
         "allocated": allocated,
         "points": len(allocated),

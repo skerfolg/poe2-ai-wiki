@@ -149,3 +149,33 @@ def test_선행노드형_제약은_선행을_찍어야_후보다(graph: TreeGrap
     assert _PATH_OF_THE_RENEGADE not in without, "선행 없이 후보에 들면 안 된다"
     withal = {nid for nid, _, _ in graph.candidates(near | set(_RENEGADE_PREREQS), max_dist=60)}
     assert _PATH_OF_THE_RENEGADE in withal, "선행을 다 찍었으면 열려야 한다"
+
+
+def test_블러드_메이지의_혈액술은_공짜다(graph: TreeGraph) -> None:
+    """사용자 판정 2026-08-12: "블러드 메이지는 기본으로 혈액술 어센던시가 할당되어
+    있다. 블러드 메이지만 유일하게 하나를 기본 할당하고 시작해 총 9포인트가 된다."
+
+    실측이 뒷받침한다 — 래더 표본에서 블러드 메이지만 전직 **노터블 5개**(다른 전직
+    4개)이고 Sanguimancy(8415)는 10/10 보유다. 포인트를 안 쓰므로 경로 비용에서 뺀다.
+    """
+    assert graph.granted_nodes("Blood Mage") == frozenset({8415})
+    assert graph.granted_nodes("Lich") == frozenset()
+
+    allocated, _paths = graph.connect_anchors("Witch", [26383], ascendancy="Blood Mage")
+    assert 26383 in allocated
+    assert 8415 not in allocated, "공짜 노드를 포인트로 세면 예산이 틀어진다"
+
+
+def test_남의_전직_노드는_거부한다(graph: TreeGraph) -> None:
+    """실측 2026-08-12: `connect_anchors("Witch", [11495])`가 **성공했다** — 11495는
+    마셜 아티스트 시작 노드다. 본 트리를 빙 돌아 남의 전직 권역으로 들어간다.
+    인게임에서는 불가능하고, 그렇게 나온 트리는 만들 수 없는 빌드다.
+
+    후보 선정과 출고 게이트가 막고 있었지만 이 함수를 **직접 부르는 경로**는
+    뚫려 있었다.
+    """
+    with pytest.raises(ValueError, match="다른 전직"):
+        graph.connect_anchors("Witch", [11495], ascendancy="Blood Mage")
+    # 자기 전직 노드는 통과해야 한다 — 게이트가 정상을 막으면 안 된다(형태 ⑤)
+    allocated, _ = graph.connect_anchors("Witch", [26383], ascendancy="Blood Mage")
+    assert 26383 in allocated

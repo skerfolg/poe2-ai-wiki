@@ -382,7 +382,7 @@ def anchors_for_axes(
     if base and chosen:
         # 닿지 않는 후보가 섞일 수 있다(다른 전직 권역 등). 그대로 넘기면
         # `connect_anchors`가 예외로 터져 **제안 전체가 날아간다** — 걸러 내고 밝힌다.
-        reachable = graph.distances_from({graph.start_of(base)}, 200)
+        reachable = graph.distances_from({graph.start_of(base), *graph.granted_nodes(who)}, 200)
         unreachable = [n for n in chosen if n not in reachable]
         if unreachable:
             chosen = [n for n in chosen if n in reachable]
@@ -391,7 +391,7 @@ def anchors_for_axes(
     if base and chosen:
         # **값을 매겨서 준다.** 몇 포인트가 드는지 모르면 앵커를 고를 수 없다 —
         # 실측: 치명타 3계열 6개가 86포인트(래더 중앙 폭과 동급)였다.
-        allocated, _paths = graph.connect_anchors(base, chosen)
+        allocated, _paths = graph.connect_anchors(base, chosen, ascendancy=who)
         points = [
             graph.nodes[n].position
             for n in allocated
