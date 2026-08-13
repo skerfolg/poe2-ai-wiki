@@ -61,6 +61,11 @@ class GemSpec:
     # 20배 낮다. 어느 모드로 설계할지는 판단이라 기본값을 정하지 않고, 모드가 둘 이상인
     # 젬에 미지정이면 조립 단계에서 거부한다(`stages`와 같은 취급).
     stat_set_index: int | None = None
+    # 부패 젬 — **레벨을 올려 주므로 딜에 직접 든다**. 실측 2026-08-13(블러드 메이지
+    # 래더 코드): 이 두 값을 버리자 같은 빌드가 DPS 1,362,791 → 1,014,216(74.4%)이 됐다.
+    # 원인이 안 보이는 종류의 손실이라(경고도 없다) 반드시 싣는다.
+    corrupted: bool = False
+    corrupt_level: int = 0
 
 
 @dataclass(frozen=True)
@@ -569,6 +574,7 @@ def _gem_xml(gem: GemSpec) -> str:
         f"        <Gem gemId={quoteattr(canonical_gem_id(gem.gem_id))} "
         f"variantId={quoteattr(gem.name)} "
         f'level="{gem.level}" quality="{gem.quality}" '
+        + (f'corrupted="true" corruptLevel="{gem.corrupt_level}" ' if gem.corrupted else "")
         + (
             f'skillStageCount="{gem.stages}" skillStageCountCalcs="{gem.stages}" '
             if gem.stages is not None

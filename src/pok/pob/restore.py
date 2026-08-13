@@ -144,6 +144,9 @@ def _skills(
                 "level": _int(gem.get("level"), 20),
                 "quality": _int(gem.get("quality"), 0),
                 "enabled": (gem.get("enabled") or "true") != "false",
+                # 부패는 젬 레벨을 올린다 — 버리면 딜이 조용히 빠진다(실측 74.4%).
+                "corrupted": (gem.get("corrupted") or "nil") == "true",
+                "corrupt_level": _int(gem.get("corruptLevel"), 0),
             }
             # PoB XML은 **어느 모드(statSet)로 계산했는지를 남기지 않는다.** 그래서
             # 복원본은 원본과 다른 모드로 계산될 수 있다 — 조용히 1번을 쓰면 실측
