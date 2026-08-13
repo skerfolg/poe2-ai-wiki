@@ -33,10 +33,11 @@ def connect_anchors(
     목적지를 빠뜨렸으면 `missing_unanimous`에 나온다(실측 2026-08-12: 어센던시 22종
     전부에 전원 공통 노드가 1~11개 있고 주얼 소켓이 거기 자주 낀다). 안 주면
     트리의 전직 전용 노드로 추론하고, 그마저 없으면 **대조하지 않았다고 밝힌다**.
+    주면 **남의 전직 노드도 거부한다**(인게임 할당 불가 트리 방지).
     ⛔ 대조이지 판정이 아니다(빼려면 근거를 남길 것).
     """
     graph = _get_graph()
-    allocated, paths = graph.connect_anchors(class_name, targets)
+    allocated, paths = graph.connect_anchors(class_name, targets, ascendancy=ascendancy)
     return {
         "allocated": allocated,
         "points": len(allocated),
@@ -91,9 +92,14 @@ def optimize_tree(
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
     weights = 다축 정책(RC3), 예: {"CombinedDPS": 1.0, "Life": 0.6}.
-    jewel_templates = 소켓 평가용 가정 주얼 raw 텍스트들(빌드 컨셉에서 도출,
-    check_item_legality 통과분만) — 소켓 후보를 템플릿별 실측해 최선을 채택하고
-    steps의 jewel_text·결과 jewels에 기록한다(조달 가정임을 남길 것).
+    jewel_templates = 소켓 평가용 **가정 탐침**(설계물이 아니다). 빈 소켓은 델타 0이라
+    그리디가 영영 안 찍으므로, 값을 재려면 무언가 꽂아 봐야 한다 — 소켓 후보를
+    템플릿별로 실측해 최선을 채택하고 steps의 jewel_text·결과 jewels에 기록한다.
+    ⚠ **모두에게 맞는 주얼은 없다.** 실제 주얼 내용은 아이템 층의 일이다 —
+    소켓을 할당한 뒤 `optimize_rare(slot="Jewel@<소켓 node_id>", radius=…)`로 이 빌드
+    문맥에서 접사 풀을 실측해 뽑고, 그 text를 여기 넣어 다시 돌린다(2패스).
+    닭·달걀은 그렇게 끊는다: **소켓 할당은 코퍼스 근거로**(래더 표본 중앙 5개),
+    **주얼 내용은 측정으로**.
     max_candidates_per_round = 라운드당 평가할 후보 수(거리순 상한). 시작점 주변이
     빌드와 무관한 노터블뿐이면(예: 물리 공격 빌드의 마녀 권역) 40개가 전부 델타 <= 0이라
     `stopped_no_positive`로 즉시 멈춘다 — 그럴 때 늘려서 더 먼 후보까지 본다.
