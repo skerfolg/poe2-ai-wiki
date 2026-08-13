@@ -59,7 +59,7 @@ class PobDaemon:
         self.start()
         assert self._proc is not None and self._proc.stdin is not None
         xml_file = self._xml_file(xml_text)
-        xml_file.write_text(xml_text, encoding="utf-8")
+        xml_file.write_text(xml_text, encoding="utf-8", newline="\n")
         try:
             self._proc.stdin.write(str(xml_file) + "\n")
             self._proc.stdin.flush()
@@ -88,7 +88,7 @@ class PobDaemon:
         self.start()
         assert self._proc is not None and self._proc.stdin is not None
         path = self._xml_file(spec_text).with_suffix(".item")
-        path.write_text(spec_text, encoding="utf-8")
+        path.write_text(spec_text, encoding="utf-8", newline="\n")
         try:
             self._proc.stdin.write(f"ITEM\t{path}\n")
             self._proc.stdin.flush()

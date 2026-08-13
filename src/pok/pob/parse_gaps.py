@@ -136,6 +136,7 @@ def dump_tree_parse_gaps(
     xml_file.write_text(
         to_xml(BuildSpec(class_name="Sorceress", ascendancy="Sorceress1", level=1)),
         encoding="utf-8",
+        newline="\n",
     )
     try:
         proc = subprocess.run(

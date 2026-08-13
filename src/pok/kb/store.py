@@ -439,7 +439,10 @@ def atomic_write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        # ⚠ `newline="\n"` 없으면 **윈도우에서 정본이 통째로 CRLF가 된다** — git diff가
+        #   전 파일로 번지고, PoB에 넘기는 텍스트는 줄 끝에 `\r`가 붙어 파싱이 달라진다
+        #   (실측 2026-08-13: 윈도우에서 `test_item_parse_gaps`가 그 경로로 깨졌다).
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
         os.replace(tmp, path)
     except BaseException:

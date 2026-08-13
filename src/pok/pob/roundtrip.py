@@ -91,7 +91,7 @@ def roundtrip(
     snap = snapshot or resolve_snapshot(root)
     payload = var_dir() / "pob-cache" / "_roundtrip.txt"
     payload.parent.mkdir(parents=True, exist_ok=True)
-    with payload.open("w", encoding="utf-8") as fh:
+    with payload.open("w", encoding="utf-8", newline="\n") as fh:
         for label, text in items.items():
             fh.write(f"#ITEM\t{label}\n")
             fh.writelines(f"{line}\n" for line in text.splitlines())
