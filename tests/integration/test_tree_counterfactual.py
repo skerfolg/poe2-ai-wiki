@@ -31,6 +31,7 @@ def _env_ready() -> bool:
 pytestmark = pytest.mark.skipif(not _env_ready(), reason="LuaJIT 또는 external/pob 스냅샷 없음")
 
 _TARGET = 51184  # Raw Power (주문 피해 노터블) — Sorceress 시작에서 5포인트
+_OUTER = 36302  # Practiced Signs — 잎(Raw Power) **바깥**이라 잎을 빼면 되짚어야 닿는다
 
 
 @pytest.fixture(scope="module")
@@ -85,20 +86,41 @@ def test_중간_노드를_빼는_것은_후보에서부터_막힌다(
 
 
 def test_교체를_한_계산으로_잰다(spec: BuildSpec, graph: TreeGraph, daemon: PobDaemon) -> None:
-    """제거 1 + 추가 1이 한 빌드에 들어간다 — 순증 포인트와 델타가 함께 나온다."""
-    near = [
+    """제거 1 + 추가 1이 한 빌드에 들어간다 — 순증 포인트와 델타가 함께 나온다.
+
+    넣는 노드는 **경로 중간**에 붙은 이웃으로 고른다. 잎 바깥으로 뻗은 후보를 주면
+    추가 경로가 방금 뺀 잎을 되짚어 「교체가 아니다」로 거부되는데, 그 거부가 정상이다
+    (아래 시험이 그쪽을 잠근다).
+    """
+    inner = spec.tree_nodes[0]
+    in_node = min(
         nid
-        for nid, _node, _dist in graph.candidates(
-            set(spec.tree_nodes), 2, ascendancy_name=spec.ascendancy
-        )
-        if nid != _TARGET
-    ]
-    assert near, "교체 대상을 못 찾았다"
-    rows = evaluate_swaps(
-        spec, graph, [(_TARGET, near[0])], stats=("CombinedDPS", "Life"), daemon=daemon
+        for nid in graph.adj[inner]
+        if nid in graph.nodes
+        and nid not in spec.tree_nodes
+        and graph.nodes[nid].ascendancy is None
+        and graph.nodes[nid].locked_to is None
+        and not graph.nodes[nid].requires_nodes
     )
-    (row,) = rows
+    (row,) = evaluate_swaps(
+        spec, graph, [(_TARGET, in_node)], stats=("CombinedDPS", "Life"), daemon=daemon
+    )
     assert row.measured is True, row.failed
-    assert row.added and row.removed == (_TARGET,)
-    assert row.points == len(row.added) - 1
+    assert row.removed == (_TARGET,) and row.added == (in_node,)
+    assert row.points == 0, "1개 빼고 1개 넣었으면 순증 0이다"
     assert set(row.deltas) == {"CombinedDPS", "Life"}
+
+
+def test_잎_바깥_후보는_경로가_잎을_되짚어_거부된다(
+    spec: BuildSpec, graph: TreeGraph, daemon: PobDaemon
+) -> None:
+    """실제 후보 탐색이 정확히 이 꼴을 낸다 — 실측 2026-08-13 통합 1차에서 걸렸다.
+
+    `graph.candidates`가 거리 2로 낸 첫 후보(36302 Practiced Signs)는 잎(Raw Power)
+    바깥에 있어서, 잎을 빼고 그리로 가려면 잎을 다시 찍어야 한다. 조용히 재면
+    「제거 없는 교체」를 교체로 세게 된다.
+    """
+    assert graph.nodes[_OUTER].name_en == "Practiced Signs", "표본이 바뀌었다 — 다시 고를 것"
+    (row,) = evaluate_swaps(spec, graph, [(_TARGET, _OUTER)], stats=("Life",), daemon=daemon)
+    assert row.measured is False and "다시 지나간다" in row.failed
+    assert row.deltas == {} and row.added == ()

@@ -441,15 +441,16 @@ def evaluate_swaps(
                             k: round(result.stats.get(k, 0.0) - base.stats.get(k, 0.0), 4)
                             for k in stats
                         }
+            removed = (out_node,)
             out.append(
                 SwapDelta(
                     out_node=out_node,
                     in_node=in_node,
                     name_out=str(_head(graph, out_node)["name_en"]),
                     name_in=str(_head(graph, in_node)["name_en"]),
-                    removed=(out_node,),
+                    removed=removed,
                     added=added,
-                    points=len(added) - 1,
+                    points=len(added) - len(removed),
                     pool=_pool(graph, out_node),
                     deltas=deltas,
                     pruned=pruned,
