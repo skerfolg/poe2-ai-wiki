@@ -122,13 +122,18 @@ def test_공유_코드로도_받는다() -> None:
     assert spec_from_pob(code).spec["ascendancy"] == "Monk1"
 
 
-def test_아이템_부여_그룹은_빼되_잃은_보조를_센다() -> None:
-    """사용자 판정 2026-08-12: 그 스킬들은 **아이템이 부여**하는 것이 맞고,
-    주얼러 오브로 소켓을 늘릴 수 있지만 **아이템 없이 스킬만 옮길 수는 없다**.
+def test_source_없는_그룹은_보존한다() -> None:
+    """⚠ 이 시험은 **정반대를 잠그고 있었다** — 「그룹을 빼고 잃은 보조를 센다」였다.
 
-    그래서 젬으로 실으면 안 된다(두 번 센다). 다만 그룹째 빼면 늘려 놓은 **보조
-    젬이 함께 사라져** 원본보다 약하게 계산된다 — 문자열 note로만 두면 걸러낼 수
-    없어서 구조로도 낸다(실측: 복원 256벌 중 203벌이 해당, 보조 884개 소실).
+    전제가 틀렸다. `source` 없는 그룹은 PoB가 만든 것이 아니라 **플레이어가 구성한
+    것**이고, 아이템(또는 트리)이 준 스킬에 주얼러 오브로 보조를 붙인 바로 그 구성이다.
+    실측 2026-08-13(블러드 메이지 래더 코드): 그룹을 빼자 같은 빌드가 **DPS
+    1,935,569 → 12,334**(157배)가 됐다. 주력 스킬 그룹이었다.
+
+    이중 계산도 아니다 — 원본 XML은 `source` 있는 그룹과 없는 그룹을 **둘 다** 들고
+    저 수치를 낸다. `source` 있는 것만 빼면 PoB가 그것을 되만들어 원본 구조가 된다.
+
+    지키려는 것은 그대로다: **보조 젬이 조용히 사라지면 안 된다.**
     """
     xml = _XML.replace(
         '<Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Spark" level="20" quality="0"/>',
@@ -137,6 +142,60 @@ def test_아이템_부여_그룹은_빼되_잃은_보조를_센다() -> None:
         ' level="20" quality="0"/>',
     ).replace('source="Item" ', "")
     r = spec_from_pob_xml(xml)
-    assert r.dropped_item_granted == (("Purity of Fire", 1),)
-    assert r.damage_comparable is False
-    assert any("보조 젬 1개는 함께 빠진다" in n for n in r.notes)
+
+    assert r.dropped_item_granted == (), "source 없는 그룹을 빼면 안 된다"
+    assert r.damage_comparable is True
+    names = [g.get("name") for grp in r.spec["skills"] for g in grp["gems"]]
+    assert "Purity of Fire" in names, "아이템 부여 스킬이 실려야 보조가 따라온다"
+    assert "Spark" in names, "함께 있던 보조가 사라졌다 — 157배 사고의 형태다"
+
+
+def test_부패_젬_정보를_싣는다() -> None:
+    """부패는 젬 **레벨을 올려** 딜에 직접 든다 — 버리면 조용히 빠진다.
+
+    실측 2026-08-13(블러드 메이지 래더 코드): `corrupted`/`corruptLevel`을 버리자
+    같은 빌드가 **DPS 1,362,791 → 1,014,216**(74.4%)이 됐다. 경고도 없이 4분의 1이
+    사라지는 종류라 복원기가 반드시 들고 있어야 한다.
+    """
+    xml = _XML.replace(
+        '<Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Spark" level="20" quality="0"/>',
+        '<Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Spark" level="20"'
+        ' quality="0" corrupted="true" corruptLevel="1"/>',
+    ).replace('source="Item" ', "")
+    gem = next(
+        g
+        for grp in spec_from_pob_xml(xml).spec["skills"]
+        for g in grp["gems"]
+        if g["name"] == "Spark"
+    )
+    assert gem["corrupted"] is True
+    assert gem["corrupt_level"] == 1
+
+
+def test_부패_정보가_XML로_되나간다() -> None:
+    """복원해 놓고 직렬화에서 떨구면 같은 손실이다 — 왕복으로 잠근다."""
+    from pok.pob.buildxml import spec_from_dict, to_xml
+
+    xml = to_xml(
+        spec_from_dict(
+            {
+                "class_name": "Sorceress",
+                "ascendancy": "Sorceress1",
+                "level": 90,
+                "skills": [
+                    {
+                        "gems": [
+                            {
+                                "gem_id": "Metadata/Items/Gems/SkillGemSpark",
+                                "name": "Spark",
+                                "stat_set_index": 1,
+                                "corrupted": True,
+                                "corrupt_level": 2,
+                            }
+                        ]
+                    }
+                ],
+            }
+        )
+    )
+    assert 'corrupted="true"' in xml and 'corruptLevel="2"' in xml

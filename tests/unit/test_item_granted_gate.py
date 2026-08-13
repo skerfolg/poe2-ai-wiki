@@ -59,3 +59,59 @@ def test_gem_route_survives_multiple_from_cards() -> None:
     assert both["granted_by"] == ["Earthbound"], "부여원은 지우지 않는다"
     only_item = skill_source(["Ashen Staff"], {"ashen staff": "item.ashen-staff"})
     assert only_item["source"] == "item-granted"
+
+
+def test_부여원을_장착했으면_통과한다() -> None:
+    """게이트의 근거는 「젬 획득 경로가 **없다**」이다 — 있으면 막을 이유가 없다.
+
+    인게임에서 유저는 아이템이 준 스킬에 주얼러 오브로 보조를 붙인다. PoB는 그 구성을
+    `source` **없는** 그룹으로 들고 있고, 옛 게이트는 그것을 「젬으로 켰다」로 오인해
+    막았다. 실측 2026-08-13(블러드 메이지 래더 코드): 그 그룹이 빠지자 같은 빌드가
+    **DPS 1,935,569 → 12,334**(157배)가 됐다.
+    """
+    granted = spec_from_dict(
+        {
+            **BASE,
+            # Firebolt의 부여원은 지팡이 계열이다 — 그중 하나를 실제로 끼운다
+            "items": [{"slot": "Weapon 1", "text": "Rarity: NORMAL\nAshen Staff"}],
+            "skills": [
+                {
+                    "gems": [
+                        {
+                            "gem_id": "Metadata/Items/Gems/SkillGemFirebolt",
+                            "name": "Firebolt",
+                            "level": 20,
+                            "stat_set_index": 1,
+                        }
+                    ]
+                }
+            ],
+        }
+    )
+    assert granted is not None, "부여원을 장착했는데도 막혔다"
+
+
+def test_부여원이_없으면_여전히_막는다() -> None:
+    """#47의 보호는 그대로다 — 완화가 아니라 **조건을 정확히** 한 것이다.
+
+    이게 깨지면 Firebolt 사고(젬 획득 경로 없이 조용히 계산)가 그대로 재발한다.
+    """
+    with pytest.raises(ValueError, match="아이템 부여 스킬"):
+        spec_from_dict(
+            {
+                **BASE,
+                "items": [{"slot": "Weapon 1", "text": "Rarity: RARE\nPok Wand\nDueling Wand"}],
+                "skills": [
+                    {
+                        "gems": [
+                            {
+                                "gem_id": "Metadata/Items/Gems/SkillGemFirebolt",
+                                "name": "Firebolt",
+                                "level": 20,
+                                "stat_set_index": 1,
+                            }
+                        ]
+                    }
+                ],
+            }
+        )
