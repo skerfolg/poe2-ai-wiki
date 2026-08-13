@@ -1,0 +1,7794 @@
+{
+  "id": "usage-profile.0-5-keypassives-heartstopper",
+  "type": "UsageProfile",
+  "name": {
+    "ko": "심정지 (Heartstopper) 동반 프로파일 (0-5)",
+    "en": "심정지 (Heartstopper) usage profile (0-5)"
+  },
+  "tags": [
+    "usage-profile",
+    "0-5"
+  ],
+  "data": {
+    "season": "0.5",
+    "anchor": {
+      "ref": "passive.heartstopper-34497",
+      "label": "심정지 (Heartstopper)"
+    },
+    "query": {
+      "keypassives": "Heartstopper"
+    },
+    "class_spread": [
+      {
+        "ref": "Infernalist",
+        "share": 18.8,
+        "count": 6,
+        "ci_low": 8.9
+      },
+      {
+        "ref": "Oracle",
+        "share": 15.6,
+        "count": 5,
+        "ci_low": 6.9
+      },
+      {
+        "ref": "Pathfinder",
+        "share": 15.6,
+        "count": 5,
+        "ci_low": 6.9
+      },
+      {
+        "ref": "Spirit Walker",
+        "share": 12.5,
+        "count": 4,
+        "ci_low": 5.0
+      },
+      {
+        "ref": "Acolyte of Chayula",
+        "share": 9.4,
+        "count": 3,
+        "ci_low": 3.2
+      },
+      {
+        "ref": "Deadeye",
+        "share": 9.4,
+        "count": 3,
+        "ci_low": 3.2
+      },
+      {
+        "ref": "Martial Artist",
+        "share": 6.2,
+        "count": 2,
+        "ci_low": 1.7
+      },
+      {
+        "ref": "Gemling Legionnaire",
+        "share": 3.1,
+        "count": 1,
+        "ci_low": 0.6
+      },
+      {
+        "ref": "Invoker",
+        "share": 3.1,
+        "count": 1,
+        "ci_low": 0.6
+      },
+      {
+        "ref": "Lich",
+        "share": 3.1,
+        "count": 1,
+        "ci_low": 0.6
+      },
+      {
+        "ref": "Ritualist",
+        "share": 3.1,
+        "count": 1,
+        "ci_low": 0.6
+      }
+    ],
+    "tree_shape": {
+      "counted": "destinations-only",
+      "destination_kinds": [
+        "notable",
+        "keystone",
+        "jewel-socket"
+      ],
+      "per_build": {
+        "allocated": {
+          "min": 110,
+          "median": 130,
+          "max": 155
+        },
+        "ascendancy-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "class-start": {
+          "min": 1,
+          "median": 1,
+          "max": 1
+        },
+        "jewel-socket": {
+          "min": 1,
+          "median": 4,
+          "max": 7
+        },
+        "keystone": {
+          "min": 0,
+          "median": 2,
+          "max": 10
+        },
+        "notable": {
+          "min": 16,
+          "median": 28,
+          "max": 53
+        },
+        "small": {
+          "min": 63,
+          "median": 95,
+          "max": 113
+        }
+      },
+      "diagonal": {
+        "min": 16963,
+        "median": 24165,
+        "max": 33071
+      }
+    },
+    "observed": {
+      "sample": {
+        "n": 32,
+        "unit": "sampled-builds",
+        "basis": "poe.ninja 래더 PoB 실측 — 0-5/keypassives-Heartstopper 32벌",
+        "level": {
+          "min": 80,
+          "median": 93,
+          "max": 98
+        },
+        "min_count": 1
+      },
+      "gems": [
+        {
+          "ref": "Prolonged Duration II",
+          "share": 75.0,
+          "count": 24,
+          "ci_low": 57.9
+        },
+        {
+          "ref": "Cooldown Recovery II",
+          "share": 68.8,
+          "count": 22,
+          "ci_low": 51.4
+        },
+        {
+          "ref": "Magnified Area II",
+          "share": 68.8,
+          "count": 22,
+          "ci_low": 51.4
+        },
+        {
+          "ref": "Efficiency II",
+          "share": 46.9,
+          "count": 15,
+          "ci_low": 30.9
+        },
+        {
+          "ref": "Rapid Attacks II",
+          "share": 46.9,
+          "count": 15,
+          "ci_low": 30.9
+        },
+        {
+          "ref": "Concentrated Area",
+          "share": 34.4,
+          "count": 11,
+          "ci_low": 20.4
+        },
+        {
+          "ref": "Wind Dancer",
+          "share": 34.4,
+          "count": 11,
+          "ci_low": 20.4
+        },
+        {
+          "ref": "Blind II",
+          "share": 31.2,
+          "count": 10,
+          "ci_low": 18.0
+        },
+        {
+          "ref": "Deliberation",
+          "share": 31.2,
+          "count": 10,
+          "ci_low": 18.0
+        },
+        {
+          "ref": "Elemental Armament II",
+          "share": 31.2,
+          "count": 10,
+          "ci_low": 18.0
+        },
+        {
+          "ref": "Ghost Dance",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "Maim",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "Clarity II",
+          "share": 25.0,
+          "count": 8,
+          "ci_low": 13.3
+        },
+        {
+          "ref": "Doedre's Undoing",
+          "share": 25.0,
+          "count": 8,
+          "ci_low": 13.3
+        },
+        {
+          "ref": "Rapid Casting II",
+          "share": 25.0,
+          "count": 8,
+          "ci_low": 13.3
+        },
+        {
+          "ref": "Bow Shot",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Chaos Mastery",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Close Combat II",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Elemental Focus",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Harmonic Remnants II",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Hulking Minions",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Ritualistic Curse",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Second Wind III",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Boundless Energy II",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Charge Profusion II",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Charge Regulation",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Cold Mastery",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Deadly Poison II",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Demon Form",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Despair",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Discipline",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Eternal Rage",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Heft",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Knockback",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Overcharge",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Poisonburst Arrow",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Rage III",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Romira's Requital",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Shock Conduction",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Spellslinger",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Toxic Growth",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Uruk's Smelting",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Arakaali's Lust",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Blasphemy",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Cast on Critical",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Escalating Poison",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Heightened Charges",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Heightened Curse",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Herald of Ice",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Herald of Plague",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Longshot II",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Magnified Area I",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Minion Mastery",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Mirage Archer",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Multishot II",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Projectile Acceleration III",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Raise Shield",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Vitality II",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Vorana's Siege",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Armour Demolisher II",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Azmerian Wolf",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Barrage",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Bleed III",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Brutality III",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Bursting Plague",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Cast on Elemental Ailment",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Commiserate",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Convalescence",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Culling Strike II",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Empowered Sparks I",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Energy Retention",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Freezing Mark",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Herald of Thunder",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Hexblast",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Khatal's Rejuvenation",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Life Leech III",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Lifetap",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Living Lightning II",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Long Fuse II",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Loyalty",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Muster",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Pierce III",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Pinpoint Critical",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Poison III",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Rakiata's Flow",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Remnant Potency I",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Spell Cascade",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Tempest Bell",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Warm Blooded",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Wild Protector",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Withering Presence",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Withering Touch",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Wolf Pack",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Ailith's Chimes",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Armour Break III",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Bounty II",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Cannibalism II",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Catha's Brilliance",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Charged Mark",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Charged Staff",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Clarity I",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Cold Penetration",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Combat Frenzy",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Companion: Zekoa, the Headcrusher",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Compressed Duration II",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Corrosion",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Culmination II",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Decaying Hex",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Elemental Weakness",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Encroaching Ground",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Eternal Mark",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Execute II",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Execute III",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Feeding Frenzy II",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Fire Attunement",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Freeze",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Gas Arrow",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Heavy Swing",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Herald of Blood",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Hollow Focus",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Hollow Resonance",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Ignite III",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Impending Doom",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Into the Breach",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Lightning Attunement",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Mana Leech",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Mantra of Destruction",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Mark for Death II",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Mobility",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Nova Projectiles I",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Perpetual Charge",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Persistent Ground III",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Poison Spores",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Quarterstaff Strike",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Remnant Potency III",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Shock",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Sigil of Power",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Sione's Temper",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Siphon Elements",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Slow Potency",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Sniper's Mark",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Spear Throw",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Tacati's Ire",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Tame Beast",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Temporal Chains",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Thrill of the Kill II",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Thunderstorm",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Trinity",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Uhtred's Constellation",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Uhtred's Omen",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Unleash",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Vilenta's Propulsion",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Vine Arrow",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Whirling Assault",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Admixture",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Ancestral Call II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Animus Exchange",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Archon of Chayula",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Arctic Armour",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Armour Explosion",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Atziri's Communion",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Atziri's Impatience",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Berserk",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Bidding II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Blazing Critical",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Blindside",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Blink",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Brutus' Brain",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Burgeon II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Cadence",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Chaos Attunement",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Charge Profusion I",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Cold Attunement",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Companion: Quadrilla",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Companion: Tombshrieker",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Companion: Vile Vulture",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Companion: Werewolf Prowler",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Contagion",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Cool Headed",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Crescendo II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Crystalline Shards",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Decompose",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Electromagnetism",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Elemental Army",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Exploit Weakness",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Explosive Grenade",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Falling Thunder",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Fire Mastery",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Fork",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Frost Wall",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Frozen Spite",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Garukhan's Resolve",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Helbrym's Hide",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Ice Shot",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Icicle",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Innervate",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Killing Palm",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Life Leech II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Life Remnants",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Lightning Bolt",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Mana Flare",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Mana Remnants",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Mark for Death",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Mark of Siphoning II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Meat Shield II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Midnight Zenith",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Minion Splash II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Momentum",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Multishot I",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Mysticism II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Oil Barrage",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Overabundance I",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Plague Bearer",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Profane Ritual",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Profanity II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Purity of Fire",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Rageforged II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Rapid Attacks III",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Ricochet II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Rite of Restoration",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Salvo",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Shattering Palm",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Snipe",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Spark",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Strong Hearted",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Supercritical",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Tempest Flurry",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Uhtred's Augury",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Zenith II",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Accelerated Growth II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Acrimony",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Advancing Storm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Amanamu's Tithe",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ancestral Cry",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Arbiter's Ignition",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Arbiter's Reach",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Arc",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Armour Break I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Armour Demolisher I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Astral Projection",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Atalui's Bloodletting",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bidding III",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bleeding Concoction",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bloodhound's Mark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brambleslam",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Breachlord's Amalgam",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Burning Inscription",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cackling Companions",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cannibalism I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Chain III",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Charged Shots II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cold Exposure",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Comet",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Amphibious Prowler",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Bloodthief Wasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Bramble Hulk",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Fettered Spider",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Mantis Rat",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Mighty Silverfist",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Nameless Imp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Pack Werewolf",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Porcupine Crab",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Starlit Harvester",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Sun Clan Scavenger",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Companion: Venomous Crab Matriarch",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Conductive Runes",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Creeping Chill",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cursed Ground",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dark Effigy",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Deadly Herald",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Deep Freeze",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Delayed Gratification",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Devour",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dialla's Desire",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Direstrike II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dominus' Grasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Durability",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Electrocute",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Elemental Conflux",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Elemental Expression",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Embitter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Enfeeble",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Entangle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Escape Shot",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Esh's Radiance",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Essence Drain",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Expand",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Explosive Shot",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Explosive Transmutation",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Feeding Frenzy I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fireball",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fist of War III",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Flame Wall",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Focused Curse",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fortress II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Glacial Lance",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Grim Pillars",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Herald of Ash",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Herbalism I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Herbalism II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hex Bloom",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hollow Form",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Holy Descent",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hourglass",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ice Bite I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ice Bite II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ice Nova",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ice-Tipped Arrows",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Impurity",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Infernal Legion I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Infernal Legion II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Kaom's Madness",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Kurgal's Leash",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Lasting Shock",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Leap Slam",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Lightning Mastery",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Lightning Penetration",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Lightning Warp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Living Bomb",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Long Fuse I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Longshot I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Meat Shield I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Minion Instability",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Minion Splash I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Mirage Deadeye",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Mist Raven",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Molten Blast",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Molten Crash",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Molten Shower",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Nova Projectiles II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Oil Grenade",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Opening Move",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Orb of Storms",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Overabundance II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Overreach",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Payload",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Perfection",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Pin II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Plasma Blast",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Poison I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Powered by Verisium",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Practiced Combo",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Precision I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Prototype Seventeen",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Punch Through",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Purity of Lightning",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Pursuit III",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rain of Arrows",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rapid Attacks I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rapid Casting I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rapid Shot",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ratha's Assault",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Reaper's Invocation",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Refutation",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Remnants of Kalguur",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Repulsion",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Retaliate II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Retreat III",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rhoa Mount",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Righteous Descent",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rigwald's Ferocity",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Runic Tempering",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Searing Flame II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Second Wind II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Selfless Remnants",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Shield Charge",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Short Fuse I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Short Fuse II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Soul Drain",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spear Stab",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spell Echo",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spiral Volley",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Vessel",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Static Shocks",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Steadfast II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Stoicism II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Stormblast Bolts",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Stormcaller Arrow",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Stormfire",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Summon Infernal Hound",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Swift Affliction II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tasalio's Rhythm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tecrod's Revenge",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tornado",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tornado Shot",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Toxic Domain",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Trail of Caltrops",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Trickster's Shard",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Twister",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Uhtred's Rite",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Unbound Avatar",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Uul-Netol's Embrace",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Verglas",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Virtuous Barrier",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Vitality I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Walking Calamity",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "War Banner",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Whirling Slash",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Window of Opportunity I",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Window of Opportunity II",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Zerphi's Infamy",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        }
+      ],
+      "items": [
+        {
+          "ref": "Heart of the Well",
+          "share": 50.0,
+          "count": 16,
+          "ci_low": 33.6
+        },
+        {
+          "ref": "Nascent Hope",
+          "share": 50.0,
+          "count": 16,
+          "ci_low": 33.6
+        },
+        {
+          "ref": "Lavianga's Spirits",
+          "share": 40.6,
+          "count": 13,
+          "ci_low": 25.5
+        },
+        {
+          "ref": "Beira's Anguish",
+          "share": 34.4,
+          "count": 11,
+          "ci_low": 20.4
+        },
+        {
+          "ref": "Prism of Belief",
+          "share": 31.2,
+          "count": 10,
+          "ci_low": 18.0
+        },
+        {
+          "ref": "Rite of Passage",
+          "share": 31.2,
+          "count": 10,
+          "ci_low": 18.0
+        },
+        {
+          "ref": "Flesh Crucible",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "Headhunter",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "Megalomaniac",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "Kalandra's Touch",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "The Fall of the Axe",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "Blood of the Warrior",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "From Nothing",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Sanguis Heroum",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "Heroic Tragedy",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Mageblood",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Sacrosanctum",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Split Personality",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "Alpha's Howl",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Arakaali's Gift",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Forsaken Bangle",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Sylvan's Effigy",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Valako's Roar",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "Breath of the Mountains",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Cadiro's Gambit",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "Atziri's Step",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Choir of the Storm",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Concentrated Ultimate Life Flask of the Sylvan",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Concentrated Ultimate Mana Flask of the Plentiful",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Controlled Metamorphosis",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Crown of Eyes",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Eventide Petals",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Grip of Kulemak",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Midnight Braid",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Oblivion Coil",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Olroth's Resolve",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Pandemonium Wound",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Plague Stone",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Rapture Spark",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Rearguard",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Reverie",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Sacred Flame",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Seething Ultimate Life Flask of the Perpetual",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "The Vertex",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Uhtred's Chalice",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Undying Hate",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Valako's Vice",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Voltaxic Rift",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Woe Braid",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "Against the Darkness",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Aged Ultimate Mana Flask of the Mixologist",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Agony Idol",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Agony Spiral",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Agony Trail",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ambush Pace",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Analyst's Stone Charm of the Distiller",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Analyst's Stone Charm of the Wide",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Analyst's Thawing Charm of the Verdant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Apocalypse Collar",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Apocalypse Eye",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Apocalypse Locket",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Aqueous Golden Charm of the Abundant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Armageddon Charm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Armageddon Crest",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Armageddon Glimmer",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Armageddon Prism",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Armageddon Span",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Astramentis",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Atziri's Disdain",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Beast Band",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Beast Pace",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Beast Snare",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Behemoth Cut",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Behemoth Grasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Behemoth Ornament",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Behemoth Pendant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Behemoth Shelter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Behemoth Spire",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Behemoth Splinter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Blight Claw",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Blight Scarab",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Blight Song",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Blight Tread",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Blood Finger",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Blooming Thawing Charm of the Apprentice",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bramble Bliss",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bramble Joy",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bramble Shelter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bramble Splinter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bright Stone Charm of the Wide",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bright Thawing Charm of the Medic",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brimstone Fingers",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brimstone Lock",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brimstone Torc",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brood Skin",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brood Spark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brood Star",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brood Stride",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brood Whorl",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Brutus' Lead Sprinkler",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bubbling Ultimate Life Flask of the Abundant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bubbling Ultimate Life Flask of the Bountiful",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bubbling Ultimate Life Flask of the Distiller",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bubbling Ultimate Life Flask of the Perpetual",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Bubbling Ultimate Mana Flask of the Sylvan",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Carnage Heart",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Carrion Bite",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Carrion Chant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Carrion Dew",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Carrion Gyre",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Carrion Sliver",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Carrion Wisdom",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cat O' Nine Tails",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cataclysm Breath",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cataclysm Fist",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cataclysm Star",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cataclysm Vessel",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Chimeric Delirium",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Chimeric Edge",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Chimeric Locket",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Chimeric Nail",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Chimeric Sliver",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Compact Transcendent Life Flask of the Bountiful",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Concentrated Ultimate Life Flask of the Bountiful",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Concentrated Ultimate Mana Flask of the Bottomless",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Concentrated Ultimate Mana Flask of the Copious",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Concentrated Ultimate Mana Flask of the Sylvan",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Concentrated Ultimate Mana Flask of the Verdant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Congealed Ultimate Mana Flask of the Surgeon",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Corpse Grasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Corpse Grip",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Corpse Rook",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Corpsewade",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Corruption Star",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Corruption Track",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Corruption Volley",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Crest of Ardura",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Cursecarver",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Damnation Clasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Damnation Hold",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Damnation Loop",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Damnation Weaver",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dawnlit Thawing Charm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Decree of Loyalty",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Defiance of Destiny",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Deliberate Dualstring Bow",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Demon Beads",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Demon Chant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Demon Hold",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Demon Trap",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dire Idol",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dire Whorl",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Doedre's Damning",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Doom Clasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Doom Grip",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Doom Medallion",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Doom Rosary",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Doom Spiral",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Doomfletch",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dragon Band",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dragon Fingers",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dread Knot",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dread Nail",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Drizzling Amethyst Charm of the Mixologist",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Drizzling Ruby Charm of the Foliage",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Drizzling Silver Charm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dusk Clasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dusk Coat",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dusk Creed",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dusk Hope",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dusk Nails",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dusk Palm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dusk Rosary",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Dusk Vessel",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Eagle Bliss",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Eagle Core",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Eagle Gyre",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Eagle Ornament",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Eagle Spur",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Eagle Stinger",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Eagle Visage",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Effervescent Ultimate Life Flask of the Constant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Effervescent Ultimate Mana Flask of the Plentiful",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Empyrean Anthem",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Empyrean Desire",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Empyrean Heart",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Empyrean Palm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Empyrean Peak",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Empyrean Spiral",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Entropy Bliss",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Entropy Essence",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Entropy Flame",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Entropy Solace",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Entropy Wisdom",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Entropy Wound",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Essentia Sanguis",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Examiner's Antidote Charm of the Doctor",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Experimenter's Silver Charm of the Brewer",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Experimenter's Stone Charm of the Perpetual",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fate Knot",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fate Pace",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fate Shackle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fate Track",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fireflower",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Foe Knuckle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Foe Shard",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "For Utopia",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Forgotten Warden",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fulgent Bliss",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fulgent Glisten",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Full-bodied Ultimate Mana Flask of the Continuous",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Fury of the King",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Gale Braid",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Gale Cowl",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Gale Prism",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ghoul Hold",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ghoul Lash",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ghoul Shard",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ghoul Shine",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ghoul Spell",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ghoul Whorl",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ghoul Wrap",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Glyph Breaker",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Glyph Fist",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Glyph Hoof",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Glyph Ruin",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Glyph Spiral",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Golem Carapace",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Golem Claw",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Golem Spark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Golem Veil",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Golem Ward",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Grand Spectrum",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Grim Clutches",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Grim Shelter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Grim Turn",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Grim Twine",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Guiding Palm of the Mind",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hate Goad",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hate Knuckle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hate Ward",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Havoc Fist",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Honour Core",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Honour Glisten",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Honour Horn",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Honour Knuckle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Honour Spark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Horror Arrow",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Horror Grasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Horror Visor",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hypnotic Bind",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hypnotic Heart",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hyrri's Ire",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Hysseg's Claw",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Immaculate Adherence",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Kaom's Heart",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Kraken Caress",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Kraken Finger",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Kraken Heart",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Kraken Sole",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Loath Eye",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Loath Vise",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Loreweave",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Luminous Cut",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Luminous Scar",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Luminous Vessel",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Lustrous Stone Charm of the Apprentice",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Lustrous Thawing Charm of the Wide",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Maelstrom Bliss",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Maelstrom Goad",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Maelstrom Knuckle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Maelstrom Spark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Maelstrom Ward",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Mahuxotl's Machination",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Mind Barb",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Mind Eye",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Mind Grasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Mind Keep",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Miracle Band",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Miracle Hold",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Miracle Shelter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Morbid Pelt",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Morbid Slippers",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Morbid Visor",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Morior Invictus",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Natural Stone Charm of the Surgeon",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Nemesis Girdle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Nemesis Spark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ngamahu's Chosen",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Nightscale",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Oblivion Hoof",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Oblivion Loop",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Oblivion Prism",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Oblivion Spark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Oblivion Twirl",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Oblivion Vessel",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Occultist's Chiming Staff of Expertise",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Oceanic Antidote Charm of the Bountiful",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Onslaught Dash",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Onslaught Edge",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Onslaught Hand",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Onslaught Mitts",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Onslaught Palm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Pain Choker",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Pain Coat",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Pain Knuckle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Palm of the Dreamer",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Pandemonium Knuckle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Pandemonium Lens",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Pandemonium Shelter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Persistent Ultimate Mana Flask of the Ample",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Persistent Ultimate Mana Flask of the Sylvan",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Phoenix Bliss",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Phoenix Dash",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Phoenix Guide",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Phoenix Loop",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Plague Gyre",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Plague Track",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Potent Ultimate Life Flask of the Abundant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Potent Ultimate Life Flask of the Distiller",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Prized Pain",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Queen of the Forest",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rage Circle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rage Halo",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rage Heart",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Raindancer's Stone Charm of the Doctor",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rapture Collar",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rapture Keep",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rapture Spell",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rapture Turn",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rift Barb",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rift Branch",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rift Crown",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rift Dome",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rift Hunger",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rift Keep",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rift Tread",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rise of the Phoenix",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rune Branch",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rune Bulwark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rune Crest",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rune Eye",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rune Nails",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Rune Pile",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sapping Ultimate Life Flask of the Ample",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sapping Ultimate Life Flask of the Brewer",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sapping Ultimate Life Flask of the Perpetual",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Seething Ultimate Life Flask of the Abundant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Seething Ultimate Life Flask of the Ample",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Seething Ultimate Life Flask of the Sylvan",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Serle's Grit",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Simmering Ultimate Life Flask of the Verdant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Skull Charm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Skysliver",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Snakebite",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Soaked Stone Charm",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sol Gyre",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sol Heart",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sol Sliver",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sorrow Curtain",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sorrow Finger",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sorrow March",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Soul Clasp",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Soul Keep",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Soul Nail",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Soul Spell",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Dew",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Grip",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Gyre",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Knot",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Lens",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Nails",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Peak",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Tread",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Spirit Whorl",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sprouting Staunching Charm of the Endless",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Storm Bond",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Storm Corona",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Storm Eye",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Storm Lock",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Storm Mitts",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Storm Spire",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Substantial Ultimate Life Flask of the Copious",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Substantial Ultimate Life Flask of the Mixologist",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sunburst Golden Charm of the Perpetual",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sunburst Staunching Charm of the Sylvan",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sunburst Stone Charm of the Bountiful",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Sunburst Thawing Charm of the Brewer",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tempest Barrier",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tempest Goad",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tempest Shelter",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tempest Spark",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tenacious Ultimate Mana Flask of the Ample",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "The Auspex",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "The Black Cat",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "The Covenant",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "The Hammer of Faith",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "The Ordained",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "The Taming",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "The Unleashed",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Torment Gorget",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Treefingers",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Trenchtimbre",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Tyranny's Grip",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Veil of the Night",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Ventor's Gamble",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Vestige of Darkness",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Victory Lash",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Viper Salvation",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Vivid Joy",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Voices",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Vortex Knuckle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Vortex Paw",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Vortex Ward",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Waistgate",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Windscream",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Woe Call",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Woe Mantle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Wrath Buckle",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Wrath Goad",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "Xoph's Blood",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        }
+      ],
+      "passives": [
+        {
+          "ref": "passive.jewel-socket-32763",
+          "share": 75.0,
+          "count": 24,
+          "ci_low": 57.9
+        },
+        {
+          "ref": "passive.heartstopper-34497",
+          "share": 71.9,
+          "count": 23,
+          "ci_low": 54.6
+        },
+        {
+          "ref": "passive.jewel-socket-61834",
+          "share": 62.5,
+          "count": 20,
+          "ci_low": 45.3
+        },
+        {
+          "ref": "passive.jewel-socket-60735",
+          "share": 56.2,
+          "count": 18,
+          "ci_low": 39.3
+        },
+        {
+          "ref": "passive.jewel-socket-21984",
+          "share": 53.1,
+          "count": 17,
+          "ci_low": 36.4
+        },
+        {
+          "ref": "passive.jewel-socket-61419",
+          "share": 46.9,
+          "count": 15,
+          "ci_low": 30.9
+        },
+        {
+          "ref": "passive.enhanced-reflexes-51707",
+          "share": 37.5,
+          "count": 12,
+          "ci_low": 22.9
+        },
+        {
+          "ref": "passive.jewel-socket-26196",
+          "share": 34.4,
+          "count": 11,
+          "ci_low": 20.4
+        },
+        {
+          "ref": "passive.jewel-socket-7960",
+          "share": 34.4,
+          "count": 11,
+          "ci_low": 20.4
+        },
+        {
+          "ref": "passive.beastial-skin-59720",
+          "share": 31.2,
+          "count": 10,
+          "ci_low": 18.0
+        },
+        {
+          "ref": "passive.for-the-jugular-20677",
+          "share": 31.2,
+          "count": 10,
+          "ci_low": 18.0
+        },
+        {
+          "ref": "passive.honed-instincts-28992",
+          "share": 31.2,
+          "count": 10,
+          "ci_low": 18.0
+        },
+        {
+          "ref": "passive.blur-35987",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "passive.jewel-socket-46882",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "passive.patient-barrier-62230",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "passive.spectral-ward-34324",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "passive.true-strike-61601",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "passive.dampening-shield-9642",
+          "share": 25.0,
+          "count": 8,
+          "ci_low": 13.3
+        },
+        {
+          "ref": "passive.heartstopping-38537",
+          "share": 25.0,
+          "count": 8,
+          "ci_low": 13.3
+        },
+        {
+          "ref": "passive.melding-3215",
+          "share": 25.0,
+          "count": 8,
+          "ci_low": 13.3
+        },
+        {
+          "ref": "passive.pure-energy-2254",
+          "share": 25.0,
+          "count": 8,
+          "ci_low": 13.3
+        },
+        {
+          "ref": "passive.clean-shot-42781",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "passive.first-principle-of-the-hollow-49356",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "passive.heartbreaking-13407",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "passive.kite-runner-26107",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "passive.struck-through-39369",
+          "share": 21.9,
+          "count": 7,
+          "ci_low": 11.0
+        },
+        {
+          "ref": "passive.blackflame-covenant-42680",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.demonic-possession-25239",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.escalating-toxins-38628",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.escape-velocity-17854",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.first-teachings-of-the-keeper-59657",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.killer-instinct-56453",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.lasting-toxins-61741",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.lingering-horror-56063",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.pyromantic-pact-13174",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.zone-of-control-50485",
+          "share": 18.8,
+          "count": 6,
+          "ci_low": 8.9
+        },
+        {
+          "ref": "passive.acceleration-43082",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.careful-assassin-46197",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.chakra-of-thought-29306",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.crippling-toxins-43677",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.dark-entries-63074",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.deadly-force-13724",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.easy-going-10315",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.entwined-realities-32905",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.first-approach-29527",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.flow-like-water-49220",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.forced-outcome-55135",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.hollow-palm-technique-64601",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.inspiring-ally-16150",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.mindful-awareness-62984",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.path-seeker-16433",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.pliable-flesh-38111",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.preservation-32951",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.the-lesser-harm-34313",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.the-unseen-path-5571",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.the-wild-cat-22811",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.travellers-wisdom-46454",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.abasement-7338",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.bond-of-the-ape-712",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.bond-of-the-mamba-47853",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.bringer-of-flame-18158",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.building-toxins-15986",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.catlike-agility-20831",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.desensitisation-28267",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.idolatry-56489",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.jewel-socket-55190",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.leeching-toxins-63431",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.left-ventricle-4091",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.long-distance-relationship-31826",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.loose-flesh-13542",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.low-tolerance-42959",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.maiming-strike-41580",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.martial-artistry-2113",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.master-of-hexes-40345",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.mastered-darkness-61267",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.overflowing-power-65204",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.practiced-signs-36302",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.proficiency-58397",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.pure-chaos-55149",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.quick-fingers-33542",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.resonance-25520",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.stacking-toxins-63759",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.storm-driven-1603",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.taut-flesh-48774",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.the-cathas-balance-765",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.the-natural-order-39887",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.trained-deflection-52180",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.trusted-kinship-41861",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.turn-the-clock-forward-2335",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.wild-protector-62743",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.anticipation-62431",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.bolstering-presence-64299",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.bond-of-the-cat-1448",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.bond-of-the-owl-52568",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.bond-of-the-viper-34478",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.bond-of-the-wolf-5191",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.captivating-companionship-32799",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.chakra-of-stability-42760",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.chayulas-gift-59759",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.coming-calamity-28044",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.constricting-54640",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.controlled-chaos-30748",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.crashing-wave-34168",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.critical-exploit-57204",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.distracted-target-32721",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.dizzying-hits-47514",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.dynamism-3688",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.electrotherapy-43090",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.enduring-deflection-42103",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.eternal-youth-33404",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.flow-state-34233",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.forthcoming-55568",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.glazed-flesh-23939",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.illuminated-crown-1823",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.immortal-infamy-24062",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.immortal-thirst-51871",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.impending-doom-21748",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.ingenuity-39567",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.jewel-socket-2491",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.jewel-socket-26725",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.jewel-socket-54127",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.lifelong-friend-31129",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.lucid-dreaming-52395",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.multi-shot-47560",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.nourishing-ally-37266",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.overwhelming-toxicity-29074",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.overzealous-10295",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.projectile-proximity-specialisation-42416",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.pyromancer-14265",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.relentless-pursuit-24868",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.relentless-vindicator-6898",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.remnant-attraction-1506",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.sic-em-47088",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.spaghettification-34473",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.spell-haste-17254",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.sturdy-ally-8791",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.subterfuge-mask-55193",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.tenfold-attacks-25971",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.toxic-tolerance-2134",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.unspoken-bond-33585",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.waking-dream-50098",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.whirling-assault-37514",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.wither-away-44373",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.agile-succession-56493",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.anger-management-45422",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.archon-of-chayula-34567",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.battle-hardened-56910",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.battle-trance-37276",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.brain-storm-50498",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.careful-aim-50795",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.catalysis-31433",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.comradery-49153",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.concussive-attack-36931",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.conduit-33979",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.conservative-casting-34300",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.controlling-magic-13823",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.disciplined-training-44573",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.dizzying-sweep-1420",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.eagle-eye-19104",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.elemental-equilibrium-46742",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.empowering-remnants-40985",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.endless-munitions-12033",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.energising-deflection-34541",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.enhanced-barrier-44299",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.event-horizon-52191",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.fast-acting-toxins-55",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.feathered-fletching-60764",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.flow-of-life-59438",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.flow-of-time-32128",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.flurry-33852",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.frantic-reach-39911",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.frantic-swings-28441",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.gathering-winds-30",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.glancing-deflection-56488",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.grinning-immolation-34419",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.hard-to-kill-50609",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.heart-tissue-35966",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.heavy-buffer-27491",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.high-alert-30456",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.hindered-capabilities-54805",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.imbibed-power-50912",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.immolation-53030",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.instability-43944",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.lasting-trauma-18496",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.marathon-runner-64050",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.marked-agility-44756",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.marked-for-death-36976",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.marked-for-sickness-63830",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.master-fletching-30341",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.mental-toughness-24120",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.primal-sundering-50884",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.principal-infusion-64046",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.resolute-reach-25361",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.reverberation-8660",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.right-hand-of-darkness-8957",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.runic-meridians-39552",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.seeing-stars-5009",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.shatter-palm-41811",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.shredding-force-5284",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.snowpiercer-9421",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.staunch-deflection-34908",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.step-like-mist-48198",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.storm-swell-336",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.stormbreaker-43139",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.stormcharged-38535",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.stupefy-38342",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.stylebender-60138",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.sudden-escalation-10398",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.temporal-mastery-12412",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.the-hollowkeeper-42078",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.the-power-within-27176",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.thin-ice-19722",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.throatseeker-56265",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.trick-shot-23221",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.warlord-leader-14761",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.wasting-51213",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.way-of-the-stonefist-39595",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.whispers-of-doom-47759",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.wrapped-quiver-30132",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.zealots-oath-52",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.advanced-thaumaturgy-14429",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.aftershocks-50253",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.against-the-elements-59938",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.agile-sprinter-8896",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.agonising-calamity-43088",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.all-natural-58016",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.altered-brain-chemistry-48974",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.ancestral-bond-45202",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.ancient-aegis-5728",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.and-i-shall-rage-64031",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.and-protect-me-from-harm-65173",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.arcane-intensity-19044",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.arcane-nature-16940",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.arcane-remnants-46124",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.aspiring-genius-27388",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.authority-20397",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.avatar-of-fire",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.avidity-37336",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.avoiding-deflection-50673",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.barrier-of-venarius-50062",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.beef-25482",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.blazing-arms-25753",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.boundless-growth-15114",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.brain-freeze-24721",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.breaking-point-7777",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.brew-concoction-57141",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.brute-strength-50392",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.bulwark-56605",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.burnout-35324",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.careful-consideration-17955",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.chakra-of-impact-25362",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.chakra-of-life-35031",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.chakra-of-rhythm-28963",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.chillproof-5686",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.combat-alchemy-10053",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.cooked-56776",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.craving-slaughter-9323",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.critical-overload-5501",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.crushing-verdict-18505",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.crystalline-flesh-61026",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.crystalline-phylactery-17788",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.dance-with-death-14226",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.dangerous-blossom-7128",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.deadly-thorns-36408",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.decisive-retreat-17664",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.deep-freeze-16142",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.deep-trance-40166",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.dependable-ward-4931",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.deterioration-14343",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.dimensional-weakspot-2344",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.disorientation-38459",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.distant-dreamer-52245",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.eldritch-battery",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.electrifying-daze-56767",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.emboldening-casts-10727",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.embrace-the-darkness-41076",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.embracing-frost-9928",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.empowering-infusions-8782",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.enhancing-attacks-56237",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.entropic-incarnation-30720",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.enveloping-presence-65243",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.essence-infusion-42077",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.essence-of-the-storm-36479",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.essence-of-virtue-11641",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.eternal-life-28431",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.everlasting-bloom-49929",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.everlasting-infusions-24087",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.evocational-practitioner-41753",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.explosive-impact-21206",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.falcon-dive-60034",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.falcon-technique-31172",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.fated-end-59214",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.feel-no-pain-44836",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.fervour-21537",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.flamekeeper-52669",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.focused-channel-33730",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.focused-thrust-9227",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.freedom-of-movement-51606",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.gem-studded-30996",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.general-electric-27875",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.grip-of-evil-31175",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.growing-swarm-14945",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.harmonic-generator-40480",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.harness-the-elements-12611",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.harsh-winter-26331",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.heatproof-372",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.heavy-ammunition-11826",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.heavy-frost-4959",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.hollow-focus-technique-19370",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.hollow-resonance-technique-17356",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.i-am-the-blizzard-23587",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.ichlotls-inferno-32932",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.immaterial-19156",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.implanted-gems-60287",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.infernal-limit-61354",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.infused-limits-38965",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.infusing-power-24764",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.infusion-of-power-59387",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.inner-faith-30562",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.insightfulness-116",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.insulated-treads-9736",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.intense-dose-46182",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.intricate-sigils-4891",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.investing-energies-35369",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.invigorating-archon-41394",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.invigorating-hate-28408",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.invocated-echoes-24491",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.javelin-10265",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.last-stand-2397",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.lasting-incantations-58096",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.lead-me-through-grace-8143",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.lightning-quick-13738",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.lingering-whispers-16499",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.lord-of-horrors-33240",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.loyal-hellhound-17754",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.martial-adept-41751",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.martial-master-61586",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.mass-rejuvenation-34340",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.material-solidification-27513",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.melting-flames-43939",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.mental-alacrity-16466",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.mind-phylacteries-18280",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.mirage-deadeye-5817",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.molten-being-11392",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.molten-carapace-51868",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.moment-of-truth-17548",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.momentum-63579",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.mystic-attunement-7068",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.mystic-stance-63064",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.mystical-rage-52764",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.natures-bite-53265",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.necrotised-flesh-59541",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.nimble-strength-40292",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.nurturing-guardian-60992",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.one-for-all-35918",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.one-with-the-river-34316",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.one-with-the-storm-9444",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.overexposure-52199",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.pack-encouragement-21784",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.pain-attunement",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.personal-touch-34308",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.piercing-shot-4534",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.pocket-sand-58426",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.power-of-the-storm-12683",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.precise-point-13895",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.precise-volatility-34425",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.precision-salvo-19337",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.pressure-points-28329",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.primal-rage-28892",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.prism-guard-62034",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.profane-commander-54814",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.prolonged-assault-19442",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.protraction-54998",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.pure-power-28975",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.radial-force-13233",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.rapid-recharge-17973",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.raw-mana-3567",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.raw-power-51184",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.relentless-7721",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.relentless-fallen-55180",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.remorseless-44605",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.resolute-technique",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.restless-dead-38972",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.revenge-3188",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.ricochet-41210",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.ritual-cadence-11230",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.roil-60269",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.roll-and-strike-61112",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.running-assault-61991",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.scarred-faith-49547",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.seething-body-10694",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.self-immolation-23630",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.self-sacrificing-37778",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.serrated-edges-36085",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.shedding-skin-15644",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.shield-expertise-37244",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.shimmering-53941",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.shocking-limit-29800",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.shockproof-32448",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.sling-shots-55308",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.soulless-form-33570",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.spellblade-49984",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.spiked-shield-36808",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.split-shot-42302",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.staggering-palm-39881",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.stand-ground-6304",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.stimulants-7163",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.stripped-defences-33922",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.strong-chin-10998",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.sudden-infuriation-29372",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.sustainable-practices-40",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.tempered-defences-18157",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.tempered-mind-8831",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.the-fabled-stag-7847",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.the-howling-primate-48734",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.the-noble-wolf-2745",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.the-quick-fox-21349",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.the-spring-hare-11774",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.the-winter-owl-53185",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.thickened-arteries-35849",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.thicket-warding-56893",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.thirst-for-endurance-59433",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.thirst-for-power-38532",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.thirsting-ally-17600",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.tolerant-equipment-2843",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.touch-the-arcane-27626",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.toxic-sludge-261",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.turn-the-clock-back-35564",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.unbreakable-13489",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.unbreaking-53921",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.unfurled-finger-34785",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.unhindered-32543",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.unsight-51602",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.utility-ordnance-17303",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.vengeance-17762",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.viciousness-65193",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.vigilance-22967",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.vigorous-remnants-63739",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.vile-mending-36507",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.vile-wounds-30695",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.volatile-catalyst-11037",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.volcanic-skin-11366",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.warding-fetish-31925",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.warding-potions-47418",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.wild-storm-7809",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.wildsurge-incantation-49363",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        }
+      ]
+    }
+  },
+  "relations": [
+    {
+      "rel": "uses",
+      "target": "passive.heartstopper-34497"
+    }
+  ],
+  "verification": "COMMUNITY",
+  "sources": [
+    {
+      "src": "community",
+      "ref": "https://poe.ninja/poe2/builds",
+      "patch": "0.5.4b",
+      "note": "래더 PoB 실측 — 질의 {'keypassives': 'Heartstopper'}"
+    }
+  ]
+}
