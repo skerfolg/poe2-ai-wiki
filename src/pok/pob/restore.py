@@ -20,7 +20,6 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
-from pok.pob.buildxml import _item_granted_skill
 from pok.pob.codec import decode
 
 # PoB 슬롯명 그대로 쓴다. 주얼은 슬롯이 아니라 `Spec/Sockets`에 있어 따로 처리한다.
@@ -125,21 +124,15 @@ def _skills(
         if skill.get("source"):
             from_items += 1
             continue
-        # PoB가 `source`를 안 붙였어도 **KB가 아이템 부여로 아는 스킬**이면 같다
-        # (사용자 판정 2026-08-12: "아이템을 착용해야 부여되는 스킬이라 스킬만 옮길
-        # 수는 없다"). 래더 코드의 그룹 상당수가 `source` 없이 이 꼴로 온다.
-        # 젬으로 실으면 게이트가 막고, 막지 않았다면 **두 번 세게 된다**.
-        granted = [
-            g.get("nameSpec") or ""
-            for g in skill.findall("Gem")
-            if _item_granted_skill(g.get("nameSpec") or "")
-        ]
-        if granted:
-            # ⚠ 이 그룹에 주얼러 오브로 늘린 **보조 젬이 함께 있다**(사용자 판정).
-            #    그룹째 빼면 그 보조가 사라져 원본보다 약하게 계산된다 — 반드시 밝힌다.
-            supports = len(skill.findall("Gem")) - len(granted)
-            granted_groups.append((granted[0], supports))
-            continue
+        # ⛔ 예전엔 여기서 **젬 이름**으로 한 번 더 걸러 냈다 — `source`가 없어도 KB가
+        #    아이템 부여로 아는 스킬이 들어 있으면 그룹째 뺐다. **그게 결함이었다.**
+        #    `source` 없는 그룹은 PoB가 만든 것이 아니라 **플레이어가 구성한 것**이고,
+        #    아이템이 준 스킬에 주얼러 오브로 보조를 붙인 바로 그 구성이다.
+        #    실측 2026-08-13(블러드 메이지 래더 코드): 그 그룹을 빼자 같은 빌드가
+        #    **DPS 1,935,569 → 12,334**(157배)가 됐다. 주력 스킬 그룹이었다.
+        #    이중 계산도 아니다 — 원본 XML은 `source` 있는 그룹과 없는 그룹을 **둘 다**
+        #    들고 저 수치를 낸다. 우리가 `source` 있는 것만 빼면 PoB가 그것을 되만들어
+        #    원본과 같은 구조가 된다.
         gems = []
         for gem in skill.findall("Gem"):
             gem_id = gem.get("gemId") or ""

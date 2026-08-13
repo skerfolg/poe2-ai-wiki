@@ -446,15 +446,25 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
     #
     # ⚠ 젬 경로와 아이템 부여는 배타가 아니다(Herald 3종·Spark·Unleash…). 그 8종은
     # `source = gem`이라 걸리지 않는다 — 정상 젬을 막으면 게이트 자체가 죽는다(§0 ⑤).
+    # ⚠ **부여원이 장착돼 있으면 막지 않는다.** 게이트의 근거는 「젬 획득 경로가 없는데
+    #    조용히 계산된다」인데, 그 아이템을 실제로 끼고 있으면 경로가 **있다**. 인게임에서
+    #    유저는 아이템이 준 스킬에 주얼러 오브로 보조를 붙이고, PoB는 그 구성을 `source`
+    #    **없는** 그룹으로 들고 있다(래더 원본 XML 확인 2026-08-13).
+    #    실측이 이 구분을 강제했다: 그 그룹을 빼면 같은 빌드가 DPS **1,935,569 → 12,334**
+    #    (157배)가 된다 — 「이 젬 줄은 빼야 한다」는 옛 안내를 따르면 빌드가 무너진다.
+    #    부여원이 **없을** 때는 종전대로 막는다 — #47의 Firebolt 사례가 정확히 그 경우다.
+    # 부여원은 아이템만이 아니다 — **트리 노드도 준다**(혈액술 → Life Remnants).
+    # 실측 2026-08-13: 아이템 텍스트만 보면 그 경우를 놓쳐 정상 빌드가 막힌다.
+    provided = _provisions(spec_data)
     for gi, group in enumerate(spec_data.get("skills", [])):
         for i, gem in enumerate(group.get("gems", [])):
             granted = _item_granted_skill(str(gem.get("name", "")))
-            if granted:
+            if granted and not any(src.strip().lower() in provided for src in granted):
                 problems.append(
                     f"skills[{gi}].gems[{i}]: {gem.get('name')!r}는 **아이템 부여 스킬**이라 "
                     f"젬으로 못 켠다(KB `source: item-granted`, 부여원: {list(granted)}). "
-                    f"쓰려면 부여 아이템을 `items`에 장착할 것 — 그러면 PoB가 아이템에서 "
-                    f"스킬을 만들므로 이 젬 줄은 **빼야 한다**(넣으면 두 번 센다)"
+                    f"쓰려면 부여 아이템을 `items`에 장착할 것 — 장착하면 이 줄은 통과한다"
+                    f"(그 아이템이 준 스킬에 보조를 붙인 구성이 실제로 존재한다)"
                 )
 
     valid_config = config_vars()
@@ -713,6 +723,33 @@ def _item_granted_index() -> dict[str, tuple[str, ...]]:
         givers = tuple(str(x) for x in (data.get("granted_by") or []))[:3]
         out[record.name_en.lower()] = givers or ("(부여원 미수록)",)
     return out
+
+
+def _passive_names() -> dict[int, str]:
+    """트리 노드 번호 → 영문명. 부여원이 트리 노드인 경우를 판정하려면 필요하다."""
+    from pok.kb.store import load as store_load
+
+    out: dict[int, str] = {}
+    for record in store_load().records.values():
+        data = record.raw.get("data") or {}
+        if record.type != "Passive" or data.get("node_id") is None:
+            continue
+        try:
+            out[int(data["node_id"])] = record.name_en.lower()
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _provisions(spec_data: dict[str, Any]) -> str:
+    """이 빌드가 **실제로 들고 있는 부여원** — 장착 아이템 문구 + 할당한 트리 노드 이름.
+
+    게이트가 「젬 획득 경로가 없다」를 판정하는 근거다. 경로가 있으면 막지 않는다.
+    """
+    parts = [str(it.get("text", "")) for it in spec_data.get("items", [])]
+    names = _passive_names()
+    parts.extend(names[int(n)] for n in spec_data.get("tree_nodes", []) if int(n) in names)
+    return " ".join(parts).lower()
 
 
 def _item_granted_skill(name: str) -> tuple[str, ...] | None:
