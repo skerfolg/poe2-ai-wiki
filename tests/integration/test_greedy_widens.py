@@ -21,6 +21,20 @@ from pok.engine.tree import optimize as opt
 from pok.engine.tree.corpus import suggest_anchors
 from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import spec_from_dict
+from pok.pob.versions import find_luajit, resolve_snapshot
+
+
+def _env_ready() -> bool:
+    try:
+        find_luajit()
+        resolve_snapshot()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    return True
+
+
+# 후보 하나가 PoB 계산 1회다 — 오라클 없이는 돌 수 없다(형제 통합 테스트와 같은 관문).
+pytestmark = pytest.mark.skipif(not _env_ready(), reason="LuaJIT 또는 external/pob 스냅샷 없음")
 
 
 @pytest.fixture(scope="module")

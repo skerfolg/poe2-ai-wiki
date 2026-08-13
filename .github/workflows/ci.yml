@@ -37,6 +37,11 @@ jobs:
       # 하나도 체크아웃되지 않았다(로컬 macOS에서는 되던 것이다 — 재현 환경이 달랐다).
       # 고정 커밋의 raw 파일을 그냥 받는 편이 플랫폼 차이가 없고 단순하다.
       #
+      # ⚠ 목록은 `src/pok/pob/catalog.py`가 읽는 파일과 **함께 움직인다**. 실측
+      # 2026-08-13: #68이 quest_config_vars()로 Data/QuestRewards.lua를 읽기
+      # 시작했는데 여기 목록에 없어 pytest 16건이 FileNotFoundError로 죽었다
+      # (mypy가 먼저 죽어 보이지도 않았다). 카탈로그가 새 파일을 열면 여기도 는다.
+      #
       # ⚠ HeadlessWrapper.lua는 **일부러 받지 않는다** — 그게 있으면 PoB 실행 테스트가
       # skip을 멈추고 luajit 부재로 실패한다(러너에 luajit이 없다).
       # 상태이상 중첩 판정은 `<Ailment>CanStack`을 여는 출처를 src 전체에서 찾으므로
@@ -48,6 +53,7 @@ jobs:
           dir="external/pob/${POB_COMMIT:0:7}/src"
           base="https://raw.githubusercontent.com/PathOfBuildingCommunity/PathOfBuilding-PoE2/$POB_COMMIT"
           for f in Data/Gems.lua Data/Misc.lua Data/ModCache.lua Data/Skills/sup_dex.lua \
+                   Data/QuestRewards.lua \
                    Modules/ConfigOptions.lua Modules/Data.lua Modules/ModParser.lua \
                    Modules/CalcPerform.lua; do
             mkdir -p "$dir/$(dirname "$f")"

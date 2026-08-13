@@ -17,7 +17,10 @@ import math
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # argparse는 _cli 안에서만 늦게 import한다 — 주석용으로만 끌어온다
+    import argparse
 
 from pok.artifacts.ladder import LadderError, ladder_dir
 from pok.pob.parse import parse_pob
@@ -256,7 +259,7 @@ def passed_over(
             near.setdefault(nid, []).append(dist)
 
     n = len(files)
-    rows = []
+    rows: list[dict[str, Any]] = []
     for nid, dists in near.items():
         node = graph.nodes[nid]
         score = relevance(node.stats_en, list(include), []) if include else 0.0
@@ -479,7 +482,7 @@ def _parse_filters(items: list[str]) -> dict[str, str] | None:
     return out
 
 
-def _cli_profile(args) -> int:
+def _cli_profile(args: argparse.Namespace) -> int:
     from pok.common.paths import knowledge_dir
     from pok.kb.store import KBValidationError, KBWriteError, load, write_record
 

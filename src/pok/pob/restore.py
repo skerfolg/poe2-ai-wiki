@@ -109,7 +109,7 @@ def _items_by_id(items_el: ET.Element) -> dict[str, str]:
 
 def _skills(
     root: ET.Element, assume_first_stat_set: bool, assume_stages: int | None
-) -> tuple[list[dict], list[str], int, list[tuple[str, int]]]:
+) -> tuple[list[dict[str, Any]], list[str], int, list[tuple[str, int]]]:
     holder = root.find("Skills")
     if holder is None:
         return [], [], 0, []
