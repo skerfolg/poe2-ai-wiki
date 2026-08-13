@@ -142,3 +142,30 @@ def test_every_recurring_pattern_names_its_enforcement_point(text: str) -> None:
             assert re.search(rf"(?m)^\s*(?:def|class) {symbol}\b|^{symbol}\b", source), (
                 f"「{head}」의 강제 지점 {path}::{symbol}이 사라졌다 — 규율이 비었다"
             )
+
+
+def test_정본_문서가_빌드_산출물_인스턴스를_근거로_걸지_않는다() -> None:
+    """`artifacts/builds/`는 gitignore이고 **보존 대상도 아니다**(사용자 판정 2026-08-13:
+    "빌드 산출물은 프로젝트 차원에서 가져가야 할 정보가 아니다. 문서가 산출물을 정확히
+    링크하고 있으면 그게 문제다").
+
+    특정 인스턴스를 근거 경로로 걸면 그 PC를 떠나는 순간 **근거가 사라진다** — 실제로
+    53회분이 어느 repo에도 없는 채로 문서 4곳이 그것을 가리키고 있었다. 근거는 **값을
+    본문에 옮겨** 적는다. 구조 설명(`<id>` 플레이스홀더)은 허용한다.
+    """
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[2]
+    pattern = re.compile(r"artifacts/builds/(?!<)([^\s`)/]+)")
+    offenders: list[str] = []
+    for folder in ("docs", "skills", ".claude/skills"):
+        for path in (root / folder).rglob("*.md"):
+            for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for match in pattern.finditer(line):
+                    # 디렉터리 자체를 가리키는 것(`artifacts/builds/` 뒤 경로 없음)은 구조 설명이다
+                    offenders.append(f"{path.relative_to(root)}:{lineno} → {match.group(0)}")
+    assert not offenders, (
+        "정본 문서가 빌드 산출물 **인스턴스**를 근거로 걸었다 — 그 PC를 떠나면 근거가 "
+        "사라진다. 값을 본문에 옮겨 적을 것:\n  " + "\n  ".join(offenders)
+    )
