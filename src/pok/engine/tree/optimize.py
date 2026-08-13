@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any, NamedTuple, Protocol
 
 from pok.engine.objective import Target, TargetResult, evaluate_targets
-from pok.engine.tree.clusters import Cluster, find_clusters
+from pok.engine.tree.clusters import Cluster, find_clusters, relevance
 from pok.engine.tree.deltas import BundleDelta, NodeDelta, evaluate_bundles, evaluate_node_deltas
 from pok.engine.tree.graph import ASCENDANCY_POINTS, TreeGraph
 from pok.pob.buildxml import BuildSpec, JewelSpec
@@ -609,6 +609,64 @@ def _target_notes(objective: Objective, stats: dict[str, float]) -> tuple[str, .
     return tuple(out)
 
 
+_DESTINATION_KINDS = ("notable", "keystone", "jewel-socket")
+
+
+def _far_destination_bundles(
+    spec: BuildSpec,
+    graph: TreeGraph,
+    include: tuple[tuple[str, float], ...],
+    exclude: tuple[str, ...],
+    candidate_radius: int,
+    budget: int,
+) -> list[dict[str, Any]]:
+    """긴 점프의 후보 — **축마다 하나씩**, 반경 밖의 목적지를 모은 묶음 (#70).
+
+    ⚠ 예전엔 `find_clusters`(→`_scan_far_clusters`)의 결과를 그대로 먹였는데 **틀렸다.**
+    거기서 나오는 `Cluster.label`은 `JEWEL_RADII`의 **주얼 반경 밴드**(Small/Medium/…)다
+    — 오래된 기억류 주얼이 소켓 주변 반경 안의 노드에 옵션을 부여하는 그 범위이지
+    「먼 목적지」와 무관하다(사용자 정정 2026-08-13). 실측 결과 그리디가 16포인트를
+    주얼 밀집 그룹에 쓰고 **대각선은 20,005 → 20,004로 그대로였다.**
+
+    **묶는 기준은 호출자가 선언한 축(`cluster_include`)이다.** 엔진이 「무엇이 한
+    묶음인가」를 새로 정하면 그게 곧 판단이고, 판단은 해석 층의 몫이다(AD-3). 축 이름은
+    호출자가 준 것이므로 여기에 임의 상수가 끼지 않는다 — 묶음 수 = 축 수다.
+
+    반경 **밖**만 담는다. 안쪽은 이미 노드 후보로 경쟁하고 있어 중복이다.
+    """
+    tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
+    near = graph.distances_from(tree, candidate_radius)
+    far = graph.distances_from(tree, _MAX_REACH * 8)  # 거리 순서를 얻으려는 1회 BFS
+    out: list[dict[str, Any]] = []
+    for word, weight in include:
+        cands = sorted(
+            (
+                nid
+                for nid, node in graph.nodes.items()
+                if nid not in near
+                and nid in far
+                and node.kind in _DESTINATION_KINDS
+                and relevance(node.stats_en, ((word, weight),), exclude) > 0
+            ),
+            key=lambda nid: far[nid],
+        )
+        # ⚠ 축의 목적지를 **전부** 담으면 안 된다 — 실측 2026-08-13: Critical 105개 ·
+        #   Attack Speed 47개로 트리 전역이라 항상 예산 초과가 되고, 그러면 후보가
+        #   통째로 사라져 긴 점프가 없는 것과 같아진다.
+        #   **예산이 닿는 만큼만** 담는다 — 새 상수를 만들지 않고 남은 예산을 경계로 쓴다.
+        grown, picked, spent = set(tree), [], 0
+        for nid in cands:
+            path = graph.shortest_path(grown, nid)
+            if path is None or spent + len(path) > budget:
+                continue
+            grown.update(path)
+            picked.append(nid)
+            spent += len(path)
+        if picked:
+            out.append({"name": f"먼 목적지: {word}", "nodes": picked})
+    return out
+
+
 def _as_node_delta(bd: BundleDelta) -> NodeDelta:
     """묶음을 채택 기록(`Step`)에 실을 수 있는 꼴로 — 델타 근거를 그대로 들고 간다.
 
@@ -652,8 +710,7 @@ def _bundle_candidates(
     """
     if not include:
         return []  # 관련성 필터 없는 밀집도는 쓰레기다 — 스캔하지 않는다
-    far, _notes = _scan_far_clusters(graph, spec, include, exclude, candidate_radius)
-    bundles = [{"name": c.label, "nodes": [h.node_id for h in c.hits]} for c in far if c.hits]
+    bundles = _far_destination_bundles(spec, graph, include, exclude, candidate_radius, budget)
     if not bundles:
         return []
     measured = evaluate_bundles(spec, graph, bundles, stats=stats, daemon=daemon)
