@@ -37,6 +37,28 @@ GRANTED_ASCENDANCY_NODES: dict[str, tuple[int, ...]] = {
     "Witch2": (8415,),  # Blood Mage → Sanguimancy
 }
 
+# 전직별 어센던시 포인트 상한 (#68 · 사용자 판정 2026-08-13).
+#
+# ⚠ **게임 문서가 아니라 래더 관측이다** — 0-5 코퍼스 230벌(전직 23종 × 10벌)에서
+#    실제로 쓴 전직 포인트의 최대치다. 분포: 8포인트 173벌 · 9포인트 48벌 · 7 이하 9벌.
+#    아래 6종에서만 9가 관측됐고 나머지 17종은 10/10이 8 이하였다(우연이라기엔 너무
+#    치우쳤다 — 9 사용률 21%면 10벌 전부 8일 확률이 종당 9%라 17종은 설명이 안 된다).
+#
+# ⛔ **왜 6종만 9인지는 규명되지 않았다.** 숨은 공짜 노드일 수도(블러드 메이지의
+#    혈액술처럼 `GRANTED_ASCENDANCY_NODES`에 빠진 것), 포인트를 부여하는 노드일 수도
+#    있다. 그래서 이 표는 **판정이 아니라 관측 기록**이고, 반증이 쉽다: 여기 8인
+#    전직에서 9포인트 빌드가 관측되면 그 값이 틀린 것이다. 초과를 **거부하지 않고
+#    경고만** 하는 이유가 이것이다 — 틀린 상한으로 정상 빌드를 막으면 안 된다.
+ASCENDANCY_POINT_CAP: dict[str, int] = {
+    "Monk3": 9,  # 애컬라이트 오브 차율라 — 9/10벌
+    "Ranger1": 9,  # 데드아이 — 7/10벌
+    "Ranger3": 9,  # 패스파인더 — 8/10벌
+    "Mercenary3": 9,  # 젬링 리저네어 — 6/10벌
+    "Warrior3": 9,  # 스미스 오브 키타바 — 9/10벌
+    "Huntress2": 9,  # 스피릿 워커 — 9/10벌
+}
+DEFAULT_ASCENDANCY_POINTS = 8
+
 _START_LINKS: dict[int, tuple[int, ...]] = {
     # ⚠ 59822(블러드 메이지)를 빼 뒀었는데 **그게 결함이었다**(실측 2026-08-12).
     #    형제 전직 5종(인퍼널리스트·리치·스톰위버·크로노맨서·바라시타)은 전부 링크돼
@@ -200,6 +222,18 @@ class TreeGraph:
                 out.update(nodes)
         return frozenset(out)
 
+    def ascendancy_point_cap(self, ascendancy: str | None) -> int:
+        """그 전직이 쓸 수 있는 어센던시 포인트 — **관측 상한**이다(`ASCENDANCY_POINT_CAP`).
+
+        전직을 모르면 기본값을 준다. 상한을 모른다고 무제한으로 두면 예산 판단이
+        조용히 사라진다(이 레포가 반복해 데인 꼴).
+        """
+        want = self.resolve_ascendancy(ascendancy)
+        for code, cap in ASCENDANCY_POINT_CAP.items():
+            if self.resolve_ascendancy(code) == want:
+                return cap
+        return DEFAULT_ASCENDANCY_POINTS
+
     def connect_anchors(
         self,
         class_name: str,
@@ -218,12 +252,32 @@ class TreeGraph:
         후보 선정과 출고 게이트가 막고 있었지만 **이 함수를 직접 부르는 경로는
         뚫려 있었다** — 앵커 id를 잘못 주면 인게임에서 못 만드는 트리가 나온다.
 
+        **안 주면 전직 노드 타깃 자체를 거부한다**(#69). 검사를 선택으로 두면 인자를
+        빠뜨리는 것만으로 게이트가 꺼지는데, 호출자가 전직을 모르는 경로가 실재한다 —
+        「모르면 통과」가 아니라 「모르면 못 쓴다」로 닫는다. 일반 패시브만 연결하는
+        호출은 종전대로 전직 없이 쓸 수 있다.
+
         기본 할당 노드(블러드 메이지의 혈액술)는 **출발 시점에 이미 켜져 있는 것**으로
         놓는다 — 포인트를 안 쓰므로 경로 비용에서 빠진다.
         """
         want = self.resolve_ascendancy(ascendancy) if ascendancy else None
         remaining = set(targets)
-        if want is not None:
+        if want is None:
+            # ⛔ 전직을 모르면 소유권을 **검사할 수 없다**. 예전엔 검사를 통째로 건너뛰어
+            #    남의 전직 노드가 그대로 통과했다(#69) — 인자를 빠뜨리는 것만으로 게이트가
+            #    꺼지는 구조였다. 모르면 통과가 아니라 **거부**다: 일반 패시브만 연결한다.
+            asc_targets = sorted(
+                t
+                for t in remaining
+                if (node := self.nodes.get(t)) is not None and node.ascendancy
+            )
+            if asc_targets:
+                raise ValueError(
+                    f"전직 노드를 연결하려면 ascendancy를 줘야 한다: {asc_targets} — "
+                    "전직을 모르면 그것이 이 빌드 것인지 검사할 수 없고, "
+                    "검사 없이 통과시키면 인게임에서 할당 불가한 트리가 나간다"
+                )
+        else:
             foreign = sorted(
                 t
                 for t in remaining

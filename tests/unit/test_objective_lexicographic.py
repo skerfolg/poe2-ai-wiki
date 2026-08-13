@@ -109,7 +109,7 @@ def test_앵커는_기준선에_들어가_가지치기에서_보호된다() -> N
         n.node_id for n in graph.nodes.values() if n.kind == "notable" and not n.ascendancy
     )
     seeded, notes, cost = _seed_anchors(_spec(), graph, (anchor,), 20)
-    assert anchor in seeded.tree_nodes and cost > 0
+    assert anchor in seeded.tree_nodes and cost.general > 0
     assert any("가지치기도 건드리지 않는다" in n for n in notes)
 
 
@@ -126,7 +126,8 @@ def test_앵커가_예산을_넘으면_말한다() -> None:
     from pok.engine.tree.optimize import _seed_anchors
 
     _, notes, cost = _seed_anchors(_spec(), _graph(), (11495, 21984), 1)
-    assert cost > 1
+    # 전직 노드(11495)는 **별도 풀**이라 일반 예산 초과 판정에 안 들어간다(#68).
+    assert cost.general > 1
     assert any("초과" in n for n in notes)
 
 
@@ -135,4 +136,4 @@ def test_앵커가_없으면_스펙이_그대로다() -> None:
 
     spec = _spec()
     seeded, notes, cost = _seed_anchors(spec, _graph(), (), 20)
-    assert seeded is spec and notes == () and cost == 0
+    assert seeded is spec and notes == () and cost == (0, 0)

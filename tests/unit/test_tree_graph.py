@@ -69,9 +69,17 @@ def test_connect_anchors_비연결은_거부(graph: TreeGraph) -> None:
 
     진짜 무연결은 **0.5에 없는 계열**(Shadow·Marauder·Duelist·Templar)이다.
     그쪽 클래스 시작 자체가 `CLASS_START`에 없어 권역이 통째로 고아다.
+
+    ⚠ 전직 노드로는 이걸 못 시험한다(#69 이후) — 전직을 안 주면 **소유권 검사가
+    먼저** 거부하므로 연결성까지 가지 않는다. 그래서 전직 소속이 아닌 고아 노드를
+    쓴다(22개 있다). 두 거부를 한 시험에 겹쳐 두면 어느 쪽이 일했는지 알 수 없다.
     """
     with pytest.raises(ValueError, match="연결 불가"):
-        graph.connect_anchors("Witch", [5162])  # Assassin(Shadow1) — 0.5에 없는 계열
+        graph.connect_anchors("Witch", [3367])  # 전직 소속 아님 · 본 트리에서 고아
+
+    # 0.5에 없는 계열(Assassin/Shadow1)은 이제 소유권 게이트가 먼저 잡는다.
+    with pytest.raises(ValueError, match="ascendancy를 줘야"):
+        graph.connect_anchors("Witch", [5162])
 
 
 def test_candidates_거리와_종류(graph: TreeGraph) -> None:
@@ -179,3 +187,39 @@ def test_남의_전직_노드는_거부한다(graph: TreeGraph) -> None:
     # 자기 전직 노드는 통과해야 한다 — 게이트가 정상을 막으면 안 된다(형태 ⑤)
     allocated, _ = graph.connect_anchors("Witch", [26383], ascendancy="Blood Mage")
     assert 26383 in allocated
+
+
+def test_전직을_모르면_전직_노드를_거부한다(graph: TreeGraph) -> None:
+    """#69 남은 구멍: 소유권 검사가 **인자를 주면만** 돌았다.
+
+    `ascendancy=`를 주면 남의 전직 노드를 막지만, **안 주면 검사가 통째로 꺼졌다** —
+    호출자가 전직을 모르는 경로가 실재하므로 그쪽이 그대로 구멍이었다. 규율을
+    「주면 검사」로 두면 인자를 빠뜨리는 것만으로 게이트가 사라진다(철칙 5).
+    모르면 통과가 아니라 **거부**여야 한다.
+    """
+    with pytest.raises(ValueError, match="ascendancy를 줘야"):
+        graph.connect_anchors("Witch", [26383])  # Sunder the Flesh — 블러드 메이지 노터블
+    with pytest.raises(ValueError, match="ascendancy를 줘야"):
+        graph.connect_anchors("Witch", [11495])  # 남의 전직(마셜 아티스트) — 예전엔 통과했다
+
+    # ⚠ 일반 패시브만 잇는 호출은 종전대로 전직 없이 된다 — 게이트가 정상을 막으면
+    #    호출부가 아무 전직이나 넣어 우회하고, 그러면 검사가 있으나 마나가 된다(형태 ⑤).
+    allocated, _ = graph.connect_anchors("Witch", [14934])
+    assert 14934 in allocated
+
+
+def test_전직_포인트_상한은_관측치이고_전직마다_다르다(graph: TreeGraph) -> None:
+    """#68: 「블러드 메이지만 9, 나머지 8」이라는 전제가 **실측으로 뒤집혔다**.
+
+    래더 230벌에서 9포인트가 48벌 나왔고, 그게 6종에 몰려 있다(우연이라기엔 치우쳤다).
+    블러드 메이지는 오히려 8 + 혈액술(공짜) = 9칸이라 **포인트로는 8**이다.
+    표가 다시 「전 전직 8」로 뭉개지면 여기서 걸린다.
+    """
+    assert graph.ascendancy_point_cap("Acolyte of Chayula") == 9
+    assert graph.ascendancy_point_cap("Smith of Kitava") == 9
+    assert graph.ascendancy_point_cap("Blood Mage") == 8, "공짜 노드는 포인트가 아니다"
+    assert graph.ascendancy_point_cap("Stormweaver") == 8
+    # 코드 표기로도 같은 답이 나와야 한다 — 호출부가 무엇을 들고 오는지 모른다.
+    assert graph.ascendancy_point_cap("Monk3") == 9
+    # 전직을 모르면 무제한이 아니라 기본값 — 모른다고 판단을 끄면 조용해진다.
+    assert graph.ascendancy_point_cap(None) == 8

@@ -221,7 +221,7 @@ def test_전직_시작_노드는_스펙에_싣지_않는다() -> None:
     starts = [n for n in seeded.tree_nodes if _graph.nodes[n].kind == "ascendancy-start"]
     assert not starts, f"전직 시작 노드가 스펙에 섞였다: {starts}"
 
-    allocated, _ = _graph.connect_anchors("Monk", [asc_notable])
+    allocated, _ = _graph.connect_anchors("Monk", [asc_notable], ascendancy="Martial Artist")
     assert not [n for n in allocated if _graph.nodes[n].kind == "ascendancy-start"], (
         "connect_anchors의 allocated에도 섞이면 안 된다 — "
         "그걸 스펙에 넣는 세션이 같은 함정에 빠진다"
@@ -373,6 +373,44 @@ def test_블러드_메이지_전직_노드가_연결된다() -> None:
     있어 그 전직 노터블이 클래스 시작에서 **아예 닿지 않았다** —
     `connect_anchors`가 「연결 불가 타깃」으로 터졌다. 0.5 실가동 22종 중 유일했다.
     """
-    for node_id in (8415, 26383, 56162):  # Sanguimancy · Sunder the Flesh · Grasping Wounds
-        allocated, _paths = _graph.connect_anchors("Witch", [node_id])
+    # ⚠ 8415(Sanguimancy)는 이 전직의 **공짜 노드**라 `allocated`에 안 실린다(포인트를
+    #   안 쓰므로). 도달성과 적재는 다른 질문이다 — 섞으면 공짜 노드 처리가 회귀해도
+    #   이 시험이 못 잡거나, 반대로 정상 동작을 실패로 읽는다.
+    for node_id in (26383, 56162):  # Sunder the Flesh · Grasping Wounds
+        allocated, _paths = _graph.connect_anchors("Witch", [node_id], ascendancy="Blood Mage")
         assert node_id in allocated, f"{node_id}에 닿지 못했다"
+
+    # Sanguimancy는 터지지 않고(=닿고) 포인트로는 세지 않는 것이 정답이다.
+    allocated, _paths = _graph.connect_anchors("Witch", [8415], ascendancy="Blood Mage")
+    assert 8415 not in allocated, "공짜 노드를 포인트로 세면 예산이 틀어진다"
+
+
+def test_전직_포인트는_일반_예산을_갉지_않는다() -> None:
+    """#68: 어센던시 포인트는 인게임에서 **별도 풀**인데 합쳐 세고 있었다.
+
+    전직 노드를 앵커에 넣을수록 일반 트리 예산이 줄어 트리가 작아졌다 — 포인트를
+    근거로 한 판단(예산 초과 경고·포인트당 효율)이 그만큼 틀렸다. 합산으로 되돌아가면
+    여기서 걸린다.
+    """
+    from pok.engine.tree.optimize import _seed_anchors
+    from pok.pob.buildxml import BuildSpec
+
+    spec = BuildSpec(class_name="Witch", ascendancy="Blood Mage")
+    asc_notable = 26383  # Sunder the Flesh — 전직 노터블
+    _seeded, _notes, cost = _seed_anchors(spec, _graph, (asc_notable,), 30)
+
+    assert cost.ascendancy >= 1, "전직 노드를 전직 풀로 세지 않았다"
+    assert asc_notable not in _general_nodes(_seeded), "전직 노터블이 일반 풀에 섞였다"
+    # 일반 풀에는 **본 트리 통행 노드만** 남아야 한다.
+    assert cost.general == len(
+        [n for n in _seeded.tree_nodes if _graph.nodes[n].ascendancy is None]
+    ), "일반 포인트 수가 본 트리 노드 수와 어긋난다"
+
+
+def _general_nodes(spec: object) -> set[int]:
+    """스펙의 트리 노드 중 전직 소속이 아닌 것."""
+    return {
+        n
+        for n in spec.tree_nodes  # type: ignore[attr-defined]
+        if _graph.nodes[n].ascendancy is None
+    }

@@ -10,6 +10,11 @@
 실측 A/B (앵커 46포인트 + 예산 30 · 반경 7):
 - 확장 없음: 스텝 **0** · 예산 30 전량 미사용 · rejected=1
 - 자동 확장: 스텝 **11** · 예산 30 전량 사용 (반경 7 → 14 → 24)
+
+⚠ `point_budget`이 76 → 72로 내려간 것은 시험을 통과시키려는 조정이 아니라 **회계가
+바뀌었기 때문**이다(#68). 이 앵커 11개는 일반 42 + 전직 4로 갈리는데, 예전엔 46을
+전부 일반 예산에서 뺐다(76-46=30). 이제 전직 4는 별도 풀이라 안 뺀다(76-42=34).
+그리디에 남는 몫을 이 시험이 재던 **30 그대로** 두려면 72가 맞다(72-42=30).
 """
 
 from __future__ import annotations
@@ -68,7 +73,7 @@ def test_마른_라운드에_멈추지_않고_넓힌다(graph: TreeGraph, monkey
     anchors = tuple(r["node"] for r in suggest_anchors(graph, "Martial Artist")["required"])
     objective = opt.Objective(weights={"CombinedDPS": 1.0, "TotalEHP": 0.6})
     common = {
-        "point_budget": 76,
+        "point_budget": 72,  # 일반 42 + 그리디 몫 30 (#68 회계 — 독스트링 참조)
         "candidate_radius": 7,
         "max_candidates_per_round": 14,
         "required_anchors": anchors,
