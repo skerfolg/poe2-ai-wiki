@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -60,6 +60,15 @@ def _wilson_low(count: int, n: int) -> float:
     return round(max(0.0, center - half) * 100, 1)
 
 
+def _entry(count: int, n: int) -> dict[str, Any]:
+    """채택 한 줄 — 비율만 내면 표본 크기가 사라지므로 `count`와 하한을 함께 낸다."""
+    return {
+        "share": round(count * 100 / n, 1) if n else 0.0,
+        "count": count,
+        "ci_low": _wilson_low(count, n),
+    }
+
+
 def _tally(rows: list[list[str]]) -> list[dict[str, Any]]:
     """등장한 빌드 수를 센다. 한 빌드 안에서 여러 번 나와도 **1로 센다** —
     "몇 명이 쓰나"를 묻는 것이지 "몇 번 끼나"가 아니다."""
@@ -71,12 +80,7 @@ def _tally(rows: list[list[str]]) -> list[dict[str, Any]]:
         for name in {s.strip() for s in row if s and s.strip()}:
             counts[name] = counts.get(name, 0) + 1
     return [
-        {
-            "ref": name,
-            "share": round(cnt * 100 / n, 1),
-            "count": cnt,
-            "ci_low": _wilson_low(cnt, n),
-        }
+        {"ref": name, **_entry(cnt, n)}
         for name, cnt in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
     ]
 
@@ -142,6 +146,55 @@ def _tree_index() -> dict[int, tuple[str, str]]:
     return out
 
 
+def _keystone_ids() -> dict[str, str]:
+    """키스톤 **표기명**(소문자) → KB id.
+
+    poe.ninja는 키스톤을 이름으로 주는데 우리 목적지 목록은 KB id다. 둘을 맞대야
+    「트리로 찍었나 장비로 받았나」가 갈린다(`_off_tree_keystones` 참조).
+    """
+    from pok.kb.store import load
+
+    out: dict[str, str] = {}
+    for record in load().records.values():
+        if record.type != "Passive":
+            continue
+        if (record.raw.get("data") or {}).get("kind") != "keystone":
+            continue
+        name = (record.name_en or "").strip().casefold()
+        if name:
+            out.setdefault(name, record.id)
+    return out
+
+
+def _reported_keystones(doc: dict[str, Any], ids: Mapping[str, str]) -> list[str]:
+    """poe.ninja가 그 캐릭터의 키스톤이라고 한 것 — **트리 밖 취득까지 포함**이다.
+
+    poe.ninja의 열 설명이 그렇게 말한다: "Includes keystones from timeless jewels
+    and allocated by equipment". 우리 `passives`는 **할당 트리만** 읽으므로 둘은
+    일치하지 않는다.
+
+    KB에 없는 이름은 **버리지 않고** `unmapped:<이름>`으로 싣는다. 빼면 수집 갭이
+    「그런 키스톤은 없었다」로 읽힌다(실측 2026-08-13: 39종 중 7종이 KB에 없다 —
+    `Sacrifice of Flesh`·`Black Scythe Training` 등).
+    """
+    out: list[str] = []
+    for entry in (doc.get("raw") or {}).get("keystones") or []:
+        name = str((entry or {}).get("name") or "").strip()
+        if not name:
+            continue
+        out.append(ids.get(name.casefold(), f"unmapped:{name}"))
+    return sorted(set(out))
+
+
+def _off_tree_keystones(reported: Sequence[str], allocated_ids: set[str]) -> list[str]:
+    """보유하지만 **트리에는 없는** 키스톤 = 장비·주얼이 준 것.
+
+    ⚠ `unmapped:` 는 뺀다. KB id가 없으면 트리 쪽과 맞댈 수가 없어서, 넣으면 전부
+    「트리 밖」으로 잡힌다 — 모르는 것을 아는 척하는 셈이다.
+    """
+    return sorted(k for k in reported if not k.startswith("unmapped:") and k not in allocated_ids)
+
+
 def _node_positions() -> dict[int, tuple[float, float]]:
     """노드 번호 → 좌표. 폭 계산용."""
     from pok.common.paths import knowledge_dir
@@ -157,6 +210,42 @@ def _spread(values: list[int]) -> dict[str, int]:
     return {"min": xs[0], "median": xs[len(xs) // 2], "max": xs[-1]} if xs else {}
 
 
+def _latest_per_character(files: list[Path]) -> tuple[list[Path], int]:
+    """캐릭터당 **최신 갱신본 한 벌만** 남긴다. 버린 개수를 함께 낸다.
+
+    ⚠ 원시는 append-only라 `계정__캐릭터__갱신시각` 꼴로 쌓인다. 같은 컨셉을 **다시
+    수집하면**(표본을 늘릴 때) 그 사이 리스펙한 캐릭터는 **새 파일이 하나 더** 생기고
+    옛 파일은 그대로 남는다 — 수집기의 중복 제거는 「같은 갱신본」까지이지
+    「같은 캐릭터」가 아니다. 그대로 세면 한 사람이 두 벌로 잡혀 `n`이 부풀고
+    그 사람의 젬·아이템이 두 번 계산된다.
+
+    실측 2026-08-13(기존 컨셉을 10 → 50벌로 올리던 중): `class-Amazon` 54파일이
+    실제로는 **50명**이었다(4명이 두 벌). 파일 수를 표본 수로 쓰던 자리라 조용히
+    틀린다 — 그래서 버린 개수를 `sample.superseded`로 **선언**한다(형태 ①).
+
+    남길 벌의 기준은 `character_updated_utc`(poe.ninja가 준 출처 시각)다. 없으면
+    파일명의 갱신시각으로 떨어진다 — 저장 경로가 그 값으로 만들어지기 때문이다.
+    """
+    by_char: dict[tuple[str, str], tuple[str, Path]] = {}
+    dropped = 0
+    for path in files:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        raw = doc.get("raw") or {}
+        account, name = str(raw.get("account") or ""), str(raw.get("name") or "")
+        # 신원이 없으면 **합치지 않는다.** 빈 값끼리 같은 키가 되면 서로 다른 표본이
+        # 한 사람으로 뭉쳐 `n`이 도리어 줄어든다 — 부풀리는 것보다 나쁘다.
+        who = (account, name) if account and name else ("", str(path))
+        rev = str(doc.get("character_updated_utc") or raw.get("updatedUtc") or path.stem)
+        prev = by_char.get(who)
+        if prev is None:
+            by_char[who] = (rev, path)
+            continue
+        dropped += 1
+        if rev > prev[0]:
+            by_char[who] = (rev, path)
+    return sorted(p for _, p in by_char.values()), dropped
+
+
 def aggregate_concept(
     season: str, concept: str, *, base: Path | None = None, basis: str = ""
 ) -> dict[str, Any]:
@@ -169,15 +258,19 @@ def aggregate_concept(
     files = sorted(folder.glob("*.json"))
     if not files:
         raise LadderError(f"수집된 것이 없다: {folder}")
+    files, superseded = _latest_per_character(files)
 
     tree = _tree_index()
     positions = _node_positions()
+    keystone_ids = _keystone_ids()
     diagonals: list[int] = []
     levels: list[int] = []
     gems: list[list[str]] = []
     items: list[list[str]] = []
     ascendancies: list[list[str]] = []
     destinations: list[list[str]] = []
+    keystones: list[list[str]] = []
+    keystones_off_tree: list[list[str]] = []
     shape: list[dict[str, int]] = []
     for path in files:
         doc = json.loads(path.read_text(encoding="utf-8"))
@@ -196,6 +289,7 @@ def aggregate_concept(
         allocated = set(summary.tree_nodes or ())
         kinds: dict[str, int] = {}
         picked: list[str] = []
+        on_tree_keystones: set[str] = set()
         for node in allocated:
             hit = tree.get(node)
             # KB에 없는 번호는 **버리지 않고 센다**. 조용히 빼면 트리 수집 갭이
@@ -204,7 +298,14 @@ def aggregate_concept(
             kinds[kind] = kinds.get(kind, 0) + 1
             if hit and kind in _DESTINATION_KINDS:
                 picked.append(hit[0])
+            if hit and kind == "keystone":
+                on_tree_keystones.add(hit[0])
         destinations.append(picked)
+        # 보유 키스톤은 **트리만 봐서는 알 수 없다** — 주얼·장비가 준다(#75).
+        # 둘을 다 실어야 「이 키스톤을 어떻게 얻나」에 트리 말고도 답이 나온다.
+        reported = _reported_keystones(doc, keystone_ids)
+        keystones.append(reported)
+        keystones_off_tree.append(_off_tree_keystones(reported, on_tree_keystones))
         diagonals.append(_diagonal([positions[n] for n in allocated if n in positions]))
         kinds["allocated"] = len(allocated)
         shape.append(kinds)
@@ -215,6 +316,10 @@ def aggregate_concept(
             "n": len(files),
             "unit": "sampled-builds",
             "basis": basis or f"poe.ninja 래더 PoB 실측 — {season}/{concept} {len(files)}벌",
+            # 같은 캐릭터의 **옛 갱신본**을 몇 벌 버렸나. 0이 아니면 이 컨셉은
+            # 재수집을 거쳤다는 뜻이다(`_latest_per_character` 머리주석). 없으면
+            # 파일 수와 표본 수가 다른 이유를 읽는 쪽이 알 방법이 없다.
+            "superseded": superseded,
             # 진행도 게이트의 강제 지점(철칙 5). `min`이 100에서 내려가기 시작하면
             # 표본에 미완성 캐릭터가 섞였다는 뜻이고, 그때 「가변」 신호는 설계 선택이
             # 아니라 **예산·진행도**를 재고 있을 수 있다. 값은 기계가 재므로 문서가
@@ -226,6 +331,13 @@ def aggregate_concept(
         # 목적지만 싣는다(스몰 제외). 스몰까지 넣으면 표가 동선으로 뒤덮여
         # **앵커 후보로 못 쓴다** — 스몰의 몫은 아래 `_tree_shape`의 개수로 남는다.
         "passives": _tally(destinations),
+        # 캐릭터가 **실제로 보유한** 키스톤(poe.ninja 판정). `passives`는 할당 트리만
+        # 읽으므로 둘은 다르다 — 차이가 곧 주얼·장비로 받은 몫이다(#75).
+        "keystones": _tally(keystones),
+        # 보유하지만 트리에는 없는 것. **트리 경로를 안 내고 얻는 길**이라 설계
+        # 수단이다(#62·#70과 같은 결) — 없으면 「이 키스톤을 어떻게 얻나」에
+        # 트리 경로 하나만 답하게 된다.
+        "keystones_off_tree": _tally(keystones_off_tree),
         # 표본의 어센던시 구성. A군(메커니즘 축)에서 이게 없으면 한 클래스가 표본을
         # 독점했는데 「클래스를 넘는 공통점」으로 읽힌다 — 조용한 거짓말이다.
         "_class_spread": _tally([r for r in ascendancies if r]),
@@ -531,9 +643,12 @@ def _truncate(observed: dict[str, Any], min_count: int) -> None:
     꼬리의 신뢰도는 자르는 대신 항목마다 `ci_low`로 싣는다.
     """
     observed["sample"]["min_count"] = min_count
-    for key in list(observed):
-        if key != "sample":
-            observed[key] = [e for e in observed[key] if e["count"] >= min_count]
+    for key, value in list(observed.items()):
+        # 자를 수 있는 것은 **빈도 목록뿐**이다. 예전엔 「sample 아닌 키는 전부
+        # 목록」이라고 가정했는데, `anchor`(객체)가 들어오자 그대로 깨졌다 —
+        # 목록인지 보고 자른다.
+        if isinstance(value, list):
+            observed[key] = [e for e in value if e["count"] >= min_count]
 
 
 def _parse_filters(items: list[str]) -> dict[str, str] | None:
@@ -660,6 +775,40 @@ def _cli_profile(args: argparse.Namespace) -> int:
     return 0
 
 
+def _anchor_reach(agg: dict[str, Any], anchor_ref: str) -> dict[str, Any] | None:
+    """앵커 키스톤을 **트리로 찍었나, 장비로 받았나**를 레코드에 못박는다 (#75).
+
+    ⚠ 이게 없으면 `passives`의 채택률이 그대로 「이 키스톤을 쓰는 비율」로 읽힌다.
+    실측 2026-08-13: `keypassives=Unwavering Stance` 50벌은 **필터가 전원 보유를
+    보장**하는데 트리 채택은 21벌(42%)뿐이었다 — 나머지 29벌은 `Flesh Crucible`
+    (`Random 1 Keystone Passive Skill`) 같은 주얼이 줬다. 42%를 「절반 이상이 안
+    쓴다」로 읽으면 정반대 결론이 된다.
+
+    앵커가 키스톤이 아니면(스킬·아이템·메커니즘 축) `None`을 낸다 — 잴 것이 없는데
+    0을 실으면 그게 또 조용한 거짓말이다.
+    """
+    held = next((e for e in agg.get("keystones", []) if e["ref"] == anchor_ref), None)
+    if held is None:
+        return None
+    n = agg["sample"]["n"]
+    on_tree = next((e for e in agg.get("passives", []) if e["ref"] == anchor_ref), None)
+    on_count = int(on_tree["count"]) if on_tree else 0
+    off_count = int(held["count"]) - on_count
+    out: dict[str, Any] = {
+        "ref": anchor_ref,
+        "held": _entry(int(held["count"]), n),
+        "on_tree": _entry(on_count, n),
+        "off_tree": _entry(off_count, n),
+    }
+    if off_count:
+        out["why"] = (
+            "보유하지만 트리에 없는 표본이 있다 — 주얼·장비가 준 것이다"
+            "(poe.ninja: 'Includes keystones from timeless jewels and allocated by "
+            "equipment'). `passives`의 채택률을 「이 키스톤을 쓰는 비율」로 읽지 말 것"
+        )
+    return out
+
+
 def build_usage_profile(
     season: str,
     concept: str,
@@ -681,6 +830,9 @@ def build_usage_profile(
     agg = aggregate_concept(season, concept, base=base)
     spread = agg.pop("_class_spread", [])
     tree_shape = agg.pop("_tree_shape", {})
+    anchor_seen = _anchor_reach(agg, anchor_ref)
+    if anchor_seen:
+        agg["anchor"] = anchor_seen
     return {
         # envelope의 entityId는 `[a-z0-9-]`만 받는다 — 디렉터리 이름을 그대로 쓰면 안 된다
         "id": f"usage-profile.{profile_id_slug(f'{season}-{concept}')}",

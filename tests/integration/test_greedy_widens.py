@@ -23,7 +23,6 @@ import pytest
 
 from pok.common.paths import knowledge_dir
 from pok.engine.tree import optimize as opt
-from pok.engine.tree.corpus import suggest_anchors
 from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import spec_from_dict
 from pok.pob.versions import find_luajit, resolve_snapshot
@@ -69,8 +68,18 @@ def _spec():
     )
 
 
+# 이 시험이 재는 것은 **그리디의 확장 동작**이지 코퍼스 내용이 아니다. 그런데 앵커를
+# `suggest_anchors`로 뽑으면 정본 프로파일에 매여, 코퍼스를 갱신할 때마다 전제가 깨진다 —
+# 실제로 깨졌다(2026-08-13, 표본 10 → 50): `required`는 **전원이 찍은 노드**(count == n)라
+# 표본이 커질수록 문턱이 세져 마셜 아티스트가 11개 → 4개가 됐고, 앵커가 줄자 반경 7에서도
+# 한 수가 나와 「원래 못 둔다」는 전제가 무너졌다(클래스 22종 합계 86 → 37).
+# 그래서 독스트링이 A/B로 기록한 **그 11개(46포인트)를 고정**한다. 코퍼스가 어떻게 바뀌든
+# 이 시험은 같은 구성을 잰다.
+_ANCHORS_46P = (13407, 17548, 20677, 32763, 38537, 39369, 39552, 39595, 49220, 60735, 61834)
+
+
 def test_마른_라운드에_멈추지_않고_넓힌다(graph: TreeGraph, monkeypatch) -> None:
-    anchors = tuple(r["node"] for r in suggest_anchors(graph, "Martial Artist")["required"])
+    anchors = _ANCHORS_46P
     objective = opt.Objective(weights={"CombinedDPS": 1.0, "TotalEHP": 0.6})
     common = {
         "point_budget": 72,  # 일반 42 + 그리디 몫 30 (#68 회계 — 독스트링 참조)

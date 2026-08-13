@@ -99,6 +99,7 @@
         "n": 50,
         "unit": "sampled-builds",
         "basis": "poe.ninja 래더 PoB 실측 — 0-5/keypassives-Trusted_Kinship 50벌",
+        "superseded": 0,
         "level": {
           "min": 100,
           "median": 100,
@@ -8343,7 +8344,125 @@
           "count": 1,
           "ci_low": 0.4
         }
-      ]
+      ],
+      "keystones": [
+        {
+          "ref": "passive.trusted-kinship-41861",
+          "share": 100.0,
+          "count": 50,
+          "ci_low": 92.9
+        },
+        {
+          "ref": "passive.giants-blood",
+          "share": 60.0,
+          "count": 30,
+          "ci_low": 46.2
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 46.0,
+          "count": 23,
+          "ci_low": 33.0
+        },
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 10.0,
+          "count": 5,
+          "ci_low": 4.3
+        },
+        {
+          "ref": "passive.eldritch-battery",
+          "share": 6.0,
+          "count": 3,
+          "ci_low": 2.1
+        },
+        {
+          "ref": "passive.glancing-blows-19288",
+          "share": 6.0,
+          "count": 3,
+          "ci_low": 2.1
+        },
+        {
+          "ref": "passive.iron-reflexes",
+          "share": 4.0,
+          "count": 2,
+          "ci_low": 1.1
+        },
+        {
+          "ref": "passive.zealots-oath-52",
+          "share": 4.0,
+          "count": 2,
+          "ci_low": 1.1
+        },
+        {
+          "ref": "passive.conduit-33979",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "passive.lord-of-the-wilds-61942",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "passive.whispers-of-doom-47759",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "unmapped:Black Scythe Training",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        }
+      ],
+      "keystones_off_tree": [
+        {
+          "ref": "passive.giants-blood",
+          "share": 4.0,
+          "count": 2,
+          "ci_low": 1.1
+        },
+        {
+          "ref": "passive.zealots-oath-52",
+          "share": 4.0,
+          "count": 2,
+          "ci_low": 1.1
+        },
+        {
+          "ref": "passive.eldritch-battery",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "passive.glancing-blows-19288",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        }
+      ],
+      "anchor": {
+        "ref": "passive.trusted-kinship-41861",
+        "held": {
+          "share": 100.0,
+          "count": 50,
+          "ci_low": 92.9
+        },
+        "on_tree": {
+          "share": 100.0,
+          "count": 50,
+          "ci_low": 92.9
+        },
+        "off_tree": {
+          "share": 0.0,
+          "count": 0,
+          "ci_low": 0.0
+        }
+      }
     }
   },
   "relations": [

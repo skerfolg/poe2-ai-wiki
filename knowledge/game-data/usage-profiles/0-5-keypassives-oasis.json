@@ -111,6 +111,7 @@
         "n": 50,
         "unit": "sampled-builds",
         "basis": "poe.ninja 래더 PoB 실측 — 0-5/keypassives-Oasis 50벌",
+        "superseded": 0,
         "level": {
           "min": 95,
           "median": 98,
@@ -7251,7 +7252,114 @@
           "count": 1,
           "ci_low": 0.4
         }
-      ]
+      ],
+      "keystones": [
+        {
+          "ref": "passive.oasis-25100",
+          "share": 100.0,
+          "count": 50,
+          "ci_low": 92.9
+        },
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 64.0,
+          "count": 32,
+          "ci_low": 50.1
+        },
+        {
+          "ref": "passive.conduit-33979",
+          "share": 58.0,
+          "count": 29,
+          "ci_low": 44.2
+        },
+        {
+          "ref": "passive.resonance-25520",
+          "share": 34.0,
+          "count": 17,
+          "ci_low": 22.4
+        },
+        {
+          "ref": "unmapped:Black Scythe Training",
+          "share": 10.0,
+          "count": 5,
+          "ci_low": 4.3
+        },
+        {
+          "ref": "passive.glancing-blows-19288",
+          "share": 6.0,
+          "count": 3,
+          "ci_low": 2.1
+        },
+        {
+          "ref": "passive.blood-magic",
+          "share": 4.0,
+          "count": 2,
+          "ci_low": 1.1
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 4.0,
+          "count": 2,
+          "ci_low": 1.1
+        },
+        {
+          "ref": "passive.dance-with-death-14226",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "passive.pain-attunement",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "passive.trusted-kinship-41861",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "passive.zealots-oath-52",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "unmapped:Sacrifice of Flesh",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        }
+      ],
+      "keystones_off_tree": [
+        {
+          "ref": "passive.oasis-25100",
+          "share": 12.0,
+          "count": 6,
+          "ci_low": 5.6
+        }
+      ],
+      "anchor": {
+        "ref": "passive.oasis-25100",
+        "held": {
+          "share": 100.0,
+          "count": 50,
+          "ci_low": 92.9
+        },
+        "on_tree": {
+          "share": 88.0,
+          "count": 44,
+          "ci_low": 76.2
+        },
+        "off_tree": {
+          "share": 12.0,
+          "count": 6,
+          "ci_low": 5.6
+        },
+        "why": "보유하지만 트리에 없는 표본이 있다 — 주얼·장비가 준 것이다(poe.ninja: 'Includes keystones from timeless jewels and allocated by equipment'). `passives`의 채택률을 「이 키스톤을 쓰는 비율」로 읽지 말 것"
+      }
     }
   },
   "relations": [

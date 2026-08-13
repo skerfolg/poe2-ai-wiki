@@ -121,3 +121,202 @@ def test_레벨이_없으면_조용히_0을_내지_않는다(tmp_path, monkeypat
 
     out = agg.aggregate_concept("0-5", "x", base=tmp_path)
     assert "level" not in out["sample"]
+
+
+def _fake_parse(monkeypatch) -> None:
+    monkeypatch.setattr(agg, "_tree_index", lambda: {1: ("passive.a", "notable")})
+    monkeypatch.setattr(agg, "_node_positions", lambda: {})
+
+    class _Fake:
+        skill_groups = ()
+        items = ()
+        ascendancy = "Lich"
+        tree_nodes = (1,)
+
+    monkeypatch.setattr(agg, "parse_pob", lambda _code: _Fake())
+
+
+def _write(folder, stem: str, *, account: str, name: str, updated: str) -> None:
+    (folder / f"{stem}.json").write_text(
+        json.dumps(
+            {
+                "pob_export": "x",
+                "character_updated_utc": updated,
+                "raw": {"account": account, "name": name, "level": 100},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_같은_캐릭터의_옛_갱신본은_표본으로_세지_않는다(tmp_path, monkeypatch) -> None:
+    """원시는 append-only라 **재수집하면** 리스펙한 캐릭터의 파일이 하나 더 생긴다.
+
+    수집기의 중복 제거는 「같은 갱신본」까지이지 「같은 캐릭터」가 아니다 — 그대로
+    세면 한 사람이 두 벌이 되어 `n`이 부풀고 그 사람의 젬·아이템이 두 번 계산된다.
+    실측 2026-08-13: 기존 컨셉을 10 → 50벌로 올리자 `class-Amazon` 54파일이 실제로는
+    50명이었다.
+    """
+    _fake_parse(monkeypatch)
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    _write(folder, "a_old", account="acc-1", name="Zed", updated="2026-07-01T00:00:00Z")
+    _write(folder, "a_new", account="acc-1", name="Zed", updated="2026-08-01T00:00:00Z")
+    _write(folder, "b", account="acc-2", name="Wye", updated="2026-08-01T00:00:00Z")
+
+    out = agg.aggregate_concept("0-5", "x", base=tmp_path)
+    assert out["sample"]["n"] == 2, "파일 3벌이지만 캐릭터는 2명이다"
+    assert out["sample"]["superseded"] == 1, "버린 옛 갱신본 수를 **선언**한다"
+
+
+def test_버린_것이_없어도_선언은_남는다(tmp_path, monkeypatch) -> None:
+    """`superseded`가 없으면 「재수집을 안 거쳤다」와 「필드가 없던 시절」이 같아진다
+    (형태 ① — 선언이 없으면 조용한 0)."""
+    _fake_parse(monkeypatch)
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    _write(folder, "b", account="acc-2", name="Wye", updated="2026-08-01T00:00:00Z")
+
+    out = agg.aggregate_concept("0-5", "x", base=tmp_path)
+    assert out["sample"]["superseded"] == 0
+
+
+def _keystone_env(monkeypatch) -> None:
+    """키스톤 하나를 트리에 두고, poe.ninja 쪽 이름 매핑을 붙인다."""
+    monkeypatch.setattr(agg, "_tree_index", lambda: {1: ("passive.unwavering-stance", "keystone")})
+    monkeypatch.setattr(agg, "_node_positions", lambda: {})
+    monkeypatch.setattr(
+        agg, "_keystone_ids", lambda: {"unwavering stance": "passive.unwavering-stance"}
+    )
+
+
+def _ks_doc(*, on_tree: bool, held: str = "Unwavering Stance") -> str:
+    return json.dumps(
+        {
+            "pob_export": "x",
+            "raw": {
+                "account": "a",
+                "name": ("A" if on_tree else "B"),
+                "keystones": [{"name": held}],
+            },
+        }
+    )
+
+
+def test_트리로_찍었나_장비로_받았나를_가른다(tmp_path, monkeypatch) -> None:
+    """필터가 **전원 보유**를 보장하는데 트리 채택률은 그보다 낮을 수 있다 (#75).
+
+    poe.ninja는 "Includes keystones from timeless jewels and allocated by equipment"라
+    선언한다 — 우리 `passives`는 할당 트리만 읽으므로 둘이 갈린다. 실측 2026-08-13:
+    `keypassives=Unwavering Stance` 50벌 중 트리 채택은 21벌(42%)뿐이고 29벌은
+    `Flesh Crucible` 같은 주얼이 줬다. 42%를 「절반 이상이 안 쓴다」로 읽으면
+    정반대 결론이 되므로 레코드가 셋을 갈라 실어야 한다.
+    """
+    _keystone_env(monkeypatch)
+
+    class _OnTree:
+        skill_groups = ()
+        items = ()
+        ascendancy = "Warrior"
+        tree_nodes = (1,)
+
+    class _OffTree(_OnTree):
+        tree_nodes = ()
+
+    monkeypatch.setattr(agg, "parse_pob", lambda code: _OnTree() if code == "on" else _OffTree())
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    for i, (stem, on) in enumerate((("a", True), ("b", False), ("c", False))):
+        (folder / f"{i}{stem}.json").write_text(
+            json.dumps(
+                {
+                    "pob_export": "on" if on else "off",
+                    "raw": {
+                        "account": f"acc-{i}",
+                        "name": stem,
+                        "keystones": [{"name": "Unwavering Stance"}],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    record = agg.build_usage_profile(
+        "0-5",
+        "x",
+        anchor_ref="passive.unwavering-stance",
+        anchor_label="변함없는 자세",
+        query={"keypassives": "Unwavering Stance"},
+        base=tmp_path,
+    )
+    anchor = record["data"]["observed"]["anchor"]
+    assert anchor["held"]["count"] == 3, "필터가 보장한 보유는 전원이다"
+    assert anchor["on_tree"]["count"] == 1, "트리로 찍은 것은 1벌뿐"
+    assert anchor["off_tree"]["count"] == 2, "나머지는 주얼·장비가 준 것"
+    assert "why" in anchor, "트리 밖이 있는데 사유를 안 밝히면 42%가 그대로 오독된다"
+
+
+def test_앵커가_키스톤이_아니면_0을_싣지_않는다(tmp_path, monkeypatch) -> None:
+    """스킬·아이템 축에는 잴 것이 없다. 0을 실으면 「아무도 안 쓴다」로 읽힌다."""
+    _keystone_env(monkeypatch)
+
+    class _Fake:
+        skill_groups = ()
+        items = ()
+        ascendancy = "Warrior"
+        tree_nodes = (1,)
+
+    monkeypatch.setattr(agg, "parse_pob", lambda _code: _Fake())
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    (folder / "a.json").write_text(_ks_doc(on_tree=True), encoding="utf-8")
+
+    record = agg.build_usage_profile(
+        "0-5",
+        "x",
+        anchor_ref="skill.spark",
+        anchor_label="스파크",
+        query={"skills": "Spark"},
+        base=tmp_path,
+    )
+    assert "anchor" not in record["data"]["observed"]
+
+
+def test_KB에_없는_키스톤은_트리밖으로_몰지_않는다(tmp_path, monkeypatch) -> None:
+    """KB id가 없으면 트리 쪽과 맞댈 수가 없다 — 넣으면 전부 「트리 밖」이 되어
+    모르는 것을 아는 척하게 된다. 다만 **버리지도 않는다**(수집 갭이 보여야 한다).
+    실측 2026-08-13: poe.ninja 키스톤 39종 중 7종이 KB에 없다."""
+    _keystone_env(monkeypatch)
+
+    class _Fake:
+        skill_groups = ()
+        items = ()
+        ascendancy = "Warrior"
+        tree_nodes = (1,)
+
+    monkeypatch.setattr(agg, "parse_pob", lambda _code: _Fake())
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    (folder / "a.json").write_text(
+        _ks_doc(on_tree=True, held="Sacrifice of Flesh"), encoding="utf-8"
+    )
+
+    out = agg.aggregate_concept("0-5", "x", base=tmp_path)
+    assert [e["ref"] for e in out["keystones"]] == ["unmapped:Sacrifice of Flesh"]
+    assert out["keystones_off_tree"] == [], "매핑이 안 되는 것을 트리 밖이라 단정하지 않는다"
+
+
+def test_신원이_없는_표본은_뭉치지_않는다(tmp_path, monkeypatch) -> None:
+    """계정·이름이 없는 레코드끼리 같은 키가 되면 서로 다른 표본이 한 사람으로
+    뭉쳐 `n`이 **줄어든다** — 부풀리는 것보다 나쁘다."""
+    _fake_parse(monkeypatch)
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    for i in range(3):
+        (folder / f"{i}.json").write_text(
+            json.dumps({"pob_export": "x", "raw": {"level": 100}}), encoding="utf-8"
+        )
+
+    out = agg.aggregate_concept("0-5", "x", base=tmp_path)
+    assert out["sample"]["n"] == 3
+    assert out["sample"]["superseded"] == 0

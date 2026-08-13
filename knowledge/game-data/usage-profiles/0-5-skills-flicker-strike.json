@@ -93,6 +93,7 @@
         "n": 50,
         "unit": "sampled-builds",
         "basis": "poe.ninja 래더 PoB 실측 — 0-5/skills-Flicker_Strike 50벌",
+        "superseded": 0,
         "level": {
           "min": 99,
           "median": 100,
@@ -6908,6 +6909,46 @@
           "share": 2.0,
           "count": 1,
           "ci_low": 0.4
+        }
+      ],
+      "keystones": [
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 54.0,
+          "count": 27,
+          "ci_low": 40.4
+        },
+        {
+          "ref": "passive.pain-attunement",
+          "share": 22.0,
+          "count": 11,
+          "ci_low": 12.8
+        },
+        {
+          "ref": "passive.dance-with-death-14226",
+          "share": 6.0,
+          "count": 3,
+          "ci_low": 2.1
+        },
+        {
+          "ref": "passive.hollow-palm-technique-64601",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        },
+        {
+          "ref": "unmapped:Black Scythe Training",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        }
+      ],
+      "keystones_off_tree": [
+        {
+          "ref": "passive.pain-attunement",
+          "share": 8.0,
+          "count": 4,
+          "ci_low": 3.2
         }
       ]
     }
