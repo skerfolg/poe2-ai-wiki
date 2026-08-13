@@ -40,7 +40,7 @@ GRANTED_ASCENDANCY_NODES: dict[str, tuple[int, ...]] = {
     "Warrior3": (9988,),  # Smith of Kitava → Smith's Masterwork
 }
 
-# 어센던시 포인트는 **전 전직 8**이다 (2포인트 × 4차, 사용자 판정 2026-08-13).
+# 어센던시 포인트는 **전 전직 8**이다 (전직당 2포인트씩 4차까지, 사용자 판정 2026-08-13).
 #
 # ⚠ 한때 「6종만 9」라는 전직별 표를 넣었다가 **뺐다.** 래더 230벌에서 9칸이 48벌
 #    나온 것은 사실이지만, 그건 포인트가 더 있어서가 아니라 **포인트를 안 쓰는 노드**를
@@ -283,9 +283,7 @@ class TreeGraph:
             #    남의 전직 노드가 그대로 통과했다(#69) — 인자를 빠뜨리는 것만으로 게이트가
             #    꺼지는 구조였다. 모르면 통과가 아니라 **거부**다: 일반 패시브만 연결한다.
             asc_targets = sorted(
-                t
-                for t in remaining
-                if (node := self.nodes.get(t)) is not None and node.ascendancy
+                t for t in remaining if (node := self.nodes.get(t)) is not None and node.ascendancy
             )
             if asc_targets:
                 raise ValueError(
