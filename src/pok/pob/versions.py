@@ -15,6 +15,8 @@ from pathlib import Path
 
 from pok.common.paths import project_root
 
+POB_REPO = "https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git"
+
 
 @dataclass(frozen=True)
 class PobSnapshot:
@@ -45,10 +47,16 @@ def resolve_snapshot(root: Path | None = None, commit: str | None = None) -> Pob
     snap_root = base / "external" / "pob" / sha[:7]
     src = snap_root / "src"
     if not (src / "HeadlessWrapper.lua").exists():
+        # ⛔ `git clone`을 안내하지 않는다 — 전체 히스토리(1.5GB)를 끌어오는데 쓰는 건
+        # 커밋 하나뿐이다(실측 2026-08-13: 클론 1.9GB vs 얕은 fetch 746MB, 내용 동일).
+        # pob-smoke.yml이 쓰는 것과 같은 4줄이다.
         raise FileNotFoundError(
             f"PoB 스냅샷 없음: {snap_root}\n"
-            f"준비: git clone --no-checkout <PoB-PoE2 repo> {snap_root} && "
-            f"git -C {snap_root} checkout {sha}"
+            f"준비:\n"
+            f"  git init {snap_root}\n"
+            f"  git -C {snap_root} remote add origin {POB_REPO}\n"
+            f"  git -C {snap_root} fetch --depth 1 origin {sha}\n"
+            f"  git -C {snap_root} checkout FETCH_HEAD"
         )
     return PobSnapshot(commit=sha, root=snap_root, src_dir=src)
 
