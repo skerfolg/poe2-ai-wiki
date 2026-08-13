@@ -382,7 +382,7 @@ def optimize_tree(
                     stats=measure,
                     include=cluster_include,
                     exclude=cluster_exclude,
-                    candidate_radius=reach,
+                    limit=slice_size,
                 ):
                     affordable.append((score_bd, _as_node_delta(bd)))
                 affordable.sort(key=lambda x: -x[0])
@@ -617,8 +617,8 @@ def _far_destination_bundles(
     graph: TreeGraph,
     include: tuple[tuple[str, float], ...],
     exclude: tuple[str, ...],
-    candidate_radius: int,
     budget: int,
+    limit: int,
 ) -> list[dict[str, Any]]:
     """긴 점프의 후보 — **축마다 하나씩**, 반경 밖의 목적지를 모은 묶음 (#70).
 
@@ -632,29 +632,41 @@ def _far_destination_bundles(
     묶음인가」를 새로 정하면 그게 곧 판단이고, 판단은 해석 층의 몫이다(AD-3). 축 이름은
     호출자가 준 것이므로 여기에 임의 상수가 끼지 않는다 — 묶음 수 = 축 수다.
 
-    반경 **밖**만 담는다. 안쪽은 이미 노드 후보로 경쟁하고 있어 중복이다.
+    ⚠ **반경 안도 담는다.** 예전엔 「안쪽은 이미 노드 후보로 경쟁하니 중복」이라며
+    잘라 냈는데 **틀렸다**(사용자 지적 2026-08-13). 뭉치가 존재하는 이유가 바로
+    「하나씩 넣으면 각각의 델타가 작아 전부 버려지는」 시너지 축이고(`evaluate_bundles`
+    독스트링), 그 문제는 **거리와 무관**하다 — 근거리에 붙어 있어도 둘을 같이 찍어야
+    값이 나오는 노드는 개별 후보로는 영영 안 뽑힌다.
+    실측: 반경 안을 포함하니 최고 점수가 **0.0033 → 0.0607(18배)**로 올랐다.
+    1포인트짜리 목적지를 반경 때문에 잘라 내고 있었다. 중복은 해롭지 않다 —
+    같은 값이면 같이 지거나 같이 이긴다.
     """
     tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
-    near = graph.distances_from(tree, candidate_radius)
     far = graph.distances_from(tree, _MAX_REACH * 8)  # 거리 순서를 얻으려는 1회 BFS
-    out: list[dict[str, Any]] = []
+    per_axis: list[list[dict[str, Any]]] = []
     for word, weight in include:
         cands = sorted(
             (
                 nid
                 for nid, node in graph.nodes.items()
-                if nid not in near
-                and nid in far
+                if nid in far
+                and nid not in tree
                 and node.kind in _DESTINATION_KINDS
                 and relevance(node.stats_en, ((word, weight),), exclude) > 0
             ),
             key=lambda nid: far[nid],
         )
-        # ⚠ 축의 목적지를 **전부** 담으면 안 된다 — 실측 2026-08-13: Critical 105개 ·
-        #   Attack Speed 47개로 트리 전역이라 항상 예산 초과가 되고, 그러면 후보가
-        #   통째로 사라져 긴 점프가 없는 것과 같아진다.
-        #   **예산이 닿는 만큼만** 담는다 — 새 상수를 만들지 않고 남은 예산을 경계로 쓴다.
+        # ⚠ 크기를 **하나로 정하면 안 된다**(실측 2026-08-13, 두 번 데였다):
+        #   ① 축 전체를 담으면 트리 전역이라 항상 예산 초과 → 후보가 통째로 사라진다
+        #      (Critical 105개·Attack Speed 47개).
+        #   ② 「남은 예산이 닿는 만큼」으로 고치니 예산이 큰 빌드에서 비대해졌다 —
+        #      블러드 메이지 예산 90에서 뭉치 하나가 **87포인트**를 먹고 ΔDPS **-24,573**.
+        #      경로 74개가 대부분 통행 노드라 넣을수록 손해였고, 그래서 긴 점프 0회였다.
+        #   그래서 **가까운 것부터 하나씩 늘려 가며 여러 크기를 낸다.** 작은 것은 경로가
+        #   짧아 양수가 나오고, 큰 것은 정말 값어치가 있을 때만 이긴다 — 어느 크기가
+        #   맞는지는 측정이 정하지 우리가 정하지 않는다(AD-3).
         grown, picked, spent = set(tree), [], 0
+        sizes: list[dict[str, Any]] = []
         for nid in cands:
             path = graph.shortest_path(grown, nid)
             if path is None or spent + len(path) > budget:
@@ -662,8 +674,15 @@ def _far_destination_bundles(
             grown.update(path)
             picked.append(nid)
             spent += len(path)
-        if picked:
-            out.append({"name": f"먼 목적지: {word}", "nodes": picked})
+            sizes.append({"name": f"먼 목적지: {word} ({len(picked)}개)", "nodes": list(picked)})
+        per_axis.append(sizes)
+    # 작은 것부터 라운드 로빈 — 한 축이 후보 자리를 독점하지 않게. 상한은 호출자의
+    # `max_candidates_per_round`를 그대로 쓴다(새 상수를 만들지 않는다).
+    out: list[dict[str, Any]] = []
+    for i in range(max((len(s) for s in per_axis), default=0)):
+        for sizes in per_axis:
+            if i < len(sizes) and len(out) < limit:
+                out.append(sizes[i])
     return out
 
 
@@ -695,7 +714,7 @@ def _bundle_candidates(
     stats: tuple[str, ...],
     include: tuple[tuple[str, float], ...],
     exclude: tuple[str, ...],
-    candidate_radius: int,
+    limit: int,
 ) -> list[tuple[float, BundleDelta]]:
     """이번 라운드의 **먼 뭉치 후보** — 노드 후보와 같은 저울에 올릴 (점수, 묶음) 목록.
 
@@ -710,7 +729,7 @@ def _bundle_candidates(
     """
     if not include:
         return []  # 관련성 필터 없는 밀집도는 쓰레기다 — 스캔하지 않는다
-    bundles = _far_destination_bundles(spec, graph, include, exclude, candidate_radius, budget)
+    bundles = _far_destination_bundles(spec, graph, include, exclude, budget, limit)
     if not bundles:
         return []
     measured = evaluate_bundles(spec, graph, bundles, stats=stats, daemon=daemon)
