@@ -19,7 +19,7 @@
 >
 > **번호 규칙 (v0.2에서 정함)**: 번호는 **이 파일이 발급한다.** `[빌드]` 세션의 보고
 > 안 번호(#1~#8 등)와 섞이면 참조가 깨진다 — 실제로 `#17`이 두 항목에 붙어 있었고
-> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#75**다.
+> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#76**다.
 >
 > **PR 번호를 「(이 PR)」로 적지 말 것** — 머지되면 무엇을 가리키는지 알 수 없다.
 > 올린 뒤 실제 번호로 되돌아와 적는다(v0.2에서 17곳을 정정했다).
@@ -95,6 +95,7 @@
 | **#72** 텍스트 쓰기 **40여 곳**이 아직 `newline` 미지정 | 부분 해결 | PoB·정본 경로 9곳은 고쳤다 — ingest·artifacts·learning이 남았다 |
 | **#73** 반사실 표본을 **쌓을 곳이 없다** | 하네스 구현 완료 · **저장 규약 합의 대기** | 어디에 어떤 꼴로 쌓는가는 구조 결정 — 기본 출력 경로를 두지 않았다(철칙 1) |
 | **#74** ⛔ `pruned_nodes`가 **연결성 검출기가 아니다** | 원인규명 · 실측 재현 | 끊긴 3노드를 PoB가 전부 할당하고 pruned를 비웠다 — 연결성은 그래프에서 판정할 것 |
+| **#75** ⛔ 키스톤 채택을 **트리로만** 세어 장비·주얼 부여 경로가 안 보인다 | 원인규명(실측) | Unwavering Stance는 표본 50벌 중 **29벌이 트리 밖**이다 — 담체는 `Flesh Crucible`(28/29) |
 
 **판정 대기 0건** — #59는 2026-08-11에 판정받아 반영했다(§4).
 
@@ -107,7 +108,7 @@
 | | 상태 |
 |---|---|
 | 코드·문서 | git으로 전부 넘어간다(미머지분은 PR로) |
-| **래더 코퍼스 300벌** | 데이터 repo `skerfolg/poe2-ai-wiki-data`에 **전량 푸시됨** — `gh repo clone … artifacts/ingest-raw` |
+| **래더 코퍼스 4,351벌**(2026-08-13 확대) | 데이터 repo `skerfolg/poe2-ai-wiki-data`에 **전량 푸시됨** — `gh repo clone … artifacts/ingest-raw` |
 | PoB 스냅샷 | gitignore. 핀 커밋으로 다시 클론(`pob-snapshot` 스킬) |
 | `var/index.sqlite` | 파생물 — 자동 재생성 |
 | `artifacts/builds` 53회분 | **가져가지 않는다**(사용자 판정 2026-08-13) — 아래 참조 |
@@ -122,8 +123,12 @@
 
 ### ⛔ 이 PC에서 poe.ninja가 **차단돼 있다** — 표본 확대가 막힌 지점 (2026-08-13)
 
-표본을 늘리려면 `ladder_aggregate collect`를 다시 돌려야 하는데 **이 PC에서는 안
-돈다**. 도구 결함이 아니다:
+> **상태 갱신 (2026-08-13, Mac)**: **Mac 회선에서는 정상이다** — 차단은 Windows
+> 회선 한정이고 코드는 그대로다. Mac에서 축 확장을 수행했다(아래 §축 확장 결과).
+> 즉 이 항목은 「Windows 회선에서만 막힌다」로 좁혀졌다.
+
+Windows에서 `ladder_aggregate collect`가 안 돌던 근거는 아래다 — **도구 결함이
+아니다**:
 
 | 확인 | 결과 |
 |---|---|
@@ -145,6 +150,46 @@ python -m pok.engine.ladder_aggregate profile --season 0-5 --concept class-Lich 
 `items-*`를 늘리는 쪽이 #62에 직접 닿는다. 그리고 n을 올리면 **레벨 분포를 반드시
 확인한다**(`observed.sample.level`) — `min`이 100에서 내려가면 미완성 캐릭터가 섞여
 「가변」 신호가 설계 선택이 아니라 진행도를 재게 된다.
+
+### 축 확장 결과 (2026-08-13, Mac) — `--limit` 상한과 필터 어휘를 실측했다
+
+**규모**: 30컨셉 300벌 → **112컨셉 4,351벌**. 정본 프로파일 28 → **110종**.
+신설 축은 `keypassives` 24종(전량) · `skills` 30종 · `items` 28종이고 전부 n=50이다
+(원시는 데이터 repo에 컨셉당 1커밋으로 푸시됨). **82종 전부 `warnings: []` ·
+failed 0 · 앵커 채택률 100%**(키스톤 축은 예외 — 아래 #75).
+
+**① `--limit` 10은 poe.ninja의 상한이 아니라 우리가 자른 것이었다.** `search_characters`가
+응답을 `found[:limit]`으로 자르는데, 응답 자체는 **100까지 담는다**(`class=Lich` 100 ·
+`class=Stormweaver` 99 · 무필터 100). 즉 기존 30컨셉이 전부 n=10이었던 것은 데이터가
+없어서가 아니다 — `ci_low`가 **72.2에서 묶여 있었다**(50벌이면 92.9).
+
+**② 필터 키는 3개보다 많다.** 응답에서 직접 읽은 유효 키 9종:
+`allskills` · `anointed` · `class` · `items` · `keypassives` · `skillmodes` · `skills` ·
+`spiritgems` · `weaponmode`. 이 중 `anointed`·`spiritgems`·`weaponmode`·`allskills`는
+**아직 한 컨셉도 없다**(다음 확장 후보).
+
+**③ ⚠ 값이 먹는지는 개수로 못 가린다.** poe.ninja는 모르는 **값**을 조용히 무시하고
+리그 전체 상위 100을 그대로 주므로 **무시된 질의도 개수가 100이다**. 가리는 법은
+**무필터 상위 100과 목록이 같은지**다(요청 1회, 수집 전에 판별된다). 실측으로
+`skills=Herald of Ash`·`skills=Berserk`·`skills=Archmage`·`skills=Cast on Critical`
+4종이 무시됨으로 걸렸다 — 뒤의 둘은 `_verify_filters_applied` 주석이 실측으로
+못박은 바로 그 사례라 판별법의 교차 확인이 된다. **수집기의 사후 검증(50벌을 받은
+뒤 거부)보다 앞단이라 헛수집을 막는다** — 이번 82컨셉에서 사후 거부가 한 건도 나지
+않았다. 도구화 후보.
+
+**④ 레벨 혼입은 축마다 다르다**(`observed.sample.level.min`):
+
+| 축 | n | `level.min` | 읽는 법 |
+|---|---|---|---|
+| `keypassives-Ancestral_Bond` | 50 | **100** | 표본이 두꺼운 축은 50벌까지 전원 만렙 |
+| `class-Lich` | 51 | 99 | 22벌이 99 — 래더 심도의 자연스러운 결과 |
+| `keypassives-Heartstopper` | 32 | **80** | 리그에 32명뿐이라 상위 N이 **육성 중까지 내려간다** |
+| `keypassives-Necromantic_Talisman` | 9 | **83** | 위와 같음(9명뿐) |
+
+→ **표본이 얕은 축일수록 `level.min`이 떨어진다.** 「소수만 쓴다」가 설계 선택이
+아니라 **아직 덜 큰 캐릭터를 재고 있는 것**일 수 있는 지점이 정확히 여기다.
+`--min-sample`을 낮춰 통과시킨 것이 아니라 **리그에 그만큼밖에 없다**(정찰 실측:
+Necromantic Talisman 9 · Bulwark 19 · Heartstopper 32 · 나머지 21종은 87~100).
 
 **규율**: 정본 문서(`docs/`·`skills/`)는 `artifacts/builds/`의 **특정 인스턴스**를
 근거로 걸지 않는다 — `artifacts/`는 gitignore이고 보존 대상도 아니다. 근거는 **값을
@@ -734,6 +779,50 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
 - **근거 위치**: `src/pok/pob/runner.py:36`(`is_tree_legal`) ·
   `src/pok/engine/assemble.py:91` · `src/pok/engine/tree/counterfactual.py` 머리주석
   (실측 경위) · `tests/unit/test_tree_counterfactual.py::test_뿌리에서_닿지_않는_노드는_판정하지_않는다`
+
+### #75 〔신규〕 ⛔ 키스톤 채택을 **트리로만** 세어 장비·주얼 부여 경로가 안 보인다
+
+- **상태**: 원인규명 완료(실측) · 조치 미착수 — 표현 방식은 사용자 판정 대기
+- **어디서 나왔나**: 키스톤 24축을 수집한 뒤(각 n=50) 「필터가 보장하는 키스톤이
+  목적지 목록에 실제로 있나」를 검사하다 걸렸다. **필터는 100%를 보장하는데
+  트리 채택률은 42%였다.**
+- **실측** — 앵커가 `observed.passives`에 없는 표본 비율:
+
+  | 컨셉 | 트리 채택 | 트리 **밖** |
+  |---|---|---|
+  | `keypassives-Unwavering_Stance` | 21/50 (42.0%) | **29벌 (58%)** |
+  | `keypassives-Glancing_Blows` | 24/50 (48.0%) | **26벌 (52%)** |
+  | `keypassives-Bulwark` | 11/19 (57.9%) | 8벌 |
+  | `keypassives-Vaal_Pact` | 34/50 (68.0%) | 16벌 |
+  | `keypassives-Heartstopper` | 23/32 (71.9%) | 9벌 |
+
+- **원인 — 우리 파서 결함이 아니다**: 표본을 뜯어 보니 노드가 **정말로 트리에 없다**
+  (KB 미매핑 0건 · `raw.passiveSelection`에도 없음). poe.ninja의 열 설명이
+  그렇게 말한다 — "Includes keystones from timeless jewels and **allocated by
+  equipment**". 담체를 대조로 특정했다:
+  - **`Flesh Crucible`** — 트리없음 29벌 중 **28벌** 보유 vs 트리보유 21벌 중 3벌.
+    KB 문구가 곧 근거다: `Random 1 Keystone Passive Skill [1,33]`(부패 다이아몬드 주얼)
+  - **`Megalomaniac`** — `Allocates Passive Skill` ×3. Glancing Blows 트리없음
+    26벌 중 20벌
+  - ⚠ `Atziri's Step`은 상관이 20/26 vs 2/24로 높지만 **KB 문구에 키스톤 부여가
+    없다** — 회피·굴절 빌드와의 교락이다(상관을 담체로 읽지 말 것)
+- **왜 결함인가**: 레코드는 「트리 목적지」를 정확히 싣지만, **읽는 쪽은 그것을
+  채택률로 읽는다.** Unwavering Stance를 42%로 읽으면 「절반 이상이 안 쓴다」가
+  되는데 실제로는 **전원이 쓰고 절반 이상이 트리 밖에서 얻는다**. 형태 ①(선언이
+  없으면 조용한 0)의 재발이다 — `tree_shape.counted="destinations-only"` 선언은
+  있지만 **키스톤이 트리 밖에서 올 수 있다는 사실은 어디에도 없다**
+- **왜 값어치가 있나**: 이건 노이즈가 아니라 **설계 수단**이다. 트리로 가면 경로
+  비용을 내야 하는 키스톤을 주얼 한 칸으로 얻는다 — 지금 엔진은 이 선택지를
+  **영영 못 낸다**(#62·#70과 같은 결). 담체 역참조가 없으면 「이 키스톤을 어떻게
+  얻나」에 트리 경로 하나만 답한다
+- **조치 후보(철칙 5 — 문서가 아니라 도구에)**: `aggregate_concept`이 이미 두 값을
+  다 들고 있다(`raw.keystones` = poe.ninja 판정 · `summary.tree_nodes` = 트리 실측).
+  차이를 레코드에 실으면 읽는 쪽이 오독할 수 없다 — 예:
+  `observed.anchor = {on_tree, off_tree, share, ci_low}`. **스키마 변경이고 정본
+  110벌 재생성이 따르므로 사용자 판정 후 착수**
+- **근거 위치**: `src/pok/engine/ladder_aggregate.py:196-207`(트리만 센다) ·
+  `item.flesh-crucible`·`item.megalomaniac` · 원시는 데이터 repo
+  `ladder/0-5/keypassives-Unwavering_Stance`
 
 
 ## 2. 기능 제안
