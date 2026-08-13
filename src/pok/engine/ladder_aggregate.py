@@ -157,6 +157,42 @@ def _spread(values: list[int]) -> dict[str, int]:
     return {"min": xs[0], "median": xs[len(xs) // 2], "max": xs[-1]} if xs else {}
 
 
+def _latest_per_character(files: list[Path]) -> tuple[list[Path], int]:
+    """캐릭터당 **최신 갱신본 한 벌만** 남긴다. 버린 개수를 함께 낸다.
+
+    ⚠ 원시는 append-only라 `계정__캐릭터__갱신시각` 꼴로 쌓인다. 같은 컨셉을 **다시
+    수집하면**(표본을 늘릴 때) 그 사이 리스펙한 캐릭터는 **새 파일이 하나 더** 생기고
+    옛 파일은 그대로 남는다 — 수집기의 중복 제거는 「같은 갱신본」까지이지
+    「같은 캐릭터」가 아니다. 그대로 세면 한 사람이 두 벌로 잡혀 `n`이 부풀고
+    그 사람의 젬·아이템이 두 번 계산된다.
+
+    실측 2026-08-13(기존 컨셉을 10 → 50벌로 올리던 중): `class-Amazon` 54파일이
+    실제로는 **50명**이었다(4명이 두 벌). 파일 수를 표본 수로 쓰던 자리라 조용히
+    틀린다 — 그래서 버린 개수를 `sample.superseded`로 **선언**한다(형태 ①).
+
+    남길 벌의 기준은 `character_updated_utc`(poe.ninja가 준 출처 시각)다. 없으면
+    파일명의 갱신시각으로 떨어진다 — 저장 경로가 그 값으로 만들어지기 때문이다.
+    """
+    by_char: dict[tuple[str, str], tuple[str, Path]] = {}
+    dropped = 0
+    for path in files:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        raw = doc.get("raw") or {}
+        account, name = str(raw.get("account") or ""), str(raw.get("name") or "")
+        # 신원이 없으면 **합치지 않는다.** 빈 값끼리 같은 키가 되면 서로 다른 표본이
+        # 한 사람으로 뭉쳐 `n`이 도리어 줄어든다 — 부풀리는 것보다 나쁘다.
+        who = (account, name) if account and name else ("", str(path))
+        rev = str(doc.get("character_updated_utc") or raw.get("updatedUtc") or path.stem)
+        prev = by_char.get(who)
+        if prev is None:
+            by_char[who] = (rev, path)
+            continue
+        dropped += 1
+        if rev > prev[0]:
+            by_char[who] = (rev, path)
+    return sorted(p for _, p in by_char.values()), dropped
+
+
 def aggregate_concept(
     season: str, concept: str, *, base: Path | None = None, basis: str = ""
 ) -> dict[str, Any]:
@@ -169,6 +205,7 @@ def aggregate_concept(
     files = sorted(folder.glob("*.json"))
     if not files:
         raise LadderError(f"수집된 것이 없다: {folder}")
+    files, superseded = _latest_per_character(files)
 
     tree = _tree_index()
     positions = _node_positions()
@@ -215,6 +252,10 @@ def aggregate_concept(
             "n": len(files),
             "unit": "sampled-builds",
             "basis": basis or f"poe.ninja 래더 PoB 실측 — {season}/{concept} {len(files)}벌",
+            # 같은 캐릭터의 **옛 갱신본**을 몇 벌 버렸나. 0이 아니면 이 컨셉은
+            # 재수집을 거쳤다는 뜻이다(`_latest_per_character` 머리주석). 없으면
+            # 파일 수와 표본 수가 다른 이유를 읽는 쪽이 알 방법이 없다.
+            "superseded": superseded,
             # 진행도 게이트의 강제 지점(철칙 5). `min`이 100에서 내려가기 시작하면
             # 표본에 미완성 캐릭터가 섞였다는 뜻이고, 그때 「가변」 신호는 설계 선택이
             # 아니라 **예산·진행도**를 재고 있을 수 있다. 값은 기계가 재므로 문서가

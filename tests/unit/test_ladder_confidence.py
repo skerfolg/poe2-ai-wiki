@@ -121,3 +121,77 @@ def test_레벨이_없으면_조용히_0을_내지_않는다(tmp_path, monkeypat
 
     out = agg.aggregate_concept("0-5", "x", base=tmp_path)
     assert "level" not in out["sample"]
+
+
+def _fake_parse(monkeypatch) -> None:
+    monkeypatch.setattr(agg, "_tree_index", lambda: {1: ("passive.a", "notable")})
+    monkeypatch.setattr(agg, "_node_positions", lambda: {})
+
+    class _Fake:
+        skill_groups = ()
+        items = ()
+        ascendancy = "Lich"
+        tree_nodes = (1,)
+
+    monkeypatch.setattr(agg, "parse_pob", lambda _code: _Fake())
+
+
+def _write(folder, stem: str, *, account: str, name: str, updated: str) -> None:
+    (folder / f"{stem}.json").write_text(
+        json.dumps(
+            {
+                "pob_export": "x",
+                "character_updated_utc": updated,
+                "raw": {"account": account, "name": name, "level": 100},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_같은_캐릭터의_옛_갱신본은_표본으로_세지_않는다(tmp_path, monkeypatch) -> None:
+    """원시는 append-only라 **재수집하면** 리스펙한 캐릭터의 파일이 하나 더 생긴다.
+
+    수집기의 중복 제거는 「같은 갱신본」까지이지 「같은 캐릭터」가 아니다 — 그대로
+    세면 한 사람이 두 벌이 되어 `n`이 부풀고 그 사람의 젬·아이템이 두 번 계산된다.
+    실측 2026-08-13: 기존 컨셉을 10 → 50벌로 올리자 `class-Amazon` 54파일이 실제로는
+    50명이었다.
+    """
+    _fake_parse(monkeypatch)
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    _write(folder, "a_old", account="acc-1", name="Zed", updated="2026-07-01T00:00:00Z")
+    _write(folder, "a_new", account="acc-1", name="Zed", updated="2026-08-01T00:00:00Z")
+    _write(folder, "b", account="acc-2", name="Wye", updated="2026-08-01T00:00:00Z")
+
+    out = agg.aggregate_concept("0-5", "x", base=tmp_path)
+    assert out["sample"]["n"] == 2, "파일 3벌이지만 캐릭터는 2명이다"
+    assert out["sample"]["superseded"] == 1, "버린 옛 갱신본 수를 **선언**한다"
+
+
+def test_버린_것이_없어도_선언은_남는다(tmp_path, monkeypatch) -> None:
+    """`superseded`가 없으면 「재수집을 안 거쳤다」와 「필드가 없던 시절」이 같아진다
+    (형태 ① — 선언이 없으면 조용한 0)."""
+    _fake_parse(monkeypatch)
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    _write(folder, "b", account="acc-2", name="Wye", updated="2026-08-01T00:00:00Z")
+
+    out = agg.aggregate_concept("0-5", "x", base=tmp_path)
+    assert out["sample"]["superseded"] == 0
+
+
+def test_신원이_없는_표본은_뭉치지_않는다(tmp_path, monkeypatch) -> None:
+    """계정·이름이 없는 레코드끼리 같은 키가 되면 서로 다른 표본이 한 사람으로
+    뭉쳐 `n`이 **줄어든다** — 부풀리는 것보다 나쁘다."""
+    _fake_parse(monkeypatch)
+    folder = tmp_path / "0-5" / "x"
+    folder.mkdir(parents=True)
+    for i in range(3):
+        (folder / f"{i}.json").write_text(
+            json.dumps({"pob_export": "x", "raw": {"level": 100}}), encoding="utf-8"
+        )
+
+    out = agg.aggregate_concept("0-5", "x", base=tmp_path)
+    assert out["sample"]["n"] == 3
+    assert out["sample"]["superseded"] == 0
