@@ -79,6 +79,39 @@ class PobDaemon:
             stats=stats, meta=meta, allocated_nodes=alloc, pruned_nodes=pruned, cached=False
         )
 
+    def compute_tree(self, nodes: tuple[int, ...]) -> PobResult:
+        """**로드된 빌드의 트리만** 갈아 끼워 재계산한다 (#70 후속).
+
+        최적화 루프는 노드만 바꾸는데 `compute_build`은 매번 빌드를 통째로 다시
+        로드한다. 실측 2026-08-13(블러드 메이지, 장비 15·스킬 9그룹·젬 32개):
+        최소 **0.38초** · 장비까지 **0.60초** · 스킬까지 **3.68초** — 장비는 +0.22초인데
+        **스킬이 +3.16초**다. 스킬은 루프에서 한 번도 안 바뀌므로 통째로 낭비였다.
+
+        ⚠ **먼저 `compute_build`으로 빌드를 한 번 올려 둬야 한다.** 안 그러면 데몬이
+        「로드된 빌드가 없다」로 거부한다 — 조용히 빈 빌드를 계산하지 않는다.
+        """
+        self.start()
+        assert self._proc is not None and self._proc.stdin is not None
+        payload = ",".join(str(n) for n in nodes)
+        self._proc.stdin.write(f"TREE\t{payload}\n")
+        self._proc.stdin.flush()
+        lines: list[str] = []
+        while True:
+            line = self._readline()
+            if not line:
+                raise PobRunError("데몬이 POK_DONE 전에 종료됨 (close 후 재기동 필요)")
+            if line.rstrip("\n") == "POK_DONE":
+                break
+            lines.append(line.rstrip("\n"))
+        stats, meta, alloc = parse_lines(lines)
+        return PobResult(
+            stats=stats,
+            meta=meta,
+            allocated_nodes=alloc,
+            pruned_nodes=tuple(sorted(set(nodes) - set(alloc))),
+            cached=False,
+        )
+
     def build_item(self, spec_text: str) -> str:
         """아이템 **명세 → PoB 정본 텍스트** (#34). 실패하면 빈 문자열.
 
