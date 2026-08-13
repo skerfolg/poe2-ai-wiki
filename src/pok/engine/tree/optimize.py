@@ -22,7 +22,7 @@ from typing import Any, NamedTuple
 from pok.engine.objective import Target, TargetResult, evaluate_targets
 from pok.engine.tree.clusters import Cluster, find_clusters
 from pok.engine.tree.deltas import NodeDelta, evaluate_node_deltas
-from pok.engine.tree.graph import TreeGraph
+from pok.engine.tree.graph import ASCENDANCY_POINTS, TreeGraph
 from pok.pob.buildxml import BuildSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
 from pok.pob.runner import PobResult
@@ -495,7 +495,11 @@ def _seed_anchors(
             # 전직 노드는 **별도 풀**이다 — 일반 예산에서 빼면 트리가 그만큼 작아진다(#68).
             if node is not None and node.ascendancy:
                 asc_added.append(n)
-    cost = AnchorCost(general=len(added) - len(asc_added), ascendancy=len(asc_added))
+    # 공짜 노드는 **스펙에는 남기고 포인트에서만** 뺀다 — 관문 하위·조건부 개방은
+    # PoB가 자동 할당하지 않으므로 tree_nodes에서 빼면 그 트리가 재현되지 않는다.
+    free = graph.free_nodes(spec.ascendancy, tree)
+    paid_asc = [n for n in asc_added if n not in free]
+    cost = AnchorCost(general=len(added) - len(asc_added), ascendancy=len(paid_asc))
     notes: list[str] = []
     if added:
         # 두 수를 **갈라서** 말한다 — 합쳐 말하면 일반 예산이 그만큼 줄었다고 읽힌다.
@@ -513,14 +517,12 @@ def _seed_anchors(
             f"⚠ 필수 앵커만으로 예산을 {cost.general - budget}포인트 **초과**했다 — "
             "그리디에 남은 예산이 없다. 앵커를 줄이거나 예산을 늘릴 것"
         )
-    # 전직 풀도 상한이 있다. ⛔ 거부하지 않고 **경고만** 한다 — 상한이 게임 문서가
-    # 아니라 래더 관측이라, 틀린 상한으로 정상 빌드를 막으면 안 된다(graph.py 주석).
-    cap = graph.ascendancy_point_cap(spec.ascendancy)
-    if cost.ascendancy > cap:
+    # 전직 풀도 상한이 있다(8 = 2포인트 × 4차). ⛔ 거부하지 않고 **경고만** 한다 —
+    # 앵커를 빼는 판단은 해석 층의 몫이고, 여기서 자르면 근거 없이 트리가 바뀐다.
+    if cost.ascendancy > ASCENDANCY_POINTS:
         notes.append(
-            f"⚠ 전직 포인트 {cost.ascendancy}개는 관측 상한 {cap}을 넘는다 — "
-            "인게임에서 못 찍는 트리이거나, 상한 기록이 낡았다는 신호다"
-            "(`ASCENDANCY_POINT_CAP`은 래더 관측치라 반증 가능하다)"
+            f"⚠ 전직 포인트 {cost.ascendancy}개는 상한 {ASCENDANCY_POINTS}을 넘는다 — "
+            "인게임에서 못 찍는 트리다. 앵커에서 전직 노드를 줄일 것"
         )
     return (
         dataclasses.replace(spec, tree_nodes=tuple(spec.tree_nodes) + tuple(added)),

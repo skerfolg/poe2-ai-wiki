@@ -34,30 +34,19 @@ CLASS_START: dict[str, int] = {
 # 실측이 뒷받침한다 — 래더 표본에서 블러드 메이지만 전직 **노터블 5개**(다른 전직 4개)이고
 # Sanguimancy는 10/10 보유다.
 GRANTED_ASCENDANCY_NODES: dict[str, tuple[int, ...]] = {
-    "Witch2": (8415,),  # Blood Mage → Sanguimancy
+    "Witch2": (8415,),  # Blood Mage → Sanguimancy (혈액술)
+    # 장인의 역작은 **무료로 찍는다**. 연결된 잎 12개는 정상 비용이다
+    # (사용자 판정 2026-08-13 — 허브-잎 구조라 자각몽류와 완전히 같지는 않다).
+    "Warrior3": (9988,),  # Smith of Kitava → Smith's Masterwork
 }
 
-# 전직별 어센던시 포인트 상한 (#68 · 사용자 판정 2026-08-13).
+# 어센던시 포인트는 **전 전직 8**이다 (2포인트 × 4차, 사용자 판정 2026-08-13).
 #
-# ⚠ **게임 문서가 아니라 래더 관측이다** — 0-5 코퍼스 230벌(전직 23종 × 10벌)에서
-#    실제로 쓴 전직 포인트의 최대치다. 분포: 8포인트 173벌 · 9포인트 48벌 · 7 이하 9벌.
-#    아래 6종에서만 9가 관측됐고 나머지 17종은 10/10이 8 이하였다(우연이라기엔 너무
-#    치우쳤다 — 9 사용률 21%면 10벌 전부 8일 확률이 종당 9%라 17종은 설명이 안 된다).
-#
-# ⛔ **왜 6종만 9인지는 규명되지 않았다.** 숨은 공짜 노드일 수도(블러드 메이지의
-#    혈액술처럼 `GRANTED_ASCENDANCY_NODES`에 빠진 것), 포인트를 부여하는 노드일 수도
-#    있다. 그래서 이 표는 **판정이 아니라 관측 기록**이고, 반증이 쉽다: 여기 8인
-#    전직에서 9포인트 빌드가 관측되면 그 값이 틀린 것이다. 초과를 **거부하지 않고
-#    경고만** 하는 이유가 이것이다 — 틀린 상한으로 정상 빌드를 막으면 안 된다.
-ASCENDANCY_POINT_CAP: dict[str, int] = {
-    "Monk3": 9,  # 애컬라이트 오브 차율라 — 9/10벌
-    "Ranger1": 9,  # 데드아이 — 7/10벌
-    "Ranger3": 9,  # 패스파인더 — 8/10벌
-    "Mercenary3": 9,  # 젬링 리저네어 — 6/10벌
-    "Warrior3": 9,  # 스미스 오브 키타바 — 9/10벌
-    "Huntress2": 9,  # 스피릿 워커 — 9/10벌
-}
-DEFAULT_ASCENDANCY_POINTS = 8
+# ⚠ 한때 「6종만 9」라는 전직별 표를 넣었다가 **뺐다.** 래더 230벌에서 9칸이 48벌
+#    나온 것은 사실이지만, 그건 포인트가 더 있어서가 아니라 **포인트를 안 쓰는 노드**를
+#    함께 세고 있었기 때문이다(아래 `free_nodes` 세 형태). 관측을 게임 규칙으로 오독하면
+#    정확히 이런 표가 나온다 — 숫자는 맞는데 뜻이 틀렸다.
+ASCENDANCY_POINTS = 8
 
 _START_LINKS: dict[int, tuple[int, ...]] = {
     # ⚠ 59822(블러드 메이지)를 빼 뒀었는데 **그게 결함이었다**(실측 2026-08-12).
@@ -222,17 +211,44 @@ class TreeGraph:
                 out.update(nodes)
         return frozenset(out)
 
-    def ascendancy_point_cap(self, ascendancy: str | None) -> int:
-        """그 전직이 쓸 수 있는 어센던시 포인트 — **관측 상한**이다(`ASCENDANCY_POINT_CAP`).
+    def free_nodes(self, ascendancy: str | None, allocated: collections.abc.Set[int]) -> set[int]:
+        """할당분 중 **어센던시 포인트를 안 쓰는** 노드 (사용자 판정 2026-08-13).
 
-        전직을 모르면 기본값을 준다. 상한을 모른다고 무제한으로 두면 예산 판단이
-        조용히 사라진다(이 레포가 반복해 데인 꼴).
+        세 형태가 있고, 전부 「PoB에는 칸으로 보이지만 포인트는 아니다」이다. 이걸 안
+        빼면 8포인트 빌드가 9로 세어져 예산 판단이 통째로 틀어진다(실측: 230벌 중 48벌).
+
+        1. **선택 시 부여** — 블러드 메이지의 혈액술, 키타바의 장인의 역작
+           (`GRANTED_ASCENDANCY_NODES`).
+        2. **관문의 무료 하위** — 자각몽(효과 0개)을 찍으면 「마나/힘/생명력의 선택」
+           중 하나가 딸려 온다. 젬링의 마석 이식도 같다. 관문은 **자체 효과가 없다**는
+           것으로 알아본다 — 이름 규칙은 전직마다 달라 못 쓴다.
+        3. **조건부 개방** — 스피릿 워커의 신성한 합일. 선행 3개(혈기 쇄도·원시 하사품·
+           야생 보호자)를 찍으면 무료로 열린다. KB가 `requires_nodes`로 이미 들고 있고,
+           **전직 노드 중 선행조건을 가진 것은 이것뿐**이라 일반 트리(2건)를 안 건드린다.
         """
-        want = self.resolve_ascendancy(ascendancy)
-        for code, cap in ASCENDANCY_POINT_CAP.items():
-            if self.resolve_ascendancy(code) == want:
-                return cap
-        return DEFAULT_ASCENDANCY_POINTS
+        free = set(self.granted_nodes(ascendancy)) & set(allocated)
+        for node_id in allocated:
+            node = self.nodes.get(node_id)
+            if node is None or not node.ascendancy:
+                continue
+            # ③ 선행을 다 찍었으면 이 노드는 공짜다
+            if node.requires_nodes and set(node.requires_nodes) <= set(allocated):
+                free.add(node_id)
+                continue
+            # ② 관문(효과 0개 노터블) 하나당 할당된 이웃 하나가 무료
+            if node.kind == "notable" and not node.stats_en:
+                children = sorted(
+                    n
+                    for n in self.adj[node_id]
+                    if n in allocated
+                    and n not in free
+                    and (child := self.nodes.get(n)) is not None
+                    and child.ascendancy
+                    and child.kind != "ascendancy-start"
+                )
+                if children:
+                    free.add(children[0])
+        return free
 
     def connect_anchors(
         self,

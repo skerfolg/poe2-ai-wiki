@@ -208,18 +208,27 @@ def test_전직을_모르면_전직_노드를_거부한다(graph: TreeGraph) -> 
     assert 14934 in allocated
 
 
-def test_전직_포인트_상한은_관측치이고_전직마다_다르다(graph: TreeGraph) -> None:
-    """#68: 「블러드 메이지만 9, 나머지 8」이라는 전제가 **실측으로 뒤집혔다**.
+def test_포인트를_안_쓰는_노드_세_형태를_가려낸다(graph: TreeGraph) -> None:
+    """#68: 래더 230벌에서 전직 노드가 **9칸**인 빌드가 48벌 나왔다. 포인트가 더
+    있어서가 아니라 **포인트를 안 쓰는 노드**를 함께 센 것이었다(사용자 판정 2026-08-13).
 
-    래더 230벌에서 9포인트가 48벌 나왔고, 그게 6종에 몰려 있다(우연이라기엔 치우쳤다).
-    블러드 메이지는 오히려 8 + 혈액술(공짜) = 9칸이라 **포인트로는 8**이다.
-    표가 다시 「전 전직 8」로 뭉개지면 여기서 걸린다.
+    한때 이걸 「6종만 9포인트」라는 전직별 상한표로 박았다 — 숫자는 관측과 맞았지만
+    뜻이 틀렸다. 관측을 규칙으로 오독하면 정확히 그런 표가 나온다.
+
+    세 형태 전부를 여기서 잠근다. 하나라도 빠지면 8포인트 빌드가 9로 세어져
+    예산 판단이 통째로 틀어진다.
     """
-    assert graph.ascendancy_point_cap("Acolyte of Chayula") == 9
-    assert graph.ascendancy_point_cap("Smith of Kitava") == 9
-    assert graph.ascendancy_point_cap("Blood Mage") == 8, "공짜 노드는 포인트가 아니다"
-    assert graph.ascendancy_point_cap("Stormweaver") == 8
-    # 코드 표기로도 같은 답이 나와야 한다 — 호출부가 무엇을 들고 오는지 모른다.
-    assert graph.ascendancy_point_cap("Monk3") == 9
-    # 전직을 모르면 무제한이 아니라 기본값 — 모른다고 판단을 끄면 조용해진다.
-    assert graph.ascendancy_point_cap(None) == 8
+    # ① 선택 시 부여 — 혈액술(블러드 메이지) · 장인의 역작(키타바)
+    assert graph.free_nodes("Blood Mage", {8415, 26383}) == {8415}
+    assert graph.free_nodes("Smith of Kitava", {9988, 60913}) == {9988}
+
+    # ② 관문의 무료 하위 — 자각몽(효과 0개)을 찍으면 「…의 선택」 하나가 딸려 온다
+    chayula = graph.free_nodes("Acolyte of Chayula", {52395, 26283, 50098})
+    assert chayula == {26283}, "관문 하위 하나가 무료여야 한다"
+    # 관문을 안 찍었으면 하위도 공짜가 아니다
+    assert graph.free_nodes("Acolyte of Chayula", {26283, 50098}) == set()
+
+    # ③ 조건부 개방 — 신성한 합일은 선행 3개를 찍어야 열린다
+    prereq = {41401, 46070, 62743}
+    assert graph.free_nodes("Spirit Walker", {28254, *prereq}) == {28254}
+    assert graph.free_nodes("Spirit Walker", {28254, 41401}) == set(), "선행이 덜 찼다"
