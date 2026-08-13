@@ -119,6 +119,9 @@ def merge(raw_pob_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
 
 if __name__ == "__main__":
     from pok.common.paths import knowledge_dir, project_root
+    from pok.common.stdio import force_utf8_stdio
+
+    force_utf8_stdio()
 
     raw = project_root() / "artifacts" / "ingest-raw" / "0.5.4b" / "pob"
     print(json.dumps(merge(raw, knowledge_dir(), "0.5.4b"), ensure_ascii=False))

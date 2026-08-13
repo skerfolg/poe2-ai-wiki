@@ -164,4 +164,7 @@ def summarize(root: Path | None = None) -> str:
 
 
 if __name__ == "__main__":  # python -m pok.common.telemetry
+    from pok.common.stdio import force_utf8_stdio
+
+    force_utf8_stdio()
     print(summarize())

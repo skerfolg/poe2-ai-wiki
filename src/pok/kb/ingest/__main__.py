@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from pok.common.paths import project_root
+from pok.common.stdio import force_utf8_stdio
 from pok.kb.ingest.fetch import run_fetch, status_report
 from pok.kb.ingest.plan import build_plan
 
@@ -23,6 +24,7 @@ def _raw_dir(patch: str) -> Path:
 
 
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_stdio()
     ap = argparse.ArgumentParser(prog="pok.kb.ingest")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

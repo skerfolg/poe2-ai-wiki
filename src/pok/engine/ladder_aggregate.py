@@ -348,6 +348,10 @@ def passed_over(
 def _cli(argv: list[str] | None = None) -> int:
     import argparse
 
+    from pok.common.stdio import force_utf8_stdio
+
+    force_utf8_stdio()  # 이 CLI는 stdout에 em dash를 낸다(sample.basis)
+
     from pok.artifacts.ladder import collect
 
     p = argparse.ArgumentParser(prog="python -m pok.engine.ladder_aggregate")
