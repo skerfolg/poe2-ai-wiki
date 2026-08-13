@@ -258,7 +258,9 @@ def _socket_anchors(
     ranked: list[tuple[int, int]] = []
     for entry in data["observed"]["passives"]:
         nid = node_of.get(entry["ref"])
-        node = graph.nodes.get(nid) if nid else None
+        if not nid:
+            continue
+        node = graph.nodes.get(nid)
         if node is not None and node.kind == "jewel-socket":
             ranked.append((int(entry["count"]), nid))
     ranked.sort(key=lambda kv: (-kv[0], kv[1]))
@@ -284,6 +286,16 @@ def _socket_anchors(
         "넣어 다시 재라(2패스). ⛔ 이 제안은 **코퍼스 근거지 측정이 아니다** — "
         "포인트를 쓰고도 주얼이 없으면 아무것도 주지 않는다"
     )
+    return out
+
+
+def _positions(graph: TreeGraph, node_ids: Sequence[int] | set[int]) -> list[tuple[float, float]]:
+    """좌표가 있는 노드들의 (x, y). 좌표 없는 노드(가상 노드 등)는 떨군다."""
+    out: list[tuple[float, float]] = []
+    for nid in node_ids:
+        node = graph.nodes.get(nid)
+        if node is not None and node.position is not None:
+            out.append(node.position)
     return out
 
 
@@ -392,11 +404,7 @@ def anchors_for_axes(
         # **값을 매겨서 준다.** 몇 포인트가 드는지 모르면 앵커를 고를 수 없다 —
         # 실측: 치명타 3계열 6개가 86포인트(래더 중앙 폭과 동급)였다.
         allocated, _paths = graph.connect_anchors(base, chosen, ascendancy=who)
-        points = [
-            graph.nodes[n].position
-            for n in allocated
-            if graph.nodes.get(n) is not None and graph.nodes[n].position is not None
-        ]
+        points = _positions(graph, allocated)
         out["cost"] = {
             "class": base,
             "points": len(allocated),
@@ -472,11 +480,14 @@ def suggest_anchors(
             for rid, r in records.items()
             if r.type == "Passive" and (r.raw.get("data") or {}).get("node_id") is not None
         }
-        required, common = [], []
+        required: list[dict[str, Any]] = []
+        common: list[dict[str, Any]] = []
         sampled_nodes: set[int] = set()
         for entry in data["observed"]["passives"]:
             nid = node_of.get(entry["ref"])
-            node = graph.nodes.get(nid) if nid else None
+            if not nid:
+                continue
+            node = graph.nodes.get(nid)
             if node is None:
                 continue
             row = {
@@ -627,11 +638,7 @@ def compare_tree(
     width: dict[str, Any] = {}
     baseline = (data.get("tree_shape") or {}).get("diagonal") or {}
     if baseline:
-        points = [
-            graph.nodes[n].position
-            for n in allocated
-            if graph.nodes.get(n) is not None and graph.nodes[n].position is not None
-        ]
+        points = _positions(graph, allocated)
         if len(points) >= 2:
             xs = [p[0] for p in points]
             ys = [p[1] for p in points]

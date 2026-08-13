@@ -40,6 +40,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -115,7 +116,7 @@ def _get(url: str, *, timeout: int = 60) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": _UA, "Accept-Encoding": "gzip"})
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read()
+            raw: bytes = resp.read()
             if resp.headers.get("content-encoding") == "gzip":
                 raw = gzip.decompress(raw)
             return raw
@@ -135,7 +136,7 @@ def snapshot_token(league_slug: str) -> str:
             f"{league_slug} 페이지에서 스냅샷 토큰을 못 찾았다 — "
             "poe.ninja가 경로 형식을 바꿨을 수 있다"
         )
-    return found[0]
+    return str(found[0])
 
 
 # ─────────────────────── protobuf (최소 판독) ───────────────────────
@@ -160,13 +161,15 @@ def _read_varint(buf: bytes, i: int) -> tuple[int, int]:
     raise ValueError("varint 손상")
 
 
-def _iter_fields(buf: bytes):
+def _iter_fields(buf: bytes) -> Iterator[tuple[int, int, int | bytes]]:
     i = 0
     while i < len(buf):
         tag, i = _read_varint(buf, i)
         field_no, wire = tag >> 3, tag & 7
         if field_no == 0:
             raise ValueError("필드 번호 0")
+        # varint(wire 0)는 정수를, 나머지는 바이트열을 낸다 — 한 이름에 둘 다 담긴다.
+        val: int | bytes
         if wire == 0:
             val, i = _read_varint(buf, i)
             yield field_no, wire, val
@@ -333,7 +336,8 @@ def fetch_character(
         "timeMachine": "",
     }
     url = f"{_BASE}/poe2/api/builds/{token}/character?{urllib.parse.urlencode(params)}"
-    return json.loads(_get(url))
+    doc: dict[str, Any] = json.loads(_get(url))
+    return doc
 
 
 # ──────────────────────────── 저장 ────────────────────────────
