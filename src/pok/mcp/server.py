@@ -27,6 +27,7 @@ from fastmcp import FastMCP
 
 from pok.common import telemetry
 from pok.common.paths import knowledge_dir
+from pok.common.stdio import force_utf8_stdio
 from pok.index.describe import describe_kb as _describe_kb
 from pok.index.describe import describe_type as _describe_type
 from pok.index.describe import find_by_value as _find_by_value
@@ -480,6 +481,9 @@ find_payloads = tool(_explore.find_payloads)
 
 
 def main() -> None:
+    # stdio가 곧 JSON-RPC 채널이고 MCP는 UTF-8을 요구한다 — Windows 기본
+    # 코드페이지로는 KB의 한글·기호가 그대로 나가지 못한다.
+    force_utf8_stdio()
     mcp.run()  # stdio
 
 

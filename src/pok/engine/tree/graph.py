@@ -34,8 +34,19 @@ CLASS_START: dict[str, int] = {
 # 실측이 뒷받침한다 — 래더 표본에서 블러드 메이지만 전직 **노터블 5개**(다른 전직 4개)이고
 # Sanguimancy는 10/10 보유다.
 GRANTED_ASCENDANCY_NODES: dict[str, tuple[int, ...]] = {
-    "Witch2": (8415,),  # Blood Mage → Sanguimancy
+    "Witch2": (8415,),  # Blood Mage → Sanguimancy (혈액술)
+    # 장인의 역작은 **무료로 찍는다**. 연결된 잎 12개는 정상 비용이다
+    # (사용자 판정 2026-08-13 — 허브-잎 구조라 자각몽류와 완전히 같지는 않다).
+    "Warrior3": (9988,),  # Smith of Kitava → Smith's Masterwork
 }
+
+# 어센던시 포인트는 **전 전직 8**이다 (전직당 2포인트씩 4차까지, 사용자 판정 2026-08-13).
+#
+# ⚠ 한때 「6종만 9」라는 전직별 표를 넣었다가 **뺐다.** 래더 230벌에서 9칸이 48벌
+#    나온 것은 사실이지만, 그건 포인트가 더 있어서가 아니라 **포인트를 안 쓰는 노드**를
+#    함께 세고 있었기 때문이다(아래 `free_nodes` 세 형태). 관측을 게임 규칙으로 오독하면
+#    정확히 이런 표가 나온다 — 숫자는 맞는데 뜻이 틀렸다.
+ASCENDANCY_POINTS = 8
 
 _START_LINKS: dict[int, tuple[int, ...]] = {
     # ⚠ 59822(블러드 메이지)를 빼 뒀었는데 **그게 결함이었다**(실측 2026-08-12).
@@ -200,6 +211,45 @@ class TreeGraph:
                 out.update(nodes)
         return frozenset(out)
 
+    def free_nodes(self, ascendancy: str | None, allocated: collections.abc.Set[int]) -> set[int]:
+        """할당분 중 **어센던시 포인트를 안 쓰는** 노드 (사용자 판정 2026-08-13).
+
+        세 형태가 있고, 전부 「PoB에는 칸으로 보이지만 포인트는 아니다」이다. 이걸 안
+        빼면 8포인트 빌드가 9로 세어져 예산 판단이 통째로 틀어진다(실측: 230벌 중 48벌).
+
+        1. **선택 시 부여** — 블러드 메이지의 혈액술, 키타바의 장인의 역작
+           (`GRANTED_ASCENDANCY_NODES`).
+        2. **관문의 무료 하위** — 자각몽(효과 0개)을 찍으면 「마나/힘/생명력의 선택」
+           중 하나가 딸려 온다. 젬링의 마석 이식도 같다. 관문은 **자체 효과가 없다**는
+           것으로 알아본다 — 이름 규칙은 전직마다 달라 못 쓴다.
+        3. **조건부 개방** — 스피릿 워커의 신성한 합일. 선행 3개(혈기 쇄도·원시 하사품·
+           야생 보호자)를 찍으면 무료로 열린다. KB가 `requires_nodes`로 이미 들고 있고,
+           **전직 노드 중 선행조건을 가진 것은 이것뿐**이라 일반 트리(2건)를 안 건드린다.
+        """
+        free = set(self.granted_nodes(ascendancy)) & set(allocated)
+        for node_id in allocated:
+            node = self.nodes.get(node_id)
+            if node is None or not node.ascendancy:
+                continue
+            # ③ 선행을 다 찍었으면 이 노드는 공짜다
+            if node.requires_nodes and set(node.requires_nodes) <= set(allocated):
+                free.add(node_id)
+                continue
+            # ② 관문(효과 0개 노터블) 하나당 할당된 이웃 하나가 무료
+            if node.kind == "notable" and not node.stats_en:
+                children = sorted(
+                    n
+                    for n in self.adj[node_id]
+                    if n in allocated
+                    and n not in free
+                    and (child := self.nodes.get(n)) is not None
+                    and child.ascendancy
+                    and child.kind != "ascendancy-start"
+                )
+                if children:
+                    free.add(children[0])
+        return free
+
     def connect_anchors(
         self,
         class_name: str,
@@ -218,12 +268,30 @@ class TreeGraph:
         후보 선정과 출고 게이트가 막고 있었지만 **이 함수를 직접 부르는 경로는
         뚫려 있었다** — 앵커 id를 잘못 주면 인게임에서 못 만드는 트리가 나온다.
 
+        **안 주면 전직 노드 타깃 자체를 거부한다**(#69). 검사를 선택으로 두면 인자를
+        빠뜨리는 것만으로 게이트가 꺼지는데, 호출자가 전직을 모르는 경로가 실재한다 —
+        「모르면 통과」가 아니라 「모르면 못 쓴다」로 닫는다. 일반 패시브만 연결하는
+        호출은 종전대로 전직 없이 쓸 수 있다.
+
         기본 할당 노드(블러드 메이지의 혈액술)는 **출발 시점에 이미 켜져 있는 것**으로
         놓는다 — 포인트를 안 쓰므로 경로 비용에서 빠진다.
         """
         want = self.resolve_ascendancy(ascendancy) if ascendancy else None
         remaining = set(targets)
-        if want is not None:
+        if want is None:
+            # ⛔ 전직을 모르면 소유권을 **검사할 수 없다**. 예전엔 검사를 통째로 건너뛰어
+            #    남의 전직 노드가 그대로 통과했다(#69) — 인자를 빠뜨리는 것만으로 게이트가
+            #    꺼지는 구조였다. 모르면 통과가 아니라 **거부**다: 일반 패시브만 연결한다.
+            asc_targets = sorted(
+                t for t in remaining if (node := self.nodes.get(t)) is not None and node.ascendancy
+            )
+            if asc_targets:
+                raise ValueError(
+                    f"전직 노드를 연결하려면 ascendancy를 줘야 한다: {asc_targets} — "
+                    "전직을 모르면 그것이 이 빌드 것인지 검사할 수 없고, "
+                    "검사 없이 통과시키면 인게임에서 할당 불가한 트리가 나간다"
+                )
+        else:
             foreign = sorted(
                 t
                 for t in remaining

@@ -9,11 +9,13 @@ import argparse
 import sys
 
 from pok.common.paths import index_db_path
+from pok.common.stdio import force_utf8_stdio
 from pok.index.build import build_index
 from pok.index.search import ensure_index, search
 
 
 def main(argv: list[str] | None = None) -> int:
+    force_utf8_stdio()
     ap = argparse.ArgumentParser(prog="pok.index")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("build", help="self-healing 판정 후 필요 시 빌드")

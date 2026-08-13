@@ -159,8 +159,12 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
   | `class=Witchhunter` | `class-Witchhunter` | `passive.witchhunter-7120` | `위치헌터 (Witchhunter)` |
 
 - ⚠ **Abyssal Lich(심연의 리치)는 표에 없다** — 0.5 어센던시 23종 중 유일하게 KB에
-  트리 노드가 없다(수집 갭). 원시는 모으되 프로파일은 만들지 말고 **「앵커없음」으로
-  보고**한다. 앵커를 지어내지 말 것.
+  트리 노드가 없다. **수집 갭이 아니라 상류 부재다**(검증 2026-08-13): poe2db·PoB 둘 다
+  어센던시 **선언은 하는데**(poe2db `Witch3b`="Abyssal Lich" · PoB Witch의 4번째)
+  **노드를 하나도 싣지 않는다**(0.5.4b 기준 poe2db 36개 코드가 각 17~24개 노드를
+  갖는데 `Witch3b`만 0개, PoB 시작 노드 22개 중에도 없음). **ingest를 고쳐도 해결되지
+  않는다** — 해제 조건은 상류가 노드를 싣는 **새 패치 스냅샷**뿐이다(`pob-snapshot`+`kb-ingest`).
+  원시는 모으되 프로파일은 만들지 말고 **「앵커없음」으로 보고**한다. 앵커를 지어내지 말 것.
 
 3-C를 했으면 4로 간다.
 

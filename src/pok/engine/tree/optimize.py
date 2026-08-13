@@ -17,12 +17,12 @@ import math
 import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 from pok.engine.objective import Target, TargetResult, evaluate_targets
 from pok.engine.tree.clusters import Cluster, find_clusters
 from pok.engine.tree.deltas import NodeDelta, evaluate_node_deltas
-from pok.engine.tree.graph import TreeGraph
+from pok.engine.tree.graph import ASCENDANCY_POINTS, TreeGraph
 from pok.pob.buildxml import BuildSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
 from pok.pob.runner import PobResult
@@ -150,6 +150,9 @@ class OptimizeResult:
     # `cluster_include`를 줘야 채워진다(관련성 필터 없는 밀집도는 쓰레기라서).
     far_clusters: tuple[Cluster, ...] = ()
     notes: tuple[str, ...] = ()
+    # 앵커가 쓴 **전직** 포인트 — `point_budget`(일반 패시브)과 별도 풀이다(#68).
+    # 합쳐 세면 전직 노드를 앵커로 넣을수록 일반 트리가 작아진다.
+    ascendancy_points: int = 0
 
     @property
     def wasted_points(self) -> int:
@@ -248,7 +251,8 @@ def optimize_tree(
     # 델타가 0이라 그리디가 **절대** 안 뽑는다 — 여기서 박지 않으면 영영 안 들어온다.
     spec, anchor_notes, anchor_cost = _seed_anchors(spec, graph, required_anchors, point_budget)
     current = spec
-    budget = max(0, point_budget - anchor_cost)
+    # 전직 포인트는 **빼지 않는다** — 인게임에서 별도 풀이라 일반 트리를 갉으면 안 된다(#68).
+    budget = max(0, point_budget - anchor_cost.general)
     rejected = 0
     # 주얼 소켓은 **빈 채로는 델타 0**이다 — 템플릿이 없으면 그리디가 영영 안 찍는다.
     # 실측 2026-08-12: 같은 소켓이 템플릿 없이 0, 매직 주얼 +10.16 DPS, 레어 +21.07.
@@ -425,12 +429,25 @@ def optimize_tree(
         rejected_rounds=rejected,
         far_clusters=far,
         notes=notes,
+        ascendancy_points=anchor_cost.ascendancy,
     )
+
+
+class AnchorCost(NamedTuple):
+    """앵커 연결에 든 포인트 — **두 풀로 갈라서** 센다 (#68).
+
+    인게임에서 어센던시 포인트는 일반 패시브 예산과 **별도 풀**이다. 예전엔 합쳐
+    세서, 전직 노드를 앵커에 넣을수록 일반 트리 예산이 줄어 트리가 작아졌다 —
+    포인트를 근거로 한 판단(예산 초과 경고·포인트당 효율)이 그만큼 틀렸다.
+    """
+
+    general: int  # 일반 패시브 — `point_budget`에서 뺀다
+    ascendancy: int  # 전직 노드 — 별도 풀이라 일반 예산을 갉지 않는다
 
 
 def _seed_anchors(
     spec: BuildSpec, graph: TreeGraph, anchors: tuple[int, ...], budget: int
-) -> tuple[BuildSpec, tuple[str, ...], int]:
+) -> tuple[BuildSpec, tuple[str, ...], AnchorCost]:
     """필수 앵커를 트리에 먼저 연결하고, 그 결과를 **보호 대상 기준선**으로 만든다.
 
     반환한 스펙이 `optimize_tree`의 `spec`(= 가지치기가 건드리지 않는 원래 트리)이
@@ -439,7 +456,7 @@ def _seed_anchors(
     보호하지 않으면 가지치기가 곧바로 회수해 버린다.
     """
     if not anchors:
-        return spec, (), 0
+        return spec, (), AnchorCost(0, 0)
     # 공짜로 켜져 있는 노드(블러드 메이지의 혈액술)는 출발 시점에 이미 트리에 있다.
     tree = (
         set(spec.tree_nodes)
@@ -456,8 +473,9 @@ def _seed_anchors(
     ]
     if foreign:
         # 남의 전직 노드는 인게임에서 못 찍는다 — 조용히 넣으면 거짓 트리가 나간다.
-        return spec, (f"⛔ 다른 전직의 앵커 {foreign} — 빼고 진행했다",), 0
+        return spec, (f"⛔ 다른 전직의 앵커 {foreign} — 빼고 진행했다",), AnchorCost(0, 0)
     added: list[int] = []
+    asc_added: list[int] = []  # added의 부분집합 — 전직 노드만
     unreachable: list[int] = []
     for node_id in anchors:
         path = graph.shortest_path(tree, node_id)
@@ -467,30 +485,49 @@ def _seed_anchors(
         tree.update(path)
         # 전직 시작 노드는 통행만 하고 스펙에는 안 싣는다(위 graph.connect_anchors와 같은
         # 이유 — 넣으면 PoB가 잘라내고 그 트리의 측정이 전부 무효가 된다).
-        added.extend(
-            n
-            for n in path
-            if n not in granted
-            and not (graph.nodes.get(n) is not None and graph.nodes[n].kind == "ascendancy-start")
-        )
+        for n in path:
+            if n in granted:
+                continue  # 공짜로 켜져 있다 — 어느 풀에서도 안 뺀다
+            node = graph.nodes.get(n)
+            if node is not None and node.kind == "ascendancy-start":
+                continue
+            added.append(n)
+            # 전직 노드는 **별도 풀**이다 — 일반 예산에서 빼면 트리가 그만큼 작아진다(#68).
+            if node is not None and node.ascendancy:
+                asc_added.append(n)
+    # 공짜 노드는 **스펙에는 남기고 포인트에서만** 뺀다 — 관문 하위·조건부 개방은
+    # PoB가 자동 할당하지 않으므로 tree_nodes에서 빼면 그 트리가 재현되지 않는다.
+    free = graph.free_nodes(spec.ascendancy, tree)
+    paid_asc = [n for n in asc_added if n not in free]
+    cost = AnchorCost(general=len(added) - len(asc_added), ascendancy=len(paid_asc))
     notes: list[str] = []
     if added:
+        # 두 수를 **갈라서** 말한다 — 합쳐 말하면 일반 예산이 그만큼 줄었다고 읽힌다.
+        asc_part = f" + 전직 {cost.ascendancy}포인트(별도 풀)" if cost.ascendancy else ""
         notes.append(
             f"필수 앵커 {len(anchors) - len(unreachable)}개를 먼저 연결했다 — "
-            f"{len(added)}포인트. 점수 경쟁에서 제외되고 가지치기도 건드리지 않는다"
+            f"일반 {cost.general}포인트{asc_part}. "
+            "점수 경쟁에서 제외되고 가지치기도 건드리지 않는다"
         )
     if unreachable:
         # 조용히 빼면 "앵커를 넣었다"고 믿은 채 없는 트리를 받는다.
         notes.append(f"⚠ 연결 불가 앵커 {unreachable} — 트리에 들어가지 않았다")
-    if len(added) > budget:
+    if cost.general > budget:
         notes.append(
-            f"⚠ 필수 앵커만으로 예산을 {len(added) - budget}포인트 **초과**했다 — "
+            f"⚠ 필수 앵커만으로 예산을 {cost.general - budget}포인트 **초과**했다 — "
             "그리디에 남은 예산이 없다. 앵커를 줄이거나 예산을 늘릴 것"
+        )
+    # 전직 풀도 상한이 있다(8 = 전직당 2포인트씩 4차). ⛔ 거부하지 않고 **경고만** 한다 —
+    # 앵커를 빼는 판단은 해석 층의 몫이고, 여기서 자르면 근거 없이 트리가 바뀐다.
+    if cost.ascendancy > ASCENDANCY_POINTS:
+        notes.append(
+            f"⚠ 전직 포인트 {cost.ascendancy}개는 상한 {ASCENDANCY_POINTS}을 넘는다 — "
+            "인게임에서 못 찍는 트리다. 앵커에서 전직 노드를 줄일 것"
         )
     return (
         dataclasses.replace(spec, tree_nodes=tuple(spec.tree_nodes) + tuple(added)),
         tuple(notes),
-        len(added),
+        cost,
     )
 
 

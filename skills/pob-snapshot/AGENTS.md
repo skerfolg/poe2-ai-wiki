@@ -26,10 +26,22 @@
 
 ```bash
 NEW=<40자 SHA>
-git clone --no-checkout https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git \
-  external/pob/${NEW:0:7}
-git -C external/pob/${NEW:0:7} checkout $NEW
+DIR=external/pob/${NEW:0:7}
+git init "$DIR"
+git -C "$DIR" remote add origin https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git
+git -C "$DIR" fetch --depth 1 origin "$NEW"
+git -C "$DIR" checkout FETCH_HEAD
 ```
+
+⛔ **`git clone`으로 받지 말 것** — 전체 히스토리를 끌어온다. 스냅샷은 **커밋 하나**만
+쓰는데 PoB 레포는 게임 에셋(트리 이미지·아이콘·아트)을 버전 관리해 히스토리가 본체보다
+훨씬 크다. 실측 2026-08-13: 전체 클론 **1.9GB**(`.git` 1.5GB) vs 얕은 fetch **746MB**
+(`.git` 310MB) — **내용은 트리 해시까지 동일**하다(`f9e6a5ad…`, 파일 1,896개).
+`.git`은 남긴다 — `git rev-parse HEAD`로 **핀 커밋을 검증**할 수 있어야 KB와 오라클이
+같은 증거 체인에 묶인다(KI-5). 디렉터리 이름만으로는 증거가 안 된다.
+
+위 4줄은 **`.github/workflows/pob-smoke.yml`이 쓰는 것과 같다**(windows·macOS 러너 양쪽에서
+검증됨). 절차와 CI가 갈라지면 CI 쪽이 맞다 — 거긴 매번 돌아 검증되고 문서는 안 그렇다.
 
 ⛔ 기존 `external/pob/<옛 short>/`를 지우거나 덮지 않는다. **새 버전 = 새 클론**이
 재현성의 근거다. 옛 스냅샷은 사람이 따로 지시할 때만 지운다.

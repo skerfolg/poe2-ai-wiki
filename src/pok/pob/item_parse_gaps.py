@@ -322,6 +322,10 @@ def apply_item_parse_flags(root: Path | None = None, *, write: bool = True) -> d
 if __name__ == "__main__":  # python -m pok.pob.item_parse_gaps [--dry-run]
     import sys
 
+    from pok.common.stdio import force_utf8_stdio
+
+    force_utf8_stdio()
+
     dry = "--dry-run" in sys.argv
     report = apply_item_parse_flags(write=not dry)
     print(

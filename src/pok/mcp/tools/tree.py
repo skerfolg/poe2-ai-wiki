@@ -38,9 +38,18 @@ def connect_anchors(
     """
     graph = _get_graph()
     allocated, paths = graph.connect_anchors(class_name, targets, ascendancy=ascendancy)
+    # 포인트는 **두 풀**이다 — 합쳐 내면 세션이 일반 예산을 그만큼 쓴 것으로 읽는다(#68).
+    # 공짜 노드(관문 하위·조건부 개방·선택 시 부여)는 칸은 차지해도 포인트가 아니다.
+    free = graph.free_nodes(ascendancy, set(allocated))
+    asc_nodes = [
+        n
+        for n in allocated
+        if n not in free and (nd := graph.nodes.get(n)) is not None and nd.ascendancy
+    ]
     return {
         "allocated": allocated,
-        "points": len(allocated),
+        "points": len(allocated) - len(asc_nodes),  # 일반 패시브만
+        "ascendancy_points": len(asc_nodes),  # 별도 풀 — 일반 예산을 갉지 않는다
         "paths": {str(t): p for t, p in paths.items()},
         # 자동 부착 — 세션이 프로파일·passed_over의 존재를 몰라도 여기서 본다.
         # 문서에만 적는 방식은 이 레포에서 실패가 증명됐다(철칙 5).
