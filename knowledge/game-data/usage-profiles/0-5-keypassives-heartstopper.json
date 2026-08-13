@@ -7774,7 +7774,192 @@
           "count": 1,
           "ci_low": 0.6
         }
-      ]
+      ],
+      "keystones": [
+        {
+          "ref": "passive.heartstopper-34497",
+          "share": 100.0,
+          "count": 32,
+          "ci_low": 89.3
+        },
+        {
+          "ref": "passive.mind-over-matter",
+          "share": 15.6,
+          "count": 5,
+          "ci_low": 6.9
+        },
+        {
+          "ref": "passive.blackflame-covenant-42680",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.hollow-palm-technique-64601",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.resonance-25520",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.trusted-kinship-41861",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "unmapped:Knightly Tenets",
+          "share": 12.5,
+          "count": 4,
+          "ci_low": 5.0
+        },
+        {
+          "ref": "passive.eternal-youth-33404",
+          "share": 9.4,
+          "count": 3,
+          "ci_low": 3.2
+        },
+        {
+          "ref": "passive.elemental-equilibrium-46742",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.whispers-of-doom-47759",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "unmapped:Sacrifice of Flesh",
+          "share": 6.2,
+          "count": 2,
+          "ci_low": 1.7
+        },
+        {
+          "ref": "passive.ancestral-bond-45202",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.avatar-of-fire",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.bulwark-56605",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.chaos-inoculation",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.conduit-33979",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.dance-with-death-14226",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.eldritch-battery",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.giants-blood",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.pain-attunement",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.ritual-cadence-11230",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.scarred-faith-49547",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.wildsurge-incantation-49363",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "passive.zealots-oath-52",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        },
+        {
+          "ref": "unmapped:Black Scythe Training",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        }
+      ],
+      "keystones_off_tree": [
+        {
+          "ref": "passive.heartstopper-34497",
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        {
+          "ref": "passive.giants-blood",
+          "share": 3.1,
+          "count": 1,
+          "ci_low": 0.6
+        }
+      ],
+      "anchor": {
+        "ref": "passive.heartstopper-34497",
+        "held": {
+          "share": 100.0,
+          "count": 32,
+          "ci_low": 89.3
+        },
+        "on_tree": {
+          "share": 71.9,
+          "count": 23,
+          "ci_low": 54.6
+        },
+        "off_tree": {
+          "share": 28.1,
+          "count": 9,
+          "ci_low": 15.6
+        },
+        "why": "보유하지만 트리에 없는 표본이 있다 — 주얼·장비가 준 것이다(poe.ninja: 'Includes keystones from timeless jewels and allocated by equipment'). `passives`의 채택률을 「이 키스톤을 쓰는 비율」로 읽지 말 것"
+      }
     }
   },
   "relations": [

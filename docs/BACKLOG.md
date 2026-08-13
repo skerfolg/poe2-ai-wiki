@@ -95,7 +95,7 @@
 | **#72** 텍스트 쓰기 **40여 곳**이 아직 `newline` 미지정 | 부분 해결 | PoB·정본 경로 9곳은 고쳤다 — ingest·artifacts·learning이 남았다 |
 | **#73** 반사실 표본을 **쌓을 곳이 없다** | 하네스 구현 완료 · **저장 규약 합의 대기** | 어디에 어떤 꼴로 쌓는가는 구조 결정 — 기본 출력 경로를 두지 않았다(철칙 1) |
 | **#74** ⛔ `pruned_nodes`가 **연결성 검출기가 아니다** | 원인규명 · 실측 재현 | 끊긴 3노드를 PoB가 전부 할당하고 pruned를 비웠다 — 연결성은 그래프에서 판정할 것 |
-| **#75** ⛔ 키스톤 채택을 **트리로만** 세어 장비·주얼 부여 경로가 안 보인다 | 원인규명(실측) | Unwavering Stance는 표본 50벌 중 **29벌이 트리 밖**이다 — 담체는 `Flesh Crucible`(28/29) |
+| **#75** ⛔ 키스톤 채택을 **트리로만** 세어 장비·주얼 부여 경로가 안 보인다 | **해결** — 도구에 반영(사용자 지시) | `observed.anchor`가 보유·트리·트리밖을 갈라 싣는다 · `keystones`/`keystones_off_tree` 신설 · 정본 110종 재생성 |
 
 **판정 대기 0건** — #59는 2026-08-11에 판정받아 반영했다(§4).
 
@@ -823,7 +823,7 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
 
 ### #75 〔신규〕 ⛔ 키스톤 채택을 **트리로만** 세어 장비·주얼 부여 경로가 안 보인다
 
-- **상태**: 원인규명 완료(실측) · 조치 미착수 — 표현 방식은 사용자 판정 대기
+- **상태**: **해결** — 도구에 반영(사용자 지시 2026-08-13) · 정본 110종 재생성
 - **어디서 나왔나**: 키스톤 24축을 수집한 뒤(각 n=50) 「필터가 보장하는 키스톤이
   목적지 목록에 실제로 있나」를 검사하다 걸렸다. **필터는 100%를 보장하는데
   트리 채택률은 42%였다.**
@@ -856,14 +856,30 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
   비용을 내야 하는 키스톤을 주얼 한 칸으로 얻는다 — 지금 엔진은 이 선택지를
   **영영 못 낸다**(#62·#70과 같은 결). 담체 역참조가 없으면 「이 키스톤을 어떻게
   얻나」에 트리 경로 하나만 답한다
-- **조치 후보(철칙 5 — 문서가 아니라 도구에)**: `aggregate_concept`이 이미 두 값을
-  다 들고 있다(`raw.keystones` = poe.ninja 판정 · `summary.tree_nodes` = 트리 실측).
-  차이를 레코드에 실으면 읽는 쪽이 오독할 수 없다 — 예:
-  `observed.anchor = {on_tree, off_tree, share, ci_low}`. **스키마 변경이고 정본
-  110벌 재생성이 따르므로 사용자 판정 후 착수**
-- **근거 위치**: `src/pok/engine/ladder_aggregate.py:196-207`(트리만 센다) ·
-  `item.flesh-crucible`·`item.megalomaniac` · 원시는 데이터 repo
-  `ladder/0-5/keypassives-Unwavering_Stance`
+- **조치 (철칙 5 — 문서가 아니라 도구에)**: `aggregate_concept`이 이미 두 값을 다
+  들고 있었다(`raw.keystones` = poe.ninja 판정 · `summary.tree_nodes` = 트리 실측).
+  차이를 레코드에 싣는다:
+  - **`observed.anchor`** — `{ref, held, on_tree, off_tree, why}`. 셋을 갈라 실어
+    **오독이 불가능하게** 한다. 실물: Unwavering Stance가 보유 100%(50/50) ·
+    트리 42%(21) · 트리밖 58%(29). 앵커가 키스톤이 아니면(스킬·아이템·메커니즘 축)
+    **키 자체를 안 낸다** — 잴 것이 없는데 0을 실으면 그게 또 조용한 거짓말이다
+  - **`observed.keystones`** — 실제 보유 키스톤(트리 밖 취득 포함)
+  - **`observed.keystones_off_tree`** — 보유하지만 트리에 없는 것. **트리 경로를
+    안 내고 얻는 길**이라 설계 수단이다(#62·#70과 같은 결)
+  - ⚠ **KB에 없는 키스톤은 트리 밖으로 몰지 않는다** — id가 없으면 트리 쪽과 맞댈
+    수가 없어 전부 「트리 밖」이 된다(모르는 것을 아는 척하는 셈). 대신 버리지도
+    않고 `unmapped:<이름>`으로 싣는다
+  - **곁들여 잡은 결함**: `_truncate`가 「sample 아닌 키는 전부 빈도 목록」이라
+    가정해 `anchor`(객체)에서 깨졌다 — 목록인지 보고 자르도록 고쳤다
+- **강제**: `tests/unit/test_ladder_confidence.py` 3건(갈라 싣기 · 키스톤 아닌 앵커는
+  키 없음 · 미매핑을 트리밖으로 몰지 않음) · 스키마 `observed.anchor`+`$defs/reach`
+- **⚠ 새로 드러난 수집 갭**: poe.ninja가 쓰는 키스톤 39종 중 **7종이 KB에 없다**
+  (`Sacrifice of Flesh` 86회 · `Black Scythe Training` 70 · `Sacrifice of Blood` 13 ·
+  `Knightly Tenets` 12 · `Sacrifice of Mind` 2 · `Circular Teachings` 2 ·
+  `Sacrifice of Sight` 1). 레코드에 `unmapped:`로 드러나 있다 — **별도 조사 필요**
+- **근거 위치**: `src/pok/engine/ladder_aggregate.py`(`_reported_keystones` ·
+  `_off_tree_keystones` · `_anchor_reach`) · `item.flesh-crucible`·`item.megalomaniac` ·
+  원시는 데이터 repo `ladder/0-5/keypassives-Unwavering_Stance`
 
 
 ## 2. 기능 제안

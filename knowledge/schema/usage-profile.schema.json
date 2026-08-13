@@ -4,6 +4,34 @@
  "title": "UsageProfile.data — 한 **메커니즘**을 쓰는 사람들의 동반 프로파일 (#67, 사용자 승인 2026-08-12)",
  "description": "Build는 「이 빌드가 어떻게 생겼나」에 답한다. 이건 「이 메커니즘을 쓰면 무엇이 따라오나」에 답한다 — 클래스가 섞여 있어도 되고, 섞여 있는 것이 오히려 요점이다. 0.5 실측에서 어센던시별 주력이 극도로 수렴했으므로(Spirit Walker 95% · Deadeye 85% · Martial Artist 76%) 어센던시 안을 파는 것은 답지 복사에 가깝고, 남는 설계 공간은 **클래스 간 이식**이다. 그 이식 가능성을 보려면 메커니즘을 앵커로 잡고 무엇이 클래스를 넘어 따라붙는지를 봐야 한다.",
  "type": "object",
+ "$defs": {
+  "reach": {
+   "type": "object",
+   "description": "채택 한 줄. 비율만 내면 표본 크기가 사라지므로 `count`와 신뢰 하한을 함께 낸다 — 10/10과 50/50이 둘 다 100%인데 하한은 72.2 vs 92.9다",
+   "properties": {
+    "share": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 100
+    },
+    "count": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "ci_low": {
+     "type": "number",
+     "minimum": 0,
+     "maximum": 100
+    }
+   },
+   "required": [
+    "share",
+    "count",
+    "ci_low"
+   ],
+   "additionalProperties": false
+  }
+ },
  "properties": {
   "season": {
    "type": "string",
@@ -179,10 +207,43 @@
       "min_count"
      ],
      "additionalProperties": false
+    },
+    "anchor": {
+    "type": "object",
+    "description": "앵커 키스톤을 **트리로 찍었나 장비로 받았나**. ⚠ 이 선언이 없으면 `passives`의 채택률이 그대로 「이 키스톤을 쓰는 비율」로 읽힌다 — 실측 2026-08-13: keypassives=Unwavering Stance 50벌은 필터가 전원 보유를 보장하는데 트리 채택은 21벌(42%)뿐이었고 나머지 29벌은 Flesh Crucible 같은 주얼이 줬다. 42%를 「절반 이상이 안 쓴다」로 읽으면 정반대 결론이 된다. 앵커가 키스톤이 아니면(스킬·아이템·메커니즘 축) 이 키 자체가 없다",
+    "properties": {
+     "ref": {
+      "type": "string",
+      "minLength": 1
+     },
+     "held": {
+      "$ref": "#/$defs/reach",
+      "description": "보유(poe.ninja 판정 — 트리 밖 취득 포함)"
+     },
+     "on_tree": {
+      "$ref": "#/$defs/reach",
+      "description": "할당 트리에서 찍은 몫"
+     },
+     "off_tree": {
+      "$ref": "#/$defs/reach",
+      "description": "보유하지만 트리에 없는 몫 = 주얼·장비가 준 것"
+     },
+     "why": {
+      "type": "string",
+      "minLength": 1
+     }
+    },
+    "required": [
+     "ref",
+     "held",
+     "on_tree",
+     "off_tree"
+    ],
+    "additionalProperties": false
     }
    },
    "patternProperties": {
-    "^(gems|main_skills|spirit_skills|supports|passives|items|weapons|skill_modes)$": {
+    "^(gems|main_skills|spirit_skills|supports|passives|items|weapons|skill_modes|keystones|keystones_off_tree)$": {
      "$ref": "build.schema.json#/$defs/frequencyList"
     }
    },
