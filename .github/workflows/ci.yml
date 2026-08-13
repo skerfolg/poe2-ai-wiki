@@ -61,4 +61,6 @@ jobs:
       - name: Layer boundaries (import-linter)   # PROJECT_STRUCTURE §4 — 위반 = 실패
         run: lint-imports
       - name: Tests (pytest)
-        run: pytest
+        # ⚠ 경로를 **명시한다** — pyproject의 testpaths는 개발 편의를 위해 단위로
+        #   좁혀져 있다. 여기서 인자를 빼면 통합이 조용히 안 돌아간다.
+        run: pytest tests
