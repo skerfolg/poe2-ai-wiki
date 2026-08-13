@@ -703,7 +703,7 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
   (철칙 1) 합의 전까지 만들지 않았다. `tests/unit/test_tree_counterfactual.py::
   test_저장_규약을_발명하지_않았다`가 슬그머니 생기는 것을 막는다.
 - **근거 위치**: `src/pok/engine/tree/counterfactual.py` ·
-  `tests/unit/test_tree_counterfactual.py` · `tests/integration/test_tree_counterfactual.py`
+  `tests/unit/test_tree_counterfactual.py` · `tests/integration/test_tree_counterfactual_pob.py`
 
 ### #74 〔신규〕 ⛔ `pruned_nodes`가 **연결성 검출기가 아니다** — 빈 값을 「트리 정상」으로 읽고 있다
 

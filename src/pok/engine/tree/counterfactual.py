@@ -254,14 +254,18 @@ def _head(graph: TreeGraph, node_id: int) -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class NodeRemoval:
-    """노드 하나를 뺐을 때의 실측. **`measured`가 False면 `deltas`는 비어 있다.**"""
+    """노드 하나를 뺐을 때의 실측.
+
+    **`measured`가 False면 적용된 것이 없다** — `deltas`·`removed`가 비고 `points`는 0이다.
+    대상은 `node_id`가, 사유는 `failed`가 들고 있다.
+    """
 
     node_id: int
     name_en: str
     name_ko: str
     kind: str
     removed: tuple[int, ...]
-    points: int  # 회수 포인트 (제거로 되돌려받는 양)
+    points: int  # 회수 포인트 (제거로 되돌려받는 양). 실패 표본은 0
     pool: str  # 그 포인트가 어느 예산인가 — passive|ascendancy (#68)
     deltas: dict[str, float]  # stat → (변경안 - 기준). **음수 = 나빠졌다** = negative 표본
     pruned: tuple[int, ...] = ()
@@ -324,8 +328,11 @@ def evaluate_removals(
             out.append(
                 NodeRemoval(
                     node_id=nid,
-                    removed=(nid,),
-                    points=1,
+                    # 실패 표본에는 **아무것도 적용되지 않았다** — 「1포인트 회수」를 적어
+                    # 두면 재지 못한 것이 데이터셋에서 잰 것처럼 집계된다. 대상은
+                    # `node_id`가 들고 있으므로 정보가 사라지지도 않는다.
+                    removed=() if failed else (nid,),
+                    points=0 if failed else 1,
                     pool=_pool(graph, nid),
                     deltas=deltas,
                     pruned=pruned,
@@ -344,7 +351,10 @@ def evaluate_removals(
 
 @dataclass(frozen=True)
 class SwapDelta:
-    """빼고 넣기를 **한 빌드에서 동시에** 잰 실측. `measured`가 False면 `deltas`는 비어 있다."""
+    """빼고 넣기를 **한 빌드에서 동시에** 잰 실측.
+
+    `measured`가 False면 적용된 것이 없다 — `deltas`·`removed`·`added`가 비고 `points`는 0.
+    """
 
     out_node: int
     in_node: int
@@ -441,7 +451,9 @@ def evaluate_swaps(
                             k: round(result.stats.get(k, 0.0) - base.stats.get(k, 0.0), 4)
                             for k in stats
                         }
-            removed = (out_node,)
+            # 실패 표본에는 아무것도 적용되지 않았다 — `removed`·`points`를 채우면
+            # 재지 못한 교체가 「1개 빼고 0개 넣었다」로 집계된다(`evaluate_removals` 동일).
+            removed = () if failed else (out_node,)
             out.append(
                 SwapDelta(
                     out_node=out_node,

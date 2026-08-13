@@ -178,6 +178,19 @@ def test_제거_불가_노드를_요청해도_결과에서_사라지지_않는�
     assert d.seen == [_CHAIN, (10364, 55342)], "실패 표본에 PoB를 부르지 않는다"
 
 
+def test_실패_표본은_적용된_것이_없다고_적는다() -> None:
+    """「1포인트 회수」가 남아 있으면 **재지 못한 것이 잰 것처럼 집계된다.**
+
+    실측 2026-08-13(`class-Witchhunter` 8벌): 교체 4건이 전부 풀 불일치로 실패했는데
+    `points`에 -1이 적혀 나왔다 — 데이터셋에 넣으면 포인트 예산이 어긋난다.
+    """
+    d = _Daemon()
+    rows = evaluate_removals(_MONK, _graph, [10364], stats=_stats(), daemon=d)
+    assert rows[0].removed == () and rows[0].points == 0 and rows[0].deltas == {}
+    (swap,) = evaluate_swaps(_MONK, _graph, [(17248, 8415)], stats=_stats(), daemon=d)
+    assert swap.removed == () and swap.added == () and swap.points == 0
+
+
 def test_기준_빌드가_이미_잘렸으면_전_표본이_실패다() -> None:
     d = _Daemon(pruned=lambda _spec: (10131,))
     spec = BuildSpec(class_name="Monk", ascendancy="Monk1", tree_nodes=(*_CHAIN, 10131))
