@@ -803,6 +803,7 @@ def suggest_anchors(
     include: list[list[Any]] | None = None,
     axes: dict[str, Any] | None = None,
     top: int = 20,
+    min_ci_low: float | None = None,
 ) -> dict[str, Any]:
     """트리를 짜기 전에 **목적지 후보를 한 번에 모은다** (#67 6차).
 
@@ -812,7 +813,11 @@ def suggest_anchors(
 
     출처가 넷이고 **성격이 달라 섞으면 안 된다**:
 
-    - `required` — 래더 표본 **전원**이 찍은 목적지. 임계값이 아니라 정의(count == n).
+    - `required` — 채택률의 **95% 신뢰 하한이 `min_ci_low`(기본 80) 이상**인 목적지.
+      옛 기준은 「표본 전원」(count == n)이었는데 **문턱이 표본 크기에 매여 있었다** —
+      10/10의 전원은 하한 72.2짜리, 50/50은 92.9짜리다. 표본을 10 → 50으로 올리자
+      클래스 22종 합계가 86 → 37개로 줄고 3개 클래스는 0이 됐다(같은 코퍼스인데
+      「필수가 사라진」 것처럼 보인다). 반환값의 `min_ci_low`가 기준을 밝힌다.
     - `common` — 나머지를 채택 순으로. 자유석 후보이고 넣을지는 판단이다.
     - `off_corpus` — 표본이 안 갔지만 관련 노터블이 촘촘한 곳(`find_clusters`).
       **새 선택의 재료**다. `include`를 줘야 나온다.
@@ -847,10 +852,14 @@ def suggest_anchors(
     """
     from pok.engine.tree.corpus import suggest_anchors as _suggest
 
+    kwargs: dict[str, Any] = {}
+    if min_ci_low is not None:
+        kwargs["min_ci_low"] = float(min_ci_low)
     return _suggest(
         _get_graph(),
         ascendancy,
         include=[(str(k), float(w)) for k, w in (include or [])],
         axes=axes,
         top=top,
+        **kwargs,
     )

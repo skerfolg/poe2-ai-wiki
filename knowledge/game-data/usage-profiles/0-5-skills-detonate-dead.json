@@ -8629,7 +8629,7 @@
           "ci_low": 2.1
         },
         {
-          "ref": "unmapped:Black Scythe Training",
+          "ref": "passive.timeless-black-scythe-training",
           "share": 6.0,
           "count": 3,
           "ci_low": 2.1
@@ -8653,13 +8653,26 @@
           "ci_low": 0.4
         },
         {
-          "ref": "unmapped:Knightly Tenets",
+          "ref": "passive.timeless-knightly-tenets",
           "share": 2.0,
           "count": 1,
           "ci_low": 0.4
         }
       ],
-      "keystones_off_tree": []
+      "keystones_off_tree": [
+        {
+          "ref": "passive.timeless-black-scythe-training",
+          "share": 6.0,
+          "count": 3,
+          "ci_low": 2.1
+        },
+        {
+          "ref": "passive.timeless-knightly-tenets",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.4
+        }
+      ]
     }
   },
   "relations": [

@@ -225,8 +225,19 @@ Necromantic Talisman 9 · Bulwark 19 · Heartstopper 32 · 나머지 21종은 87
   전제를 세우고 있어 **코퍼스를 갱신하자 깨졌다**(앵커가 줄자 반경 7에서도 한 수가
   나와 「원래 못 둔다」가 무너졌다). 그 시험이 재는 것은 그리디의 확장이지 코퍼스
   내용이 아니므로 독스트링이 A/B로 기록한 **11개(46포인트)를 고정**했다
-- **열어 둔 것**: 규모 불변인 기준이 필요하면 재료는 이미 있다(`ci_low`). 다만
-  「몇 %부터 필수인가」는 해석 층의 몫이라(철칙 3) **사용자 판정 사안**이다
+- **해결 (사용자 판정 2026-08-16)**: 기준을 **`ci_low >= 80`**으로 바꿨다. 규모
+  불변이라 표본이 커져도 「필수가 사라지지」 않는다:
+
+  | 기준 | 클래스 22종 합계 | 앵커 0개 클래스 |
+  |---|---|---|
+  | `count == n` (n=10 시절) | 86 | 없음 |
+  | `count == n` (n=50) | 37 | 워브링어·위치헌터·크로노맨서 |
+  | **`ci_low >= 80`** | **109** | **없음** |
+
+  n=10 시절보다 많으면서 근거는 더 강하다(하한 80 이상). 문턱은 `min_ci_low`
+  인자로 노출하고 반환값에도 싣는다 — 안 밝히면 「표본 전원」으로 읽히고(그게 옛
+  기준이었다), 코드에 박아 두면 되돌릴 때 소리가 안 난다(철칙 3).
+  강제: `tests/unit/test_tree_corpus.py` 2건
 
 **⚠ 수집 경고 1건(보고 대상)**: `skillmodes=Triggered`가 50벌 중 **46벌**에서만 값
 문자열이 잡혔다. 필터 무시(0/50)가 아니라 **부분 불일치**이고, 수집기가 「치명적이진
@@ -873,10 +884,26 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
     가정해 `anchor`(객체)에서 깨졌다 — 목록인지 보고 자르도록 고쳤다
 - **강제**: `tests/unit/test_ladder_confidence.py` 3건(갈라 싣기 · 키스톤 아닌 앵커는
   키 없음 · 미매핑을 트리밖으로 몰지 않음) · 스키마 `observed.anchor`+`$defs/reach`
-- **⚠ 새로 드러난 수집 갭**: poe.ninja가 쓰는 키스톤 39종 중 **7종이 KB에 없다**
-  (`Sacrifice of Flesh` 86회 · `Black Scythe Training` 70 · `Sacrifice of Blood` 13 ·
-  `Knightly Tenets` 12 · `Sacrifice of Mind` 2 · `Circular Teachings` 2 ·
-  `Sacrifice of Sight` 1). 레코드에 `unmapped:`로 드러나 있다 — **별도 조사 필요**
+- **⚠ 여기서 드러난 수집 갭 — 해결(사용자 지시 2026-08-16)**: poe.ninja가 쓰는
+  키스톤 39종 중 7종이 KB에 없어 `unmapped:`로 남아 있었다. 정체는 **타임리스 주얼이
+  부여하는 키스톤**이다:
+  - **실측 근거**: 7종 보유자가 **전원 타임리스 주얼을 낀다**(래더 2,689벌 기준
+    기저율 11% 대비 **100%**, 예외 0건). 주얼↔정복자도 1:1 —
+    `Heroic Tragedy` → kalguur 3종 · `Undying Hate` → abyss 5종
+  - ⚠ **2026-07-31 조사와 어긋나지 않는다**: 그 조사가 「없다」고 한 것은
+    **시드→효과 매핑**이고, 같은 주석이 "키스톤 대체(conqueror 이름 기준, 시드
+    미사용)만 동작한다"고 적고 있다. 이 8종이 그 대체분이다
+  - **조치**: `pob_dump.lua`에 `TimelessJewelData/LegionPassives` 추가 →
+    `kb/ingest/timeless_keystones.py`가 **PoE2 정복자 8종**(kalguur 3 · abyss 5,
+    미관측 `Sacrifice of Loyalty` 포함)을 `game-data/tree/timeless-keystones.ndjson`에
+    수록. 레코드는 `node_id`를 **주지 않고** `on_tree: false` + `grant`(주얼·정복자)를
+    싣는다 — 트리 연산에 안 섞이면서 **취득 경로**로 읽힌다
+  - ⛔ **PoE1 잔재 20종은 뺐다**. 같은 파일의 vaal·karui·maraketh·templar·eternal
+    항목 중 `Eternal Youth`·`Glancing Blows`·`Dance with Death`·`Wind Dancer`는
+    **PoE2 트리에 같은 이름의 진짜 노드가 있어** 실으면 중복 레코드가 된다
+  - **결과**: 키스톤 이름 매핑 33 → **41종**, 정본 110벌 재생성 후 `unmapped:` **0건**
+  - **강제**: `tests/unit/test_timeless_keystones.py` 4건(PoE1 잔재 배제 · 트리 밖
+    선언 · 주얼 대응 · 래더 매핑 도달)
 - **근거 위치**: `src/pok/engine/ladder_aggregate.py`(`_reported_keystones` ·
   `_off_tree_keystones` · `_anchor_reach`) · `item.flesh-crucible`·`item.megalomaniac` ·
   원시는 데이터 repo `ladder/0-5/keypassives-Unwavering_Stance`
