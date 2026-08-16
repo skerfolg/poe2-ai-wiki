@@ -14,6 +14,7 @@ PoB 없이 돌리려고 계산만 가짜로 세운다(연결성·경로는 진�
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -46,16 +47,33 @@ class _Result:
 
 
 class _Daemon:
-    """가짜 PoB — stats가 트리 크기에 선형이다(노드 1개 제거 = CombinedDPS -100)."""
+    """가짜 PoB — stats가 트리 크기에 선형이다(노드 1개 제거 = CombinedDPS -100).
+
+    ⚠ `loaded_spec`·`compute_tree`는 **데몬 계약의 일부**다(#70 후속). 제거·교체는
+    트리만 바뀌므로 측정기가 `TREE` 명령 쪽으로 보낸다 — 가짜가 그걸 안 흉내 내면
+    계약이 어긋난 채로 시험만 통과한다. `pruned` 훅은 두 경로에 **똑같이** 건다.
+    """
 
     def __init__(self, pruned: Callable[[BuildSpec], tuple[int, ...]] | None = None) -> None:
         self.seen: list[tuple[int, ...]] = []
         self._pruned = pruned or (lambda _spec: ())
+        self.loaded_spec: BuildSpec | None = None
+
+    def _stats(self, nodes: tuple[int, ...]) -> dict[str, float]:
+        n = len(nodes)
+        return {"CombinedDPS": 100.0 * n, "Life": 10.0 * n}
 
     def compute_build(self, spec: BuildSpec) -> _Result:
         self.seen.append(tuple(spec.tree_nodes))
-        n = len(spec.tree_nodes)
-        return _Result({"CombinedDPS": 100.0 * n, "Life": 10.0 * n}, self._pruned(spec))
+        self.loaded_spec = spec
+        return _Result(self._stats(tuple(spec.tree_nodes)), self._pruned(spec))
+
+    def compute_tree(self, nodes: tuple[int, ...]) -> _Result:
+        self.seen.append(tuple(nodes))
+        base = self.loaded_spec
+        assert base is not None, "compute_tree는 로드된 빌드가 있어야 한다"
+        variant = dataclasses.replace(base, tree_nodes=tuple(nodes))
+        return _Result(self._stats(tuple(nodes)), self._pruned(variant))
 
     def close(self) -> None:
         pass

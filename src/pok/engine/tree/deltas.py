@@ -43,7 +43,7 @@ def _relative_gain(nd: NodeDelta, base_stats: dict[str, float]) -> float:
     return sum(v / max(abs(base_stats.get(k, 0.0)), 1.0) for k, v in nd.deltas.items())
 
 
-class _Measurer:
+class TreeSwapMeasurer:
     """트리만 바뀌면 `compute_tree`, 그 외에는 `compute_build`으로 잰다 (#70 후속).
 
     루프는 노드만 바꾸는데 `compute_build`은 매번 빌드를 통째로 다시 올린다. 실측
@@ -111,7 +111,7 @@ def evaluate_node_deltas(
     base_tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
     own = daemon is None
     d = daemon or PobDaemon()
-    m = _Measurer(d, spec)
+    m = TreeSwapMeasurer(d, spec)
     out: list[NodeDelta] = []
     try:
         base = m.base()
@@ -132,7 +132,7 @@ def evaluate_node_deltas(
                         variant, jewels=(*spec.jewels, JewelSpec(socket_node_id=cand, text=text))
                     )
                 # 주얼을 꽂는 변형은 **아이템이 바뀌므로** 통째로 로드해야 한다 —
-                # `_Measurer`가 그 구분을 한다(빈 소켓 측정은 트리만 바뀐다).
+                # `TreeSwapMeasurer`가 그 구분을 한다(빈 소켓 측정은 트리만 바뀐다).
                 result = m.measure(variant)
                 if result.pruned_nodes:
                     continue
@@ -217,7 +217,7 @@ def evaluate_bundles(
     base_tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
     own = daemon is None
     d = daemon or PobDaemon()
-    m = _Measurer(d, spec)
+    m = TreeSwapMeasurer(d, spec)
     out: list[BundleDelta] = []
     try:
         base = m.base()
