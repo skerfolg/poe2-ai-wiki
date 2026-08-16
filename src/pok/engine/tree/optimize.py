@@ -17,11 +17,11 @@ import math
 import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Protocol
 
 from pok.engine.objective import Target, TargetResult, evaluate_targets
-from pok.engine.tree.clusters import Cluster, find_clusters
-from pok.engine.tree.deltas import NodeDelta, evaluate_node_deltas
+from pok.engine.tree.clusters import Cluster, find_clusters, relevance
+from pok.engine.tree.deltas import BundleDelta, NodeDelta, evaluate_bundles, evaluate_node_deltas
 from pok.engine.tree.graph import ASCENDANCY_POINTS, TreeGraph
 from pok.pob.buildxml import BuildSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
@@ -35,6 +35,20 @@ _MAX_SLICE = 160
 # 사전식 목표가 있을 때 **부차 축**에 남기는 몫. 0으로 두면 병목에 기여하지
 # 않는 수가 전부 점수 0이 되어(그리디는 s>0만 채택) 예산이 남은 채 멈춘다.
 _TIEBREAK = 1e-3
+
+
+class Measured(Protocol):
+    """점수를 매길 수 있는 실측 결과 — **노드 하나든 묶음이든** 이 둘만 있으면 된다.
+
+    긴 점프(#70)가 뭉치를 노드 후보와 **같은 저울**에 올리려면 `Objective`가 둘 다
+    받아야 한다. 타입을 `NodeDelta`로 좁혀 두면 뭉치를 재는 순간 mypy가 막는다.
+    """
+
+    @property
+    def deltas(self) -> dict[str, float]: ...
+
+    @property
+    def points(self) -> int: ...
 
 
 @dataclass(frozen=True)
@@ -65,7 +79,7 @@ class Objective:
         denom = max(abs(base_stats.get(stat, 0.0)), self.floors.get(stat, 1.0))
         return value / denom
 
-    def _weighted(self, delta: NodeDelta, base_stats: dict[str, float]) -> float:
+    def _weighted(self, delta: Measured, base_stats: dict[str, float]) -> float:
         return sum(
             w * self._relative(stat, delta.deltas.get(stat, 0.0), base_stats)
             for stat, w in self.weights.items()
@@ -81,7 +95,7 @@ class Objective:
                 return result
         return None
 
-    def _breaks_floor(self, delta: NodeDelta, base_stats: dict[str, float]) -> bool:
+    def _breaks_floor(self, delta: Measured, base_stats: dict[str, float]) -> bool:
         """이미 충족한 경계를 이 수가 무너뜨리는가."""
         for result in evaluate_targets(self.targets, base_stats).results:
             if not result.satisfied or result.measured is None:
@@ -93,7 +107,7 @@ class Objective:
                 return True
         return False
 
-    def score(self, delta: NodeDelta, base_stats: dict[str, float]) -> float:
+    def score(self, delta: Measured, base_stats: dict[str, float]) -> float:
         if not self.targets:
             return self._weighted(delta, base_stats) / max(delta.points, 1)
         if self._breaks_floor(delta, base_stats):
@@ -303,6 +317,8 @@ def optimize_tree(
     # 마른 라운드에서 **넓혀 보고** 멈춘다 — 아래 주석 참고.
     reach, slice_size = candidate_radius, max_candidates_per_round
     widened: list[str] = []
+    # 긴 점프(#70) 채택 기록 — 노드 한 수와 섞여 있으면 「먼 축을 열었다」가 안 보인다.
+    long_jumps: list[str] = []
     with PobDaemon() as daemon:
         best_solution: tuple[BuildSpec, PobResult] | None = None  # 단조성 안전장치
         while True:
@@ -345,6 +361,32 @@ def optimize_tree(
                     key=lambda x: -x[0],
                 )
                 affordable = [(s, nd) for s, nd in scored if nd.points <= budget and s > 0]
+
+                # ── 긴 점프 (#70) — 매 라운드 노드와 **같은 저울**에서 겨룬다 ──
+                # 먼 목적지로 가는 첫 걸음은 통행 소노드라 델타가 0에 가깝다. 포인트당
+                # 으로 재는 그리디는 그 한 걸음을 절대 안 뽑고, 그래서 목적지의 값이
+                # 아무리 커도 **출발 자체를 안 한다**. 반경을 넓혀도 안 고쳐진다 —
+                # 반경 문제가 아니라 가격 매기는 방식의 문제다(BACKLOG #70).
+                #
+                # ⛔ 「마를 때만」 재면 안 된다 — 가까운 수가 계속 잡히는 동안에는
+                #    영영 평가되지 않아, 먼 축이 끝까지 안 열린다. 매 라운드 재는 값은
+                #    실측했다: PoB 1회 0.418초, (기준 1 + 뭉치 15)회면 라운드당 +6.7초로
+                #    노드 40개(16.7초) 대비 **+40%**다(실측 2026-08-13, 사용자 판정).
+                for score_bd, bd in _bundle_candidates(
+                    current,
+                    graph,
+                    objective,
+                    base,
+                    budget,
+                    daemon=daemon,
+                    stats=measure,
+                    include=cluster_include,
+                    exclude=cluster_exclude,
+                    limit=slice_size,
+                ):
+                    affordable.append((score_bd, _as_node_delta(bd)))
+                affordable.sort(key=lambda x: -x[0])
+
                 if not affordable:
                     # ⛔ 예전엔 여기서 그냥 멈췄다 — **예산을 남긴 채**. 그리디는 반경
                     # 안의 가까운 후보만 보므로, 근처가 빌드와 무관한 권역이면 한 수도
@@ -371,6 +413,11 @@ def optimize_tree(
                 )
                 budget -= best.points
                 steps.append(Step(node_delta=best, score=best_score))
+                if best.kind == "bundle":
+                    long_jumps.append(
+                        f"긴 점프 「{best.name_ko}」 {best.points}포인트 — "
+                        "노드 단위 점수로는 첫 걸음에서 탈락해 못 가던 곳이다"
+                    )
             result_now = daemon.compute_build(current)
             best_solution = _better(objective, best_solution, (current, result_now))
             # ── 가지치기: 죽은 끝단이면 막다른 가지 전체 제거·환급 ──
@@ -401,6 +448,9 @@ def optimize_tree(
     #   좁혔더니 실제 실행에서 안 떴다. 침묵이 과잉보다 나쁘다(이 결함 자체가 조용해서
     #   여러 회차를 살아남았다). 템플릿이 없으면 무조건 알린다.
     notes = (*notes, *jewel_notes)
+    # 긴 점프는 **드러나야** 한다 — 노드 한 수와 섞여 있으면 「먼 축을 열었다」는
+    # 사실이 보이지 않고, 그게 안 보이면 #70이 고쳐졌는지도 알 수 없다.
+    notes = (*notes, *long_jumps)
     if widened:
         notes = (
             *notes,
@@ -557,6 +607,137 @@ def _target_notes(objective: Objective, stats: dict[str, float]) -> tuple[str, .
             )
         )
     return tuple(out)
+
+
+_DESTINATION_KINDS = ("notable", "keystone", "jewel-socket")
+
+
+def _far_destination_bundles(
+    spec: BuildSpec,
+    graph: TreeGraph,
+    include: tuple[tuple[str, float], ...],
+    exclude: tuple[str, ...],
+    budget: int,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """긴 점프의 후보 — **축마다 하나씩**, 반경 밖의 목적지를 모은 묶음 (#70).
+
+    ⚠ 예전엔 `find_clusters`(→`_scan_far_clusters`)의 결과를 그대로 먹였는데 **틀렸다.**
+    거기서 나오는 `Cluster.label`은 `JEWEL_RADII`의 **주얼 반경 밴드**(Small/Medium/…)다
+    — 오래된 기억류 주얼이 소켓 주변 반경 안의 노드에 옵션을 부여하는 그 범위이지
+    「먼 목적지」와 무관하다(사용자 정정 2026-08-13). 실측 결과 그리디가 16포인트를
+    주얼 밀집 그룹에 쓰고 **대각선은 20,005 → 20,004로 그대로였다.**
+
+    **묶는 기준은 호출자가 선언한 축(`cluster_include`)이다.** 엔진이 「무엇이 한
+    묶음인가」를 새로 정하면 그게 곧 판단이고, 판단은 해석 층의 몫이다(AD-3). 축 이름은
+    호출자가 준 것이므로 여기에 임의 상수가 끼지 않는다 — 묶음 수 = 축 수다.
+
+    ⚠ **반경 안도 담는다.** 예전엔 「안쪽은 이미 노드 후보로 경쟁하니 중복」이라며
+    잘라 냈는데 **틀렸다**(사용자 지적 2026-08-13). 뭉치가 존재하는 이유가 바로
+    「하나씩 넣으면 각각의 델타가 작아 전부 버려지는」 시너지 축이고(`evaluate_bundles`
+    독스트링), 그 문제는 **거리와 무관**하다 — 근거리에 붙어 있어도 둘을 같이 찍어야
+    값이 나오는 노드는 개별 후보로는 영영 안 뽑힌다.
+    실측: 반경 안을 포함하니 최고 점수가 **0.0033 → 0.0607(18배)**로 올랐다.
+    1포인트짜리 목적지를 반경 때문에 잘라 내고 있었다. 중복은 해롭지 않다 —
+    같은 값이면 같이 지거나 같이 이긴다.
+    """
+    tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
+    far = graph.distances_from(tree, _MAX_REACH * 8)  # 거리 순서를 얻으려는 1회 BFS
+    per_axis: list[list[dict[str, Any]]] = []
+    for word, weight in include:
+        cands = sorted(
+            (
+                nid
+                for nid, node in graph.nodes.items()
+                if nid in far
+                and nid not in tree
+                and node.kind in _DESTINATION_KINDS
+                and relevance(node.stats_en, ((word, weight),), exclude) > 0
+            ),
+            key=lambda nid: far[nid],
+        )
+        # ⚠ 크기를 **하나로 정하면 안 된다**(실측 2026-08-13, 두 번 데였다):
+        #   ① 축 전체를 담으면 트리 전역이라 항상 예산 초과 → 후보가 통째로 사라진다
+        #      (Critical 105개·Attack Speed 47개).
+        #   ② 「남은 예산이 닿는 만큼」으로 고치니 예산이 큰 빌드에서 비대해졌다 —
+        #      블러드 메이지 예산 90에서 뭉치 하나가 **87포인트**를 먹고 ΔDPS **-24,573**.
+        #      경로 74개가 대부분 통행 노드라 넣을수록 손해였고, 그래서 긴 점프 0회였다.
+        #   그래서 **가까운 것부터 하나씩 늘려 가며 여러 크기를 낸다.** 작은 것은 경로가
+        #   짧아 양수가 나오고, 큰 것은 정말 값어치가 있을 때만 이긴다 — 어느 크기가
+        #   맞는지는 측정이 정하지 우리가 정하지 않는다(AD-3).
+        grown, picked, spent = set(tree), [], 0
+        sizes: list[dict[str, Any]] = []
+        for nid in cands:
+            path = graph.shortest_path(grown, nid)
+            if path is None or spent + len(path) > budget:
+                continue
+            grown.update(path)
+            picked.append(nid)
+            spent += len(path)
+            sizes.append({"name": f"먼 목적지: {word} ({len(picked)}개)", "nodes": list(picked)})
+        per_axis.append(sizes)
+    # 작은 것부터 라운드 로빈 — 한 축이 후보 자리를 독점하지 않게. 상한은 호출자의
+    # `max_candidates_per_round`를 그대로 쓴다(새 상수를 만들지 않는다).
+    out: list[dict[str, Any]] = []
+    for i in range(max((len(s) for s in per_axis), default=0)):
+        for sizes in per_axis:
+            if i < len(sizes) and len(out) < limit:
+                out.append(sizes[i])
+    return out
+
+
+def _as_node_delta(bd: BundleDelta) -> NodeDelta:
+    """묶음을 채택 기록(`Step`)에 실을 수 있는 꼴로 — 델타 근거를 그대로 들고 간다.
+
+    긴 점프도 「포인트마다 델타로 정당화」(Exit 기준)를 지켜야 한다. `kind="bundle"`
+    이라 읽는 쪽이 노드 한 수와 구별할 수 있다.
+    """
+    return NodeDelta(
+        node_id=bd.nodes[0] if bd.nodes else 0,
+        name_en=f"[bundle] {bd.name}",
+        name_ko=f"[묶음] {bd.name}",
+        kind="bundle",
+        points=bd.points,
+        path=bd.path,
+        deltas=bd.deltas,
+    )
+
+
+def _bundle_candidates(
+    spec: BuildSpec,
+    graph: TreeGraph,
+    objective: Objective,
+    base: PobResult,
+    budget: int,
+    *,
+    daemon: PobDaemon,
+    stats: tuple[str, ...],
+    include: tuple[tuple[str, float], ...],
+    exclude: tuple[str, ...],
+    limit: int,
+) -> list[tuple[float, BundleDelta]]:
+    """이번 라운드의 **먼 뭉치 후보** — 노드 후보와 같은 저울에 올릴 (점수, 묶음) 목록.
+
+    점수는 `Objective.score`를 그대로 쓴다. 엔진이 뭉치용 새 휴리스틱을 만들면 그게
+    곧 판단이고, 판단은 해석 층의 몫이다(AD-3).
+
+    ⛔ `evaluate_bundles`(deltas.py)는 **호출만** 한다 — 반사실 하네스 세션이 그 모듈을
+       작업 중이라 인터페이스를 건드리지 않는다(2026-08-13 조율).
+
+    이미 트리에 들어온 뭉치는 `_scan_far_clusters`가 걸러 낸다(닿는 것은 「먼 뭉치」가
+    아니다) — 채택분을 따로 기억할 필요가 없다.
+    """
+    if not include:
+        return []  # 관련성 필터 없는 밀집도는 쓰레기다 — 스캔하지 않는다
+    bundles = _far_destination_bundles(spec, graph, include, exclude, budget, limit)
+    if not bundles:
+        return []
+    measured = evaluate_bundles(spec, graph, bundles, stats=stats, daemon=daemon)
+    return [
+        (score, bd)
+        for bd in measured
+        if bd.points and bd.points <= budget and (score := objective.score(bd, base.stats)) > 0
+    ]
 
 
 def _scan_far_clusters(

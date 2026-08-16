@@ -118,7 +118,15 @@ def test_실제_경로에서_부수_획득을_뽑는다(monkeypatch) -> None:
         pruned_nodes = ()
 
     class _Daemon:
-        def compute_build(self, _spec):
+        # `loaded_spec`·`compute_tree`는 데몬 계약의 일부다(#70 후속) — 트리만 바뀌는
+        # 변형은 `compute_tree`로 간다. 가짜가 그걸 안 흉내 내면 계약이 어긋난다.
+        loaded_spec = None
+
+        def compute_build(self, spec):
+            self.loaded_spec = spec
+            return _Result()
+
+        def compute_tree(self, _nodes):
             return _Result()
 
         def close(self) -> None:
