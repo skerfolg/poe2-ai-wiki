@@ -71,13 +71,22 @@ local PURE = {
   "ModFlask", "ModCharm", "ModJewel",  -- 태그 어휘 교차(⑥)가 잡아낸 누락분
   "ModVeiled",  -- UniqueHeart*(우물의 심장 훼손 풀)·HistoricAbyssJewel* 원천
 }
+-- 하위 폴더에 있는 순수 테이블. 이름에 `/`가 들어가므로 출력 파일명은 마지막
+-- 조각만 쓴다. LegionPassives: **타임리스 주얼이 부여하는 키스톤**의 원천이다
+-- (래더 실측 2026-08-16: 7종이 KB에 없어 프로파일에 unmapped로 남아 있었다).
+for _, name in ipairs({ "TimelessJewelData/LegionPassives" }) do
+  table.insert(PURE, name)
+end
+
 for _, name in ipairs(PURE) do
   local path = pob_src .. "/Data/" .. name .. ".lua"
   local chunk, err = loadfile(path)
   if chunk then
     local ok, data = pcall(chunk)
     if ok and type(data) == "table" then
-      write_json(out_dir .. "/" .. name:lower() .. ".json", data)
+      -- 하위 폴더면 마지막 조각만 파일명으로 쓴다(`a/b` → `b.json`)
+      local leaf = name:match("([^/]+)$") or name
+      write_json(out_dir .. "/" .. leaf:lower() .. ".json", data)
     else
       print("skip " .. name .. " (실행 실패: " .. tostring(data) .. ")")
     end

@@ -7615,13 +7615,19 @@
           "ci_low": 1.1
         },
         {
-          "ref": "unmapped:Black Scythe Training",
+          "ref": "passive.timeless-black-scythe-training",
           "share": 3.9,
           "count": 2,
           "ci_low": 1.1
         },
         {
           "ref": "passive.eldritch-battery",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.3
+        },
+        {
+          "ref": "passive.timeless-sacrifice-of-mind",
           "share": 2.0,
           "count": 1,
           "ci_low": 0.3
@@ -7637,12 +7643,6 @@
           "share": 2.0,
           "count": 1,
           "ci_low": 0.3
-        },
-        {
-          "ref": "unmapped:Sacrifice of Mind",
-          "share": 2.0,
-          "count": 1,
-          "ci_low": 0.3
         }
       ],
       "keystones_off_tree": [
@@ -7651,6 +7651,18 @@
           "share": 7.8,
           "count": 4,
           "ci_low": 3.1
+        },
+        {
+          "ref": "passive.timeless-black-scythe-training",
+          "share": 3.9,
+          "count": 2,
+          "ci_low": 1.1
+        },
+        {
+          "ref": "passive.timeless-sacrifice-of-mind",
+          "share": 2.0,
+          "count": 1,
+          "ci_low": 0.3
         }
       ]
     }
