@@ -33,6 +33,7 @@ class PobDaemon:
         self._snap = snapshot or resolve_snapshot()
         self._proc: subprocess.Popen[str] | None = None
         self._seq = 0
+        self._loaded_spec: BuildSpec | None = None
 
     def start(self) -> None:
         if self._proc is not None:
@@ -140,7 +141,20 @@ class PobDaemon:
         return built
 
     def compute_build(self, spec: BuildSpec) -> PobResult:
-        return self.compute(to_xml(spec), requested_nodes=spec.tree_nodes)
+        result = self.compute(to_xml(spec), requested_nodes=spec.tree_nodes)
+        self._loaded_spec = spec
+        return result
+
+    @property
+    def loaded_spec(self) -> BuildSpec | None:
+        """마지막으로 **통째로 올린** 스펙. `compute_tree`의 토대가 무엇인지 알려 준다.
+
+        ⚠ 이걸 데몬이 들고 있어야 하는 이유: 호출자가 여러 겹이면(예:
+        `evaluate_bundles` → `evaluate_node_deltas`) **바깥 호출자는 안쪽이 다른
+        빌드를 올린 것을 모른다.** 그 상태로 `compute_tree`를 부르면 엉뚱한 토대
+        위에서 재는데, 값이 그럴듯해서 조용히 틀린다. 상태를 아는 것은 데몬뿐이다.
+        """
+        return self._loaded_spec
 
     def close(self) -> None:
         if self._proc is None:
@@ -154,6 +168,9 @@ class PobDaemon:
             self._proc.kill()
         finally:
             self._proc = None
+            # 프로세스가 죽으면 올라가 있던 빌드도 사라진다 — 안 지우면 재기동 뒤
+            # `compute_tree`가 **빈 데몬 위에서** 도는데 그건 조용히 틀린다.
+            self._loaded_spec = None
 
     def _readline(self) -> str:
         # 제너레이터로 감싸지 않는다 — `yield from 파일`을 중도 포기하면

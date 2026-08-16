@@ -43,6 +43,52 @@ def _relative_gain(nd: NodeDelta, base_stats: dict[str, float]) -> float:
     return sum(v / max(abs(base_stats.get(k, 0.0)), 1.0) for k, v in nd.deltas.items())
 
 
+class _Measurer:
+    """트리만 바뀌면 `compute_tree`, 그 외에는 `compute_build`으로 잰다 (#70 후속).
+
+    루프는 노드만 바꾸는데 `compute_build`은 매번 빌드를 통째로 다시 올린다. 실측
+    2026-08-13(블러드 메이지): 최소 0.38초 · 장비까지 0.60초 · **스킬까지 3.68초**
+    — 스킬 재구성이 +3.16초인데 루프에서 한 번도 안 바뀐다. 데몬의 `TREE` 명령이
+    그 재구성을 건너뛴다(3.15초 → 0.29초, **10.8배**).
+
+    ⚠ **무엇이 올라가 있는지는 데몬에게 묻는다**(`daemon.loaded_spec`). `compute_tree`는
+    「지금 로드된 빌드」의 트리를 갈아 끼우므로, 중간에 다른 스펙을 `compute_build`으로
+    재면(예: 주얼을 꽂은 변형) 그 뒤의 `compute_tree`는 **엉뚱한 빌드 위에서 잰다**.
+    이 상태를 측정기가 자기 안에 들고 있으면 안 된다 — `evaluate_bundles`가 안에서
+    `evaluate_node_deltas`를 부르는 것처럼 호출자가 여러 겹이면 **바깥은 안쪽이 빌드를
+    갈아 끼운 것을 모른다**. 상태를 아는 것은 데몬뿐이다.
+
+    ⚠ **트리만 바뀐 것인지 판정은 「그 외 전부 같은가」로 한다.** 특히
+    `attribute_choices`(→ XML `hashOverrides`)가 다르면 `compute_tree`로는 반영되지
+    않는다 — 데몬이 로드된 빌드의 hashOverrides를 그대로 넘기기 때문이다. 그 경로로
+    조용히 틀린 전력이 있다(2026-08-13: Accuracy 846 → 636, DPS 1.4% 차이).
+    """
+
+    def __init__(self, daemon: PobDaemon, base: BuildSpec) -> None:
+        self._d = daemon
+        self._base = base
+
+    def base(self) -> Any:
+        """기준 스펙을 통째로 올리고 잰다. 이후 `compute_tree`의 토대가 된다."""
+        return self._d.compute_build(self._base)
+
+    def measure(self, variant: BuildSpec) -> Any:
+        loaded = self._d.loaded_spec
+        if loaded is not None and _tree_only(loaded, variant):
+            return self._d.compute_tree(tuple(variant.tree_nodes))
+        if _tree_only(self._base, variant):
+            # 다른 빌드가 올라가 있다 — 기준을 다시 올린 뒤 트리만 갈아 끼운다.
+            # 재로드 1회를 더 쓰더라도 **엉뚱한 토대 위에서 재는 것보다 낫다**.
+            self._d.compute_build(self._base)
+            return self._d.compute_tree(tuple(variant.tree_nodes))
+        return self._d.compute_build(variant)
+
+
+def _tree_only(base: BuildSpec, variant: BuildSpec) -> bool:
+    """`tree_nodes` 말고는 전부 같은가. 같아야 `compute_tree`가 옳다."""
+    return dataclasses.replace(variant, tree_nodes=base.tree_nodes) == base
+
+
 def evaluate_node_deltas(
     spec: BuildSpec,
     graph: TreeGraph,
@@ -65,9 +111,10 @@ def evaluate_node_deltas(
     base_tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
     own = daemon is None
     d = daemon or PobDaemon()
+    m = _Measurer(d, spec)
     out: list[NodeDelta] = []
     try:
-        base = d.compute_build(spec)
+        base = m.base()
         score = jewel_score or _partial_relative_gain(base.stats)
         for cand in candidates:
             path = graph.shortest_path(base_tree, cand)
@@ -84,7 +131,9 @@ def evaluate_node_deltas(
                     variant = dataclasses.replace(
                         variant, jewels=(*spec.jewels, JewelSpec(socket_node_id=cand, text=text))
                     )
-                result = d.compute_build(variant)
+                # 주얼을 꽂는 변형은 **아이템이 바뀌므로** 통째로 로드해야 한다 —
+                # `_Measurer`가 그 구분을 한다(빈 소켓 측정은 트리만 바뀐다).
+                result = m.measure(variant)
                 if result.pruned_nodes:
                     continue
                 measured.append(
@@ -168,9 +217,10 @@ def evaluate_bundles(
     base_tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
     own = daemon is None
     d = daemon or PobDaemon()
+    m = _Measurer(d, spec)
     out: list[BundleDelta] = []
     try:
-        base = d.compute_build(spec)
+        base = m.base()
         for bundle in bundles:
             nodes = tuple(int(n) for n in bundle.get("nodes", []))
             if not nodes:
@@ -201,7 +251,7 @@ def evaluate_bundles(
                 )
                 continue
             variant = dataclasses.replace(spec, tree_nodes=tuple(spec.tree_nodes) + tuple(reached))
-            result = d.compute_build(variant)
+            result = m.measure(variant)
             if result.pruned_nodes:
                 continue  # 요청한 트리가 반영되지 않은 측정은 무효다
             parts = evaluate_node_deltas(spec, graph, list(nodes), stats=stats, daemon=d)
