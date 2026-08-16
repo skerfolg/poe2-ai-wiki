@@ -174,12 +174,41 @@ def test_앵커_후보를_출처별로_갈라_낸다() -> None:
     out = suggest_anchors(
         _graph, "Martial Artist", include=[("Critical", 2.0), ("Attack Speed", 1.0)]
     )
-    assert out["required"], "표본 전원이 찍는 목적지가 비었다"
+    assert out["required"], "필수 후보가 비었다"
     assert all(r["count"].endswith(f"/{out['sample_n']}") for r in out["required"])
     assert out["off_corpus"], "코퍼스 밖 후보가 비면 새 선택의 재료가 없다"
     listed = {r["node"] for r in out["required"]} | {r["node"] for r in out["common"]}
     assert not (listed & {r["node"] for r in out["off_corpus"]}), "표본 노드가 밖으로 샜다"
     assert out["listed_from_count"] >= 1, "잘린 목록임을 안 밝히면 전량으로 읽힌다"
+
+
+def test_필수_기준은_표본_크기에_매이지_않는다() -> None:
+    """옛 기준 `count == n`은 **문턱이 표본 크기에 매여 있었다**.
+
+    10/10의 「전원」은 하한 72.2짜리이고 50/50은 92.9짜리다 — 후자가 옳지만 훨씬
+    드물어서, 표본을 10 → 50으로 올리자 클래스 22종 합계 앵커가 86 → 37개로 줄고
+    워브링어·위치헌터·크로노맨서는 **0개**가 됐다. 같은 코퍼스가 표본만 커졌다고
+    「필수가 사라진」 것처럼 보이는 것이라 규모 불변인 하한으로 바꿨다
+    (사용자 판정 2026-08-16: `ci_low >= 80`).
+    """
+    from pok.engine.tree.corpus import suggest_anchors
+
+    out = suggest_anchors(_graph, "Warbringer")
+    assert out["min_ci_low"] == 80.0, "기준을 안 밝히면 「표본 전원」으로 읽힌다"
+    assert out["required"], "옛 기준(count == n)에서 0개가 되던 클래스다"
+    assert all(r["ci_low"] >= out["min_ci_low"] for r in out["required"])
+    assert all(r["ci_low"] < out["min_ci_low"] for r in out["common"])
+
+
+def test_필수_문턱은_인자로_되돌릴_수_있다() -> None:
+    """「몇 %부터 필수인가」는 해석 층의 몫이다(철칙 3) — 코드에 박아 두면 되돌릴 때
+    소리가 안 난다. 문턱을 올리면 목록이 좁아지는지로 그 경로를 잠근다."""
+    from pok.engine.tree.corpus import suggest_anchors
+
+    loose = suggest_anchors(_graph, "Martial Artist", min_ci_low=50.0)
+    strict = suggest_anchors(_graph, "Martial Artist", min_ci_low=95.0)
+    assert len(loose["required"]) > len(strict["required"])
+    assert loose["min_ci_low"] == 50.0 and strict["min_ci_low"] == 95.0
 
 
 def test_관련성_필터가_없으면_스캔하지_않고_말한다() -> None:

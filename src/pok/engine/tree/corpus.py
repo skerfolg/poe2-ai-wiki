@@ -436,6 +436,14 @@ def anchors_for_axes(
     return out
 
 
+# 「필수 앵커」의 문턱 — 채택률의 95% 신뢰 하한(%). 사용자 판정 2026-08-16.
+#
+# ⚠ 이것은 **해석값이지 상수가 아니다**. 여기 박아 두는 이유는 기본값이 곧 정책이기
+# 때문이고(절단 기본값을 1로 뒤집은 것과 같은 이유), 바꿀 때 소리가 나도록 인자로도
+# 노출한다. 「몇 %부터 필수인가」의 판단 자체는 여전히 해석 층의 몫이다(철칙 3).
+_REQUIRED_MIN_CI_LOW = 80.0
+
+
 def suggest_anchors(
     graph: TreeGraph,
     ascendancy: str,
@@ -443,6 +451,7 @@ def suggest_anchors(
     include: Sequence[tuple[str, float]] = (),
     axes: Mapping[str, Sequence[tuple[str, float]]] | None = None,
     top: int = 20,
+    min_ci_low: float = _REQUIRED_MIN_CI_LOW,
     root: Any = None,
 ) -> dict[str, Any]:
     """트리를 짜기 전에 **목적지 후보를 한 번에 모은다**.
@@ -453,8 +462,18 @@ def suggest_anchors(
 
     출처를 셋으로 갈라 낸다. **섞으면 안 된다** — 성격이 다르다:
 
-    - `required` — 표본 **전원**이 찍은 목적지. `optimize_tree(required_anchors=…)`에
-      그대로 넣는 후보다. 임계값이 아니라 정의(count == n)라 해석이 안 들어간다.
+    - `required` — 채택률의 **95% 신뢰 하한이 `min_ci_low` 이상**인 목적지.
+      `optimize_tree(required_anchors=…)`에 그대로 넣는 후보다.
+
+      ⚠ 예전 기준은 `count == n`(표본 전원)이었는데 **문턱이 표본 크기에 매여 있었다**.
+      10/10의 「전원」은 하한 72.2짜리이고 50/50은 92.9짜리다 — 후자가 옳지만 훨씬
+      드물어서, 표본을 10 → 50으로 올리자 클래스 22종 합계 앵커가 **86 → 37개**로
+      줄었다(워브링어·위치헌터·크로노맨서는 0개). 같은 코퍼스가 표본만 커졌다고
+      「필수가 사라진」 것처럼 보이는 것이라, 규모 불변인 하한으로 바꿨다
+      (사용자 판정 2026-08-16: `ci_low >= 80`).
+
+      문턱값은 **인자로 노출한다** — 「몇 %부터 필수인가」는 해석 층의 몫이고(철칙 3)
+      코드에 박으면 되돌릴 때 소리가 안 난다. 반환값에 `min_ci_low`로 함께 낸다.
     - `common` — 나머지를 채택 순으로. **자유석 후보**이고, 넣을지는 판단이다.
     - `off_corpus` — 코퍼스와 무관하게 관련 노터블이 촘촘한 좌표(`find_clusters`).
       **표본이 안 간 곳**이라 새 선택의 재료다. `include`를 줘야 나온다.
@@ -495,14 +514,20 @@ def suggest_anchors(
                 "name": node.name_en,
                 "kind": node.kind,
                 "count": f"{entry['count']}/{n}",
+                # 하한을 함께 낸다 — 「왜 이게 required인가」를 되짚을 수 있어야 한다.
+                # 옛 레코드엔 없을 수 있어 기본 0(=required에 안 들어감)으로 떨어진다.
+                "ci_low": entry.get("ci_low", 0.0),
             }
             sampled_nodes.add(nid)
-            (required if entry["count"] == n else common).append(row)
+            (required if row["ci_low"] >= min_ci_low else common).append(row)
         out.update(
             profile=profile.id,
             sample_n=n,
             # 목록은 min_count로 꼬리가 잘려 있다 — 안 밝히면 전량으로 읽힌다.
             listed_from_count=data["observed"]["sample"].get("min_count", 1),
+            # `required`가 무슨 기준으로 갈렸나. 안 밝히면 「표본 전원」으로 읽힌다
+            # (그게 옛 기준이었다). 문턱이 바뀌면 목록도 바뀌므로 함께 낸다.
+            min_ci_low=min_ci_low,
             required=required,
             common=common[:top],
             common_total=len(common),
