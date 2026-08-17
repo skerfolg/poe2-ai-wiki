@@ -203,9 +203,29 @@ def load_status(season: str, *, base: Path | None = None) -> dict[str, Any]:
     return dict(json.loads(path.read_text(encoding="utf-8")))
 
 
-def pending(plan: dict[str, Any], status: dict[str, Any]) -> list[str]:
-    """계획 빼기 완료. **계획에만 묻는다**(완전성 기준이 계획이다)."""
-    done = set(status.get("done") or [])
+def completed(season: str, *, base: Path | None = None) -> set[str]:
+    """이미 결과 파일이 있는 빌드. **파일이 진짜 기록이다.**
+
+    상태 파일은 편의이자 체크포인트이고, 소유자가 하나뿐이라 **다른 실행이 만든
+    결과를 모른다**. 규약이 「빌드당 파일 1개 · 파일 있으면 건너뛴다」인 이유가
+    이것이다 — 실측 2026-08-17: 상태 파일만 믿던 실행이 다른 프로세스가 이미 잰
+    97벌을 끝에서 다시 재려 했다.
+    """
+    folder = campaign_dir(season, base=base) / REMOVALS
+    if not folder.is_dir():
+        return set()
+    return {p.stem for p in folder.glob("*.json")}
+
+
+def pending(
+    plan: dict[str, Any], status: dict[str, Any], *, done_files: set[str] | None = None
+) -> list[str]:
+    """계획 빼기 완료. **계획에만 묻는다**(완전성 기준이 계획이다).
+
+    완료 판정은 상태 파일 **또는** 결과 파일이다 — 둘 중 하나만 봐도 재개는 되지만,
+    파일 쪽이 더 강하다(위 `completed` 참조).
+    """
+    done = set(status.get("done") or []) | (done_files or set())
     return [u["build"] for u in plan.get("units", []) if u["build"] not in done]
 
 
@@ -298,7 +318,7 @@ def _cli_status(args: Any) -> int:
         return 1
     plan = json.loads(plan_path.read_text(encoding="utf-8"))
     status = load_status(args.season)
-    left = pending(plan, status)
+    left = pending(plan, status, done_files=completed(args.season))
     print(
         json.dumps(
             {
@@ -335,8 +355,12 @@ def _cli_measure(args: Any) -> int:
         return 1
 
     status = load_status(args.season)
-    done: list[str] = list(status.get("done") or [])
-    left = pending(plan, status)[: args.limit] if args.limit else pending(plan, status)
+    # 상태 파일 + 결과 파일 **둘 다** 흡수한다 — 다른 실행이 만든 결과를 다시 재지 않는다
+    have = completed(args.season)
+    done: list[str] = sorted(set(status.get("done") or []) | have)
+    left = pending(plan, status, done_files=have)
+    if args.limit:
+        left = left[: args.limit]
     by_build = {u["build"]: u["source"] for u in plan["units"]}
     graph = TreeGraph(knowledge_dir())
     commit = str((plan.get("provenance") or {}).get("pob_commit") or "")

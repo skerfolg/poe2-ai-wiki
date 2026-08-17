@@ -79,6 +79,21 @@ def test_완료분은_건너뛴다() -> None:
     assert cc.pending(plan, {}) == ["a", "b", "c"]
 
 
+def test_결과_파일이_있으면_상태에_없어도_건너뛴다(tmp_path: Path) -> None:
+    """상태 파일은 소유자가 하나뿐이라 **다른 실행이 만든 결과를 모른다.**
+
+    규약이 「빌드당 파일 1개 · 파일 있으면 건너뛴다」인 이유가 이것이다 — 실측
+    2026-08-17: 상태 파일만 믿던 실행이 다른 프로세스가 이미 잰 97벌을 끝에서 다시
+    재려 했다. 파일이 진짜 기록이다.
+    """
+    (tmp_path / "0-5").mkdir(parents=True)
+    cc.write_result("0-5", {"build": "b", "coverage": {}}, base=tmp_path)
+    assert cc.completed("0-5", base=tmp_path) == {"b"}
+
+    plan = {"units": [{"build": "a"}, {"build": "b"}, {"build": "c"}]}
+    assert cc.pending(plan, {}, done_files=cc.completed("0-5", base=tmp_path)) == ["a", "c"]
+
+
 def test_결과는_빌드당_파일_하나로_원자적으로_쓴다(tmp_path: Path) -> None:
     """중단이 반쪽 파일을 남기면 재개가 「완료」로 오판한다."""
     (tmp_path / "0-5").mkdir(parents=True)
