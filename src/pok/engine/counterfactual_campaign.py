@@ -43,6 +43,11 @@ STATUS = "measure-status.json"
 REMOVALS = "removals"
 _STATS = ("CombinedDPS", "Life", "TotalEHP")
 
+# 데몬을 몇 벌마다 갈아 끼우나. **오래 산 데몬은 느려진다**(실측: 50벌 9.2초 →
+# 250벌 이후 77초, 11배). 부팅이 2초뿐이라 50벌마다 갈아도 상각은 1벌당 0.04초다.
+# 상수를 박는 대신 인자로도 뚫는다 — 「몇 벌이 적정인가」는 환경마다 다르다.
+_DAEMON_RECYCLE = 50
+
 
 def campaign_dir(season: str, *, base: Path | None = None) -> Path:
     """데이터 repo 안의 캠페인 자리. 래더 원시와 **같은 repo**다(체크포인트가 공유된다)."""
@@ -337,8 +342,19 @@ def _cli_measure(args: Any) -> int:
     commit = str((plan.get("provenance") or {}).get("pob_commit") or "")
 
     failed: list[dict[str, str]] = []
-    with PobDaemon() as daemon:
-        for bid in left:
+    daemon = PobDaemon()
+    try:
+        for i, bid in enumerate(left):
+            # ⚠ **데몬을 주기적으로 갈아 끼운다.** 오래 살수록 느려진다 — 실측
+            #    2026-08-17(같은 기계·동시 대조): 갓 띄운 데몬이 빌드당 6~7초인데
+            #    6시간 45분·8,800계산을 지난 데몬은 **77초**였다(11배). 처음 50벌
+            #    9.2초 → 150~250벌 36.8초 → 최근 50벌 76.9초로 단조 악화라, 그대로
+            #    두면 전량이 7시간이 아니라 **2일**이 된다. 부팅은 2초뿐이므로
+            #    상각이 압도적이다.
+            if i and args.recycle and i % args.recycle == 0:
+                daemon.close()
+                daemon = PobDaemon()
+                print(f"--- 데몬 재기동 ({args.recycle}벌마다) ---", flush=True)
             src = ladder_dir() / args.season / by_build[bid]
             try:
                 doc = json.loads(src.read_text(encoding="utf-8"))
@@ -350,6 +366,8 @@ def _cli_measure(args: Any) -> int:
             done.append(bid)
             _write_json(folder / STATUS, {"season": args.season, "done": done})
             print(f"{len(done)}/{plan['total']}  {bid}  측정 {result['coverage']}", flush=True)
+    finally:
+        daemon.close()
 
     print(
         json.dumps(
@@ -380,6 +398,12 @@ def _cli(argv: list[str] | None = None) -> int:
     m = sub.add_parser("measure", help="P2 멱등 측정 — 완료분은 건너뛴다")
     m.add_argument("--season", required=True)
     m.add_argument("--limit", type=int, default=0, help="이번 실행에서 잴 최대 빌드 수(0=전량)")
+    m.add_argument(
+        "--recycle",
+        type=int,
+        default=_DAEMON_RECYCLE,
+        help="데몬을 몇 벌마다 갈아 끼우나(0=안 함). 오래 산 데몬은 11배까지 느려진다",
+    )
     m.set_defaults(fn=_cli_measure)
 
     s = sub.add_parser("status", help="얼마나 남았나")
