@@ -12,10 +12,12 @@ from __future__ import annotations
 
 import atexit
 import hashlib
+import json
 import os
 import subprocess
 from pathlib import Path
 from types import TracebackType
+from typing import Any
 
 from pok.common.paths import project_root, var_dir
 from pok.pob.buildxml import BuildSpec, to_xml
@@ -112,6 +114,44 @@ class PobDaemon:
             pruned_nodes=tuple(sorted(set(nodes) - set(alloc))),
             cached=False,
         )
+
+    def node_power(
+        self, stats: tuple[str, ...] = ()
+    ) -> tuple[dict[int, dict[str, float]], dict[str, Any]]:
+        """**미할당 노드 전량**을 하나씩 더했을 때의 델타 (추가 방향, #73 스파이크).
+
+        우리 측정은 「이미 찍은 노드를 빼면?」만 답한다. 「안 찍은 노드를 찍으면?」은
+        후보마다 전체 재계산을 가정해 전수가 46일로 잡혀 있었는데, PoB에는 전용
+        빠른 경로가 있다(`calcs.getMiscCalculator` — 기준 계산 1회 뒤 환경·DB를
+        재사용하는 클로저). PoB 자신의 트리 색칠이 이 경로를 쓴다.
+
+        ⚠ **경로 비용이 빠져 있다.** 노드 하나만 더한 값이라 「거기까지 잇는 데 몇
+        포인트가 드나」가 없다. PoB 자신도 "Estimate"라 부르고 조합 효과도 무시한다
+        (단독 델타 0인 둘이 함께 1.44배인 사례). **후보를 좁히는 신호**로만 쓸 것.
+
+        ⚠ 먼저 `compute_build`으로 빌드를 올려 둬야 한다(`compute_tree`와 같다).
+        """
+        self.start()
+        assert self._proc is not None and self._proc.stdin is not None
+        self._proc.stdin.write("POWER\t" + ",".join(stats) + "\n")
+        self._proc.stdin.flush()
+        out: dict[int, dict[str, float]] = {}
+        meta: dict[str, Any] = {}
+        while True:
+            line = self._readline()
+            if not line:
+                raise PobRunError("데몬이 POK_DONE 전에 종료됨 (close 후 재기동 필요)")
+            s = line.rstrip("\n")
+            if s == "POK_DONE":
+                break
+            if s.startswith("POK_POWER:"):
+                row = json.loads(s[len("POK_POWER:") :])
+                out[int(row["node"])] = {k: float(v) for k, v in (row.get("d") or {}).items()}
+            elif s.startswith("POK_POWERMETA:"):
+                meta = json.loads(s[len("POK_POWERMETA:") :])
+            elif s.startswith("POK_ERR:"):
+                raise PobRunError(s[len("POK_ERR:") :])
+        return out, meta
 
     def build_item(self, spec_text: str) -> str:
         """아이템 **명세 → PoB 정본 텍스트** (#34). 실패하면 빈 문자열.
