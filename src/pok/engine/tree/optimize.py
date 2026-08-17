@@ -197,6 +197,45 @@ class OptimizeResult:
         return tuple(out)
 
 
+def _power_ranked(
+    daemon: PobDaemon,
+    graph: TreeGraph,
+    current: BuildSpec,
+    tree_now: set[int],
+    budget: int,
+    banned: set[int],
+    slice_size: int,
+) -> list[int]:
+    """PoB `POWER`로 **트리 전체**를 훑어 포인트당 상위 후보를 낸다 (#77 대응).
+
+    그리디의 구조적 한계는 「반경 안만 본다」였다 — #70 재검증 실측: 예산 82포인트를
+    더 쓰고 폭을 **0.4%**만 넓혔고, 대각선이 정답지의 75%·DPS가 53%에서 멈췄다.
+    `POWER`는 미할당 노드 전량(3,793개)을 한 번에 재므로 반경 개념이 없다.
+
+    ⚠ **값이 아니라 순위만 쓴다.** `POWER`는 노드 하나만 더한 값이라 **경로 비용이
+    빠져 있다**(PoB 자신이 "Estimate"라 부른다). 전직 8종 실측: 값 오차 중앙 16.9%,
+    순위 상관은 총량 상관 0.808인데 **포인트당 0.954**다. 그래서 여기서도 포인트당으로
+    줄 세운다 — 그 보정이 곧 빠진 경로 비용의 근사다.
+
+    ⚠ **얕게 자르면 놓친다.** 실제 상위 5를 담으려면 추정 상위 **25위**까지 필요한
+    전직이 있었다(Witch3b). `slice_size`를 그대로 쓰는 이유이고, 줄이지 말 것.
+    """
+    power, _meta = daemon.node_power(("CombinedDPS", "TotalEHP"))
+    scored: list[tuple[float, int]] = []
+    for nid, deltas in power.items():
+        if nid in tree_now or nid in banned or nid not in graph.nodes:
+            continue
+        path = graph.shortest_path(tree_now, nid)
+        if not path or len(path) > budget:
+            continue
+        gain = max(deltas.get("CombinedDPS", 0.0), 0.0)
+        if gain <= 0:
+            continue
+        scored.append((gain / len(path), nid))
+    scored.sort(reverse=True)
+    return [nid for _, nid in scored[:slice_size]]
+
+
 def _with_free_zones(
     candidates: Iterable[tuple[int, Any, int]], cost: Callable[[int, int], int]
 ) -> list[tuple[int, Any, int]]:
@@ -212,6 +251,7 @@ def optimize_tree(
     point_budget: int,
     candidate_radius: int = 8,
     max_candidates_per_round: int = 40,
+    power_candidates: bool = False,
     stats: tuple[str, ...] | None = None,
     jewel_templates: tuple[str, ...] = (),
     exclude_nodes: tuple[int, ...] = (),
@@ -328,21 +368,31 @@ def optimize_tree(
                 if out_of_time():
                     break
                 tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
-                cands = [
-                    nid
-                    for nid, _, d in _with_free_zones(
-                        graph.candidates(
-                            tree_now,
-                            max_dist=reach,
-                            # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
-                            # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
-                            # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
-                            ascendancy_name=current.ascendancy,
-                        ),
-                        reachable_cost,
+                if power_candidates:
+                    # ⚠ 반경을 **안 본다.** 그리디의 구조적 한계가 「반경 안만 본다」였고
+                    #   (#77 실측: 폭의 0.4%만 그리디가 더했다), PoB의 `POWER`는 트리
+                    #   전체 3,793노드를 한 번에 잰다(25.6초). 값은 못 쓰고 **포인트당
+                    #   순위**만 쓴다 — 경로 비용이 빠져 있어서다(전직 8종 실측:
+                    #   총량 0.808 · 포인트당 0.954).
+                    cands = _power_ranked(
+                        daemon, graph, current, tree_now, budget, banned, slice_size
                     )
-                    if d <= budget and nid not in banned
-                ][:slice_size]
+                else:
+                    cands = [
+                        nid
+                        for nid, _, d in _with_free_zones(
+                            graph.candidates(
+                                tree_now,
+                                max_dist=reach,
+                                # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
+                                # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
+                                # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
+                                ascendancy_name=current.ascendancy,
+                            ),
+                            reachable_cost,
+                        )
+                        if d <= budget and nid not in banned
+                    ][:slice_size]
                 if not cands:
                     break
                 base = daemon.compute_build(current)
