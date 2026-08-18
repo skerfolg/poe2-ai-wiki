@@ -58,13 +58,30 @@ def _spec(jewels: tuple[JewelSpec, ...], nodes: list[int]) -> BuildSpec:
     )
 
 
-def test_타임리스는_빌드를_통째로_뺀다() -> None:
-    """반경 안 패시브를 **바꾼다** — 몇 개를 빼고 말고의 문제가 아니다."""
+def test_타임리스도_반경_안만_뺀다() -> None:
+    """⚠ 처음엔 빌드째 뺐다가 좁혔다(사용자 승인 2026-08-18).
+
+    실측: 타임리스 298벌의 관측 7,296행 중 **반경 안은 387행(5.3%)**뿐이라 나머지
+    94.7%를 근거 없이 버리고 있었다. 타임리스가 바꾸는 것은 반경 안 패시브이지
+    그 빌드의 다른 노드가 아니다.
+    """
     socket, near = _socket_with_neighbours(5)
     spec = _spec((JewelSpec(socket_node_id=socket, text=_TIMELESS),), [socket, *near])
     got = classify(spec, _graph)
-    assert got.timeless == ("Undying Hate",)
-    assert not got.usable, "타임리스 빌드가 집계에 들어간다"
+    assert got.timeless == ("Undying Hate",), "보고는 남는다"
+    assert got.usable, "빌드째 버리면 94.7%를 근거 없이 버린다"
+    assert got.tainted_nodes, "반경 안 노드는 빼야 한다"
+
+
+def test_반경을_못_읽은_타임리스는_빌드째_뺀다() -> None:
+    """⚠ **fail-closed.** 오염이 어디까지인지 모르면서 「깨끗한 부분만 썼다」고 하면
+    그게 거짓말이 된다. 모를 때만 빌드째 뺀다."""
+    socket, near = _socket_with_neighbours(5)
+    blind = _TIMELESS.replace("Radius: Very Large\n", "")
+    spec = _spec((JewelSpec(socket_node_id=socket, text=blind),), [socket, *near])
+    got = classify(spec, _graph)
+    assert not got.usable and got.unresolved == ("Undying Hate",)
+    assert got.tainted_nodes == frozenset(), "모르면서 짚으면 안 된다"
 
 
 def test_반경_부여는_그_노드만_뺀다() -> None:
