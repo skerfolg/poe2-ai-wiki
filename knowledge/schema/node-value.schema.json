@@ -1,0 +1,98 @@
+{
+ "$id": "node-value.schema.json",
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "NodeValue.data — 이 노드를 **빼면 얼마나 아픈가** (반사실 2층 집계, M4)",
+ "description": "래더 코퍼스는 **채택된 것**만 담는다(positive only) — 「전원이 찍는다」는 좋다는 뜻이 아니라 남들이 찍는다는 뜻일 수도 있다. 여기는 그 반대편이다: 실제로 빼 보고 PoB로 잰 손실이다. 채택률과 곱하면 「전원이 찍지만 빼도 손실 0.1%」= **메타 습관**이 드러나고, 그게 갈아탈 수 있는 예산이다(BACKLOG #62·#77). ⚠ **요약값을 하나로 내지 않는다** — 아픔은 축마다 다르고(어떤 노드는 DPS만, 어떤 노드는 EHP만), 축을 하나로 합치는 것은 목적함수를 아는 쪽만 할 수 있는 **판단**이다(철칙 3). 그래서 축별 분포를 그대로 싣고 고르는 일은 소비자에게 맡긴다(사용자 승인 2026-08-18).",
+ "type": "object",
+ "$defs": {
+  "spread": {
+   "type": "object",
+   "description": "분포. **평균을 쓰지 않는다** — 빌드 규모가 100배씩 다르고 한 벌이 평균을 끌고 간다",
+   "properties": {
+    "p10": {"type": "number"},
+    "median": {"type": "number"},
+    "p90": {"type": "number"}
+   },
+   "required": ["p10", "median", "p90"],
+   "additionalProperties": false
+  }
+ },
+ "properties": {
+  "season": {"type": "string", "minLength": 1},
+  "node": {
+   "type": "object",
+   "description": "어느 노드인가. `ref`는 KB의 실존 id — 없으면(트리 수집 갭) 생략하고 `node_id`로만 잡는다",
+   "properties": {
+    "node_id": {"type": "integer", "minimum": 0},
+    "kind": {"type": "string", "minLength": 1},
+    "label": {"type": "string", "minLength": 1},
+    "ref": {"type": "string", "minLength": 1}
+   },
+   "required": ["node_id", "kind", "label"],
+   "additionalProperties": false
+  },
+  "sample": {
+   "type": "object",
+   "description": "몇 벌에서 뺐나. ⚠ **`n`이 0인 레코드가 존재한다** — 「빼도 안 아프다」와 「재지 못했다」는 전혀 다른 말이고, 레코드를 아예 안 만들면 후자가 전자로 읽힌다(BACKLOG 형태 ①: 선언이 없으면 조용한 0). 실측 2026-08-18: 주얼 오염 제외로 관측이 0이 된 노드가 67종이다",
+   "properties": {
+    "n": {"type": "integer", "minimum": 0},
+    "excluded": {
+     "type": "object",
+     "description": "관측이 있었는데 **뺀** 몫과 사유. `jewel_tainted`는 주얼이 값을 얹거나 바꾼 노드(#81 — 타임리스·반경 부여), `unmeasured`는 PoB가 못 잰 것",
+     "properties": {
+      "jewel_tainted": {"type": "integer", "minimum": 0},
+      "unmeasured": {"type": "integer", "minimum": 0}
+     },
+     "required": ["jewel_tainted", "unmeasured"],
+     "additionalProperties": false
+    },
+    "basis": {"type": "string", "minLength": 1},
+    "pob_commit": {"type": "string", "minLength": 1},
+    "coverage": {
+     "type": "object",
+     "description": "시즌 전체 그림. **레코드마다 싣는다** — get_entry가 하나만 꺼내 주므로, 여기 없으면 「이 노드가 전체에서 어떤 위치인지」를 읽는 쪽이 알 수 없다. ⚠ `nodes_observed < tree_nodes`인 몫은 **아무도 안 찍은 노드 + 후보에서 빠진 노드**다(연결 불요 주얼 때문에 고아로 잡힌 것 포함 — BACKLOG #83)",
+     "properties": {
+      "tree_nodes": {"type": "integer", "minimum": 1},
+      "nodes_observed": {"type": "integer", "minimum": 0},
+      "builds_measured": {"type": "integer", "minimum": 0},
+      "rows_kept": {"type": "integer", "minimum": 0},
+      "rows_total": {"type": "integer", "minimum": 0}
+     },
+     "required": ["tree_nodes", "nodes_observed", "builds_measured", "rows_kept", "rows_total"],
+     "additionalProperties": false
+    }
+   },
+   "required": ["n", "excluded", "basis", "pob_commit", "coverage"],
+   "additionalProperties": false
+  },
+  "points": {
+   "$ref": "#/$defs/spread",
+   "description": "이 노드를 빼면 **회수되는 포인트**. 노드 하나가 1이 아닐 수 있다 — 끝단이 아니면 딸린 가지가 함께 빠진다. 「포인트당 손실」을 내려면 이게 있어야 한다"
+  },
+  "axes": {
+   "type": "object",
+   "description": "축별 손실. 키는 PoB 스탯 이름 그대로(`CombinedDPS`·`TotalEHP` …) — 우리 이름으로 바꾸면 오라클과 대조가 끊긴다",
+   "minProperties": 0,
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "n": {"type": "integer", "minimum": 0, "description": "이 **축을** 잰 관측 수. 축마다 다르다 — 딜이 0인 빌드는 DPS 손실률을 못 낸다"},
+     "loss_pct": {
+      "$ref": "#/$defs/spread",
+      "description": "제거 시 **손실률(%)**. 양수 = 빼면 나빠진다. ⛔ 절대 델타를 모으지 않는다 — 빌드 규모가 100배씩 달라 더할 수 없다(척도 불변이어야 빌드를 넘어 합칠 수 있다)"
+     },
+     "zero_share": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "손실이 **정확히 0**인 관측의 비율(%). PoB는 결정적이라 0은 진짜 0이다. 채택률이 높은데 이 값도 높으면 **메타 습관**이다 — 갈아탈 수 있는 예산이 거기 있다"
+     }
+    },
+    "required": ["n", "loss_pct", "zero_share"],
+    "additionalProperties": false
+   }
+  }
+ },
+ "required": ["season", "node", "sample", "points", "axes"],
+ "additionalProperties": false
+}
