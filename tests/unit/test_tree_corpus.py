@@ -451,3 +451,110 @@ def _general_nodes(spec: object) -> set[int]:
         for n in spec.tree_nodes  # type: ignore[attr-defined]
         if _graph.nodes[n].ascendancy is None
     }
+
+
+# ── 앵커 후보에 제거 실측이 붙는다 (#77 · M4) ──
+#
+# 채택률은 「많이 찍혔다」까지만 말한다. NodeValue(빼면 얼마나 아픈가)를 나란히
+# 놓아야 「전원이 찍지만 빼도 안 아픈」 메타 습관이 드러난다 — 갈아탈 예산이다(#62).
+
+
+def _nv(node_id: int, axes: dict) -> object:
+    """가짜 NodeValue 레코드 — store.Record와 같은 표면(type·raw)만 흉내낸다."""
+
+    class _R:
+        type = "NodeValue"
+        raw: ClassVar[dict] = {
+            "data": {"node": {"node_id": node_id}, "sample": {"n": 50}, "axes": axes}
+        }
+
+    return _R()
+
+
+def _ax(median: float, when_active: float, *, n: int = 50, n_active: int = 25) -> dict:
+    return {
+        "n": n,
+        "n_active": n_active,
+        "loss_pct": {"median": median},
+        "active_share": n_active / n * 100,
+        "when_active": {"median": when_active},
+    }
+
+
+def test_습관과_조건부가_다르게_표시된다() -> None:
+    """⛔ 뭉친 중앙값만 보면 조건부를 습관으로 오독한다(#88 — Mind Over Matter는
+    전체 중앙 0%인데 작동할 땐 36.6%). 습관으로 읽고 빼면 그 메커니즘을 쓰는
+    빌드가 무너진다."""
+    from pok.engine.tree.corpus import _removal_summary
+
+    _s, mark = _removal_summary(
+        {"sample": {"n": 50}, "axes": {"CombinedDPS": _ax(0.0, 0.1)}}, habit_max_loss=0.5
+    )
+    assert mark == "habit"
+    _s, mark = _removal_summary(
+        {"sample": {"n": 50}, "axes": {"CombinedDPS": _ax(0.0, 36.6)}}, habit_max_loss=0.5
+    )
+    assert mark == "conditional", "조건부가 습관으로 읽힌다"
+    _s, mark = _removal_summary(
+        {"sample": {"n": 50}, "axes": {"CombinedDPS": _ax(12.0, 20.0)}}, habit_max_loss=0.5
+    )
+    assert mark is None, "아픈 노드에 표시가 붙었다"
+
+
+def test_표본이_적으면_판정하지_않는다() -> None:
+    """n<10이면 표시를 유보한다 — 값은 싣되 「습관」 도장은 안 찍는다."""
+    from pok.engine.tree.corpus import _removal_summary
+
+    summary, mark = _removal_summary(
+        {"sample": {"n": 3}, "axes": {"CombinedDPS": _ax(0.0, 0.0, n=3, n_active=0)}},
+        habit_max_loss=0.5,
+    )
+    assert mark is None and summary["axes"] == {}
+
+
+def test_NodeValue가_없으면_채택률만으로_골랐다고_말한다() -> None:
+    """⛔ 조용한 0 금지 — 지금 KB에는 NodeValue가 없다(M3 재측정 후 승격).
+    이 선언이 없으면 「빼도 아픈지 확인된 후보」로 읽힌다."""
+    from pok.engine.tree.corpus import suggest_anchors
+
+    out = suggest_anchors(_graph, "Martial Artist")
+    assert out["removal_source"] is None
+    assert "채택률만으로" in out["removal_why"]
+
+
+def test_NodeValue가_있으면_행에_붙고_습관이_모인다() -> None:
+    from pok.engine.tree.corpus import _node_values, _removal_summary
+
+    records = {"a": _nv(13828, {"CombinedDPS": _ax(0.0, 0.1)})}
+    values = _node_values(records)
+    assert 13828 in values
+    summary, mark = _removal_summary(values[13828], habit_max_loss=0.5)
+    assert mark == "habit" and summary["n"] == 50
+
+
+def test_행_부착과_습관_수집이_끝까지_흐른다(monkeypatch) -> None:
+    """suggest_anchors 반환에 실제로 실리는지 — 헬퍼만 통과하고 부착이 빠지면
+    규율이 통째로 사라진다(이 파일 머리주석과 같은 이유)."""
+    import pok.kb.store as store
+    from pok.engine.tree.corpus import suggest_anchors
+
+    real = store.load()
+
+    # 이 전직의 실존 required 노드를 하나 집는다 — 하드코딩하면 프로파일 재생성에 깨진다
+    target = suggest_anchors(_graph, "Martial Artist")["required"][0]["node"]
+
+    class _Fake:
+        records: ClassVar[dict] = dict(real.records)
+
+    _Fake.records["node-value.test"] = _nv(target, {"CombinedDPS": _ax(0.0, 0.1)})  # type: ignore[index]
+    monkeypatch.setattr(store, "load", lambda root=None: _Fake)
+
+    out = suggest_anchors(_graph, "Martial Artist")
+    assert out["removal_source"] is not None
+    (row,) = [r for r in out["required"] if r["node"] == target]
+    assert row["removal"]["n"] == 50
+    assert row.get("removal_mark") == "habit"
+    assert any(str(target) in h for h in out["meta_habits"]), "required인 습관이 안 모였다"
+    # 측정이 없는 행은 None으로 **선언**된다 — 비워 두면 0으로 읽힌다
+    others = [r for r in (*out["required"], *out["common"]) if r["node"] != target]
+    assert all(r["removal"] is None for r in others)

@@ -444,6 +444,80 @@ def anchors_for_axes(
 _REQUIRED_MIN_CI_LOW = 80.0
 
 
+# ── 제거 실측(NodeValue)을 앵커 후보에 붙인다 (#77 · M4) ─────────────────────
+#
+# 채택률은 「많이 찍혔다」까지만 말한다 — 남들이 찍어서 찍는 것일 수 있다(#62).
+# NodeValue는 반대편이다: 실제로 빼 보고 PoB로 잰 손실. 둘을 나란히 놓으면
+# 「전원이 찍지만 빼도 안 아픈」 메타 습관이 드러난다 — 갈아탈 수 있는 예산이다.
+#
+# ⛔ 여기서 required/common을 **재분류하지 않는다.** 「아프지 않으니 필수가 아니다」는
+#    해석이고(철칙 3), NodeValue는 전 빌드 집계라 이 전직의 사정과 해상도가 다르다.
+#    표시만 달고 판단은 호출자가 한다.
+
+# 「빼도 안 아프다」의 문턱(손실률 %). 해석 층의 몫이라 인자로도 노출한다.
+_HABIT_MAX_LOSS = 0.5
+# 「작동할 땐 아프다」의 문턱 — #88 실측에서 조건부 27종이 전부 2% 위였다.
+_CONDITIONAL_MIN_LOSS = 2.0
+
+
+def _node_values(records: Mapping[str, Any]) -> dict[int, dict[str, Any]]:
+    """KB의 NodeValue 레코드 → node_id 색인. 없으면 빈 dict(호출자가 선언한다)."""
+    out: dict[int, dict[str, Any]] = {}
+    for record in records.values():
+        if record.type != "NodeValue":
+            continue
+        data = record.raw.get("data") or {}
+        node_id = (data.get("node") or {}).get("node_id")
+        if node_id is not None:
+            out[int(node_id)] = data
+    return out
+
+
+def _removal_summary(
+    value: dict[str, Any], *, habit_max_loss: float
+) -> tuple[dict[str, Any], str | None]:
+    """행에 붙일 요약 + 표시(habit/conditional/None).
+
+    ⚠ **뭉친 중앙값만 보면 조건부를 습관으로 오독한다**(#88): Mind Over Matter는
+    전체 중앙 0%인데 작동할 땐 36.6%다. 그래서 `when_active`까지 봐야 갈린다:
+
+    - habit       — 어느 빌드에서도 안 아프다(작동해도 문턱 미만). 갈아탈 예산.
+    - conditional — 뭉치면 0이지만 **쓰는 빌드에선 아프다**. 이 전직이 그 메커니즘을
+                    쓰는지 확인하기 전엔 습관으로 읽지 말 것.
+    """
+    axes: dict[str, Any] = {}
+    verdicts: list[str] = []
+    for stat, ax in (value.get("axes") or {}).items():
+        n = int(ax.get("n") or 0)
+        if n < 10:
+            continue  # 표본이 적으면 판정을 안 낸다 — 값은 싣되 표시는 유보
+        when_active = (ax.get("when_active") or {}).get("median", 0.0)
+        axes[stat] = {
+            "n": n,
+            "loss_median": (ax.get("loss_pct") or {}).get("median", 0.0),
+            "active_share": ax.get("active_share", 0.0),
+            "when_active_median": when_active,
+        }
+        hurts_overall = abs(axes[stat]["loss_median"]) >= habit_max_loss
+        hurts_when_active = (
+            int(ax.get("n_active") or 0) > 0 and abs(when_active) >= _CONDITIONAL_MIN_LOSS
+        )
+        if hurts_overall:
+            verdicts.append("hurts")
+        elif hurts_when_active:
+            verdicts.append("conditional")
+        else:
+            verdicts.append("habit")
+    summary = {"n": int((value.get("sample") or {}).get("n") or 0), "axes": axes}
+    if not axes:
+        return summary, None  # 판정할 축이 없다 — 표시 없음이지 「습관 아님」이 아니다
+    if all(v == "habit" for v in verdicts):
+        return summary, "habit"
+    if "hurts" not in verdicts:
+        return summary, "conditional"
+    return summary, None
+
+
 def suggest_anchors(
     graph: TreeGraph,
     ascendancy: str,
@@ -535,6 +609,43 @@ def suggest_anchors(
         )
         out["_sampled"] = sampled_nodes
         out["cautions"] = _cautions(data, include)
+
+        # ── 제거 실측을 붙인다 (#77) — 채택률 옆에 「빼면 아픈가」를 나란히 ──
+        values = _node_values(records)
+        if values:
+            habits: list[str] = []
+            for row in (*required, *common):
+                value = values.get(row["node"])
+                if value is None:
+                    # 측정이 없는 것과 안 아픈 것은 다르다 — 비워 두면 0으로 읽힌다
+                    row["removal"] = None
+                    continue
+                summary, mark = _removal_summary(value, habit_max_loss=_HABIT_MAX_LOSS)
+                row["removal"] = summary
+                if mark:
+                    row["removal_mark"] = mark
+                if mark == "habit" and row["ci_low"] >= min_ci_low:
+                    habits.append(f"{row['name']}({row['node']})")
+            out["removal_source"] = (
+                f"NodeValue {len(values):,}종 — 제거 반사실 실측(래더 전 빌드 집계). "
+                f"habit 문턱 손실 {_HABIT_MAX_LOSS}% · conditional 문턱 {_CONDITIONAL_MIN_LOSS}%"
+            )
+            if habits:
+                out["meta_habits"] = habits
+                out["meta_habits_why"] = (
+                    "⚠ **required인데 어느 빌드에서도 빼서 안 아팠다** — 전원이 찍지만 "
+                    "값은 실측되지 않는 「메타 습관」 후보다(#62). 앵커에서 빼는 판단은 "
+                    "호출자 몫이지만, 여기 있는 포인트는 갈아탈 수 있는 예산일 수 있다. "
+                    "⚠ conditional 표시가 붙은 것은 다르다 — 쓰는 빌드에선 아프다(#88)"
+                )
+        else:
+            # ⛔ 조용한 0 금지 — 없으면 채택률만으로 고른 것임을 말한다
+            out["removal_source"] = None
+            out["removal_why"] = (
+                "NodeValue 레코드가 KB에 없다 — 이 후보들은 **채택률만으로** 골랐다. "
+                "「많이 찍혔다」는 「빼면 아프다」가 아니다(#77). M3 재측정 후 2층 집계가 "
+                "승격되면 제거 실측이 함께 붙는다"
+            )
 
     if include:
         clusters = find_clusters(
