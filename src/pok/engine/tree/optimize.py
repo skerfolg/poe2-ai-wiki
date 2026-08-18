@@ -19,6 +19,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple, Protocol
 
+from pok.engine.jewel_placement import Placement, place_jewels
 from pok.engine.objective import Target, TargetResult, evaluate_targets
 from pok.engine.tree.clusters import Cluster, find_clusters, relevance
 from pok.engine.tree.deltas import BundleDelta, NodeDelta, evaluate_bundles, evaluate_node_deltas
@@ -167,6 +168,8 @@ class OptimizeResult:
     # 앵커가 쓴 **전직** 포인트 — `point_budget`(일반 패시브)과 별도 풀이다(#68).
     # 합쳐 세면 전직 노드를 앵커로 넣을수록 일반 트리가 작아진다.
     ascendancy_points: int = 0
+    # 스냅샷 주얼을 새 트리에 되배치한 내역 — **왜 거기인지**가 각각 붙어 있다.
+    jewel_placements: tuple[Placement, ...] = ()
 
     @property
     def wasted_points(self) -> int:
@@ -303,6 +306,8 @@ def optimize_tree(
     # 여전히 경쟁이라, 점수가 더 높은 다른 노드에 밀린다. 필수는 경쟁 대상이 아니라
     # **통과점**이다(사용자 정리 2026-08-12). 그리고 PoB가 못 재는 메커니즘 노드는
     # 델타가 0이라 그리디가 **절대** 안 뽑는다 — 여기서 박지 않으면 영영 안 들어온다.
+    # 최적화 **전** 주얼을 스냅샷한다 — 끝나고 새 트리에 되배치할 원본이다.
+    jewel_snapshot = tuple(j.text for j in spec.jewels if j.text)
     spec, anchor_notes, anchor_cost = _seed_anchors(spec, graph, required_anchors, point_budget)
     current = spec
     # 전직 포인트는 **빼지 않는다** — 인게임에서 별도 풀이라 일반 트리를 갉으면 안 된다(#68).
@@ -486,6 +491,16 @@ def optimize_tree(
         best_solution = _better(objective, best_solution, (current, final))
         assert best_solution is not None
         current, final = best_solution
+        # ── 스냅샷 주얼 되배치 ──
+        #
+        # 트리를 다시 짜면 소켓 구성이 달라진다. 가지치기는 트리에서 빠진 소켓의
+        # 주얼을 **동반 제거**하는데(`_with_tree`), 그건 직렬화 계약을 지키려는 것일
+        # 뿐 「그 주얼을 버린다」는 판단이 아니었다 — 그런데 결과적으로 조용히
+        # 버려졌다. 새 트리의 빈 소켓에 되돌려 놓는다(사용자 지시 2026-08-18).
+        current, jewel_rows, jewel_place_notes = _restore_jewels(graph, current, jewel_snapshot)
+        if jewel_rows:
+            # 주얼이 바뀌었으면 **다시 잰다** — 안 그러면 실측값이 옛 주얼 구성의 것이다.
+            final = daemon.compute_build(current)
     # 후보 반경 **밖**의 뭉치를 함께 낸다 — 그리디가 구조적으로 못 보는 것이다(제안 A).
     far, notes = _scan_far_clusters(
         graph, current, cluster_include, cluster_exclude, candidate_radius
@@ -498,6 +513,7 @@ def optimize_tree(
     #   좁혔더니 실제 실행에서 안 떴다. 침묵이 과잉보다 나쁘다(이 결함 자체가 조용해서
     #   여러 회차를 살아남았다). 템플릿이 없으면 무조건 알린다.
     notes = (*notes, *jewel_notes)
+    notes = (*notes, *jewel_place_notes)
     # 긴 점프는 **드러나야** 한다 — 노드 한 수와 섞여 있으면 「먼 축을 열었다」는
     # 사실이 보이지 않고, 그게 안 보이면 #70이 고쳐졌는지도 알 수 없다.
     notes = (*notes, *long_jumps)
@@ -530,7 +546,40 @@ def optimize_tree(
         far_clusters=far,
         notes=notes,
         ascendancy_points=anchor_cost.ascendancy,
+        jewel_placements=tuple(jewel_rows),
     )
+
+
+def _restore_jewels(
+    graph: TreeGraph, spec: BuildSpec, snapshot: tuple[str, ...]
+) -> tuple[BuildSpec, list[Placement], list[str]]:
+    """스냅샷 주얼 중 **자리를 잃은 것**만 되배치한다.
+
+    ⚠ 정품(스냅샷)과 **가정 탐침**(`jewel_templates`로 들어온 것)을 가른다 — 탐침은
+    소켓 값을 재려고 넣은 가짜라, 자리를 두고 다투면 **정품이 이긴다**. 탐침이 밀려
+    자리를 잃으면 그 소켓은 빈 채로 남는다(빈 소켓은 델타 0이지만, 가짜 주얼을
+    산출물에 남기는 것보다 낫다 — 산출물은 설계지 탐침이 아니다).
+    """
+    if not snapshot:
+        return spec, [], []
+    homeless = list(snapshot)
+    kept: list[JewelSpec] = []
+    for jewel in spec.jewels:
+        if jewel.text in homeless:  # 살아남은 정품 — 그 자리를 지킨다
+            homeless.remove(jewel.text)
+            kept.append(jewel)
+    if not homeless:
+        return spec, [], []
+    # 탐침은 전부 뗀 자리에서 되배치한다 — 정품이 먼저 고른다.
+    base = dataclasses.replace(spec, jewels=tuple(kept))
+    placed, rows, notes = place_jewels(graph, base, tuple(homeless))
+    probes = len(spec.jewels) - len(kept)
+    if probes:
+        notes.append(
+            f"가정 탐침 주얼 {probes}개를 뺐다 — 소켓 값을 재려고 넣은 가짜라 "
+            "산출물에 남기지 않는다(정품 스냅샷이 자리를 먼저 갖는다)"
+        )
+    return placed, rows, notes
 
 
 class AnchorCost(NamedTuple):

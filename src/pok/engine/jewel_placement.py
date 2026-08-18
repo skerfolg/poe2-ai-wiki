@@ -96,7 +96,7 @@ def open_sockets(graph: TreeGraph, spec: BuildSpec) -> list[int]:
     )
 
 
-def place(
+def place_jewels(
     graph: TreeGraph,
     spec: BuildSpec,
     snapshot: tuple[str, ...],
@@ -156,7 +156,9 @@ def place(
             )
             out.append(Placement(text, socket, kind, why))
 
-    placed = tuple(
+    # ⚠ **이미 자리를 지킨 주얼을 덮어쓰지 않는다.** 예전엔 새로 놓은 것만 담아
+    #    반환해서, 되배치가 오히려 멀쩡한 주얼을 지웠다(시험이 잡았다).
+    placed = spec.jewels + tuple(
         JewelSpec(socket_node_id=p.socket_node_id, text=p.text)
         for p in out
         if p.socket_node_id is not None

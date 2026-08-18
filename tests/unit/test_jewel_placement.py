@@ -8,8 +8,9 @@
 from __future__ import annotations
 
 from pok.common.paths import knowledge_dir
-from pok.engine.jewel_placement import Placement, open_sockets, place
+from pok.engine.jewel_placement import Placement, open_sockets, place_jewels
 from pok.engine.tree.graph import TreeGraph
+from pok.engine.tree.optimize import _restore_jewels
 from pok.pob.buildxml import BuildSpec, JewelSpec
 
 _graph = TreeGraph(knowledge_dir())
@@ -59,7 +60,7 @@ def test_자리가_모자라면_고유가_먼저다() -> None:
     """소켓 1개에 주얼 2개 — 고유가 살아남아야 한다(빌드 필수 기재일 확률)."""
     (a,) = _sockets(1)
     spec = _spec([a])
-    _placed, rows, notes = place(_graph, spec, (_RARE, _UNIQUE))
+    _placed, rows, notes = place_jewels(_graph, spec, (_RARE, _UNIQUE))
     got = {r.kind: r.socket_node_id for r in rows}
     assert got["unique"] == a, "고유가 자리를 못 얻었다"
     assert got["rare"] is None
@@ -82,7 +83,7 @@ def test_반경_주얼은_밀집도로_고른다() -> None:
         and abs(node.position[1] - pos[1]) < 400
     ][:20]
     spec = _spec(sockets + near)
-    _placed, rows, _notes = place(_graph, spec, (_RADIUS,))
+    _placed, rows, _notes = place_jewels(_graph, spec, (_RADIUS,))
     (row,) = rows
     assert row.socket_node_id == dense, "밀집한 소켓을 안 골랐다"
     assert "촘촘한" in row.why
@@ -93,7 +94,7 @@ def test_반경_선언이_없으면_고르지_않고_사유를_낸다() -> None:
     조용히 「최적 자리」인 척하면 그게 거짓말이 된다(engine.jewels와 같은 원칙)."""
     sockets = _sockets(3)
     spec = _spec(sockets)
-    _placed, rows, notes = place(_graph, spec, (_RADIUS_NO_DECL,))
+    _placed, rows, notes = place_jewels(_graph, spec, (_RADIUS_NO_DECL,))
     (row,) = rows
     assert row.socket_node_id is not None
     assert "선언이 없어" in row.why
@@ -103,7 +104,7 @@ def test_반경_선언이_없으면_고르지_않고_사유를_낸다() -> None:
 def test_배치_결과가_스펙에_실린다() -> None:
     a, b = _sockets(2)
     spec = _spec([a, b])
-    placed, rows, _notes = place(_graph, spec, (_UNIQUE, _RARE))
+    placed, rows, _notes = place_jewels(_graph, spec, (_UNIQUE, _RARE))
     assert len(placed.jewels) == 2
     assert {j.socket_node_id for j in placed.jewels} == {a, b}
     assert all(isinstance(r, Placement) for r in rows)
@@ -113,6 +114,38 @@ def test_레어는_재배치_후보로_남는다() -> None:
     """레어의 자리는 **빌드 파워로** 정해야 한다(PoB 실측). 규칙으로 정하지 않고
     사유에 그 사실을 남긴다 — 안 남기면 임의 배치가 최적인 척한다."""
     a, b = _sockets(2)
-    _placed, rows, _notes = place(_graph, _spec([a, b]), (_RARE,))
+    _placed, rows, _notes = place_jewels(_graph, _spec([a, b]), (_RARE,))
     (row,) = rows
     assert "빌드 파워" in row.why
+
+
+# ── 최적화 흐름과의 접합 (`optimize_tree` 안에서 불린다) ──
+
+
+def test_정품이_가정_탐침을_밀어낸다() -> None:
+    """탐침은 소켓 **값을 재려고** 넣은 가짜다. 자리를 다투면 정품이 이기고,
+    밀려난 탐침은 산출물에 남지 않는다 — 산출물은 설계지 탐침이 아니다."""
+    (a,) = _sockets(1)
+    probe = "Rarity: MAGIC\n탐침\nRuby\n+1 to Strength"
+    spec = _spec([a], jewels=(JewelSpec(socket_node_id=a, text=probe),))
+    placed, rows, notes = _restore_jewels(_graph, spec, (_UNIQUE,))
+    assert [j.text for j in placed.jewels] == [_UNIQUE], "탐침이 정품 자리를 지켰다"
+    assert rows and rows[0].socket_node_id == a
+    assert any("탐침" in n for n in notes)
+
+
+def test_자리를_지킨_주얼은_안_건드린다() -> None:
+    """소켓이 그대로면 되배치할 게 없다 — 괜히 옮기면 실측이 무의미해진다."""
+    a, b = _sockets(2)
+    spec = _spec([a, b], jewels=(JewelSpec(socket_node_id=b, text=_UNIQUE),))
+    placed, rows, notes = _restore_jewels(_graph, spec, (_UNIQUE,))
+    assert placed is spec and rows == [] and notes == []
+
+
+def test_같은_텍스트_주얼은_1대1로_센다() -> None:
+    """똑같은 레어 2개 중 하나만 살아남았으면 **하나만** 되배치한다."""
+    a, b = _sockets(2)
+    spec = _spec([a, b], jewels=(JewelSpec(socket_node_id=a, text=_RARE),))
+    placed, rows, _notes = _restore_jewels(_graph, spec, (_RARE, _RARE))
+    assert len(rows) == 1
+    assert len(placed.jewels) == 2
