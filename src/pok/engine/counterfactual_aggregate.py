@@ -88,6 +88,12 @@ class _Node:
     def groups_for(self, stat: str) -> dict[str, float]:
         """이 축에서 이 노드를 켜는 그룹 → 리프트.
 
+        ⛔ **지금 이 값은 레코드에 싣지 않는다**(BACKLOG #85). 컨셉 홀드아웃에서
+        일반화되지 않았다 — 재현 58.5% vs 기저 53.0%, 5회 중 2회는 기저보다 낮았다.
+        코퍼스가 컨셉 112종에 50벌씩으로 잘려 있어, 그 안에서만 성립하는 상관이 조건처럼
+        보인 것이다. 계산은 **버리지 않고 남긴다** — 표본 설계를 고치거나 조건을
+        PoB로 직접 재게 되면 그때 다시 쓴다.
+
         ⛔ **대조군을 본다.** P(작동 | 그룹 있음) / P(작동 | 그룹 없음). 안 보면
         노드마다 16~18개가 전부 붙는다(실측 2026-08-18) — `마나`는 젬 55종이라
         거의 모든 빌드가 해당해서, 「작동한 빌드가 이 그룹을 썼다」는 늘 참이다.
@@ -279,7 +285,6 @@ def build_records(
             #    Gathering Winds는 어느 빌드에서도 안 움직인다 — 둘이 갈려야 한다.
             active = [v for v in values if abs(v) >= _ZERO_EPS]
             zero_share = round((len(values) - len(active)) / len(values) * 100, 2)
-            found = node.groups_for(stat)
             axes[stat] = {
                 "n": len(values),
                 "loss_pct": _spread(values),
@@ -287,7 +292,6 @@ def build_records(
                 "active_share": round(100.0 - zero_share, 2),
                 "n_active": len(active),
                 "when_active": _spread(active),
-                **({"groups": dict(sorted(found.items(), key=lambda kv: -kv[1]))} if found else {}),
             }
         ref, kb_kind = index.get(nid, ("", ""))
         node_block: dict[str, Any] = {
@@ -310,9 +314,6 @@ def build_records(
             "points": _spread([float(p) for p in node.points]),
             "axes": axes,
         }
-        found_all = sorted({g for ax in axes.values() for g in (ax.get("groups") or {})})
-        if found_all:
-            data["groups"] = found_all
         out.append(
             {
                 # id는 **점 하나 + `[a-z0-9-]`**만 받는다 — 시즌과 번호를 대시로 잇는다

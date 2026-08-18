@@ -145,7 +145,7 @@
   },
   "axes": {
    "type": "object",
-   "description": "축별 손실. 키는 PoB 스탯 이름 그대로(`CombinedDPS`·`TotalEHP` …) — 우리 이름으로 바꾸면 오라클과 대조가 끊긴다",
+   "description": "축별 손실. 키는 PoB 스탯 이름 그대로(`CombinedDPS`·`TotalEHP` …) — 우리 이름으로 바꾸면 오라클과 대조가 끊긴다 ⚠ **조건(메커니즘 그룹)은 여기 없다** — 코퍼스 상관으로 부착해 봤으나 컨셉 홀드아웃에서 일반화되지 않았다(재현 58.5% vs 기저 53.0%, BACKLOG #85). 근거 없는 조건이 「측정된 것」으로 굳으면 정본이 오염된다.",
    "minProperties": 0,
    "additionalProperties": {
     "type": "object",
@@ -179,14 +179,6 @@
       "type": "integer",
       "minimum": 0,
       "description": "0이 아닌 관측 수. `when_active`의 표본 크기 — 적으면 분포를 믿지 말 것"
-     },
-     "groups": {
-      "type": "object",
-      "description": "이 **축에서** 이 노드를 켜는 메커니즘 그룹 → 리프트(P(작동|그룹) / P(작동|무그룹)). ⚠ 축마다 따로 센다 — DPS 조건을 정하는데 EHP가 움직인 것까지 세면 다른 축의 상관이 조건으로 둔갑한다. ⚠ **그룹끼리 겹치는 것은 정상이다** — 빌드는 여러 그룹의 합이고, 고르는 용도로는 상관된 그룹이 해롭지 않다. 인과를 가리는 것은 이 층의 일이 아니다",
-      "additionalProperties": {
-       "type": "number",
-       "minimum": 0
-      }
      }
     },
     "required": [
@@ -198,14 +190,6 @@
      "when_active"
     ],
     "additionalProperties": false
-   }
-  },
-  "groups": {
-   "type": "array",
-   "description": "이 노드를 **켜는** 메커니즘 그룹 (M4.5 조건 층). 빌드가 그 그룹의 담체(젬)를 들었을 때 이 노드가 값을 낸다는 뜻이다. 비어 있으면 조건을 못 찾은 것 — 「조건이 없다」가 아니다. 그룹 정의는 KB에서 파생한다(`engine/mechanism_groups.py`)",
-   "items": {
-    "type": "string",
-    "minLength": 1
    }
   }
  },
