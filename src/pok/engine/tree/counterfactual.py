@@ -299,13 +299,20 @@ def evaluate_removals(
     경로만 만든다(제거 경로가 없다) ②위의 표본 폐기 방침이 반대다. 기준·변형 계산과
     델타 산술은 이 모듈 안에서 `evaluate_swaps`와 공유한다(중복 없음).
     """
+    from pok.engine.tree.deltas import TreeSwapMeasurer
+
     candidates = removable_nodes(spec, graph)
     allowed = set(candidates.nodes)
     own = daemon is None
     d = daemon or PobDaemon()
+    # 제거는 **트리만 바뀌는** 변경이라 데몬의 `TREE` 명령으로 잰다(#70 후속, 3.7배).
+    # ⚠ 단 `_drop`은 택1 노드를 뺄 때 `attribute_choices`도 함께 뺀다 — 그건 트리만
+    #   바뀐 것이 아니므로 측정기가 그 변형만 통째 로드로 보낸다. 캠페인 규모에서
+    #   이 차이가 13시간 대 3.8시간이다.
+    m = TreeSwapMeasurer(d, spec)
     out: list[NodeRemoval] = []
     try:
-        base = d.compute_build(spec)
+        base = m.base()
         base_failed = _pruned_reason(base.pruned_nodes, "기준 빌드") if base.pruned_nodes else ""
         for nid in targets:
             failed = base_failed or (
@@ -316,7 +323,7 @@ def evaluate_removals(
             pruned: tuple[int, ...] = ()
             deltas: dict[str, float] = {}
             if not failed:
-                result = d.compute_build(_drop(spec, nid))
+                result = m.measure(_drop(spec, nid))
                 pruned = result.pruned_nodes
                 if pruned:
                     failed = _pruned_reason(pruned, f"노드 {nid} 제거안")
@@ -414,13 +421,16 @@ def evaluate_swaps(
 
     **풀이 다른 교체는 재지 않는다** — 전직 포인트로 본 트리 노드를 찍을 수 없다(#68).
     """
+    from pok.engine.tree.deltas import TreeSwapMeasurer
+
     candidates = removable_nodes(spec, graph)
     roots = frozenset(candidates.roots)
     own = daemon is None
     d = daemon or PobDaemon()
+    m = TreeSwapMeasurer(d, spec)  # 교체도 트리만 바뀐다(#70 후속)
     out: list[SwapDelta] = []
     try:
-        base = d.compute_build(spec)
+        base = m.base()
         base_failed = _pruned_reason(base.pruned_nodes, "기준 빌드") if base.pruned_nodes else ""
         for out_node, in_node in swaps:
             reduced = (frozenset(spec.tree_nodes) - {out_node}) | roots
@@ -442,7 +452,7 @@ def evaluate_swaps(
                     failed = f"추가 경로가 제거한 노드 {out_node}를 다시 지나간다 — 교체가 아니다"
                 else:
                     added = tuple(path)
-                    result = d.compute_build(_drop(spec, out_node, added))
+                    result = m.measure(_drop(spec, out_node, added))
                     pruned = result.pruned_nodes
                     if pruned:
                         failed = _pruned_reason(pruned, f"{out_node}→{in_node} 교체안")

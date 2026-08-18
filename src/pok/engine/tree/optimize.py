@@ -19,6 +19,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple, Protocol
 
+from pok.engine.jewel_placement import Placement, place_jewels
 from pok.engine.objective import Target, TargetResult, evaluate_targets
 from pok.engine.tree.clusters import Cluster, find_clusters, relevance
 from pok.engine.tree.deltas import BundleDelta, NodeDelta, evaluate_bundles, evaluate_node_deltas
@@ -167,6 +168,8 @@ class OptimizeResult:
     # 앵커가 쓴 **전직** 포인트 — `point_budget`(일반 패시브)과 별도 풀이다(#68).
     # 합쳐 세면 전직 노드를 앵커로 넣을수록 일반 트리가 작아진다.
     ascendancy_points: int = 0
+    # 스냅샷 주얼을 새 트리에 되배치한 내역 — **왜 거기인지**가 각각 붙어 있다.
+    jewel_placements: tuple[Placement, ...] = ()
 
     @property
     def wasted_points(self) -> int:
@@ -197,6 +200,45 @@ class OptimizeResult:
         return tuple(out)
 
 
+def _power_ranked(
+    daemon: PobDaemon,
+    graph: TreeGraph,
+    current: BuildSpec,
+    tree_now: set[int],
+    budget: int,
+    banned: set[int],
+    slice_size: int,
+) -> list[int]:
+    """PoB `POWER`로 **트리 전체**를 훑어 포인트당 상위 후보를 낸다 (#77 대응).
+
+    그리디의 구조적 한계는 「반경 안만 본다」였다 — #70 재검증 실측: 예산 82포인트를
+    더 쓰고 폭을 **0.4%**만 넓혔고, 대각선이 정답지의 75%·DPS가 53%에서 멈췄다.
+    `POWER`는 미할당 노드 전량(3,793개)을 한 번에 재므로 반경 개념이 없다.
+
+    ⚠ **값이 아니라 순위만 쓴다.** `POWER`는 노드 하나만 더한 값이라 **경로 비용이
+    빠져 있다**(PoB 자신이 "Estimate"라 부른다). 전직 8종 실측: 값 오차 중앙 16.9%,
+    순위 상관은 총량 상관 0.808인데 **포인트당 0.954**다. 그래서 여기서도 포인트당으로
+    줄 세운다 — 그 보정이 곧 빠진 경로 비용의 근사다.
+
+    ⚠ **얕게 자르면 놓친다.** 실제 상위 5를 담으려면 추정 상위 **25위**까지 필요한
+    전직이 있었다(Witch3b). `slice_size`를 그대로 쓰는 이유이고, 줄이지 말 것.
+    """
+    power, _meta = daemon.node_power(("CombinedDPS", "TotalEHP"))
+    scored: list[tuple[float, int]] = []
+    for nid, deltas in power.items():
+        if nid in tree_now or nid in banned or nid not in graph.nodes:
+            continue
+        path = graph.shortest_path(tree_now, nid)
+        if not path or len(path) > budget:
+            continue
+        gain = max(deltas.get("CombinedDPS", 0.0), 0.0)
+        if gain <= 0:
+            continue
+        scored.append((gain / len(path), nid))
+    scored.sort(reverse=True)
+    return [nid for _, nid in scored[:slice_size]]
+
+
 def _with_free_zones(
     candidates: Iterable[tuple[int, Any, int]], cost: Callable[[int, int], int]
 ) -> list[tuple[int, Any, int]]:
@@ -212,6 +254,7 @@ def optimize_tree(
     point_budget: int,
     candidate_radius: int = 8,
     max_candidates_per_round: int = 40,
+    power_candidates: bool = False,
     stats: tuple[str, ...] | None = None,
     jewel_templates: tuple[str, ...] = (),
     exclude_nodes: tuple[int, ...] = (),
@@ -263,6 +306,9 @@ def optimize_tree(
     # 여전히 경쟁이라, 점수가 더 높은 다른 노드에 밀린다. 필수는 경쟁 대상이 아니라
     # **통과점**이다(사용자 정리 2026-08-12). 그리고 PoB가 못 재는 메커니즘 노드는
     # 델타가 0이라 그리디가 **절대** 안 뽑는다 — 여기서 박지 않으면 영영 안 들어온다.
+    # 최적화 **전** 주얼을 스냅샷한다 — 끝나고 새 트리에 되배치할 원본이다.
+    jewel_snapshot = tuple(j.text for j in spec.jewels if j.text)
+    timeless_notes = _timeless_notes(spec, graph)
     spec, anchor_notes, anchor_cost = _seed_anchors(spec, graph, required_anchors, point_budget)
     current = spec
     # 전직 포인트는 **빼지 않는다** — 인게임에서 별도 풀이라 일반 트리를 갉으면 안 된다(#68).
@@ -328,21 +374,31 @@ def optimize_tree(
                 if out_of_time():
                     break
                 tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
-                cands = [
-                    nid
-                    for nid, _, d in _with_free_zones(
-                        graph.candidates(
-                            tree_now,
-                            max_dist=reach,
-                            # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
-                            # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
-                            # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
-                            ascendancy_name=current.ascendancy,
-                        ),
-                        reachable_cost,
+                if power_candidates:
+                    # ⚠ 반경을 **안 본다.** 그리디의 구조적 한계가 「반경 안만 본다」였고
+                    #   (#77 실측: 폭의 0.4%만 그리디가 더했다), PoB의 `POWER`는 트리
+                    #   전체 3,793노드를 한 번에 잰다(25.6초). 값은 못 쓰고 **포인트당
+                    #   순위**만 쓴다 — 경로 비용이 빠져 있어서다(전직 8종 실측:
+                    #   총량 0.808 · 포인트당 0.954).
+                    cands = _power_ranked(
+                        daemon, graph, current, tree_now, budget, banned, slice_size
                     )
-                    if d <= budget and nid not in banned
-                ][:slice_size]
+                else:
+                    cands = [
+                        nid
+                        for nid, _, d in _with_free_zones(
+                            graph.candidates(
+                                tree_now,
+                                max_dist=reach,
+                                # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
+                                # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
+                                # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
+                                ascendancy_name=current.ascendancy,
+                            ),
+                            reachable_cost,
+                        )
+                        if d <= budget and nid not in banned
+                    ][:slice_size]
                 if not cands:
                     break
                 base = daemon.compute_build(current)
@@ -436,6 +492,18 @@ def optimize_tree(
         best_solution = _better(objective, best_solution, (current, final))
         assert best_solution is not None
         current, final = best_solution
+        # ── 스냅샷 주얼 되배치 ──
+        #
+        # 트리를 다시 짜면 소켓 구성이 달라진다. 가지치기가 트리에서 빠진 소켓의
+        # 주얼을 **동반 제거**하는 것은 **의도된 것이다**(사용자 확인 2026-08-18) —
+        # 소켓을 안 찍은 채로 주얼 모드가 계산에 들어가면 **측정 자체가 거짓말**이
+        # 된다. 탐색 중에는 그대로 두고, **끝에서** 새 트리의 빈 소켓에 되돌려
+        # 놓는다. 잘못이었던 것은 제거가 아니라 **침묵**이다 — 자리를 옮겼는지
+        # 아예 못 놓았는지가 산출물에 안 나왔다.
+        current, jewel_rows, jewel_place_notes = _restore_jewels(graph, current, jewel_snapshot)
+        if jewel_rows:
+            # 주얼이 바뀌었으면 **다시 잰다** — 안 그러면 실측값이 옛 주얼 구성의 것이다.
+            final = daemon.compute_build(current)
     # 후보 반경 **밖**의 뭉치를 함께 낸다 — 그리디가 구조적으로 못 보는 것이다(제안 A).
     far, notes = _scan_far_clusters(
         graph, current, cluster_include, cluster_exclude, candidate_radius
@@ -448,6 +516,8 @@ def optimize_tree(
     #   좁혔더니 실제 실행에서 안 떴다. 침묵이 과잉보다 나쁘다(이 결함 자체가 조용해서
     #   여러 회차를 살아남았다). 템플릿이 없으면 무조건 알린다.
     notes = (*notes, *jewel_notes)
+    notes = (*notes, *jewel_place_notes)
+    notes = (*notes, *timeless_notes)
     # 긴 점프는 **드러나야** 한다 — 노드 한 수와 섞여 있으면 「먼 축을 열었다」는
     # 사실이 보이지 않고, 그게 안 보이면 #70이 고쳐졌는지도 알 수 없다.
     notes = (*notes, *long_jumps)
@@ -480,6 +550,84 @@ def optimize_tree(
         far_clusters=far,
         notes=notes,
         ascendancy_points=anchor_cost.ascendancy,
+        jewel_placements=tuple(jewel_rows),
+    )
+
+
+def _restore_jewels(
+    graph: TreeGraph, spec: BuildSpec, snapshot: tuple[str, ...]
+) -> tuple[BuildSpec, list[Placement], list[str]]:
+    """스냅샷 주얼 중 **자리를 잃은 것**만 되배치한다.
+
+    ⛔ 탐색 중의 동반 제거를 되돌리는 게 아니다 — 그건 옳다(소켓 없이 주얼 모드가
+    계산에 들어가면 측정이 거짓이 된다). 여기는 **탐색이 끝난 뒤**, 남은 소켓에
+    다시 앉히는 자리다.
+
+    ⚠ 정품(스냅샷)과 **가정 탐침**(`jewel_templates`로 들어온 것)을 가른다 — 탐침은
+    소켓 값을 재려고 넣은 가짜라, 자리를 두고 다투면 **정품이 이긴다**. 탐침이 밀려
+    자리를 잃으면 그 소켓은 빈 채로 남는다(빈 소켓은 델타 0이지만, 가짜 주얼을
+    산출물에 남기는 것보다 낫다 — 산출물은 설계지 탐침이 아니다).
+    """
+    if not snapshot:
+        return spec, [], []
+    homeless = list(snapshot)
+    kept: list[JewelSpec] = []
+    for jewel in spec.jewels:
+        if jewel.text in homeless:  # 살아남은 정품 — 그 자리를 지킨다
+            homeless.remove(jewel.text)
+            kept.append(jewel)
+    if not homeless:
+        return spec, [], []
+    # 탐침은 전부 뗀 자리에서 되배치한다 — 정품이 먼저 고른다.
+    base = dataclasses.replace(spec, jewels=tuple(kept))
+    placed, rows, notes = place_jewels(graph, base, tuple(homeless))
+    moved = [r for r in rows if r.socket_node_id is not None]
+    if moved:
+        notes.append(
+            f"주얼 {len(moved)}개가 **자리를 옮겼다** — 원래 소켓이 새 트리에서 "
+            "빠졌다(가지치기가 회수했거나 애초에 안 찍혔다). 어디로 왜 갔는지는 "
+            "`jewel_placements`에 각각 붙어 있다"
+        )
+    probes = len(spec.jewels) - len(kept)
+    if probes:
+        notes.append(
+            f"가정 탐침 주얼 {probes}개를 뺐다 — 소켓 값을 재려고 넣은 가짜라 "
+            "산출물에 남기지 않는다(정품 스냅샷이 자리를 먼저 갖는다)"
+        )
+    return placed, rows, notes
+
+
+def _timeless_notes(spec: BuildSpec, graph: TreeGraph) -> tuple[str, ...]:
+    """타임리스 주얼이 있으면 **노드 델타가 그 노드의 값이 아님**을 말한다.
+
+    반경 주얼은 반경 안 노드에 옵션을 얹지만, 타임리스는 반경 안 패시브를 **다른
+    것으로 바꾼다**(Conquered). 그래서 그 주얼이 빠진 상태에서 잰 델타는 다른 노드의
+    값이고, 소켓이 가지치기로 회수되면 반경 안 노드가 **일제히 의미를 잃는다.**
+
+    실측 2026-08-18(래더 타이탄): `Undying Hate` 하나로 EHP의 93%가 서 있었다
+    (16,507 → 1,093). 코퍼스 1,175벌 중 106벌(9.0%)이 타임리스를 들고 있다.
+
+    ⚠ 여기서 소켓을 **자동으로 보호하지 않는다** — 무엇을 지킬지는 사용자 판단이고
+    (백로그 #85), 엔진이 임의로 트리를 고정하면 그건 판단을 넣은 것이다(철칙 3).
+    """
+    from pok.engine.jewels import is_timeless
+
+    allocated = set(spec.tree_nodes)
+    rows = [
+        (j, (j.text or "").splitlines()[1:2]) for j in spec.jewels if j.text and is_timeless(j.text)
+    ]
+    if not rows:
+        return ()
+    out = []
+    for jewel, name in rows:
+        where = "할당됨" if jewel.socket_node_id in allocated else "⛔ 소켓 미할당"
+        out.append(f"{name[0] if name else '?'}(소켓 {jewel.socket_node_id}, {where})")
+    return (
+        f"⚠ **타임리스 주얼** {' · '.join(out)} — 반경 안 패시브를 **다른 것으로 바꾼다**. "
+        "이 주얼이 빠진 채로 잰 노드 델타는 그 노드의 값이 아니고, 소켓이 가지치기로 "
+        "회수되면 반경 안 노드가 일제히 의미를 잃는다. 이 빌드의 트리 최적화 결과는 "
+        "**주얼을 꽂은 채로 다시 확인할 것**(실측: 타임리스 하나에 EHP의 93%가 실린 "
+        "래더 빌드가 있었다)",
     )
 
 
@@ -605,6 +753,22 @@ def _target_notes(objective: Objective, stats: dict[str, float]) -> tuple[str, .
             + " · ".join(
                 f"{r.label or r.metric} {r.measured:.0f} {r.op} {r.value:.0f}" for r in unmet
             )
+        )
+        # ⚠ **미달로 끝났다는 것은 사전식이 퇴화했다는 뜻이다.** 사전식은 「경계를
+        #   채운 뒤 다음 축」인데, 못 채우면 끝까지 첫 축만 민다 — 아래 축은 순서에
+        #   **한 번도 들어오지 못한다**. 그래서 이 산출물의 DPS는 「DPS를 최적화한
+        #   결과」가 아니라 첫 축을 밀다 딸려 온 값이다. 미달 사실만 말하고 이걸 안
+        #   말하면, 세션은 두 축을 다 최적화한 결과로 읽는다.
+        #   실측 2026-08-18(데드아이): 트리만으로 도달 가능한 EHP가 정답지의 59%라
+        #   바닥 60·80·100%가 전부 미달 — 서로 다른 바닥이 아니라 **서로 다른 세기의
+        #   가중치**로 작동했다(DPS 88·110·153%로 뒤죽박죽).
+        first = unmet[0]
+        out.append(
+            f"⚠ 첫 목표({first.label or first.metric})를 **끝내 못 채웠다** — 사전식은 "
+            "경계를 채운 뒤 다음 축으로 넘어가는데, 못 채우면 **아래 축은 순서에 한 번도 "
+            "들어오지 않는다**. 이 결과의 나머지 축 값은 최적화한 값이 아니라 딸려 온 "
+            "값이니 「두 축을 다 봤다」로 읽지 말 것. 목표가 이 구성에서 **도달 가능한지** "
+            "먼저 확인할 것(트리만으로 재는 중이면 주얼·장비 몫이 빠져 있다)"
         )
     return tuple(out)
 

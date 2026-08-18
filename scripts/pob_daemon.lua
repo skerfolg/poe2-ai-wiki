@@ -5,6 +5,7 @@
 --   부팅 완료  → "POK_READY" 출력
 --   <xml 경로> → 계산 후 POK_META / POK_ALLOC / POK_JSON / POK_DONE 출력
 --   TREE	<노드 CSV> → **로드된 빌드의 트리만** 갈아 끼우고 재계산(스킬·장비 재사용)
+--   POWER	<스탯 CSV> → **미할당 노드 전량**을 하나씩 더했을 때의 델타(추가 방향)
 --   "QUIT"     → 종료 (EOF도 동일)
 -- 각 응답 블록은 POK_DONE으로 닫힌다. 오류는 POK_ERR:<사유> 후 POK_DONE.
 -- 출력 형식 자체는 scripts/pob_driver.lua(1회 실행)와 동일 계약.
@@ -123,6 +124,55 @@ local function respond_item(raw)
   print("POK_RAW:" .. (tostring(built):gsub("\\", "\\\\"):gsub("\n", "\\n"):gsub("\r", "")))
 end
 
+-- 미할당 노드를 **하나씩 더했을 때**의 델타를 한 번에 낸다 (추가 방향 스파이크).
+--
+-- 우리 측정은 지금 「이미 찍은 노드를 빼면?」만 답한다(제거 축). 「안 찍은 노드를
+-- 찍으면?」은 후보마다 전체 재계산을 가정해 전수 46일로 잡혀 있었는데, PoB에는
+-- 그걸 위한 **전용 빠른 경로**가 있다 — `calcs.getMiscCalculator`는 기준 계산을
+-- 한 번만 돌리고 환경·DB를 재사용하는 클로저를 돌려준다("accelerated pass for
+-- hot loops"). PoB 자신의 노드 파워 색칠이 이 경로를 쓴다(`CalcsTab:PowerBuilder`).
+--
+-- ⚠ **경로 비용을 계산하지 않는다.** 노드 하나만 더한 값이라 「거기까지 잇는 데
+--    몇 포인트가 드나」는 빠져 있다. PoB 자신도 이것을 "Estimate"라 부른다 —
+--    조합 효과도 무시한다(단독 델타 0인 둘이 함께 1.44배인 사례가 있다).
+--    그래서 이건 **후보를 좁히는 신호**이지 값 그 자체가 아니다.
+local function respond_power(statCsv)
+  if not build or not build.calcsTab then
+    print("POK_ERR:로드된 빌드가 없다 — POWER 앞에 빌드 XML을 먼저 보낼 것")
+    return
+  end
+  local wanted = {}
+  for s in statCsv:gmatch("[^,]+") do wanted[#wanted + 1] = s end
+  if #wanted == 0 then wanted = { "CombinedDPS", "TotalEHP" } end
+
+  build.calcsTab:BuildOutput()
+  local base = build.calcsTab.mainOutput
+  local calcFunc = build.calcsTab:GetMiscCalculator()
+
+  -- 같은 효과를 가진 노드는 계산을 공유한다(트리 4,509노드 = 효과 조합 2,086종).
+  local cache, calls = {}, 0
+  local rows = 0
+  for nodeId, node in pairs(build.spec.nodes) do
+    if not node.alloc and node.modKey and node.modKey ~= "" then
+      local out = cache[node.modKey]
+      if not out then
+        out = calcFunc({ addNodes = { [node] = true } })
+        cache[node.modKey] = out
+        calls = calls + 1
+      end
+      local parts = {}
+      for _, stat in ipairs(wanted) do
+        parts[#parts + 1] = string.format('"%s":%.4f',
+          jesc(stat), (out[stat] or 0) - (base[stat] or 0))
+      end
+      print(string.format('POK_POWER:{"node":%d,"d":{%s}}',
+        nodeId, table.concat(parts, ",")))
+      rows = rows + 1
+    end
+  end
+  print(string.format('POK_POWERMETA:{"nodes":%d,"calcs":%d}', rows, calls))
+end
+
 print("POK_READY")
 io.stdout:flush()
 
@@ -133,6 +183,14 @@ for line in io.lines() do
   if treeCsv then
     local okT, errT = pcall(respond_tree, treeCsv)
     if not okT then print("POK_ERR:" .. jesc(errT)) end
+    print("POK_DONE")
+    io.stdout:flush()
+    goto continue
+  end
+  local powerCsv = line:match("^POWER	(.*)$")
+  if powerCsv then
+    local okP, errP = pcall(respond_power, powerCsv)
+    if not okP then print("POK_ERR:" .. jesc(errP)) end
     print("POK_DONE")
     io.stdout:flush()
     goto continue

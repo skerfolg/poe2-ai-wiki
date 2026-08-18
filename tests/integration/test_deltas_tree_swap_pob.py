@@ -17,7 +17,7 @@ from collections.abc import Iterator
 import pytest
 
 from pok.common.paths import knowledge_dir
-from pok.engine.tree.deltas import _Measurer
+from pok.engine.tree.deltas import TreeSwapMeasurer
 from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import BuildSpec, GemSpec, SkillGroupSpec
 from pok.pob.daemon import PobDaemon
@@ -85,9 +85,9 @@ def test_두_경로가_같은_값을_낸다(spec: BuildSpec, daemon: PobDaemon) 
 
 
 def test_측정기가_두_경로를_섞어도_값이_유지된다(spec: BuildSpec, daemon: PobDaemon) -> None:
-    """`_Measurer`를 거쳐도 같은 값이 나오는가 — 토대 재로드 판정까지 함께 탄다."""
+    """`TreeSwapMeasurer`를 거쳐도 같은 값이 나오는가 — 토대 재로드 판정까지 함께 탄다."""
     smaller = dataclasses.replace(spec, tree_nodes=tuple(spec.tree_nodes[:-1]))
-    m = _Measurer(daemon, spec)
+    m = TreeSwapMeasurer(daemon, spec)
     m.base()
     measured = m.measure(smaller)
 

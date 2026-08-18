@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import dataclasses
 
-from pok.engine.tree.deltas import _Measurer, _tree_only
+from pok.engine.tree.deltas import TreeSwapMeasurer, _tree_only
 from pok.pob.buildxml import BuildSpec, ItemSpec, JewelSpec
 
 
@@ -48,7 +48,7 @@ def _spec(**kw) -> BuildSpec:
 def test_트리만_바뀌면_트리_명령으로_잰다() -> None:
     base = _spec()
     d = _Daemon()
-    m = _Measurer(d, base)
+    m = TreeSwapMeasurer(d, base)
     m.base()
     m.measure(dataclasses.replace(base, tree_nodes=(1, 2, 3)))
 
@@ -59,7 +59,7 @@ def test_아이템이_바뀌면_통째로_올린다() -> None:
     """주얼을 꽂는 변형은 아이템이 바뀐다 — `compute_tree`로는 반영되지 않는다."""
     base = _spec()
     d = _Daemon()
-    m = _Measurer(d, base)
+    m = TreeSwapMeasurer(d, base)
     m.base()
     with_jewel = dataclasses.replace(
         base, tree_nodes=(1, 2, 3), jewels=(JewelSpec(socket_node_id=3, text="x"),)
@@ -74,7 +74,7 @@ def test_다른_빌드가_올라가_있으면_기준을_다시_올린다() -> No
     토대가 그 주얼 빌드다 — 기준을 다시 올린 뒤에 트리를 갈아 끼워야 한다."""
     base = _spec()
     d = _Daemon()
-    m = _Measurer(d, base)
+    m = TreeSwapMeasurer(d, base)
     m.base()
     m.measure(dataclasses.replace(base, tree_nodes=(1, 2, 3), jewels=(JewelSpec(3, "x"),)))
     m.measure(dataclasses.replace(base, tree_nodes=(1, 2, 4)))
@@ -95,7 +95,7 @@ def test_속성_선택이_다르면_트리_명령을_쓰지_않는다() -> None:
     assert not _tree_only(base, variant)
 
     d = _Daemon()
-    m = _Measurer(d, base)
+    m = TreeSwapMeasurer(d, base)
     m.base()
     m.measure(variant)
     assert d.calls[-1][0] == "build"

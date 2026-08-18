@@ -21,7 +21,8 @@
     "Defence",
     "Content",
     "Build",
-     "UsageProfile"
+    "UsageProfile",
+    "NodeValue"
    ]
   },
   "name": {
@@ -96,7 +97,7 @@
  "$defs": {
   "entityId": {
    "type": "string",
-   "pattern": "^(skill|support|passive|ascendancy|item|modifier|event|resource|mechanic|defence|content|build|usage-profile)\\.[a-z0-9][a-z0-9-]*$"
+   "pattern": "^(skill|support|passive|ascendancy|item|modifier|event|resource|mechanic|defence|content|build|usage-profile|node-value)\\.[a-z0-9][a-z0-9-]*$"
   },
   "edge": {
    "type": "object",

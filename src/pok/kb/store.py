@@ -55,6 +55,7 @@ _TYPE_SCHEMA = {
     "Build": "build.schema.json",  # #67 시즌 메타 8축 (사용자 승인 2026-08-11)
     # #67 메커니즘 동반 프로파일 — 클래스 간 이식 가능성을 본다 (사용자 승인 2026-08-12)
     "UsageProfile": "usage-profile.schema.json",
+    "NodeValue": "node-value.schema.json",
     # 나머지 타입은 P1b에서 스키마 추가 시 등록
 }
 
