@@ -16,6 +16,7 @@ from __future__ import annotations
 import collections
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 # PoB 실측 (5d173cb): 클래스명 → (시작 노드, 시작 인접 — 어센던시 시작 제외 전)
 CLASS_START: dict[str, int] = {
@@ -47,6 +48,10 @@ GRANTED_ASCENDANCY_NODES: dict[str, tuple[int, ...]] = {
 #    함께 세고 있었기 때문이다(아래 `free_nodes` 세 형태). 관측을 게임 규칙으로 오독하면
 #    정확히 이런 표가 나온다 — 숫자는 맞는데 뜻이 틀렸다.
 ASCENDANCY_POINTS = 8
+
+# 100레벨 기준 **일반** 패시브 포인트 (사용자 판정 2026-08-16). 전직 포인트와
+# 합산하면 안 된다 — 별도 풀이다. 합산한 트리는 PoB에서 132/123으로 뜬다.
+GENERAL_POINTS = 123
 
 _START_LINKS: dict[int, tuple[int, ...]] = {
     # ⚠ 59822(블러드 메이지)를 빼 뒀었는데 **그게 결함이었다**(실측 2026-08-12).
@@ -199,6 +204,42 @@ class TreeGraph:
                         return path[::-1]
                     q.append(nb)
         return None
+
+    def point_split(
+        self, ascendancy: str | None, allocated: collections.abc.Iterable[int]
+    ) -> dict[str, Any]:
+        """할당 노드 → 일반/전직 포인트 분리.
+
+        ⛔ **두 풀을 더하지 말 것.** 전직은 일반 예산(`GENERAL_POINTS`)을 갉지 않고,
+        전직 관문 노드(예: 혈액술)는 무료라 노드 수와 포인트 수도 다르다. 합산하면
+        123짜리 트리가 132로 세어져 예산 판정이 조용히 틀린다 — 그래서 이 분리를
+        문서가 아니라 반환값에 붙인다(철칙 5).
+        """
+        nodes = list(dict.fromkeys(allocated))
+        free = self.free_nodes(ascendancy, set(nodes))
+        asc = [n for n in nodes if (nd := self.nodes.get(n)) is not None and nd.ascendancy]
+        unknown = [n for n in nodes if n not in self.nodes]
+        general = [n for n in nodes if n not in asc and n not in unknown]
+        paid_asc = [n for n in asc if n not in free]
+        out: dict[str, Any] = {
+            "general": len(general),
+            "general_budget": GENERAL_POINTS,
+            "ascendancy": len(paid_asc),
+            "ascendancy_budget": ASCENDANCY_POINTS,
+            "ascendancy_nodes": len(asc),
+            "ascendancy_free": len(asc) - len(paid_asc),
+            "total_nodes": len(nodes),
+        }
+        over = []
+        if len(general) > GENERAL_POINTS:
+            over.append(f"일반 {len(general)}/{GENERAL_POINTS}")
+        if len(paid_asc) > ASCENDANCY_POINTS:
+            over.append(f"전직 {len(paid_asc)}/{ASCENDANCY_POINTS}")
+        if over:
+            out["over_budget"] = " · ".join(over)
+        if unknown:
+            out["unknown_nodes"] = unknown
+        return out
 
     def granted_nodes(self, ascendancy: str | None) -> frozenset[int]:
         """그 전직이 **공짜로 들고 시작하는** 노드 (없으면 빈 집합)."""

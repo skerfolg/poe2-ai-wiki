@@ -461,6 +461,7 @@ compute_trigger_rate = tool(_constraints.compute_trigger_rate)
 # 트리 최적화 도구 (P4) — tools/tree.py
 connect_anchors = tool(_tree.connect_anchors)
 optimize_tree = tool(_tree.optimize_tree)
+measure_tree_slack = tool(_tree.measure_tree_slack)
 evaluate_bundles = tool(_tree.evaluate_bundles)
 evaluate_change_bundle = tool(_tree.evaluate_change_bundle)
 optimize_items = tool(_tree.optimize_items)
