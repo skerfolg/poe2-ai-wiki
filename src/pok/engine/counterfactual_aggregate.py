@@ -33,7 +33,7 @@ import json
 import math
 import statistics
 import zlib
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -77,6 +77,38 @@ class _Node:
     axes: dict[str, list[float]] = field(default_factory=lambda: defaultdict(list))
     tainted: int = 0
     unmeasured: int = 0
+    n_rows: int = 0  # 이 노드를 잰 관측 수 (그룹 리프트의 분모)
+    n_fired: int = 0  # 그중 무엇이든 움직인 관측 수
+    # 이 노드가 **작동한** 빌드들이 쓰던 메커니즘 그룹 (M4.5 조건 층)
+    fired_groups: Counter[str] = field(default_factory=Counter)
+    seen_groups: Counter[str] = field(default_factory=Counter)
+
+    @property
+    def groups(self) -> set[str]:
+        """이 노드를 **켜는** 그룹만. ⛔ 대조군을 봐야 한다.
+
+        처음엔 「작동한 빌드가 이 그룹을 썼나」(hit/seen)로 판정했다가 **노드마다
+        16~18개가 전부 붙었다**(실측 2026-08-18). 두 가지가 틀렸다:
+        ①그룹이 넓다 — `마나`는 젬 55종이라 거의 모든 빌드가 해당한다. 흔한 것은
+        아무것도 설명하지 못한다. ②**안 쓴 빌드와 비교하지 않았다** — 그 그룹이
+        없을 때도 똑같이 작동했다면 조건이 아니다.
+
+        그래서 리프트로 본다: P(작동 | 그룹 있음) / P(작동 | 그룹 없음).
+        """
+        out: set[str] = set()
+        for name, seen in self.seen_groups.items():
+            without = self.n_rows - seen
+            hit = self.fired_groups.get(name, 0)
+            # 양쪽 표본이 있어야 비교가 성립한다
+            if seen < 5 or without < 5:
+                continue
+            p_with = hit / seen
+            p_without = (self.n_fired - hit) / without
+            if p_with < 0.3:  # 그룹이 있어도 대부분 안 켜지면 조건이 아니다
+                continue
+            if p_without == 0 or p_with / p_without >= 2.0:
+                out.add(name)
+        return out
 
 
 def _spread(values: list[float]) -> dict[str, float]:
@@ -99,6 +131,19 @@ def _loss_pct(base: float, delta: float) -> float | None:
     return -delta / base * 100.0
 
 
+def _build_groups(spec: Any, groups: dict[str, Any]) -> set[str]:
+    """이 빌드가 든 젬 → 메커니즘 그룹 (M4.5 조건 층)."""
+    from pok.engine.mechanism_groups import groups_of
+
+    names = []
+    for group in spec.skills:
+        for gem in getattr(group, "gems", ()) or ():
+            name = getattr(gem, "name", None) or getattr(gem, "skill_id", "")
+            if name:
+                names.append(str(name))
+    return groups_of(names, groups)
+
+
 def _spec_of(doc: dict[str, Any]) -> Any:
     from pok.pob.buildxml import spec_from_dict
     from pok.pob.restore import spec_from_pob_xml
@@ -116,8 +161,11 @@ def collect(
     limit: int | None = None,
 ) -> tuple[dict[int, _Node], dict[str, int], str]:
     """1층 결과를 훑어 노드별로 모은다. 반환은 (노드별, 시즌 커버리지, pob_commit)."""
+    from pok.engine.mechanism_groups import derive
+
     results = campaign_dir(season, base=base) / REMOVALS
     baselines = load_baselines(season, base=base)
+    groups = derive()
     if not baselines:
         raise SystemExit(
             f"⛔ 기준값이 없다 ({campaign_dir(season, base=base) / BASELINES}) — "
@@ -149,6 +197,8 @@ def collect(
         base_stats = baselines.get(bid)
         if base_stats is None:
             continue  # 기준을 못 구한 빌드는 비율을 못 낸다 — 세지도 않는다
+        # 이 빌드가 쓰는 메커니즘 — 노드의 **조건**을 짚는 데 쓴다(M4.5)
+        build_groups = _build_groups(spec, groups)
         taint = classify(spec, graph)
         pob_commit = pob_commit or str(result.get("pob_commit") or "")
         cov["builds_measured"] += 1
@@ -169,6 +219,13 @@ def collect(
                 continue
             cov["rows_kept"] += 1
             here.points.append(int(row.get("points") or 1))
+            fired = any(abs(float(v)) > 0 for v in row["deltas"].values())
+            here.n_rows += 1
+            here.n_fired += int(fired)
+            for name in build_groups:
+                here.seen_groups[name] += 1
+                if fired:
+                    here.fired_groups[name] += 1
             for stat, delta in row["deltas"].items():
                 loss = _loss_pct(base_stats.get(stat, 0.0), float(delta))
                 if loss is not None and math.isfinite(loss):
@@ -207,17 +264,24 @@ def build_records(
     )
     out: list[dict[str, Any]] = []
     for nid, node in sorted(nodes.items()):
-        axes = {
-            stat: {
+        axes = {}
+        for stat, values in sorted(node.axes.items()):
+            if not values:
+                continue
+            # ⛔ **작동한 관측만 따로 낸다.** 전 빌드를 뭉친 중앙값은 조건부 노드를
+            #    「쓸모없는 노드」와 같은 0으로 만든다(#84). 실측 2026-08-18:
+            #    Mind Over Matter는 전체 중앙 거의 0인데 작동률 1.4%·작동시 36.6%고,
+            #    Gathering Winds는 어느 빌드에서도 안 움직인다 — 둘이 갈려야 한다.
+            active = [v for v in values if abs(v) >= _ZERO_EPS]
+            zero_share = round((len(values) - len(active)) / len(values) * 100, 2)
+            axes[stat] = {
                 "n": len(values),
                 "loss_pct": _spread(values),
-                "zero_share": round(
-                    sum(1 for v in values if abs(v) < _ZERO_EPS) / len(values) * 100, 2
-                ),
+                "zero_share": zero_share,
+                "active_share": round(100.0 - zero_share, 2),
+                "n_active": len(active),
+                "when_active": _spread(active),
             }
-            for stat, values in sorted(node.axes.items())
-            if values
-        }
         ref, kb_kind = index.get(nid, ("", ""))
         node_block: dict[str, Any] = {
             "node_id": nid,
@@ -239,6 +303,8 @@ def build_records(
             "points": _spread([float(p) for p in node.points]),
             "axes": axes,
         }
+        if node.groups:
+            data["groups"] = sorted(node.groups)
         out.append(
             {
                 # id는 **점 하나 + `[a-z0-9-]`**만 받는다 — 시즌과 번호를 대시로 잇는다

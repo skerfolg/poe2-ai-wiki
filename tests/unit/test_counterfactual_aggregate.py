@@ -177,3 +177,56 @@ def test_KB에_없는_노드는_ref_없이_낸다() -> None:
         refs={},
     )
     assert "ref" not in rec["data"]["node"]
+
+
+def test_조건부와_쓸모없음이_갈린다() -> None:
+    """⛔ 전 빌드를 뭉친 중앙값은 둘을 **같은 0**으로 낸다(#84).
+
+    실측 2026-08-18: Mind Over Matter는 전체 중앙 거의 0인데 작동률 1.4%·작동시
+    36.6%다. Gathering Winds는 어느 빌드에서도 안 움직인다. 스키마가 이 둘을
+    구별하지 못하면 「빼도 된다」는 정반대 결론이 나온다.
+    """
+    conditional = agg._Node(kind="keystone", label="조건부")
+    conditional.points = [1] * 10
+    conditional.axes["CombinedDPS"] = [0.0] * 9 + [36.6]
+
+    useless = agg._Node(kind="notable", label="안 움직임")
+    useless.points = [1] * 10
+    useless.axes["CombinedDPS"] = [0.0] * 10
+
+    recs = agg.build_records(
+        "0-5",
+        {1: conditional, 2: useless},
+        {"builds_measured": 10, "rows_kept": 20, "rows_total": 20},
+        pob_commit="abc",
+        tree_nodes=4553,
+        refs={},
+    )
+    cond_ax = recs[0]["data"]["axes"]["CombinedDPS"]
+    dead_ax = recs[1]["data"]["axes"]["CombinedDPS"]
+    assert cond_ax["loss_pct"]["median"] == dead_ax["loss_pct"]["median"] == 0.0, "뭉치면 같다"
+    assert cond_ax["when_active"]["median"] == 36.6, "작동할 땐 큰 것이 안 보인다"
+    assert dead_ax["n_active"] == 0 and cond_ax["n_active"] == 1
+    assert cond_ax["active_share"] == 10.0 and dead_ax["active_share"] == 0.0
+
+
+def test_대조군_없이는_그룹을_붙이지_않는다() -> None:
+    """⛔ 실측 2026-08-18: 대조군을 안 봤더니 **노드마다 16~18개가 전부 붙었다**.
+    「작동한 빌드가 이 그룹을 썼다」는 그 그룹이 넓으면(마나는 젬 55종) 늘 참이다.
+    그룹이 **없을 때도** 똑같이 작동했다면 조건이 아니다."""
+    node = agg._Node(kind="notable", label="그룹 판정")
+    node.n_rows, node.n_fired = 40, 20
+    # 저주: 있을 때 18/20 작동, 없을 때 2/20 → 조건이다
+    # 마나: 있을 때 10/20, 없을 때 10/20 → 아무것도 설명 못 한다
+    node.seen_groups.update({"저주": 20, "마나": 20})
+    node.fired_groups.update({"저주": 18, "마나": 10})
+    assert node.groups == {"저주"}
+
+
+def test_모든_빌드가_쓰는_그룹은_비교_자체가_안_된다() -> None:
+    """대조군이 없으면(전원 보유) 리프트를 못 낸다 — 조용히 붙이지 않는다."""
+    node = agg._Node(kind="notable", label="전원 보유")
+    node.n_rows, node.n_fired = 30, 15
+    node.seen_groups.update({"마나": 30})
+    node.fired_groups.update({"마나": 15})
+    assert node.groups == set()
