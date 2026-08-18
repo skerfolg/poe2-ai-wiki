@@ -608,7 +608,7 @@ def _timeless_notes(spec: BuildSpec, graph: TreeGraph) -> tuple[str, ...]:
     (16,507 → 1,093). 코퍼스 1,175벌 중 106벌(9.0%)이 타임리스를 들고 있다.
 
     ⚠ 여기서 소켓을 **자동으로 보호하지 않는다** — 무엇을 지킬지는 사용자 판단이고
-    (백로그 #81), 엔진이 임의로 트리를 고정하면 그건 판단을 넣은 것이다(철칙 3).
+    (백로그 #85), 엔진이 임의로 트리를 고정하면 그건 판단을 넣은 것이다(철칙 3).
     """
     from pok.engine.jewels import is_timeless
 

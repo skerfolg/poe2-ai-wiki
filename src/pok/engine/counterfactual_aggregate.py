@@ -19,7 +19,7 @@
 
 1층은 주얼을 꽂은 채 쟀으므로 **빌드별로는 옳다**. 섞이는 것은 집계할 때다 —
 타임리스가 바꾼 노드, 반경 부여가 값을 얹은 노드는 「그 노드의 값」이 아니다
-(`jewel_taint`, BACKLOG #81).
+(`jewel_taint`, BACKLOG #85).
 
 ⛔ **관측이 0인 노드도 레코드를 만든다.** 「빼도 안 아프다」와 「재지 못했다」는 다른
 말인데, 레코드가 없으면 후자가 전자로 읽힌다(BACKLOG 형태 ①).
@@ -88,7 +88,7 @@ class _Node:
     def groups_for(self, stat: str) -> dict[str, float]:
         """이 축에서 이 노드를 켜는 그룹 → 리프트.
 
-        ⛔ **지금 이 값은 레코드에 싣지 않는다**(BACKLOG #85). 컨셉 홀드아웃에서
+        ⛔ **지금 이 값은 레코드에 싣지 않는다**(BACKLOG #89). 컨셉 홀드아웃에서
         일반화되지 않았다 — 재현 58.5% vs 기저 53.0%, 5회 중 2회는 기저보다 낮았다.
         코퍼스가 컨셉 112종에 50벌씩으로 잘려 있어, 그 안에서만 성립하는 상관이 조건처럼
         보인 것이다. 계산은 **버리지 않고 남긴다** — 표본 설계를 고치거나 조건을
@@ -271,7 +271,7 @@ def build_records(
     }
     basis = (
         f"래더 {season} 제거 반사실 {coverage['rows_kept']:,}행 "
-        f"({coverage['builds_measured']:,}벌) · 주얼 오염 제외(BACKLOG #81)"
+        f"({coverage['builds_measured']:,}벌) · 주얼 오염 제외(BACKLOG #85)"
     )
     out: list[dict[str, Any]] = []
     for nid, node in sorted(nodes.items()):
@@ -280,7 +280,7 @@ def build_records(
             if not values:
                 continue
             # ⛔ **작동한 관측만 따로 낸다.** 전 빌드를 뭉친 중앙값은 조건부 노드를
-            #    「쓸모없는 노드」와 같은 0으로 만든다(#84). 실측 2026-08-18:
+            #    「쓸모없는 노드」와 같은 0으로 만든다(#88). 실측 2026-08-18:
             #    Mind Over Matter는 전체 중앙 거의 0인데 작동률 1.4%·작동시 36.6%고,
             #    Gathering Winds는 어느 빌드에서도 안 움직인다 — 둘이 갈려야 한다.
             active = [v for v in values if abs(v) >= _ZERO_EPS]

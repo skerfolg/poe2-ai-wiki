@@ -96,7 +96,7 @@ def test_반경_부여는_그_노드만_뺀다() -> None:
 
 def test_연결_불요는_오염이_아니다() -> None:
     """⛔ 옵션을 안 얹고 **길 제약만** 푼다 — 노드는 제 값 그대로다.
-    이걸 오염으로 세면 코퍼스의 48.8%를 근거 없이 버린다(별개 문제는 #83)."""
+    이걸 오염으로 세면 코퍼스의 48.8%를 근거 없이 버린다(별개 문제는 #87)."""
     socket, near = _socket_with_neighbours(5)
     spec = _spec((JewelSpec(socket_node_id=socket, text=_NOCONN),), [socket, *near])
     got = classify(spec, _graph)

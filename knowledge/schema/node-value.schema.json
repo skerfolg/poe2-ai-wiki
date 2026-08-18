@@ -70,7 +70,7 @@
     },
     "excluded": {
      "type": "object",
-     "description": "관측이 있었는데 **뺀** 몫과 사유. `jewel_tainted`는 주얼이 값을 얹거나 바꾼 노드(#81 — 타임리스·반경 부여), `unmeasured`는 PoB가 못 잰 것",
+     "description": "관측이 있었는데 **뺀** 몫과 사유. `jewel_tainted`는 주얼이 값을 얹거나 바꾼 노드(#85 — 타임리스·반경 부여), `unmeasured`는 PoB가 못 잰 것",
      "properties": {
       "jewel_tainted": {
        "type": "integer",
@@ -97,7 +97,7 @@
     },
     "coverage": {
      "type": "object",
-     "description": "시즌 전체 그림. **레코드마다 싣는다** — get_entry가 하나만 꺼내 주므로, 여기 없으면 「이 노드가 전체에서 어떤 위치인지」를 읽는 쪽이 알 수 없다. ⚠ `nodes_observed < tree_nodes`인 몫은 **아무도 안 찍은 노드 + 후보에서 빠진 노드**다(연결 불요 주얼 때문에 고아로 잡힌 것 포함 — BACKLOG #83)",
+     "description": "시즌 전체 그림. **레코드마다 싣는다** — get_entry가 하나만 꺼내 주므로, 여기 없으면 「이 노드가 전체에서 어떤 위치인지」를 읽는 쪽이 알 수 없다. ⚠ `nodes_observed < tree_nodes`인 몫은 **아무도 안 찍은 노드 + 후보에서 빠진 노드**다(연결 불요 주얼 때문에 고아로 잡힌 것 포함 — BACKLOG #87)",
      "properties": {
       "tree_nodes": {
        "type": "integer",
@@ -145,7 +145,7 @@
   },
   "axes": {
    "type": "object",
-   "description": "축별 손실. 키는 PoB 스탯 이름 그대로(`CombinedDPS`·`TotalEHP` …) — 우리 이름으로 바꾸면 오라클과 대조가 끊긴다 ⚠ **조건(메커니즘 그룹)은 여기 없다** — 코퍼스 상관으로 부착해 봤으나 컨셉 홀드아웃에서 일반화되지 않았다(재현 58.5% vs 기저 53.0%, BACKLOG #85). 근거 없는 조건이 「측정된 것」으로 굳으면 정본이 오염된다.",
+   "description": "축별 손실. 키는 PoB 스탯 이름 그대로(`CombinedDPS`·`TotalEHP` …) — 우리 이름으로 바꾸면 오라클과 대조가 끊긴다 ⚠ **조건(메커니즘 그룹)은 여기 없다** — 코퍼스 상관으로 부착해 봤으나 컨셉 홀드아웃에서 일반화되지 않았다(재현 58.5% vs 기저 53.0%, BACKLOG #89). 근거 없는 조건이 「측정된 것」으로 굳으면 정본이 오염된다.",
    "minProperties": 0,
    "additionalProperties": {
     "type": "object",

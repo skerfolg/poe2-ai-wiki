@@ -111,7 +111,7 @@ def test_후보에서_빠진_이유가_결과에_남는다(monkeypatch: Any) -> 
 
     특히 `graph_orphans`는 **연결 불요 주얼**(From Nothing 등, 코퍼스 48.8%) 때문에
     길 없이 할당된 정상 노드일 수 있다. 우리 그래프는 그걸 고아로 판정해 후보에서
-    빼는데, 그 사실이 안 남으면 **없는 값이 0으로 읽힌다**(BACKLOG #83).
+    빼는데, 그 사실이 안 남으면 **없는 값이 0으로 읽힌다**(BACKLOG #87).
     실측 2026-08-18: 연결 불요 주얼 보유 빌드 39/40에서 고아 발생, 중앙 7개.
     """
     from pok.common.paths import knowledge_dir
