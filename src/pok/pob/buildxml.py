@@ -3,8 +3,14 @@
 계약 (Phase 0 실측, scripts/pob_smoke.lua 머리주석과 동일 근거):
 - 루트는 `PathOfBuilding2`, `targetVersion`은 **빌드 포맷 버전 "0_1" 고정**
   (게임 버전 아님 — 다른 값이면 변환 팝업으로 조기 return, Tree/Skills 무증상 유실).
-- 클래스는 신형식 `classInternalId`(아래 표) + `ascendancyInternalId`
-  ("Sorceress1" 등 — KB Passive 레코드의 `ascendancy` 코드와 동일 체계).
+- 클래스·전직은 **구·신 형식을 모두** 쓴다: 신형식 `classInternalId`+
+  `ascendancyInternalId`("Sorceress1" 등 — KB Passive 레코드의 `ascendancy` 코드와
+  동일 체계)에 더해 구형식 `classId`+`ascendClassId`, 그리고 `<Build>`의
+  `ascendClassName`까지 낸다. **신형식만 내면 안 된다** — PoB 자신이 저장할 때
+  다섯을 전부 쓰고(`PassiveSpec.lua:253-264`), 빌드 목록·표시 계층은 구형식만
+  읽는다(`BuildListHelpers.lua:53`). 신형식만 낸 코드는 전직이 빈칸으로 읽혀
+  전직 9노드가 **일반 패시브로 세어진다**(실측 2026-08-18: 123+9가 132/123으로
+  표시, `parse_pob`도 `ascendancy=""`를 냈다).
 - `characterLevelAutoMode="false"` 로 명시 레벨 고정.
 - 트리 노드 id는 KB(poe2db)·PoB 공통 id 공간 (실측: 5642=Behemoth 일치).
   시작점과 연결되지 않은 노드는 PoB가 로드 시 소리 없이 해제 → runner가
@@ -36,6 +42,48 @@ CLASS_INTERNAL_ID = {
     "Mercenary": 9,
     "Monk": 10,
     "Druid": 11,
+}
+
+# 구형식 `classId` — `classInternalId`와 **다른 수다**(Witch는 테이블 6, integerId 1).
+# 출처: 고정 PoB `src/TreeData/0_5/tree.lua`의 `classes` 테이블 키.
+CLASS_LEGACY_ID = {
+    "Ranger": 1,
+    "Huntress": 2,
+    "Warrior": 3,
+    "Mercenary": 4,
+    "Druid": 5,
+    "Witch": 6,
+    "Sorceress": 7,
+    "Monk": 8,
+}
+
+# internalId → (구형식 ascendClassId, 표시명). 같은 출처의 `ascendancies` 테이블 키.
+# ⚠ 코드 끝자리 ≠ id다 — "Witch3b"(심연 리치)는 4번이다. 유추하지 말 것.
+# 표가 트리 데이터와 어긋나면 tests/unit/test_buildxml_ascendancy.py가 막는다.
+ASCENDANCY_ID = {
+    "Ranger1": (1, "Deadeye"),
+    "Ranger3": (2, "Pathfinder"),
+    "Huntress1": (1, "Amazon"),
+    "Huntress2": (2, "Spirit Walker"),
+    "Huntress3": (3, "Ritualist"),
+    "Warrior1": (1, "Titan"),
+    "Warrior2": (2, "Warbringer"),
+    "Warrior3": (3, "Smith of Kitava"),
+    "Mercenary1": (1, "Tactician"),
+    "Mercenary2": (2, "Witchhunter"),
+    "Mercenary3": (3, "Gemling Legionnaire"),
+    "Druid1": (1, "Oracle"),
+    "Druid2": (2, "Shaman"),
+    "Witch1": (1, "Infernalist"),
+    "Witch2": (2, "Blood Mage"),
+    "Witch3": (3, "Lich"),
+    "Witch3b": (4, "Abyssal Lich"),
+    "Sorceress1": (1, "Stormweaver"),
+    "Sorceress2": (2, "Chronomancer"),
+    "Sorceress3": (3, "Disciple of Varashta"),
+    "Monk1": (1, "Martial Artist"),
+    "Monk2": (2, "Invoker"),
+    "Monk3": (3, "Acolyte of Chayula"),
 }
 
 
@@ -684,13 +732,25 @@ def to_xml(spec: BuildSpec) -> str:
         n for j in spec.jewels for n in j.allocates if n not in spec.tree_nodes
     ]
     nodes = ",".join(str(n) for n in dict.fromkeys(allocated))
+    # 전직: 신형식(internalId)만으로는 표시 계층이 못 읽는다 — 구형식 id·표시명도 낸다.
+    if spec.ascendancy and spec.ascendancy not in ASCENDANCY_ID:
+        raise ValueError(
+            f"알 수 없는 전직 코드: {spec.ascendancy!r} (허용: {sorted(ASCENDANCY_ID)}) — "
+            "끝자리로 번호를 유추하면 틀린다(Witch3b는 4번)"
+        )
+    ascend_class_id, ascend_class_name = (
+        ASCENDANCY_ID[spec.ascendancy] if spec.ascendancy else (0, "None")
+    )
     build_attrs = (
         f'level="{spec.level}" characterLevelAutoMode="false" '
         f'targetVersion="{TARGET_VERSION}" className={quoteattr(spec.class_name)} '
+        f"ascendClassName={quoteattr(ascend_class_name)} "
         f'mainSocketGroup="{spec.main_socket_group}"'
     )
     spec_attrs = (
         f'title="pok" treeVersion="{TREE_VERSION}" '
+        f'classId="{CLASS_LEGACY_ID[spec.class_name]}" '
+        f'ascendClassId="{ascend_class_id}" secondaryAscendClassId="0" '
         f'classInternalId="{CLASS_INTERNAL_ID[spec.class_name]}" '
         f"ascendancyInternalId={quoteattr(spec.ascendancy)} nodes={quoteattr(nodes)}"
     )

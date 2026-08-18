@@ -37,6 +37,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import functools
+import re
 from pathlib import Path
 from typing import Any
 
@@ -214,6 +215,166 @@ def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _points(tree_nodes: Any, ascendancy: Any) -> dict[str, Any]:
+    """일반/전직 포인트 분리를 반환값에 붙인다 (철칙 5 — 감지되면 도구에 넣는다).
+
+    ⛔ `len(tree_nodes)`를 예산과 비교하지 말 것 — 전직 노드가 섞여 있고 관문 노드는
+    무료다. 실측 2026-08-18: 일반 123짜리 트리가 132로 세어져 PoB에서 예산 초과로
+    떴다. 그 사고 전까지 **어느 반환값에도 분리 수치가 없어** 호출자가 전직 node_id를
+    손으로 하드코딩해 빼고 있었다.
+    """
+    from pok.mcp.tools.tree import _get_graph
+
+    try:
+        return _get_graph().point_split(ascendancy, list(tree_nodes or ()))
+    except Exception as e:  # KB 미가용 등 — 계산 결과를 통째로 잃지는 않는다
+        return {"error": f"포인트 분리 실패: {e}"}
+
+
+# 「무엇당 무엇」 꼴로 곱하는 축 — 이 빌드의 **주 배율기**다.
+#
+# ⛔ 허용목록으로 짜지 말 것. 처음에 스탯 12종을 나열했다가 KB 전량 대조에서 **포착률
+# 10%**가 나왔다 — `per # of your Strength`(어법 차이) · `per Power Charge`(충전) ·
+# `per Stage`(단계) · `per socketed Grand Spectrum`(주얼 수) · `per Curse on target`
+# (저주 수) 같은 진짜 스태킹 축이 전부 빠졌다. 스태킹 축의 종류는 열려 있으므로
+# **비율·사건 문구를 거르고 나머지를 축으로 본다.** 모르는 형태는 버리지 않고
+# `unclassified`로 낸다 — 조용한 제외가 이 프로젝트가 반복해 데인 형태다.
+_PER_RE = re.compile(r"\bper\s+(?:(\d+)\s+)?([A-Za-z][^,.;:]{1,44})", re.IGNORECASE)
+
+# 「~당」이지만 **스택 축이 아닌 것** — 시간·사건·소모·품질 따위.
+# ⚠ **시간·사건만** 거른다. 「단계(Stage)」·「중첩(stack)」처럼 서 있는 수량은 축이므로
+#    분류를 못 해도 `unclassified`로 내보낸다 — 조용한 제외가 이 프로젝트가 데인 형태다.
+_PER_DENY = re.compile(
+    r"^(second|sec\b|minute|enemy\s|enemies\s|clip|use\b|shot|quality|"
+    r"skill use|hit\b|hits\b|kill|killed|seal|cast\b|attack\b|projectile\b|"
+    r"charge consumed|consumed|expended|broken|spent|shard|corpse|"
+    r"metre|meter|point of|item level)",
+    re.IGNORECASE,
+)
+
+# 앞이 아니라 **문구 어디에든** 사건 동사가 있으면 축이 아니다 — 「per Combo expended」는
+# 서 있는 수량이 아니라 소모 사건이다(접두 검사만으로는 「Combo」에서 걸러지지 않는다).
+_PER_EVENT = re.compile(
+    r"\b(expended|consumed|spent|broken|killed|used|removed|lost|gained recently|"
+    r"in the past|recently)\b",
+    re.IGNORECASE,
+)
+
+# 표기 → PoB 스탯 키. **분류에만** 쓴다(축을 고르는 데는 안 쓴다) — 여기 없으면
+# 축이 아닌 게 아니라 `pob_stat: null`로 나가 호출자가 직접 잰다.
+_AXIS_TO_POB = (
+    (re.compile(r"maximum life|\blife\b", re.I), "Life"),
+    (re.compile(r"energy shield", re.I), "EnergyShield"),
+    (re.compile(r"maximum mana|\bmana\b", re.I), "Mana"),
+    (re.compile(r"\bspirit\b", re.I), "Spirit"),
+    (re.compile(r"strength", re.I), "Str"),
+    (re.compile(r"dexterity", re.I), "Dex"),
+    (re.compile(r"intelligence", re.I), "Int"),
+    (re.compile(r"\barmour\b", re.I), "Armour"),
+    (re.compile(r"evasion", re.I), "Evasion"),
+    (re.compile(r"\bward\b", re.I), "Ward"),
+    (re.compile(r"\brage\b", re.I), "Rage"),
+)
+
+
+def _axis_key(raw: str) -> tuple[str, str | None]:
+    """축 표기를 정규화하고 PoB 스탯 키를 붙인다(모르면 None)."""
+    label = re.sub(r"\s+", " ", raw.strip().rstrip(".")).lower()
+    label = re.sub(r"^of your\s+", "", label)
+    for rx, key in _AXIS_TO_POB:
+        if rx.search(label):
+            return label, key
+    return label, None
+
+
+def _stat_scalers(build_spec: dict[str, Any]) -> dict[str, Any]:
+    """장비·주얼이 어떤 축에 **비례해 곱하는지** 찾아 반환값에 붙인다 (철칙 5).
+
+    스태킹 빌드에서 그 축은 딜 옵션과 **다른 층에 있다** — 합연산 통에 한 줄 더하는
+    게 아니라 여러 줄이 동시에 곱해진다. 실측 2026-08-18: 래스피스의 구체가 100
+    생명력당 피해·치명타·상태이상 강도를 세 갈래로 먹는 빌드에서 생명력 2.53배가
+    DPS 3.38배가 됐고, 같은 자리에서 「주문 피해 +100%」는 1.14배였다.
+
+    그 세션은 이 사실을 알아내는 데 하루를 썼고 트리를 다섯 번 갈아엎었다. 축을
+    모르면 노력량이 결과에 반영되지 않는다 — 그래서 묻지 않아도 나오게 한다.
+
+    ⛔ **어느 축을 얼마나 올릴지는 판정하지 않는다**(철칙 3). 축과 근거 줄만 낸다.
+    """
+    found: dict[str, list[dict[str, Any]]] = {}
+    labels: dict[str, str] = {}
+    sources: list[tuple[str, str]] = [
+        (str(it.get("slot") or "?"), str(it.get("text") or ""))
+        for it in (build_spec.get("items") or [])
+    ]
+    sources += [
+        (f"Jewel@{j.get('socket_node_id')}", str(j.get("text") or ""))
+        for j in (build_spec.get("jewels") or [])
+    ]
+    for slot, text in sources:
+        lines = text.splitlines()
+        name = lines[1].strip() if len(lines) > 1 else slot
+        for line in lines:
+            for m in _PER_RE.finditer(line):
+                raw = m.group(2)
+                if _PER_DENY.match(raw.strip()) or _PER_EVENT.search(raw):
+                    continue
+                label, pob = _axis_key(raw)
+                key = pob or label
+                labels[key] = label
+                found.setdefault(key, []).append(
+                    {
+                        "slot": slot,
+                        "item": name,
+                        "per": int(m.group(1)) if m.group(1) else 1,
+                        "pob_stat": pob,
+                        "line": line.strip(),
+                    }
+                )
+    if not found:
+        return {}
+    # ⚠ **서로 다른 효과 수**로 센다. 같은 줄이 여러 벌 있는 것(장대한 파장 3개 등)을
+    # 줄 수로 세면 서로 다른 3줄을 거는 축을 이겨 버린다 — 실측 2026-08-18: 그렇게
+    # 세니 「소켓된 장대한 파장」이 래스피스의 생명력 3줄을 눌렀다.
+    distinct = {k: len({h["line"] for h in v}) for k, v in found.items()}
+    # 딜을 곱하는 축인지는 **판정이 아니라 사실**이다 — 붙여 두면 방어 스케일러(저항·
+    # 보호막)가 순위 위에 있어도 세션이 딜 축을 바로 집는다.
+    dmg = re.compile(r"damage|critical|magnitude|penetrat|ailment|ignite|shock|freeze|bleed", re.I)
+    scales_damage = {k: any(dmg.search(h["line"]) for h in v) for k, v in found.items()}
+    for hits in found.values():
+        for h in hits:
+            h["scales_damage"] = bool(dmg.search(h["line"]))
+    top = max(found, key=lambda k: (scales_damage[k], distinct[k], len(found[k]), k))
+    unclassified = sorted(k for k in found if found[k][0]["pob_stat"] is None)
+    out: dict[str, Any] = {
+        "axes": found,
+        "distinct_effects": distinct,
+        "scales_damage": scales_damage,
+        # ⛔ 순위는 **세어 본 것**이지 잰 것이 아니다. 어느 축이 실제로 큰지는 판정하지
+        #    않는다(철칙 3) — 후보를 내고 재는 방법을 알려 줄 뿐이다.
+        "ranked": sorted(
+            found, key=lambda k: (not scales_damage[k], -distinct[k], -len(found[k]), k)
+        ),
+        "top_candidate": top,
+        "note": (
+            f"「{labels.get(top, top)}에 비례해 곱하는」 서로 다른 효과가 {distinct[top]}개로 "
+            "가장 많다 — **배율기 후보**다(센 것이지 잰 것이 아니다). 이런 축은 여러 줄이 "
+            "동시에 곱해져 증가% 류 딜 옵션과 **다른 층**에 있으므로, 딜 옵션을 비교하기 "
+            "전에 이 축부터 잴 것. `pob_stat`이 있으면 `evaluate_delta`로 그 스탯만 바꿔 "
+            "민감도를 낸다. 없으면(`unclassified`) 그 축을 실제로 바꿔 보는 수밖에 없다."
+        ),
+    }
+    if unclassified:
+        out["unclassified"] = {
+            "axes": unclassified,
+            "why": (
+                "PoB 스탯 키로 못 옮긴 축이다 — **축이 아니라는 뜻이 아니다**(충전·단계·"
+                "저주 수·소켓된 유니크 수 따위가 여기 온다). 민감도는 그 축을 실제로 "
+                "바꿔 보는 방식으로 따로 재야 한다."
+            ),
+        }
+    return out
+
+
 def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> dict[str, Any]:
     """빌드 스펙(dict)을 headless PoB로 계산. stats로 반환 스탯 선별
     (생략=핵심 24종+곱연산 축, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
@@ -248,6 +409,10 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     무엇을 빼기 전에 이 목록을 볼 것(BUILD_DESIGN §2-3 측정 무효의 판정 의무).
     켜지 않는 게 맞는 축도 있으니 판단은 호출자 몫이다(AD-3)."""
     out = _pick(_compute(spec_from_dict(build_spec)), stats, build_spec)
+    out["points"] = _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy"))
+    scalers = _stat_scalers(build_spec)
+    if scalers:
+        out["stat_scalers"] = scalers
     unset = _unset_config(build_spec)
     if unset:
         out["unset_config"] = unset
@@ -335,6 +500,8 @@ def parse_pob(
         ],
         "tree_version": summary.tree_version,
         "tree_node_count": len(summary.tree_nodes),
+        # ⛔ tree_node_count는 전직 노드까지 센 **원시 수**다 — 예산 판정엔 points를 쓸 것
+        "points": _points(summary.tree_nodes, summary.ascendancy_internal_id),
         "tree_nodes": list(summary.tree_nodes),
         "items": [dataclasses.asdict(i) for i in summary.items],
         "player_stats": summary.player_stats,
@@ -438,6 +605,8 @@ def assemble_pob(
         "path": str(built.path),
         "build_code": built.build_code,
         "duplicates": list(built.duplicates),
+        # 예산 판정은 `len(tree_nodes)`가 아니라 여기를 볼 것 — 전직은 별도 풀이다 (#78)
+        "points": _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy")),
         "axes": {
             "empty": list(axes_report.empty_axes),
             "unmeasured": list(axes_report.unmeasured_axes),
