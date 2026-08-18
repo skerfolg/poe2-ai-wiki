@@ -214,6 +214,22 @@ def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+def _points(tree_nodes: Any, ascendancy: Any) -> dict[str, Any]:
+    """일반/전직 포인트 분리를 반환값에 붙인다 (철칙 5 — 감지되면 도구에 넣는다).
+
+    ⛔ `len(tree_nodes)`를 예산과 비교하지 말 것 — 전직 노드가 섞여 있고 관문 노드는
+    무료다. 실측 2026-08-18: 일반 123짜리 트리가 132로 세어져 PoB에서 예산 초과로
+    떴다. 그 사고 전까지 **어느 반환값에도 분리 수치가 없어** 호출자가 전직 node_id를
+    손으로 하드코딩해 빼고 있었다.
+    """
+    from pok.mcp.tools.tree import _get_graph
+
+    try:
+        return _get_graph().point_split(ascendancy, list(tree_nodes or ()))
+    except Exception as e:  # KB 미가용 등 — 계산 결과를 통째로 잃지는 않는다
+        return {"error": f"포인트 분리 실패: {e}"}
+
+
 def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> dict[str, Any]:
     """빌드 스펙(dict)을 headless PoB로 계산. stats로 반환 스탯 선별
     (생략=핵심 24종+곱연산 축, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
@@ -248,6 +264,7 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     무엇을 빼기 전에 이 목록을 볼 것(BUILD_DESIGN §2-3 측정 무효의 판정 의무).
     켜지 않는 게 맞는 축도 있으니 판단은 호출자 몫이다(AD-3)."""
     out = _pick(_compute(spec_from_dict(build_spec)), stats, build_spec)
+    out["points"] = _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy"))
     unset = _unset_config(build_spec)
     if unset:
         out["unset_config"] = unset
@@ -335,6 +352,8 @@ def parse_pob(
         ],
         "tree_version": summary.tree_version,
         "tree_node_count": len(summary.tree_nodes),
+        # ⛔ tree_node_count는 전직 노드까지 센 **원시 수**다 — 예산 판정엔 points를 쓸 것
+        "points": _points(summary.tree_nodes, summary.ascendancy_internal_id),
         "tree_nodes": list(summary.tree_nodes),
         "items": [dataclasses.asdict(i) for i in summary.items],
         "player_stats": summary.player_stats,
@@ -438,6 +457,8 @@ def assemble_pob(
         "path": str(built.path),
         "build_code": built.build_code,
         "duplicates": list(built.duplicates),
+        # 예산 판정은 `len(tree_nodes)`가 아니라 여기를 볼 것 — 전직은 별도 풀이다 (#78)
+        "points": _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy")),
         "axes": {
             "empty": list(axes_report.empty_axes),
             "unmeasured": list(axes_report.unmeasured_axes),
