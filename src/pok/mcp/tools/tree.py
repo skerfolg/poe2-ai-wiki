@@ -303,6 +303,99 @@ def _assumed_sockets(out: Any) -> dict[str, Any]:
     }
 
 
+def measure_tree_slack(
+    build_spec: dict[str, Any],
+    point_budget: int = 123,
+    protect_nodes: list[int] | None = None,
+) -> dict[str, Any]:
+    """이 트리가 **잃어도 되는 양**을 잰다 — 「전부 찍고 소거」가 성립하는지 미리 안다.
+
+    `optimize_tree`의 그리디 덧셈이 못 여는 구성이 있어 사람은 「관련 노드를 전부 찍고
+    소거법으로 지운다」로 접근한다. 그 방식은 실측 2026-08-18에 **1승 3패**였고, 갈린
+    지점은 하나였다 — **깎아야 할 양 대 여유분의 비**. 23을 깎을 때(여유 17, 1.4배)
+    1.203배로 이겼고, 74를 깎을 때(4.4배) 0.72배·0.41배로 졌다. 한 시간 쓰기 **전에**
+    알 수 있는 수치라 여기 둔다.
+
+    함께 막는 것 둘:
+    - **묶음 보호**: 반경 주얼(「반경 내 …」)이 값을 매기는 노터블은 개별로 재면 각각이
+      작아 먼저 쓸려나간다 — 실측: 각 4%씩인 15개가 모여 60%인데 그것부터 헐렸다.
+      스펙의 반경 주얼을 읽어 자동으로 보호 대상에 넣는다(`guarded_by_radius_jewels`).
+    - **전 축 보고**: 가중치에 없는 축도 항상 낸다. DPS·생명력만 보고 깎았더니 방어
+      소형 9개가 「손실 0」으로 판정돼 **EHP가 22% 조용히 빠졌다**.
+
+    ⛔ 무엇을 지킬지·얼마를 깎을지는 판정하지 않는다(철칙 3). 비용표와 판단 재료만 낸다.
+    비싸다 — 제거 가능 노드 하나당 PoB 1회다(보통 20~40회).
+    """
+    from pok.engine.tree.trim import measure_slack, radius_bundles
+    from pok.mcp.tools.build import compute_pob
+
+    graph = _get_graph()
+    allocated = {int(n) for n in (build_spec.get("tree_nodes") or ())}
+    class_name = str(build_spec.get("class_name") or "")
+    try:
+        start = graph.start_of(class_name)
+    except ValueError as e:
+        return {"ok": False, "reason": str(e)}
+
+    jeweled = {int(j["socket_node_id"]) for j in (build_spec.get("jewels") or [])}
+    guarded = radius_bundles(graph, build_spec.get("jewels") or [])
+    protect = jeweled | guarded | {int(n) for n in (protect_nodes or ())}
+
+    import collections as _c
+
+    seen = {start}
+    queue = _c.deque([start])
+    while queue:
+        cur = queue.popleft()
+        for nb in graph.adj[cur]:
+            if nb in allocated and nb not in seen:
+                seen.add(nb)
+                queue.append(nb)
+    asc = {n for n in allocated if (nd := graph.nodes.get(n)) is not None and nd.ascendancy}
+    floating = (allocated - asc) - seen
+
+    def measure(nodes: set[int]) -> dict[str, float]:
+        spec = dict(build_spec)
+        spec["tree_nodes"] = sorted(nodes)
+        spec["jewels"] = [
+            j for j in (build_spec.get("jewels") or []) if int(j["socket_node_id"]) in nodes
+        ]
+        return {
+            k: float(v or 0) for k, v in (compute_pob(spec, stats=["*"]).get("stats") or {}).items()
+        }
+
+    general = len(allocated - asc)
+    report = measure_slack(
+        graph,
+        allocated,
+        start,
+        measure,
+        protect=protect,
+        floating=floating,
+        need=max(0, general - point_budget),
+    )
+    return {
+        "ok": True,
+        "general_points": general,
+        "point_budget": point_budget,
+        "need_to_cut": report.need,
+        "removable": report.removable,
+        "free": report.free,
+        "ratio": None if report.free == 0 else round(report.ratio, 2),
+        "verdict": report.verdict,
+        "guarded_by_radius_jewels": sorted(guarded & allocated),
+        "floating_nodes": sorted(floating),
+        "costs": [
+            {
+                "node_id": c.node_id,
+                "name": c.name,
+                "deltas": {k: round(v, 4) for k, v in sorted(c.deltas.items())},
+            }
+            for c in report.costs
+        ],
+    }
+
+
 def evaluate_bundles(
     build_spec: dict[str, Any],
     bundles: list[dict[str, Any]],
