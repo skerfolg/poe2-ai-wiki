@@ -37,6 +37,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import functools
+import re
 from pathlib import Path
 from typing import Any
 
@@ -230,6 +231,71 @@ def _points(tree_nodes: Any, ascendancy: Any) -> dict[str, Any]:
         return {"error": f"포인트 분리 실패: {e}"}
 
 
+# 「무엇당 무엇」 꼴로 곱하는 축 — 이 빌드의 **주 배율기**다.
+_SCALER_RE = re.compile(
+    r"per\s+(\d+)\s+(?:maximum\s+)?"
+    r"(Life|Energy Shield|Mana|Spirit|Strength|Dexterity|Intelligence|Armour|Evasion Rating|"
+    r"Accuracy Rating|Rage|Ward)\b",
+    re.IGNORECASE,
+)
+_SCALER_AXIS = {
+    "life": "Life",
+    "energy shield": "EnergyShield",
+    "mana": "Mana",
+    "spirit": "Spirit",
+    "strength": "Str",
+    "dexterity": "Dex",
+    "intelligence": "Int",
+}
+
+
+def _stat_scalers(build_spec: dict[str, Any]) -> dict[str, Any]:
+    """장비·주얼이 어떤 스탯에 **비례해 곱하는지** 찾아 반환값에 붙인다 (철칙 5).
+
+    스태킹 빌드에서 그 축은 딜 옵션과 **다른 층에 있다** — 합연산 통에 한 줄 더하는
+    게 아니라 여러 줄이 동시에 곱해진다. 실측 2026-08-18: 래스피스의 구체가 100
+    생명력당 피해·치명타·상태이상 강도를 세 갈래로 먹는 빌드에서 생명력 2.53배가
+    DPS 3.38배가 됐고, 같은 자리에서 「주문 피해 +100%」는 1.14배였다.
+
+    그 세션은 이 사실을 알아내는 데 하루를 썼고 트리를 다섯 번 갈아엎었다. 축을
+    모르면 노력량이 결과에 반영되지 않는다 — 그래서 묻지 않아도 나오게 한다.
+    """
+    found: dict[str, list[dict[str, Any]]] = {}
+    sources: list[tuple[str, str]] = [
+        (str(it.get("slot") or "?"), str(it.get("text") or ""))
+        for it in (build_spec.get("items") or [])
+    ]
+    sources += [
+        (f"Jewel@{j.get('socket_node_id')}", str(j.get("text") or ""))
+        for j in (build_spec.get("jewels") or [])
+    ]
+    for slot, text in sources:
+        lines = text.splitlines()
+        name = lines[1].strip() if len(lines) > 1 else slot
+        for line in lines:
+            m = _SCALER_RE.search(line)
+            if not m:
+                continue
+            axis = _SCALER_AXIS.get(m.group(2).lower(), m.group(2))
+            found.setdefault(axis, []).append(
+                {"slot": slot, "item": name, "per": int(m.group(1)), "line": line.strip()}
+            )
+    if not found:
+        return {}
+    top = max(found, key=lambda k: len(found[k]))
+    return {
+        "axes": found,
+        "primary": top,
+        "note": (
+            f"이 빌드는 **{top}에 비례해 곱하는 줄이 {len(found[top])}개** 있다 — "
+            "그 축이 주 배율기다. "
+            "여러 줄이 동시에 곱해지므로 증가% 류 딜 옵션과 **다른 층**에 있다. "
+            "축을 올리는 것(직접·간접 모두)을 먼저 재고, 딜 옵션은 그 다음에 비교할 것. "
+            "축의 민감도는 `evaluate_delta`로 그 스탯만 바꿔 재면 나온다."
+        ),
+    }
+
+
 def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> dict[str, Any]:
     """빌드 스펙(dict)을 headless PoB로 계산. stats로 반환 스탯 선별
     (생략=핵심 24종+곱연산 축, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
@@ -265,6 +331,9 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     켜지 않는 게 맞는 축도 있으니 판단은 호출자 몫이다(AD-3)."""
     out = _pick(_compute(spec_from_dict(build_spec)), stats, build_spec)
     out["points"] = _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy"))
+    scalers = _stat_scalers(build_spec)
+    if scalers:
+        out["stat_scalers"] = scalers
     unset = _unset_config(build_spec)
     if unset:
         out["unset_config"] = unset
