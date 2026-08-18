@@ -149,3 +149,13 @@ def test_같은_텍스트_주얼은_1대1로_센다() -> None:
     placed, rows, _notes = _restore_jewels(_graph, spec, (_RARE, _RARE))
     assert len(rows) == 1
     assert len(placed.jewels) == 2
+
+
+def test_자리를_옮긴_사실을_말한다() -> None:
+    """동반 제거는 **옳다**(소켓 없이 주얼 모드가 계산에 들어가면 측정이 거짓이 된다).
+    잘못이었던 건 침묵이다 — 못 놓은 것만 알리면 「조용히 이사」가 남는다."""
+    a, b = _sockets(2)
+    spec = _spec([a, b])  # 원래 소켓이 트리에서 빠져 주얼이 통째로 떨어진 상태
+    _placed, rows, notes = _restore_jewels(_graph, spec, (_UNIQUE,))
+    assert rows[0].socket_node_id in (a, b)
+    assert any("자리를 옮겼다" in n for n in notes), "옮긴 사실이 조용하다"

@@ -493,10 +493,12 @@ def optimize_tree(
         current, final = best_solution
         # ── 스냅샷 주얼 되배치 ──
         #
-        # 트리를 다시 짜면 소켓 구성이 달라진다. 가지치기는 트리에서 빠진 소켓의
-        # 주얼을 **동반 제거**하는데(`_with_tree`), 그건 직렬화 계약을 지키려는 것일
-        # 뿐 「그 주얼을 버린다」는 판단이 아니었다 — 그런데 결과적으로 조용히
-        # 버려졌다. 새 트리의 빈 소켓에 되돌려 놓는다(사용자 지시 2026-08-18).
+        # 트리를 다시 짜면 소켓 구성이 달라진다. 가지치기가 트리에서 빠진 소켓의
+        # 주얼을 **동반 제거**하는 것은 **의도된 것이다**(사용자 확인 2026-08-18) —
+        # 소켓을 안 찍은 채로 주얼 모드가 계산에 들어가면 **측정 자체가 거짓말**이
+        # 된다. 탐색 중에는 그대로 두고, **끝에서** 새 트리의 빈 소켓에 되돌려
+        # 놓는다. 잘못이었던 것은 제거가 아니라 **침묵**이다 — 자리를 옮겼는지
+        # 아예 못 놓았는지가 산출물에 안 나왔다.
         current, jewel_rows, jewel_place_notes = _restore_jewels(graph, current, jewel_snapshot)
         if jewel_rows:
             # 주얼이 바뀌었으면 **다시 잰다** — 안 그러면 실측값이 옛 주얼 구성의 것이다.
@@ -555,6 +557,10 @@ def _restore_jewels(
 ) -> tuple[BuildSpec, list[Placement], list[str]]:
     """스냅샷 주얼 중 **자리를 잃은 것**만 되배치한다.
 
+    ⛔ 탐색 중의 동반 제거를 되돌리는 게 아니다 — 그건 옳다(소켓 없이 주얼 모드가
+    계산에 들어가면 측정이 거짓이 된다). 여기는 **탐색이 끝난 뒤**, 남은 소켓에
+    다시 앉히는 자리다.
+
     ⚠ 정품(스냅샷)과 **가정 탐침**(`jewel_templates`로 들어온 것)을 가른다 — 탐침은
     소켓 값을 재려고 넣은 가짜라, 자리를 두고 다투면 **정품이 이긴다**. 탐침이 밀려
     자리를 잃으면 그 소켓은 빈 채로 남는다(빈 소켓은 델타 0이지만, 가짜 주얼을
@@ -573,6 +579,13 @@ def _restore_jewels(
     # 탐침은 전부 뗀 자리에서 되배치한다 — 정품이 먼저 고른다.
     base = dataclasses.replace(spec, jewels=tuple(kept))
     placed, rows, notes = place_jewels(graph, base, tuple(homeless))
+    moved = [r for r in rows if r.socket_node_id is not None]
+    if moved:
+        notes.append(
+            f"주얼 {len(moved)}개가 **자리를 옮겼다** — 원래 소켓이 새 트리에서 "
+            "빠졌다(가지치기가 회수했거나 애초에 안 찍혔다). 어디로 왜 갔는지는 "
+            "`jewel_placements`에 각각 붙어 있다"
+        )
     probes = len(spec.jewels) - len(kept)
     if probes:
         notes.append(
