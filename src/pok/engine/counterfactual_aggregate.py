@@ -41,6 +41,7 @@ from typing import Any
 from pok.common.paths import knowledge_dir
 from pok.engine.counterfactual_campaign import REMOVALS, build_id, campaign_dir
 from pok.engine.jewel_taint import classify
+from pok.engine.ladder_aggregate import _tree_index
 from pok.engine.tree.graph import TreeGraph
 from pok.kb.store import write_shard
 
@@ -182,8 +183,16 @@ def build_records(
     *,
     pob_commit: str,
     tree_nodes: int,
+    refs: dict[int, tuple[str, str]] | None = None,
 ) -> list[dict[str, Any]]:
-    """노드별 `NodeValue` 레코드. **관측 0도 만든다** — 없으면 0으로 읽힌다."""
+    """노드별 `NodeValue` 레코드. **관측 0도 만든다** — 없으면 0으로 읽힌다.
+
+    ⚠ `refs`(node_id → KB id)를 반드시 넘긴다. **이게 조인 키다** — `UsageProfile`의
+    채택률은 `passive.<슬러그>` ref로 실려 있어(`observed.passives[].ref`) node_id로는
+    못 잇는다. 이 층의 존재 이유가 「채택률 곱하기 손실률」로 **메타 습관**을 드러내는
+    것이라(#62), 키가 없으면 두 층이 나란히 놓여 있기만 하고 곱해지지 않는다.
+    """
+    index = refs if refs is not None else _tree_index()
     observed = sum(1 for n in nodes.values() if n.points)
     cov = {
         "tree_nodes": tree_nodes,
@@ -209,9 +218,17 @@ def build_records(
             for stat, values in sorted(node.axes.items())
             if values
         }
+        ref, kb_kind = index.get(nid, ("", ""))
+        node_block: dict[str, Any] = {
+            "node_id": nid,
+            "kind": node.kind or kb_kind or "?",
+            "label": node.label or f"{nid}",
+        }
+        if ref:  # KB에 없는 노드(트리 수집 갭)는 ref 없이 node_id로만 잡는다
+            node_block["ref"] = ref
         data = {
             "season": season,
-            "node": {"node_id": nid, "kind": node.kind or "?", "label": node.label or f"{nid}"},
+            "node": node_block,
             "sample": {
                 "n": len(node.points),
                 "excluded": {"jewel_tainted": node.tainted, "unmeasured": node.unmeasured},
@@ -311,6 +328,7 @@ def main(argv: list[str] | None = None) -> int:
     records = build_records(
         args.season, nodes, cov, pob_commit=pob_commit, tree_nodes=len(graph.nodes)
     )
+    linked = sum(1 for r in records if "ref" in r["data"]["node"])
     out = args.out or (kb / "game-data" / "tree")
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"node-values-{args.season}.ndjson"
@@ -321,6 +339,7 @@ def main(argv: list[str] | None = None) -> int:
         json.dumps(
             {
                 "records": len(records),
+                "kb_linked": linked,
                 "added": len(report.added),
                 "updated": len(report.updated),
                 "coverage": cov,

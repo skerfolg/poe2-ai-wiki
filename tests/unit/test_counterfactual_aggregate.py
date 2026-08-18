@@ -142,3 +142,38 @@ def test_레코드가_스키마를_통과한다() -> None:
     Draft202012Validator(schemas["record.schema.json"], registry=registry).validate(rec)
     Draft202012Validator(schemas["node-value.schema.json"], registry=registry).validate(rec["data"])
     assert json.dumps(rec, ensure_ascii=False)
+
+
+def test_KB_ref가_실려야_두_층이_곱해진다() -> None:
+    """⚠ **조인 키다.** `UsageProfile`의 채택률은 `passive.<슬러그>` ref로 실려 있어
+    node_id로는 못 잇는다. 이 층의 존재 이유가 「채택률 곱하기 손실률」로 메타 습관을
+    드러내는 것이라(#62), 키가 없으면 두 층이 나란히 놓여 있기만 하고 안 곱해진다.
+    """
+    node = agg._Node(kind="keystone", label="조인용")
+    node.points = [1]
+    node.axes["CombinedDPS"] = [3.0]
+    (rec,) = agg.build_records(
+        "0-5",
+        {45202: node},
+        {"builds_measured": 1, "rows_kept": 1, "rows_total": 1},
+        pob_commit="abc",
+        tree_nodes=4553,
+        refs={45202: ("passive.ancestral-bond-45202", "keystone")},
+    )
+    assert rec["data"]["node"]["ref"] == "passive.ancestral-bond-45202"
+
+
+def test_KB에_없는_노드는_ref_없이_낸다() -> None:
+    """⛔ 지어내지 않는다 — 트리 수집 갭이면 node_id로만 잡고 ref는 비운다.
+    가짜 ref를 넣으면 조인이 조용히 어긋난다."""
+    node = agg._Node(kind="small", label="KB에 없음")
+    node.points = [1]
+    (rec,) = agg.build_records(
+        "0-5",
+        {999999: node},
+        {"builds_measured": 1, "rows_kept": 1, "rows_total": 1},
+        pob_commit="abc",
+        tree_nodes=4553,
+        refs={},
+    )
+    assert "ref" not in rec["data"]["node"]
