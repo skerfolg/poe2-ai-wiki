@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from pok.common.paths import knowledge_dir
 from pok.engine.jewel_placement import Placement, open_sockets, place_jewels
+from pok.engine.jewels import is_timeless
 from pok.engine.tree.graph import TreeGraph
-from pok.engine.tree.optimize import _restore_jewels
+from pok.engine.tree.optimize import _restore_jewels, _timeless_notes
 from pok.pob.buildxml import BuildSpec, JewelSpec
 
 _graph = TreeGraph(knowledge_dir())
@@ -159,3 +160,34 @@ def test_자리를_옮긴_사실을_말한다() -> None:
     _placed, rows, notes = _restore_jewels(_graph, spec, (_UNIQUE,))
     assert rows[0].socket_node_id in (a, b)
     assert any("자리를 옮겼다" in n for n in notes), "옮긴 사실이 조용하다"
+
+
+# ── 타임리스 주얼: 옵션을 얹는 게 아니라 **노드를 바꾼다** ──
+
+_TIMELESS = (
+    "Rarity: UNIQUE\nUndying Hate\nTimeless Jewel\nRadius: Very Large\n"
+    "Passives in radius are Conquered by the Abyssals"
+)
+
+
+def test_타임리스는_반경_주얼과_구별한다() -> None:
+    """옵션을 얹는 반경 주얼과 종류가 다르다 — 노드의 **의미**가 달라진다."""
+    assert is_timeless(_TIMELESS)
+    assert not is_timeless(_RADIUS)
+    assert not is_timeless(_UNIQUE)
+
+
+def test_타임리스가_있으면_델타가_그_노드_값이_아니라고_말한다() -> None:
+    """실측 2026-08-18: `Undying Hate` 하나로 래더 타이탄 EHP의 93%가 서 있었다
+    (16,507 → 1,093). 주얼을 뗀 채 최적화하면 그 트리는 다른 트리다."""
+    (a,) = _sockets(1)
+    spec = _spec([a], jewels=(JewelSpec(socket_node_id=a, text=_TIMELESS),))
+    (note,) = _timeless_notes(spec, _graph)
+    assert "Undying Hate" in note and "할당됨" in note
+    assert "다른 것으로 바꾼다" in note
+
+
+def test_타임리스가_없으면_조용하다() -> None:
+    (a,) = _sockets(1)
+    spec = _spec([a], jewels=(JewelSpec(socket_node_id=a, text=_RARE),))
+    assert _timeless_notes(spec, _graph) == ()

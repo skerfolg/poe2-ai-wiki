@@ -38,6 +38,10 @@ RADIUS_LABELS: tuple[str, ...] = ("Small", "Medium", "Large", "Very Large")
 # `Notable Passive Skills in Radius also grant …` 꼴 — 반경이 있어야 의미가 있는 줄
 _RADIUS_GRANT = re.compile(r"\bPassive Skills in Radius\b", re.I)
 _RADIUS_DECL = re.compile(r"^\s*Radius:\s*(.+?)\s*$", re.I | re.M)
+# 타임리스 주얼 — 반경 안 패시브를 **다른 것으로 바꾼다**(Conquered). 옵션을 얹는
+# 반경 주얼과 종류가 다르다: 노드의 **의미 자체**가 달라져, 그 주얼을 뺀 상태에서
+# 잰 노드 델타는 그 노드의 값이 아니다.
+_TIMELESS = re.compile(r"\bTimeless Jewel\b", re.I)
 
 
 def declared_radius(item_text: str) -> str | None:
@@ -49,6 +53,20 @@ def declared_radius(item_text: str) -> str | None:
 def needs_radius_declaration(item_text: str) -> bool:
     """반경 부여 줄이 있는데 `Radius:` 선언이 없는가 — **조용한 0**의 조건."""
     return bool(_RADIUS_GRANT.search(item_text)) and declared_radius(item_text) is None
+
+
+def is_timeless(item_text: str) -> bool:
+    """타임리스 주얼인가 — **트리를 바꾸는** 주얼이라 따로 다뤄야 한다.
+
+    반경 주얼은 반경 안 노드에 옵션을 **얹는다**. 타임리스는 반경 안 패시브를
+    **다른 것으로 바꾼다**("Passives in radius are Conquered by …"). 그래서 이 주얼을
+    뗀 채로 잰 노드 델타는 그 노드의 값이 아니다 — 같은 노드가 다른 것이 된다.
+
+    실측 2026-08-18(래더 타이탄): `Undying Hate` 하나를 빼자 EHP 16,507 → 1,093
+    (6.6%)로 무너졌다. 반경 안 할당 노드는 겨우 몇 개인데도 그렇다. 코퍼스 1,175벌
+    중 106벌(9.0%)이 타임리스를 들고 있어 예외로 넘길 비율이 아니다.
+    """
+    return bool(_TIMELESS.search(item_text))
 
 
 def render_radius_jewel(item_text: str, radius: str) -> str:

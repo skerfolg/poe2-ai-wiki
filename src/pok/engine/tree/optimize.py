@@ -308,6 +308,7 @@ def optimize_tree(
     # 델타가 0이라 그리디가 **절대** 안 뽑는다 — 여기서 박지 않으면 영영 안 들어온다.
     # 최적화 **전** 주얼을 스냅샷한다 — 끝나고 새 트리에 되배치할 원본이다.
     jewel_snapshot = tuple(j.text for j in spec.jewels if j.text)
+    timeless_notes = _timeless_notes(spec, graph)
     spec, anchor_notes, anchor_cost = _seed_anchors(spec, graph, required_anchors, point_budget)
     current = spec
     # 전직 포인트는 **빼지 않는다** — 인게임에서 별도 풀이라 일반 트리를 갉으면 안 된다(#68).
@@ -516,6 +517,7 @@ def optimize_tree(
     #   여러 회차를 살아남았다). 템플릿이 없으면 무조건 알린다.
     notes = (*notes, *jewel_notes)
     notes = (*notes, *jewel_place_notes)
+    notes = (*notes, *timeless_notes)
     # 긴 점프는 **드러나야** 한다 — 노드 한 수와 섞여 있으면 「먼 축을 열었다」는
     # 사실이 보이지 않고, 그게 안 보이면 #70이 고쳐졌는지도 알 수 없다.
     notes = (*notes, *long_jumps)
@@ -593,6 +595,40 @@ def _restore_jewels(
             "산출물에 남기지 않는다(정품 스냅샷이 자리를 먼저 갖는다)"
         )
     return placed, rows, notes
+
+
+def _timeless_notes(spec: BuildSpec, graph: TreeGraph) -> tuple[str, ...]:
+    """타임리스 주얼이 있으면 **노드 델타가 그 노드의 값이 아님**을 말한다.
+
+    반경 주얼은 반경 안 노드에 옵션을 얹지만, 타임리스는 반경 안 패시브를 **다른
+    것으로 바꾼다**(Conquered). 그래서 그 주얼이 빠진 상태에서 잰 델타는 다른 노드의
+    값이고, 소켓이 가지치기로 회수되면 반경 안 노드가 **일제히 의미를 잃는다.**
+
+    실측 2026-08-18(래더 타이탄): `Undying Hate` 하나로 EHP의 93%가 서 있었다
+    (16,507 → 1,093). 코퍼스 1,175벌 중 106벌(9.0%)이 타임리스를 들고 있다.
+
+    ⚠ 여기서 소켓을 **자동으로 보호하지 않는다** — 무엇을 지킬지는 사용자 판단이고
+    (백로그 #81), 엔진이 임의로 트리를 고정하면 그건 판단을 넣은 것이다(철칙 3).
+    """
+    from pok.engine.jewels import is_timeless
+
+    allocated = set(spec.tree_nodes)
+    rows = [
+        (j, (j.text or "").splitlines()[1:2]) for j in spec.jewels if j.text and is_timeless(j.text)
+    ]
+    if not rows:
+        return ()
+    out = []
+    for jewel, name in rows:
+        where = "할당됨" if jewel.socket_node_id in allocated else "⛔ 소켓 미할당"
+        out.append(f"{name[0] if name else '?'}(소켓 {jewel.socket_node_id}, {where})")
+    return (
+        f"⚠ **타임리스 주얼** {' · '.join(out)} — 반경 안 패시브를 **다른 것으로 바꾼다**. "
+        "이 주얼이 빠진 채로 잰 노드 델타는 그 노드의 값이 아니고, 소켓이 가지치기로 "
+        "회수되면 반경 안 노드가 일제히 의미를 잃는다. 이 빌드의 트리 최적화 결과는 "
+        "**주얼을 꽂은 채로 다시 확인할 것**(실측: 타임리스 하나에 EHP의 93%가 실린 "
+        "래더 빌드가 있었다)",
+    )
 
 
 class AnchorCost(NamedTuple):
