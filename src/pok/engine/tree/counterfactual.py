@@ -71,6 +71,9 @@ class RemovalCandidates:
     # 흔하다 — 실측 2026-08-13: 116벌 16,725노드 중 1,916개(11.5%) · 75/116벌.
     orphans: tuple[int, ...]
     roots: tuple[int, ...]
+    # 연결 불요 주얼 반경 안이라 길 없이 성립하는 노드(#87) — 후보 자격의 **근거**다.
+    # 이게 없으면 「고아여야 할 노드가 왜 후보인가」를 되짚을 수 없다.
+    no_path_zone: tuple[int, ...] = ()
 
 
 def _roots(spec: BuildSpec, graph: TreeGraph) -> frozenset[int]:
@@ -95,6 +98,57 @@ def _roots(spec: BuildSpec, graph: TreeGraph) -> frozenset[int]:
     return frozenset(
         {graph.start_of(spec.class_name), *graph.granted_nodes(spec.ascendancy), *starts}
     )
+
+
+def _no_path_zones(spec: BuildSpec, graph: TreeGraph) -> set[int]:
+    """**연결 불요 주얼**(From Nothing류)의 반경 안 할당 노드 — 뿌리로 취급한다 (#87).
+
+    이 주얼은 반경 안 노드의 연결 요건을 없앤다("can be Allocated without being
+    connected"). 그래서 그 노드들은 길이 안 닿아도 인게임에서 성립한다 — 그래프
+    연결성으로 고아 판정하면 **측정에서 통째로 빠진다**(실측: 보유 빌드 39/40에서
+    고아 발생, 코퍼스의 48.8%가 보유. 하필 길 제약 없이 옵션만 보고 고른, 의도가
+    가장 분명한 표본이다).
+
+    ⛔ **고아 전체를 살리지 않는다** — 반경 **안**만 뿌리다. 반경 밖 고아는 여전히
+    진짜 오류(수집 갭·잘못된 스펙)이고, 전부 살리면 오류가 후보로 둔갑한다.
+
+    ⛔ 반경을 못 읽으면(선언 없음) **아무것도 안 살린다** — 추측으로 반경을 정하면
+    안 되는 것은 다른 주얼과 같은 원칙이다(`engine.jewels`). 그 경우 고아는 남고,
+    `coverage.excluded.graph_orphans`가 그 사실을 싣는다.
+
+    소켓 자체가 **할당돼 있어야** 한다 — 안 찍힌 소켓의 주얼은 효과가 없다.
+
+    ⚠ **뿌리가 아니라 도달성 씨앗이다.** 뿌리는 「제거 불가 집합」이기도 해서
+    (`removable_nodes`의 `nid in roots` 분기) 거기 넣으면 이 노드들이 측정에서
+    빠진다 — 살리려던 표본을 다른 이유로 또 잃는 것이다. 처음에 그렇게 만들었다가
+    코드를 되읽고 돌렸다. 이 노드들은 포인트를 쓰는 **선택**이라 제거 반사실의
+    정당한 대상이다.
+    """
+    import math
+
+    from pok.engine.jewels import allocates_without_path, effective_radius
+
+    allocated = set(spec.tree_nodes)
+    out: set[int] = set()
+    for jewel in spec.jewels:
+        text = jewel.text or ""
+        if not text or not allocates_without_path(text):
+            continue
+        if jewel.socket_node_id not in allocated:
+            continue
+        ring = effective_radius(text)
+        socket = graph.nodes.get(jewel.socket_node_id or -1)
+        if ring is None or socket is None or socket.position is None:
+            continue
+        inner, outer = ring
+        cx, cy = socket.position
+        for nid in allocated:
+            node = graph.nodes.get(nid)
+            if node is None or node.position is None:
+                continue
+            if inner <= math.dist((cx, cy), node.position) <= outer:
+                out.add(nid)
+    return out
 
 
 def _reachable(
@@ -139,7 +193,11 @@ def removable_nodes(spec: BuildSpec, graph: TreeGraph) -> RemovalCandidates:
     alloc = frozenset(spec.tree_nodes)
     roots = _roots(spec, graph)
     universe = alloc | roots
-    reachable = _reachable(graph, universe, roots)
+    # 연결 불요 주얼(From Nothing류)의 반경 안 할당 노드 — 길 없이도 성립하므로
+    # 도달성 씨앗에 넣는다(#87). 뿌리와 달리 **제거 후보로는 남는다**.
+    zones = _no_path_zones(spec, graph)
+    seeds = roots | zones
+    reachable = _reachable(graph, universe, seeds)
     orphans = tuple(sorted(alloc - reachable))
 
     prerequisite_of: dict[int, list[int]] = {}
@@ -177,13 +235,19 @@ def removable_nodes(spec: BuildSpec, graph: TreeGraph) -> RemovalCandidates:
         elif nid in socketed:
             blocked[nid] = "주얼이 박힌 소켓 — 빼면 주얼 기여까지 사라져 소켓 값으로 오인된다"
         else:
-            lost = (reachable - {nid}) - _reachable(graph, universe, roots, without=nid)
+            # 씨앗에서 자기 자신은 뺀다 — 안 그러면 「빼도 자기가 씨앗이라 닿는」
+            # 순환으로 zone 노드 제거가 공짜로 보인다
+            lost = (reachable - {nid}) - _reachable(graph, universe, seeds - {nid}, without=nid)
             if lost:
                 blocked[nid] = f"빼면 {len(lost)}개가 고아가 된다(예: {sorted(lost)[:5]})"
             else:
                 ok.append(nid)
     return RemovalCandidates(
-        nodes=tuple(ok), blocked=blocked, orphans=orphans, roots=tuple(sorted(roots))
+        nodes=tuple(ok),
+        blocked=blocked,
+        orphans=orphans,
+        roots=tuple(sorted(roots)),
+        no_path_zone=tuple(sorted(zones)),
     )
 
 

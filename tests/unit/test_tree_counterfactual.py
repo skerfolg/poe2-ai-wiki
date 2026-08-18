@@ -378,3 +378,70 @@ def test_저장_규약을_발명하지_않았다() -> None:
         if any(w in line for w in ("write_text(", "mkdir(", "json.dump("))
     ]
     assert not writes, f"엔진 모듈이 쓰기를 한다 — 저장 규약은 합의 사항이다: {writes}"
+
+
+# ── 연결 불요 주얼(#87): 길 없이 성립하는 노드가 측정에 들어온다 ──
+#
+# From Nothing류는 반경 안 노드의 연결 요건을 없앤다. 코퍼스의 48.8%가 보유하고,
+# 하필 길 제약 없이 **옵션만 보고 고른** — 의도가 가장 분명한 — 표본인데, 그래프
+# 연결성만 보면 고아로 잡혀 측정에서 통째로 빠졌다(보유 빌드 39/40에서 발생).
+
+# 실측 픽스처: Witch 시작과 안 이어진 소켓 2491, 반경(Small=1200) 안의 인접 사슬
+_ZK_SOCKET = 2491
+_ZK_CHAIN = (37276, 52373)
+_FROM_NOTHING = (
+    "Rarity: UNIQUE\nFrom Nothing\nDiamond\nRadius: Small\nLimited to: 1\n"
+    "Passives in Radius of Wildsurge Incantation can be Allocated\n"
+    "without being connected to your tree"
+)
+_NO_RADIUS = _FROM_NOTHING.replace("Radius: Small\n", "")
+
+
+def _witch(jewel_text: str | None) -> BuildSpec:
+    jewels = (JewelSpec(socket_node_id=_ZK_SOCKET, text=jewel_text),) if jewel_text else ()
+    return BuildSpec(
+        class_name="Witch",
+        ascendancy="Witch1",
+        tree_nodes=(_ZK_SOCKET, *_ZK_CHAIN),
+        jewels=jewels,
+    )
+
+
+def test_연결_불요_반경_안은_고아가_아니라_후보다() -> None:
+    """주얼이 없으면 셋 다 고아 — 있으면 살아나되 **제거 후보로 남는다**.
+
+    ⚠ 뿌리로 넣으면 안 된다: 뿌리는 제거 불가 집합이라, 살리려던 표본이 「측정
+    제외」로 또 빠진다(만들다 실제로 그랬다). 이 노드들은 포인트를 쓰는 선택이라
+    제거 반사실의 정당한 대상이다.
+    """
+    bare = removable_nodes(_witch(None), _graph)
+    assert set(_ZK_CHAIN) <= set(bare.orphans), "픽스처가 애초에 고아가 아니다"
+
+    got = removable_nodes(_witch(_FROM_NOTHING), _graph)
+    assert not (set(_ZK_CHAIN) & set(got.orphans)), "반경 안이 여전히 고아다"
+    assert set(_ZK_CHAIN) <= set(got.no_path_zone), "후보 자격의 근거가 안 남았다"
+    # 잎(52373)은 제거 가능해야 한다 — 측정에 들어온다
+    assert 52373 in got.nodes, "살린 노드가 측정 후보에 없다"
+
+
+def test_다리_노드를_빼면_뒤가_고아가_되는_판정은_유지된다() -> None:
+    """씨앗이 됐다고 공짜 제거가 되면 안 된다 — 37276을 빼면 52373이 어디서도
+    안 닿는가? 아니다: 52373도 반경 안(씨앗)이라 살아남는다. 즉 **같은 반경 안**
+    끼리는 서로 다리가 아니다. 그것까지가 인게임 규칙 그대로다."""
+    got = removable_nodes(_witch(_FROM_NOTHING), _graph)
+    assert 37276 in got.nodes, "반경 안 이웃이 다리로 오판됐다"
+
+
+def test_소켓이_안_찍혔으면_아무것도_안_살린다() -> None:
+    spec = dataclasses.replace(_witch(_FROM_NOTHING), tree_nodes=tuple(_ZK_CHAIN))
+    got = removable_nodes(spec, _graph)
+    assert got.no_path_zone == ()
+    assert set(_ZK_CHAIN) <= set(got.orphans)
+
+
+def test_반경을_못_읽으면_안_살리고_고아로_남긴다() -> None:
+    """⛔ 추측 금지 — 반경 선언이 없으면 어디까지가 「불요」인지 모른다.
+    조용히 최대 반경을 가정하면 오류 고아가 후보로 둔갑한다."""
+    got = removable_nodes(_witch(_NO_RADIUS), _graph)
+    assert got.no_path_zone == ()
+    assert set(_ZK_CHAIN) <= set(got.orphans)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -128,8 +128,18 @@ def test_후보에서_빠진_이유가_결과에_남는다(monkeypatch: Any) -> 
 
     # 측정은 이 시험의 관심이 아니다(PoB가 필요하다) — 열거와 보고만 본다
     monkeypatch.setattr(cc, "evaluate_removals", lambda *a, **k: [])
+
+    class _FakeDaemon:
+        def compute_build(self, spec: Any) -> Any:
+            class _R:
+                stats: ClassVar[dict] = {"CombinedDPS": 123_456.0}
+
+            return _R()
+
     graph = TreeGraph(knowledge_dir())
-    out = cc.measure_build(graph, doc, pob_commit="x", stats=("CombinedDPS",))
+    out = cc.measure_build(graph, doc, pob_commit="x", daemon=_FakeDaemon(), stats=("CombinedDPS",))
+    # 기준이 행과 함께 실린다 — 델타만 실으면 손실을 비율로 못 만든다(M4에서 데임)
+    assert out["baseline"] == {"CombinedDPS": 123_456.0}
 
     spec = spec_from_dict(spec_from_pob(str(doc["pob_export"])).spec, validate_catalog=False)
     want = removable_nodes(spec, graph)

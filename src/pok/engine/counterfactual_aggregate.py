@@ -175,12 +175,9 @@ def collect(
     results = campaign_dir(season, base=base) / REMOVALS
     baselines = load_baselines(season, base=base)
     groups = derive()
-    if not baselines:
-        raise SystemExit(
-            f"⛔ 기준값이 없다 ({campaign_dir(season, base=base) / BASELINES}) — "
-            "손실을 비율로 모을 수 없다. 1층 행은 델타만 싣는다(2026-08-18 확인). "
-            "먼저 `python -m pok.engine.counterfactual_aggregate baseline --season <시즌>`"
-        )
+    # ⚠ 사이드카가 없어도 바로 죽지 않는다 — 재측정본(2026-08-19~)은 행과 함께
+    #   기준(`baseline`)을 싣는다. 둘 다 없는 빌드는 세지 않는 방식으로 빠지고
+    #   coverage.builds_measured가 그만큼 줄어 드러난다(조용한 손실 아님).
     nodes: dict[int, _Node] = defaultdict(_Node)
     seen: set[str] = set()
     cov = {"builds_measured": 0, "rows_total": 0, "rows_kept": 0}
@@ -203,8 +200,9 @@ def collect(
         except Exception:  # 복원 실패는 표본에서 빠질 뿐이다 (커버리지에 안 센다)
             continue
 
-        base_stats = baselines.get(bid)
-        if base_stats is None:
+        # 재측정본(2026-08-19~)은 행과 함께 기준을 싣는다. 없으면 사이드카(옛 파일).
+        base_stats = result.get("baseline") or baselines.get(bid)
+        if not base_stats:
             continue  # 기준을 못 구한 빌드는 비율을 못 낸다 — 세지도 않는다
         # 이 빌드가 쓰는 메커니즘 — 노드의 **조건**을 짚는 데 쓴다(M4.5)
         build_groups = _build_groups(spec, groups)

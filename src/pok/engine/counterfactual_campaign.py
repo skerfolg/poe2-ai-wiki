@@ -160,12 +160,17 @@ def measure_build(
     #    기준·변경안 양쪽에 똑같이 들어가므로 델타에 영향을 주지 않는다.
     spec = spec_from_dict(restored.spec, validate_catalog=False)
     candidates = removable_nodes(spec, graph)
+    # 기준 스탯을 **행과 함께** 싣는다 — 델타만 실으면 손실을 비율로 못 만든다
+    # (M4 실측 2026-08-18: 사이드카(baselines.ndjson)로 2,687벌을 따로 채워야 했다).
+    # 데몬이 스펙을 캐시하므로 이 계산은 evaluate_removals의 기준 계산과 겹치지 않는다.
+    baseline = daemon.compute_build(spec).stats or {}
     rows = evaluate_removals(spec, graph, list(candidates.nodes), stats=stats, daemon=daemon)
 
     measured = [r for r in rows if r.measured and not r.pruned]
     return {
         "build": build_id(doc),
         "pob_commit": pob_commit,
+        "baseline": {k: baseline.get(k, 0.0) for k in stats},
         "restored": {
             "faithful": restored.faithful,
             "damage_comparable": restored.damage_comparable,
@@ -193,6 +198,9 @@ def measure_build(
                 "graph_orphans": len(candidates.orphans),
                 "blocked": len(candidates.blocked),
             },
+            # 연결 불요 주얼 반경으로 **살아난** 노드 수(#87) — 0이 아니면 이 빌드의
+            # 후보에는 길 없이 성립하는 노드가 섞여 있고, 그건 근거가 있는 정상이다
+            "no_path_zone": len(candidates.no_path_zone),
         },
         "removals": [
             {

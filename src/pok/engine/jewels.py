@@ -112,6 +112,21 @@ def effective_radius(item_text: str) -> tuple[float, float] | None:
     return JEWEL_RADIUS_BY_INDEX.get(idx) if idx is not None else None
 
 
+# 「반경 안 패시브를 **길 없이** 찍을 수 있다」 — PoB `ModParser.lua:5511`의
+# intuitiveLeapLike 꼴(From Nothing · Controlled Metamorphosis).
+_NOCONN = re.compile(r"can be Allocated\s+without being connected", re.I)
+
+
+def allocates_without_path(item_text: str) -> bool:
+    """이 주얼이 반경 안 노드의 **연결 요건을 없애는가**.
+
+    이런 주얼이 있으면 그래프 연결성으로 「성립하는 트리」를 판정하면 안 된다 —
+    반경 안 노드는 길이 안 닿아도 인게임에서 찍힌다. 코퍼스의 48.8%가 보유
+    (From Nothing 1,193벌 · Controlled Metamorphosis 275벌, BACKLOG #87).
+    """
+    return bool(_NOCONN.search(item_text))
+
+
 def is_timeless(item_text: str) -> bool:
     """타임리스 주얼인가 — **트리를 바꾸는** 주얼이라 따로 다뤄야 한다.
 
