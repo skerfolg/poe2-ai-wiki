@@ -30,14 +30,37 @@ from dataclasses import dataclass, field
 
 from pok.engine.tree.graph import TreeGraph
 
-# PoB 실효 반경 (표기의 1.2배). `Data.lua:657-672` + `Misc.lua` gameConstants.
-# 도넛(Variable)은 inner가 있어 가까운 노드를 안 덮는다 — 원으로 모델링하면 틀린다.
+# PoB 실효 반경 (표기의 1.2배 — `Misc.lua:36` PassiveTreeJewelDistanceMultiplier).
+# **`Data.lua:657`의 12개를 그대로** 옮긴다. 키는 PoB의 `radiusIndex`(1부터)다 —
+# 아이템이 "only affects passives in massive ring" 같은 문구로 **이 번호를 지목**한다
+# (`ModParser.lua:5512-5524`). 번호를 우리 이름으로 바꾸면 대조가 끊기므로 안 바꾼다.
+#
+# ⚠ 1~4는 원(inner=0), **5~12는 도넛**이다 — inner보다 가까운 노드는 **안 덮는다**.
+# 원으로 모델링하면 덮는 노드를 과대평가한다(BACKLOG #71).
+JEWEL_RADIUS_BY_INDEX: dict[int, tuple[float, float]] = {
+    1: (0.0, 1200.0),  # Small        (표기 1000)
+    2: (0.0, 1380.0),  # Medium       (1150)
+    3: (0.0, 1560.0),  # Large        (1300)
+    4: (0.0, 1800.0),  # Very Large   (1500)
+    5: (780.0, 1140.0),  # Variable — very small ring   (650~950)
+    6: (960.0, 1320.0),  # Variable — small ring        (800~1100)
+    7: (1140.0, 1500.0),  # Variable — medium-small ring (950~1250)
+    8: (1320.0, 1680.0),  # Variable — medium ring       (1100~1400)
+    9: (1500.0, 1860.0),  # Variable — medium-large ring (1250~1550)
+    10: (1680.0, 2040.0),  # Variable — large ring        (1400~1700)
+    11: (1980.0, 2340.0),  # Variable — very large ring   (1650~1950)
+    12: (2160.0, 2520.0),  # Variable — massive ring      (1800~2100)
+}
+
+# 밀집도 **스캔 밴드** — 위 표와 쓰임이 다르다. 저건 「이 주얼의 반경이 얼마인가」이고
+# 이건 「어느 크기로 훑어볼까」다. 도넛 8개를 전부 훑으면 겹치는 뭉치가 쏟아져 신호가
+# 묻히므로, 원 4종 + 가장 큰 도넛만 쓴다.
 JEWEL_RADII: tuple[tuple[str, float, float], ...] = (
-    ("Small", 0.0, 1200.0),
-    ("Medium", 0.0, 1380.0),
-    ("Large", 0.0, 1560.0),
-    ("Very Large", 0.0, 1800.0),
-    ("Variable(최대)", 2160.0, 2520.0),
+    ("Small", *JEWEL_RADIUS_BY_INDEX[1]),
+    ("Medium", *JEWEL_RADIUS_BY_INDEX[2]),
+    ("Large", *JEWEL_RADIUS_BY_INDEX[3]),
+    ("Very Large", *JEWEL_RADIUS_BY_INDEX[4]),
+    ("Variable(최대)", *JEWEL_RADIUS_BY_INDEX[12]),
 )
 
 

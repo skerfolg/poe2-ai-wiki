@@ -10,6 +10,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
+
 from pok.engine import counterfactual_campaign as cc
 
 
@@ -101,3 +103,38 @@ def test_결과는_빌드당_파일_하나로_원자적으로_쓴다(tmp_path: P
     assert path.name == "acc__Zed__t.json"
     assert path.parent.name == cc.REMOVALS
     assert not list(path.parent.glob("*.tmp")), "임시 파일이 남았다"
+
+
+def test_후보에서_빠진_이유가_결과에_남는다(monkeypatch: Any) -> None:
+    """⛔ 조용한 제외 금지 — 「할당 130개 중 21개를 쟀다」만 남으면 나머지 109개가
+    왜 빠졌는지 알 수 없다.
+
+    특히 `graph_orphans`는 **연결 불요 주얼**(From Nothing 등, 코퍼스 48.8%) 때문에
+    길 없이 할당된 정상 노드일 수 있다. 우리 그래프는 그걸 고아로 판정해 후보에서
+    빼는데, 그 사실이 안 남으면 **없는 값이 0으로 읽힌다**(BACKLOG #83).
+    실측 2026-08-18: 연결 불요 주얼 보유 빌드 39/40에서 고아 발생, 중앙 7개.
+    """
+    from pok.common.paths import knowledge_dir
+    from pok.engine.tree.counterfactual import removable_nodes
+    from pok.engine.tree.graph import TreeGraph
+    from pok.pob.buildxml import spec_from_dict
+    from pok.pob.restore import spec_from_pob
+
+    raw = Path("artifacts/ingest-raw/ladder/0-5")
+    docs = sorted(raw.glob("*/*.json"))[:1] if raw.exists() else []
+    if not docs:
+        pytest.skip("래더 원시가 없다 — 데이터 repo 미연결 환경")
+    doc = json.loads(docs[0].read_text(encoding="utf-8"))
+
+    # 측정은 이 시험의 관심이 아니다(PoB가 필요하다) — 열거와 보고만 본다
+    monkeypatch.setattr(cc, "evaluate_removals", lambda *a, **k: [])
+    graph = TreeGraph(knowledge_dir())
+    out = cc.measure_build(graph, doc, pob_commit="x", stats=("CombinedDPS",))
+
+    spec = spec_from_dict(spec_from_pob(str(doc["pob_export"])).spec, validate_catalog=False)
+    want = removable_nodes(spec, graph)
+    cov = out["coverage"]
+    assert cov["allocated"] == len(spec.tree_nodes)
+    assert cov["candidates"] == len(want.nodes)
+    assert cov["excluded"]["graph_orphans"] == len(want.orphans)
+    assert cov["excluded"]["blocked"] == len(want.blocked)

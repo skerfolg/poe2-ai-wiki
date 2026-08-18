@@ -27,8 +27,7 @@ import dataclasses
 import math
 from dataclasses import dataclass
 
-from pok.engine.jewels import declared_radius, needs_radius_declaration
-from pok.engine.tree.clusters import JEWEL_RADII
+from pok.engine.jewels import effective_radius, needs_radius_declaration
 from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import BuildSpec, JewelSpec
 
@@ -55,19 +54,23 @@ def _kind(text: str) -> str:
     return "rare"
 
 
-def _radius_of(text: str) -> float:
-    """선언된 반경 라벨 → 실효 반경. 선언이 없으면 0(= 아무 노드도 안 걸린다)."""
-    label = (declared_radius(text) or "").strip().lower()
-    for name, _inner, outer in JEWEL_RADII:
-        if name.lower() == label:
-            return float(outer)
-    return 0.0
+def _radius_of(text: str) -> tuple[float, float]:
+    """실효 (inner, outer). 모르면 (0, 0) = 아무 노드도 안 걸린다.
+
+    ⛔ 라벨만 보지 않는다 — 실제 링은 모드 문구가 정한다(`jewels.radius_index`).
+    """
+    return effective_radius(text) or (0.0, 0.0)
 
 
-def density(graph: TreeGraph, socket: int, allocated: set[int], radius: float) -> int:
-    """소켓 반경 안에 **할당된** 노드가 몇 개인가 — 반경 주얼의 값은 여기서 난다."""
+def density(graph: TreeGraph, socket: int, allocated: set[int], radius: tuple[float, float]) -> int:
+    """소켓 반경 안에 **할당된** 노드가 몇 개인가 — 반경 주얼의 값은 여기서 난다.
+
+    ⚠ **도넛이다.** Variable 링 8개는 inner가 있어 소켓에 가까운 노드를 **안 덮는다**
+    (가장 작은 5번은 780~1140). 원으로 재면 과대평가한다(BACKLOG #71).
+    """
+    inner, outer = radius
     here = graph.nodes.get(socket)
-    if here is None or here.position is None or radius <= 0:
+    if here is None or here.position is None or outer <= 0:
         return 0
     cx, cy = here.position
     hits = 0
@@ -75,7 +78,8 @@ def density(graph: TreeGraph, socket: int, allocated: set[int], radius: float) -
         node = graph.nodes.get(nid)
         if node is None or node.position is None or nid == socket:
             continue
-        if math.dist((cx, cy), node.position) <= radius:
+        dist = math.dist((cx, cy), node.position)
+        if inner <= dist <= outer:
             hits += 1
     return hits
 
@@ -128,7 +132,7 @@ def place_jewels(
             continue
         if kind == "radius":
             radius = _radius_of(text)
-            if radius <= 0:
+            if radius[1] <= 0:
                 # 선언이 없으면 어느 소켓이든 델타 0이다 — 자리를 고를 근거 자체가 없다
                 socket = free.pop(0)
                 out.append(

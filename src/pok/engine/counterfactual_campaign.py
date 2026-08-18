@@ -178,7 +178,22 @@ def measure_build(
             "allocated": len(spec.tree_nodes),
         },
         # ⚠ 이 선언이 없으면 부분 데이터셋이 전량으로 읽힌다(BACKLOG #67의 재발 방지)
-        "coverage": {"measured": len(measured), "candidates": len(candidates.nodes)},
+        #
+        # `excluded`는 **후보에서 빠진 이유**다. 없으면 「할당 130개 중 21개를 쟀다」만
+        # 남아 나머지 109개가 왜 빠졌는지 알 수 없다 — 그중 `graph_orphans`는
+        # **연결 불요 주얼**(From Nothing 등, 코퍼스 48.8%) 때문에 길 없이 할당된
+        # 정상 노드일 수 있다. 우리 그래프는 그걸 고아로 판정해 후보에서 빼는데,
+        # 그 사실이 결과에 안 남으면 **없는 값이 0으로 읽힌다**(BACKLOG #83).
+        # 실측 2026-08-18: 연결 불요 주얼 보유 빌드 39/40에서 고아 발생, 중앙 7개.
+        "coverage": {
+            "measured": len(measured),
+            "candidates": len(candidates.nodes),
+            "allocated": len(spec.tree_nodes),
+            "excluded": {
+                "graph_orphans": len(candidates.orphans),
+                "blocked": len(candidates.blocked),
+            },
+        },
         "removals": [
             {
                 "node_id": r.node_id,
