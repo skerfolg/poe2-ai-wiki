@@ -280,27 +280,52 @@ def backfill_baselines(
     out = campaign_dir(season, base=base) / BASELINES
     have = load_baselines(season, base=base)
     results = campaign_dir(season, base=base) / REMOVALS
-    done = 0
+    done = failed = 0
     seen: set[str] = set()
-    with out.open("a", encoding="utf-8", newline="\n") as sink, PobDaemon() as daemon:
-        for path in sorted(raw_root.glob("*/*.json")):
-            if limit is not None and done >= limit:
-                break
-            try:
-                doc = json.loads(path.read_text(encoding="utf-8"))
-                bid = build_id(doc)
-                if bid in seen or bid in have or not (results / f"{bid}.json").exists():
+    daemon: Any = None
+    # ⚠ **데몬을 갈아 끼운다.** 오래 산 데몬은 느려지다 죽는다(캠페인 실측: 50벌 9.2초 →
+    #   250벌 이후 77초). 실측 2026-08-18: 재활용 없이 돌렸더니 489벌에서 데몬이 죽고
+    #   **나머지를 전부 조용히 건너뛴 채 성공으로 보고했다** — 예외를 삼킨 탓이다.
+    recycle = 50
+    try:
+        with out.open("a", encoding="utf-8", newline="\n") as sink:
+            for path in sorted(raw_root.glob("*/*.json")):
+                if limit is not None and done >= limit:
+                    break
+                try:
+                    doc = json.loads(path.read_text(encoding="utf-8"))
+                    bid = build_id(doc)
+                    if bid in seen or bid in have or not (results / f"{bid}.json").exists():
+                        continue
+                    seen.add(bid)
+                except Exception:
                     continue
-                seen.add(bid)
-                got = daemon.compute_build(_spec_of(doc)).stats or {}
-            except Exception:  # 못 재는 빌드는 건너뛴다 — 비율을 못 낼 뿐이다
-                continue
-            row = {"build": bid, "stats": {k: got.get(k, 0.0) for k in stats}}
-            sink.write(json.dumps(row, ensure_ascii=False) + "\n")
-            sink.flush()
-            done += 1
-            if done % 100 == 0:
-                print(f"  기준값 {done}벌", flush=True)
+                if daemon is None or done % recycle == 0:
+                    if daemon is not None:
+                        daemon.close()
+                    daemon = PobDaemon()
+                    daemon.__enter__()
+                try:
+                    got = daemon.compute_build(_spec_of(doc)).stats or {}
+                except Exception:
+                    # ⛔ 조용히 넘기지 않는다 — 연달아 실패하면 데몬이 죽은 것이고,
+                    #    그대로 두면 「전부 처리했다」는 거짓 보고가 된다.
+                    failed += 1
+                    if failed % 20 == 0:
+                        print(f"  ⚠ 연속 실패 {failed}건 — 데몬을 다시 세운다", flush=True)
+                        daemon.close()
+                        daemon = None
+                    continue
+                failed = 0
+                row = {"build": bid, "stats": {k: got.get(k, 0.0) for k in stats}}
+                sink.write(json.dumps(row, ensure_ascii=False) + "\n")
+                sink.flush()
+                done += 1
+                if done % 100 == 0:
+                    print(f"  기준값 {done}벌", flush=True)
+    finally:
+        if daemon is not None:
+            daemon.close()
     return done
 
 
