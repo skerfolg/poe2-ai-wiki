@@ -953,6 +953,12 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
   말 것**: 값과 무관한 것을 쫓게 된다.
   ⚠ 단 표본 1벌이다. 데드아이·타이탄은 각각 EHP 도달 불가(#86)·타임리스(#85)라
   같은 판정을 못 낸다. **닫으려면 오염 없는 전직 2~3종을 더 볼 것.**
+- ✅ **「고르는 규칙」의 소비 경로가 생겼다 (2026-08-19).** `suggest_anchors`가
+  NodeValue를 읽어 행마다 제거 실측(`removal`)과 표시(`habit`/`conditional`)를
+  붙이고, required인데 어느 빌드에서도 안 아픈 것을 `meta_habits`로 모은다 —
+  「많이 찍혔다」 옆에 「빼면 아픈가」가 나란히 놓인다. ⚠ 지금은 **휴면 상태**다:
+  NodeValue가 정본에 없어(M3 재측정 후 승격) `removal_why`로 「채택률만으로
+  골랐다」를 선언하는 경로만 작동한다. 승격되는 순간 자동으로 켜진다.
 - **근거 위치**: `src/pok/engine/tree/optimize.py`(앵커 선연결) ·
   `src/pok/engine/tree/corpus.py:suggest_anchors`(`required`/`common` 분리)
 
