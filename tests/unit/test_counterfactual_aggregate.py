@@ -215,18 +215,34 @@ def test_대조군_없이는_그룹을_붙이지_않는다() -> None:
     「작동한 빌드가 이 그룹을 썼다」는 그 그룹이 넓으면(마나는 젬 55종) 늘 참이다.
     그룹이 **없을 때도** 똑같이 작동했다면 조건이 아니다."""
     node = agg._Node(kind="notable", label="그룹 판정")
-    node.n_rows, node.n_fired = 40, 20
+    node.n_rows["CombinedDPS"] = 40
+    node.n_fired["CombinedDPS"] = 20
     # 저주: 있을 때 18/20 작동, 없을 때 2/20 → 조건이다
     # 마나: 있을 때 10/20, 없을 때 10/20 → 아무것도 설명 못 한다
-    node.seen_groups.update({"저주": 20, "마나": 20})
-    node.fired_groups.update({"저주": 18, "마나": 10})
-    assert node.groups == {"저주"}
+    node.seen_groups["CombinedDPS"].update({"저주": 20, "마나": 20})
+    node.fired_groups["CombinedDPS"].update({"저주": 18, "마나": 10})
+    assert set(node.groups_for("CombinedDPS")) == {"저주"}
 
 
 def test_모든_빌드가_쓰는_그룹은_비교_자체가_안_된다() -> None:
     """대조군이 없으면(전원 보유) 리프트를 못 낸다 — 조용히 붙이지 않는다."""
     node = agg._Node(kind="notable", label="전원 보유")
-    node.n_rows, node.n_fired = 30, 15
-    node.seen_groups.update({"마나": 30})
-    node.fired_groups.update({"마나": 15})
-    assert node.groups == set()
+    node.n_rows["CombinedDPS"] = 30
+    node.n_fired["CombinedDPS"] = 15
+    node.seen_groups["CombinedDPS"].update({"마나": 30})
+    node.fired_groups["CombinedDPS"].update({"마나": 15})
+    assert node.groups_for("CombinedDPS") == {}
+
+
+def test_그룹을_축마다_따로_센다() -> None:
+    """⛔ DPS 조건을 정하는데 EHP가 움직인 것까지 「작동」으로 세면 **다른 축의
+    상관이 조건으로 둔갑한다.** (그룹끼리 겹치는 것 자체는 정상이다 — 빌드는 여러
+    그룹의 합이고, 고르는 용도로는 상관된 그룹이 해롭지 않다.)"""
+    node = agg._Node(kind="notable", label="축 분리")
+    for stat, hit in (("CombinedDPS", 18), ("TotalEHP", 10)):
+        node.n_rows[stat] = 40
+        node.n_fired[stat] = 20
+        node.seen_groups[stat].update({"저주": 20})
+        node.fired_groups[stat].update({"저주": hit})
+    assert set(node.groups_for("CombinedDPS")) == {"저주"}
+    assert node.groups_for("TotalEHP") == {}, "EHP에선 조건이 아닌데 붙었다"

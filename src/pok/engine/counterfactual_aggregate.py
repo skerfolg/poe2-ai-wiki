@@ -77,37 +77,40 @@ class _Node:
     axes: dict[str, list[float]] = field(default_factory=lambda: defaultdict(list))
     tainted: int = 0
     unmeasured: int = 0
-    n_rows: int = 0  # 이 노드를 잰 관측 수 (그룹 리프트의 분모)
-    n_fired: int = 0  # 그중 무엇이든 움직인 관측 수
+    # 그룹 리프트를 **축마다** 센다 — DPS 조건을 정하는데 EHP가 움직인 것까지
+    # 「작동」으로 세면 다른 축의 상관이 조건으로 둔갑한다.
+    n_rows: Counter[str] = field(default_factory=Counter)
+    n_fired: Counter[str] = field(default_factory=Counter)
     # 이 노드가 **작동한** 빌드들이 쓰던 메커니즘 그룹 (M4.5 조건 층)
-    fired_groups: Counter[str] = field(default_factory=Counter)
-    seen_groups: Counter[str] = field(default_factory=Counter)
+    fired_groups: dict[str, Counter[str]] = field(default_factory=lambda: defaultdict(Counter))
+    seen_groups: dict[str, Counter[str]] = field(default_factory=lambda: defaultdict(Counter))
 
-    @property
-    def groups(self) -> set[str]:
-        """이 노드를 **켜는** 그룹만. ⛔ 대조군을 봐야 한다.
+    def groups_for(self, stat: str) -> dict[str, float]:
+        """이 축에서 이 노드를 켜는 그룹 → 리프트.
 
-        처음엔 「작동한 빌드가 이 그룹을 썼나」(hit/seen)로 판정했다가 **노드마다
-        16~18개가 전부 붙었다**(실측 2026-08-18). 두 가지가 틀렸다:
-        ①그룹이 넓다 — `마나`는 젬 55종이라 거의 모든 빌드가 해당한다. 흔한 것은
-        아무것도 설명하지 못한다. ②**안 쓴 빌드와 비교하지 않았다** — 그 그룹이
-        없을 때도 똑같이 작동했다면 조건이 아니다.
+        ⛔ **대조군을 본다.** P(작동 | 그룹 있음) / P(작동 | 그룹 없음). 안 보면
+        노드마다 16~18개가 전부 붙는다(실측 2026-08-18) — `마나`는 젬 55종이라
+        거의 모든 빌드가 해당해서, 「작동한 빌드가 이 그룹을 썼다」는 늘 참이다.
 
-        그래서 리프트로 본다: P(작동 | 그룹 있음) / P(작동 | 그룹 없음).
+        ⚠ **그룹끼리 겹치는 것은 정상이다**(사용자 정리 2026-08-18). 빌드는 여러
+        그룹의 합이고, 고르는 용도로는 상관된 그룹이 해롭지 않다 — 함성과 격노가
+        늘 함께 온다면 어느 쪽으로 골라도 같은 빌드가 걸린다. 인과를 가리는 것은
+        이 층의 일이 아니다.
         """
-        out: set[str] = set()
-        for name, seen in self.seen_groups.items():
-            without = self.n_rows - seen
-            hit = self.fired_groups.get(name, 0)
-            # 양쪽 표본이 있어야 비교가 성립한다
-            if seen < 5 or without < 5:
+        rows, fired = self.n_rows.get(stat, 0), self.n_fired.get(stat, 0)
+        out: dict[str, float] = {}
+        for name, seen in self.seen_groups.get(stat, Counter()).items():
+            without = rows - seen
+            hit = self.fired_groups.get(stat, Counter()).get(name, 0)
+            if seen < 5 or without < 5:  # 양쪽 표본이 있어야 비교가 성립한다
                 continue
             p_with = hit / seen
-            p_without = (self.n_fired - hit) / without
-            if p_with < 0.3:  # 그룹이 있어도 대부분 안 켜지면 조건이 아니다
+            p_without = (fired - hit) / without
+            if p_with < 0.3:
                 continue
-            if p_without == 0 or p_with / p_without >= 2.0:
-                out.add(name)
+            lift = float("inf") if p_without == 0 else p_with / p_without
+            if lift >= 2.0:
+                out[name] = round(min(lift, 999.0), 2)
         return out
 
 
@@ -219,13 +222,15 @@ def collect(
                 continue
             cov["rows_kept"] += 1
             here.points.append(int(row.get("points") or 1))
-            fired = any(abs(float(v)) > 0 for v in row["deltas"].values())
-            here.n_rows += 1
-            here.n_fired += int(fired)
-            for name in build_groups:
-                here.seen_groups[name] += 1
-                if fired:
-                    here.fired_groups[name] += 1
+            # **축마다** 따로 센다 — 축을 안 가리면 다른 축의 상관이 조건이 된다
+            for stat, delta in row["deltas"].items():
+                moved = abs(float(delta)) > 0
+                here.n_rows[stat] += 1
+                here.n_fired[stat] += int(moved)
+                for name in build_groups:
+                    here.seen_groups[stat][name] += 1
+                    if moved:
+                        here.fired_groups[stat][name] += 1
             for stat, delta in row["deltas"].items():
                 loss = _loss_pct(base_stats.get(stat, 0.0), float(delta))
                 if loss is not None and math.isfinite(loss):
@@ -264,7 +269,7 @@ def build_records(
     )
     out: list[dict[str, Any]] = []
     for nid, node in sorted(nodes.items()):
-        axes = {}
+        axes: dict[str, dict[str, Any]] = {}
         for stat, values in sorted(node.axes.items()):
             if not values:
                 continue
@@ -274,6 +279,7 @@ def build_records(
             #    Gathering Winds는 어느 빌드에서도 안 움직인다 — 둘이 갈려야 한다.
             active = [v for v in values if abs(v) >= _ZERO_EPS]
             zero_share = round((len(values) - len(active)) / len(values) * 100, 2)
+            found = node.groups_for(stat)
             axes[stat] = {
                 "n": len(values),
                 "loss_pct": _spread(values),
@@ -281,6 +287,7 @@ def build_records(
                 "active_share": round(100.0 - zero_share, 2),
                 "n_active": len(active),
                 "when_active": _spread(active),
+                **({"groups": dict(sorted(found.items(), key=lambda kv: -kv[1]))} if found else {}),
             }
         ref, kb_kind = index.get(nid, ("", ""))
         node_block: dict[str, Any] = {
@@ -303,8 +310,9 @@ def build_records(
             "points": _spread([float(p) for p in node.points]),
             "axes": axes,
         }
-        if node.groups:
-            data["groups"] = sorted(node.groups)
+        found_all = sorted({g for ax in axes.values() for g in (ax.get("groups") or {})})
+        if found_all:
+            data["groups"] = found_all
         out.append(
             {
                 # id는 **점 하나 + `[a-z0-9-]`**만 받는다 — 시즌과 번호를 대시로 잇는다
