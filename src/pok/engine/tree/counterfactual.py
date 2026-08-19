@@ -101,32 +101,36 @@ def _roots(spec: BuildSpec, graph: TreeGraph) -> frozenset[int]:
 
 
 def _no_path_zones(spec: BuildSpec, graph: TreeGraph) -> set[int]:
-    """**연결 불요 주얼**(From Nothing류)의 반경 안 할당 노드 — 뿌리로 취급한다 (#87).
+    """**연결 불요 주얼** 덕에 길 없이도 성립하는 할당 노드 (#87 · #90).
 
-    이 주얼은 반경 안 노드의 연결 요건을 없앤다("can be Allocated without being
-    connected"). 그래서 그 노드들은 길이 안 닿아도 인게임에서 성립한다 — 그래프
-    연결성으로 고아 판정하면 **측정에서 통째로 빠진다**(실측: 보유 빌드 39/40에서
-    고아 발생, 코퍼스의 48.8%가 보유. 하필 길 제약 없이 옵션만 보고 고른, 의도가
-    가장 분명한 표본이다).
+    ⚠ **섬이다 — 씨앗이 아니다.** 반경 안 노드는 각자 성립할 뿐 **이웃에게 길을
+    주지 않는다.** 처음엔 도달성 씨앗으로 넣어 인접 전파를 시켰는데, 그렇게 살아난
+    다리 후보 19,149행을 PoB가 전부 거부했다(재측정 2026-08-20 — 기준에서는 반경 안
+    고아 6개를 수용(pruned 0)하면서 다리를 빼면 통째 로드에서도 123개를 자른다).
+    오라클이 말하는 인게임 규칙이 섬 의미론이다.
 
-    ⛔ **고아 전체를 살리지 않는다** — 반경 **안**만 뿌리다. 반경 밖 고아는 여전히
-    진짜 오류(수집 갭·잘못된 스펙)이고, 전부 살리면 오류가 후보로 둔갑한다.
+    ⚠ **중심이 주얼마다 다르다** — PoB `ModParser.lua:5504-5511`의 세 꼴 그대로:
 
-    ⛔ 반경을 못 읽으면(선언 없음) **아무것도 안 살린다** — 추측으로 반경을 정하면
-    안 되는 것은 다른 주얼과 같은 원칙이다(`engine.jewels`). 그 경우 고아는 남고,
-    `coverage.excluded.graph_orphans`가 그 사실을 싣는다.
+    | 문구 | 중심 | 반경 |
+    |---|---|---|
+    | "in radius of <이름>" (From Nothing) | **명명된 키스톤** | 주얼의 `Radius:` 라벨 |
+    | "in medium radius of allocated keystone" | **할당된 키스톤 전부** | Medium(2번) |
+    | "passives in radius can be allocated" | 소켓 | 주얼의 링 선언 |
 
-    소켓 자체가 **할당돼 있어야** 한다 — 안 찍힌 소켓의 주얼은 효과가 없다.
+    처음엔 전부 소켓 중심으로 쟀다 — From Nothing은 문구부터 "Radius **of Wildsurge
+    Incantation**"인데 소켓 반경으로 읽었던 것이다.
 
-    ⚠ **뿌리가 아니라 도달성 씨앗이다.** 뿌리는 「제거 불가 집합」이기도 해서
-    (`removable_nodes`의 `nid in roots` 분기) 거기 넣으면 이 노드들이 측정에서
-    빠진다 — 살리려던 표본을 다른 이유로 또 잃는 것이다. 처음에 그렇게 만들었다가
-    코드를 되읽고 돌렸다. 이 노드들은 포인트를 쓰는 **선택**이라 제거 반사실의
-    정당한 대상이다.
+    ⛔ 반경·중심을 못 읽으면 **아무것도 안 살린다** — 추측하면 오류 고아가 후보로
+    둔갑한다. 소켓 자체가 할당돼 있어야 하는 것도 그대로다(안 찍힌 소켓은 무효).
     """
     import math
+    import re
 
     from pok.engine.jewels import allocates_without_path, effective_radius
+    from pok.engine.tree.clusters import JEWEL_RADIUS_BY_INDEX
+
+    named = re.compile(r"in Radius of ([A-Za-z' ]+?) can be Allocated", re.I)
+    from_keystones = re.compile(r"radius of allocated keystone", re.I)
 
     allocated = set(spec.tree_nodes)
     out: set[int] = set()
@@ -136,17 +140,39 @@ def _no_path_zones(spec: BuildSpec, graph: TreeGraph) -> set[int]:
             continue
         if jewel.socket_node_id not in allocated:
             continue
-        ring = effective_radius(text)
-        socket = graph.nodes.get(jewel.socket_node_id or -1)
-        if ring is None or socket is None or socket.position is None:
+        centers: list[tuple[float, float]] = []
+        ring: tuple[float, float] | None
+        if match := named.search(text):
+            want = match.group(1).strip().casefold()
+            centers = [
+                node.position
+                for node in graph.nodes.values()
+                if node.kind == "keystone"
+                and node.position is not None
+                and node.name_en.casefold() == want
+            ]
+            ring = effective_radius(text)
+        elif from_keystones.search(text):
+            centers = [
+                node.position
+                for nid in allocated
+                if (node := graph.nodes.get(nid)) is not None
+                and node.kind == "keystone"
+                and node.position is not None
+            ]
+            ring = JEWEL_RADIUS_BY_INDEX[2]  # "medium radius" — ModParser radiusIndex=2
+        else:
+            socket = graph.nodes.get(jewel.socket_node_id or -1)
+            centers = [socket.position] if socket is not None and socket.position else []
+            ring = effective_radius(text)
+        if ring is None or not centers:
             continue
         inner, outer = ring
-        cx, cy = socket.position
         for nid in allocated:
             node = graph.nodes.get(nid)
             if node is None or node.position is None:
                 continue
-            if inner <= math.dist((cx, cy), node.position) <= outer:
+            if any(inner <= math.dist(center, node.position) <= outer for center in centers):
                 out.add(nid)
     return out
 
@@ -193,12 +219,13 @@ def removable_nodes(spec: BuildSpec, graph: TreeGraph) -> RemovalCandidates:
     alloc = frozenset(spec.tree_nodes)
     roots = _roots(spec, graph)
     universe = alloc | roots
-    # 연결 불요 주얼(From Nothing류)의 반경 안 할당 노드 — 길 없이도 성립하므로
-    # 도달성 씨앗에 넣는다(#87). 뿌리와 달리 **제거 후보로는 남는다**.
+    # 연결 불요 주얼(From Nothing류)의 반경 안 할당 노드 — **각자 섬으로** 성립한다.
+    # ⛔ 씨앗으로 넣어 전파시키면 안 된다(#90): PoB 실측 — 섬은 이웃에게 길을 주지
+    #    않는다. 성립 = 뿌리 도달 + 섬이고, 전파는 뿌리 쪽만 한다.
     zones = _no_path_zones(spec, graph)
-    seeds = roots | zones
-    reachable = _reachable(graph, universe, seeds)
-    orphans = tuple(sorted(alloc - reachable))
+    reachable = _reachable(graph, universe, roots)
+    valid = reachable | zones
+    orphans = tuple(sorted(alloc - valid))
 
     prerequisite_of: dict[int, list[int]] = {}
     for nid in alloc:
@@ -235,9 +262,11 @@ def removable_nodes(spec: BuildSpec, graph: TreeGraph) -> RemovalCandidates:
         elif nid in socketed:
             blocked[nid] = "주얼이 박힌 소켓 — 빼면 주얼 기여까지 사라져 소켓 값으로 오인된다"
         else:
-            # 씨앗에서 자기 자신은 뺀다 — 안 그러면 「빼도 자기가 씨앗이라 닿는」
-            # 순환으로 zone 노드 제거가 공짜로 보인다
-            lost = (reachable - {nid}) - _reachable(graph, universe, seeds - {nid}, without=nid)
+            # 성립 = 뿌리 도달 + 섬. 빼고 난 뒤에도 그 등식으로 잃는 것을 센다 —
+            # 섬은 자기 자신만 책임지므로(zones - {nid}) 다리 노릇을 못 한다(#90)
+            lost = (valid - {nid}) - (
+                _reachable(graph, universe, roots, without=nid) | (zones - {nid})
+            )
             if lost:
                 blocked[nid] = f"빼면 {len(lost)}개가 고아가 된다(예: {sorted(lost)[:5]})"
             else:
