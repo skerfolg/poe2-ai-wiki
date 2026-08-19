@@ -82,7 +82,10 @@ mcp: FastMCP = FastMCP(
         "⚠ **효과 문구는 대부분 영어로만 인덱싱돼 있다**(Skill·Support는 한글 0%) — "
         "이름은 한/영 모두 되지만 효과로 찾을 땐 영어 표기를 쓸 것. "
         "다단어는 AND 매칭. 0건이면 결과에 진단(`empty`/`why`)이 함께 오니 "
-        "**파일을 뒤지기 전에 그것부터 읽을 것**. 레코드의 verification 라벨(GAME_DATA > "
+        "**파일을 뒤지기 전에 그것부터 읽을 것**. "
+        "스태킹·「X당 Y」 사슬 탐색은 search_kb가 아니라 **scan_supply_edges·"
+        "trace_chains**로(축별 공급·보상 엣지 전수, 다단 사슬·공존 진단). "
+        "레코드의 verification 라벨(GAME_DATA > "
         "POB_CODE ≈ IN_GAME > SUPPORTED_INFERENCE > UNVERIFIED, CONTRADICTED=모순 "
         "경고)을 판단 신뢰도에 반영할 것."
     ),
@@ -479,6 +482,9 @@ find_hypotheses = tool(_explore.find_hypotheses)
 # 담체↔페이로드 — 문구가 아니라 PoB 타입 시스템에서 나오는 발산 재료
 find_carriers = tool(_explore.find_carriers)
 find_payloads = tool(_explore.find_payloads)
+# 스택 축 공급 그래프 (#91) — 「이 스탯은 어디로 흘러가나」, 사슬·순환 후보
+scan_supply_edges = tool(_explore.scan_supply_edges)
+trace_chains = tool(_explore.trace_chains)
 
 
 def main() -> None:
