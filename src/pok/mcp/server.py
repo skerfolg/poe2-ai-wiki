@@ -479,6 +479,9 @@ find_hypotheses = tool(_explore.find_hypotheses)
 # 담체↔페이로드 — 문구가 아니라 PoB 타입 시스템에서 나오는 발산 재료
 find_carriers = tool(_explore.find_carriers)
 find_payloads = tool(_explore.find_payloads)
+# 스택 축 공급 그래프 (#91) — 「이 스탯은 어디로 흘러가나」, 사슬·순환 후보
+scan_supply_edges = tool(_explore.scan_supply_edges)
+trace_chains = tool(_explore.trace_chains)
 
 
 def main() -> None:
