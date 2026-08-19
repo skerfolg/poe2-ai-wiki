@@ -133,6 +133,22 @@ _COST_RE = re.compile(
 # Life per 1 Strength" 형태라 일반 파서가 그대로 읽는다. 별도 상수 없음.
 _INHERENT_IDS = ("mechanic.strength", "mechanic.dexterity", "mechanic.intelligence")
 
+# ── 규칙 다리 (curated) ─────────────────────────────────────────────────
+# 비례 **문구**가 없는 게임 규칙 엣지. 문구 파서로는 구조적으로 못 찾는다
+# (discover_mechanics가 스스로 밝힌 한계와 같은 형태). 항목마다 KB 정본
+# 레코드와 근거 인용을 달아 사람이 검토할 수 있게 한다 — 여기 없는 규칙
+# 다리가 필요해지면 이 표에 추가한다(코드 리뷰가 게이트).
+#   (source_axis, target_axis, 근거 레코드 id, 근거 인용)
+_RULE_BRIDGES: tuple[tuple[str, str, str, str], ...] = (
+    (
+        "spirit",
+        "minion_count",
+        "mechanic.spirit",
+        "Spirit is a reserve of power used to activate and maintain skills with "
+        "permanent effects.",  # 소환수는 상시 스킬 — 정신력이 늘면 예약 가능 수가 는다
+    ),
+)
+
 
 @dataclass(frozen=True)
 class SupplyEdge:
@@ -144,13 +160,15 @@ class SupplyEdge:
     target_text: str  # 좌변 원문 — payoff 내용이자 supply의 재확인 근거
     carrier_id: str
     carrier_name: str
-    carrier_kind: str  # "item" | "passive" | "mechanic"
+    carrier_kind: str  # "item" | "passive" | "mechanic" | "bridge"(규칙 다리)
     slot: str | None  # 아이템 장착 부위 — 슬롯 배타 판단 재료
     ascendancy: str | None  # 전직 잠금 — 다르면 공존 불가
     scope: str  # "global" | "item_static" | "allocated_radius" | "flow"
     per: str | None  # 비율 분모 원문 ("100", "20%" 등)
     evidence: str  # 원문 줄 전체
     costs: tuple[str, ...]  # 담체의 대가 줄들 (점유·추가 코스트)
+    # 노드 획득 경로 — "anointable"이면 성유로 전직·트리 위치 무관하게 얻는다.
+    acquisition: str | None = None
 
 
 @dataclass(frozen=True)
@@ -288,15 +306,33 @@ def _parse_line(line: str) -> Iterator[tuple[str, str, str | None, str, str, str
         )
 
 
+def _join_continuations(lines: tuple[str, ...]) -> tuple[str, ...]:
+    """개행으로 잘린 문장을 잇는다 — **소문자로 시작하는 줄은 앞줄의 연속**이다.
+
+    KB 트리 노드 stats가 게임 툴팁의 줄바꿈을 보존한다: Penetrate는
+    "… Added Physical Damage equal" / "to 25% of the Accuracy Rating …" 두 줄이라
+    `equal to` 마커가 잘려 파서가 못 봤다(실측 2026-08-19, 사용자 테스트).
+    """
+    joined: list[str] = []
+    for line in lines:
+        if joined and line[:1].islower():
+            joined[-1] = f"{joined[-1]} {line}"
+        else:
+            joined.append(line)
+    return tuple(joined)
+
+
 def _carrier_lines(record: Record) -> tuple[str, ...]:
     data = record.raw.get("data", {})
     if record.type == "Item":
-        return tuple(str(x) for x in data.get("explicits") or ())
-    if record.type == "Passive":
-        return tuple(str(x) for x in data.get("stats_en") or ())
-    if record.type == "Mechanic":
-        return tuple(str(x) for x in data.get("stats") or ())
-    return ()
+        raw = tuple(str(x) for x in data.get("explicits") or ())
+    elif record.type == "Passive":
+        raw = tuple(str(x) for x in data.get("stats_en") or ())
+    elif record.type == "Mechanic":
+        raw = tuple(str(x) for x in data.get("stats") or ())
+    else:
+        raw = ()
+    return _join_continuations(raw)
 
 
 def _ascendancy(record: Record) -> str | None:
@@ -321,6 +357,7 @@ def scan_supply_edges(store: Store) -> SupplyScan:
         lines = _carrier_lines(record)
         costs = tuple(line for line in lines if _COST_RE.search(line))
         lock = _ascendancy(record)
+        acquisition = record.raw.get("data", {}).get("acquisition")
         for line in lines:
             for src_axis, kind, target_axis, target_text, scope, per in _parse_line(line):
                 if kind == "supply" and target_axis == src_axis:
@@ -341,6 +378,7 @@ def scan_supply_edges(store: Store) -> SupplyScan:
                         per=per,
                         evidence=line,
                         costs=costs,
+                        acquisition=acquisition,
                     )
                 )
 
@@ -360,6 +398,30 @@ def scan_supply_edges(store: Store) -> SupplyScan:
             scan_record(record, "mechanic", None)
         else:
             continue
+
+    # 규칙 다리 — 근거 레코드가 정본에 실재할 때만 낸다(레코드가 사라지면 다리도 죽는다).
+    for src_axis, target_axis, record_id, quote in _RULE_BRIDGES:
+        if record_id not in store.records:
+            skipped[f"bridge_source_missing({record_id})"] += 1
+            continue
+        bridge_record = store.records[record_id]
+        edges.append(
+            SupplyEdge(
+                source_axis=src_axis,
+                kind="supply",
+                target_axis=target_axis,
+                target_text=f"규칙 다리 — {quote}",
+                carrier_id=record_id,
+                carrier_name=bridge_record.name_en,
+                carrier_kind="bridge",
+                slot=None,
+                ascendancy=None,
+                scope="global",
+                per=None,
+                evidence=quote,
+                costs=(),
+            )
+        )
 
     by_axis: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])  # in, out, payoff
     for e in edges:

@@ -166,7 +166,39 @@ def test_cultivated_duplicates_are_skipped_with_reason(scan: SupplyScan) -> None
 
 def test_no_modifier_carriers(scan: SupplyScan) -> None:
     """함정 ①: 접사 레코드는 구변형을 되살린다 — 스캔 대상이 아니다."""
-    assert all(e.carrier_kind in ("item", "passive", "mechanic") for e in scan.edges)
+    assert all(e.carrier_kind in ("item", "passive", "mechanic", "bridge") for e in scan.edges)
+
+
+def test_penetrate_survives_kb_line_wrap(scan: SupplyScan) -> None:
+    """개행으로 잘린 문장을 잇는다 — 아마존 Penetrate(명중→물리 피해)가 그 실증.
+
+    KB 노드 stats가 툴팁 줄바꿈을 보존해 "… equal" / "to 25% of the Accuracy …"
+    두 줄이었고, 마커가 잘려 명중 스태킹의 핵심 보상이 통째로 빠졌다
+    (실측 2026-08-19, 사용자 테스트 "아까처럼 스태킹 연계는 못 찾나?").
+    """
+    edges = _edges_of(scan, "passive.penetrate-41008")
+    assert any(e.source_axis == "accuracy" and e.kind == "payoff" for e in edges)
+
+
+def test_anoint_route_is_visible(scan: SupplyScan) -> None:
+    """성유 노터블(전직·트리 위치 무관 획득)은 acquisition으로 표시된다 —
+    힘→명중 다리(Nimble Strength)가 성유라는 것이 설계 정보다."""
+    [edge] = [e for e in _edges_of(scan, "passive.nimble-strength-40292") if e.kind == "supply"]
+    assert edge.acquisition == "anointable"
+
+
+def test_spirit_minion_bridge(scan: SupplyScan, store: Store) -> None:
+    """규칙 다리: 정신력→소환수 수는 비례 문구가 아니라 게임 규칙(예약)이다.
+
+    다리가 없으면 생명→정신력→소환수 사슬(Beidat's Will → Hysseg's Claw 류)이
+    정신력에서 끊긴다. 다리는 mechanic.spirit 정의문을 인용해야 한다.
+    """
+    [bridge] = [e for e in scan.edges if e.carrier_kind == "bridge"]
+    assert (bridge.source_axis, bridge.target_axis) == ("spirit", "minion_count")
+    assert bridge.carrier_id == "mechanic.spirit"
+    trace = trace_chains(store, "life", depth=3)
+    assert any(c.axes == ("life", "spirit", "minion_count") for c in trace.chains)
+    assert dict(trace.payoff_counts).get("minion_count", 0) >= 2  # Hysseg's·Dark Defiler
 
 
 # ── 사슬 순회 ────────────────────────────────────────────────────────────
