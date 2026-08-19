@@ -163,14 +163,32 @@ def measure_build(
     # 기준 스탯을 **행과 함께** 싣는다 — 델타만 실으면 손실을 비율로 못 만든다
     # (M4 실측 2026-08-18: 사이드카(baselines.ndjson)로 2,687벌을 따로 채워야 했다).
     # 데몬이 스펙을 캐시하므로 이 계산은 evaluate_removals의 기준 계산과 겹치지 않는다.
-    baseline = daemon.compute_build(spec).stats or {}
-    rows = evaluate_removals(spec, graph, list(candidates.nodes), stats=stats, daemon=daemon)
+    #
+    # ⚠ 행과 **같은 보호 수준**이어야 한다. 전직 없는 캐릭터(ascendancy='None', 재측정
+    #   실측 3/2,689벌)는 기준 계산부터 죽는데, 여기서 예외가 새면 **파일 자체가 안
+    #   쓰여** pending이 영원히 남는다 — 1차분은 같은 빌드를 「전 행 실패」로 기록하고
+    #   넘어갔다. 기준을 못 재면 빈 dict로 두고 행들이 각자 사유를 남기게 한다.
+    try:
+        baseline = daemon.compute_build(spec).stats or {}
+        rows = evaluate_removals(spec, graph, list(candidates.nodes), stats=stats, daemon=daemon)
+        failed = ""
+    except Exception as exc:
+        # 빌드 통째의 실패도 **파일로 기록**한다 — 안 쓰면 pending이 영원히 남아
+        # 다음 세션이 미완으로 읽는다. 실측 2026-08-20: 전직 없는 캐릭터 3벌이
+        # `to_xml`의 전직 검증(#78, PR #84)에 걸려 기준 계산부터 죽었다. 1차분은
+        # 검증이 없던 때라 「전 행 실패」로 기록되고 넘어갔었다 — 같은 결말을
+        # 명시적으로 만든다. 실패 사유가 파일에 남으므로 조용한 결손이 아니다.
+        baseline = {}
+        rows = []
+        failed = f"{type(exc).__name__}: {exc}"
 
     measured = [r for r in rows if r.measured and not r.pruned]
     return {
         "build": build_id(doc),
         "pob_commit": pob_commit,
         "baseline": {k: baseline.get(k, 0.0) for k in stats},
+        # 빌드 통째 실패 사유 — 비어 있지 않으면 이 빌드의 관측은 0행이고 그 이유다
+        "failed": failed,
         "restored": {
             "faithful": restored.faithful,
             "damage_comparable": restored.damage_comparable,
