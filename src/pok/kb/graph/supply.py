@@ -133,20 +133,18 @@ _COST_RE = re.compile(
 # Life per 1 Strength" 형태라 일반 파서가 그대로 읽는다. 별도 상수 없음.
 _INHERENT_IDS = ("mechanic.strength", "mechanic.dexterity", "mechanic.intelligence")
 
-# ── 규칙 다리 (curated) ─────────────────────────────────────────────────
-# 비례 **문구**가 없는 게임 규칙 엣지. 문구 파서로는 구조적으로 못 찾는다
-# (discover_mechanics가 스스로 밝힌 한계와 같은 형태). 항목마다 KB 정본
-# 레코드와 근거 인용을 달아 사람이 검토할 수 있게 한다 — 여기 없는 규칙
-# 다리가 필요해지면 이 표에 추가한다(코드 리뷰가 게이트).
-#   (source_axis, target_axis, 근거 레코드 id, 근거 인용)
-_RULE_BRIDGES: tuple[tuple[str, str, str, str], ...] = (
-    (
-        "spirit",
-        "minion_count",
-        "mechanic.spirit",
-        "Spirit is a reserve of power used to activate and maintain skills with "
-        "permanent effects.",  # 소환수는 상시 스킬 — 정신력이 늘면 예약 가능 수가 는다
-    ),
+# ── 파생 다리 (구조화 필드에서 계산) ────────────────────────────────────
+# 비례 **문구**가 없는 게임 규칙 엣지(예: 정신력→소환수 수)는 문구 파서로
+# 구조적으로 못 찾는다. 1차 구현은 큐레이션 코드 표였는데 사용자 판정
+# (2026-08-19)으로 기각됐다 — "새 규칙마다 수동 추가는 운영이 안 된다".
+# #62(hosting)·#63과 같은 답: 규칙은 산문이 아니라 **구조화 필드**에 있다.
+# Skill.data.reservation[].resource(어느 자원을 예약하나) x tags(무엇을 주나)를
+# 읽으면 다리가 **매 스캔 파생**된다 — 새 시즌 스킬이 정본에 들어오는 순간
+# 다리도 따라온다. 수동 목록은 「태그→축」 대응 하나뿐이고, 그건 새 규칙이
+# 아니라 새 **규칙 범주**(스키마 변화)가 생길 때만 는다.
+_RESERVER_TAG_AXIS: tuple[tuple[str, str], ...] = (
+    ("minion", "minion_count"),
+    ("companion", "minion_count"),
 )
 
 
@@ -160,7 +158,7 @@ class SupplyEdge:
     target_text: str  # 좌변 원문 — payoff 내용이자 supply의 재확인 근거
     carrier_id: str
     carrier_name: str
-    carrier_kind: str  # "item" | "passive" | "mechanic" | "bridge"(규칙 다리)
+    carrier_kind: str  # "item" | "passive" | "mechanic" | "derived"(구조화 필드 파생)
     slot: str | None  # 아이템 장착 부위 — 슬롯 배타 판단 재료
     ascendancy: str | None  # 전직 잠금 — 다르면 공존 불가
     scope: str  # "global" | "item_static" | "allocated_radius" | "flow"
@@ -187,6 +185,11 @@ class SupplyScan:
     axes: tuple[AxisSummary, ...]
     # 걸러낸 것의 사유별 수 — 조용한 절단 금지(#21).
     skipped: tuple[tuple[str, int], ...]
+    # 보상은 있는데 **들어오는 비례 공급이 하나도 없는** 축. 셋 중 하나다:
+    # 플랫으로만 큰다(속성) / 행동으로 얻는다(충전·저주) / **다리 누락**.
+    # 다리 갭이 침묵하지 않도록 항상 노출한다 — 사용자 판정 2026-08-19
+    # ("새 규칙마다 수동 추가는 운영이 안 된다")의 가시성 절반.
+    unsourced_axes: tuple[str, ...] = ()
 
 
 def _match_axis(text: str) -> tuple[str, re.Match[str]] | None:
@@ -399,26 +402,44 @@ def scan_supply_edges(store: Store) -> SupplyScan:
         else:
             continue
 
-    # 규칙 다리 — 근거 레코드가 정본에 실재할 때만 낸다(레코드가 사라지면 다리도 죽는다).
-    for src_axis, target_axis, record_id, quote in _RULE_BRIDGES:
-        if record_id not in store.records:
-            skipped[f"bridge_source_missing({record_id})"] += 1
+    # 파생 다리 — 예약 자원 축 → 예약 스킬이 주는 축. 구조화 필드에서 매 스캔
+    # 계산한다(새 시즌 스킬이 정본에 들어오면 자동 반영). 예약 자원이 축 어휘
+    # 밖이면 사유 카운터로 남긴다.
+    reservers: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for record in store.records.values():
+        if record.type != "Skill":
             continue
-        bridge_record = store.records[record_id]
+        tags = set(record.tags)
+        target_axes = {axis for tag, axis in _RESERVER_TAG_AXIS if tag in tags}
+        if not target_axes:
+            continue
+        for entry in record.raw.get("data", {}).get("reservation") or ():
+            resource = str(entry.get("resource", "")).lower()
+            source_found = _match_axis(str(entry.get("resource", "")))
+            if source_found is None:
+                skipped[f"reserver_resource_unmapped({resource})"] += 1
+                continue
+            for target_axis in target_axes:
+                reservers[(source_found[0], target_axis)].append(record.name_en)
+    for (src_axis, target_axis), skill_names in sorted(reservers.items()):
+        sample = ", ".join(sorted(skill_names)[:3])
         edges.append(
             SupplyEdge(
                 source_axis=src_axis,
                 kind="supply",
                 target_axis=target_axis,
-                target_text=f"규칙 다리 — {quote}",
-                carrier_id=record_id,
-                carrier_name=bridge_record.name_en,
-                carrier_kind="bridge",
+                target_text=f"예약 스킬 {len(skill_names)}건이 이 자원으로 산다",
+                carrier_id="kb:skill.reservation",
+                carrier_name=f"예약 스킬 {len(skill_names)}건 (예: {sample})",
+                carrier_kind="derived",
                 slot=None,
                 ascendancy=None,
                 scope="global",
                 per=None,
-                evidence=quote,
+                evidence=(
+                    f"Skill.data.reservation에서 파생 — {len(skill_names)}건이 "
+                    f"{src_axis}를 예약해 {target_axis}를 공급한다 (예: {sample})"
+                ),
                 costs=(),
             )
         )
@@ -438,6 +459,7 @@ def scan_supply_edges(store: Store) -> SupplyScan:
         edges=tuple(edges),
         axes=axes,
         skipped=tuple(sorted(skipped.items())),
+        unsourced_axes=tuple(a.axis for a in axes if a.payoffs > 0 and a.supply_in == 0),
     )
 
 

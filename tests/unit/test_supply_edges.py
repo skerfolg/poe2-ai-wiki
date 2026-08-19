@@ -166,7 +166,7 @@ def test_cultivated_duplicates_are_skipped_with_reason(scan: SupplyScan) -> None
 
 def test_no_modifier_carriers(scan: SupplyScan) -> None:
     """함정 ①: 접사 레코드는 구변형을 되살린다 — 스캔 대상이 아니다."""
-    assert all(e.carrier_kind in ("item", "passive", "mechanic", "bridge") for e in scan.edges)
+    assert all(e.carrier_kind in ("item", "passive", "mechanic", "derived") for e in scan.edges)
 
 
 def test_penetrate_survives_kb_line_wrap(scan: SupplyScan) -> None:
@@ -187,18 +187,32 @@ def test_anoint_route_is_visible(scan: SupplyScan) -> None:
     assert edge.acquisition == "anointable"
 
 
-def test_spirit_minion_bridge(scan: SupplyScan, store: Store) -> None:
-    """규칙 다리: 정신력→소환수 수는 비례 문구가 아니라 게임 규칙(예약)이다.
+def test_spirit_minion_bridge_is_derived_not_curated(scan: SupplyScan, store: Store) -> None:
+    """정신력→소환수 다리는 **구조화 필드에서 파생**된다 — 코드 표 큐레이션이 아니라.
 
-    다리가 없으면 생명→정신력→소환수 사슬(Beidat's Will → Hysseg's Claw 류)이
-    정신력에서 끊긴다. 다리는 mechanic.spirit 정의문을 인용해야 한다.
+    1차 구현(코드 표)은 사용자 판정으로 기각됐다(2026-08-19): "새 규칙마다 수동
+    추가는 운영이 안 된다". Skill.data.reservation x minion 태그에서 매 스캔
+    계산하므로 새 시즌 소환수 스킬이 정본에 들어오면 다리가 자동 갱신된다.
+    다리가 없으면 생명→정신력→소환수 사슬(Beidat's Will → Hysseg's Claw)이 끊긴다.
     """
-    [bridge] = [e for e in scan.edges if e.carrier_kind == "bridge"]
-    assert (bridge.source_axis, bridge.target_axis) == ("spirit", "minion_count")
-    assert bridge.carrier_id == "mechanic.spirit"
+    derived = [e for e in scan.edges if e.carrier_kind == "derived"]
+    [bridge] = [e for e in derived if (e.source_axis, e.target_axis) == ("spirit", "minion_count")]
+    assert bridge.carrier_id == "kb:skill.reservation"
+    assert "파생" in bridge.evidence and "예:" in bridge.evidence  # 건수+실례가 근거다
     trace = trace_chains(store, "life", depth=3)
     assert any(c.axes == ("life", "spirit", "minion_count") for c in trace.chains)
     assert dict(trace.payoff_counts).get("minion_count", 0) >= 2  # Hysseg's·Dark Defiler
+
+
+def test_unsourced_axes_are_visible(scan: SupplyScan) -> None:
+    """공급 경로 없는 축은 침묵하지 않는다 — 다리 갭 가시성의 절반.
+
+    속성은 비례 공급이 구조적으로 0(플랫뿐)이라 여기 항상 나온다 — 순환 부재
+    발견과 같은 사실의 다른 면이다. 이 목록에서 축이 빠지는 것은 공급 엣지가
+    새로 생겼다는 뜻이니, 그것대로 뉴스다.
+    """
+    assert "strength" in scan.unsourced_axes
+    assert "spirit" not in scan.unsourced_axes  # Beidat's Will이 공급한다
 
 
 # ── 사슬 순회 ────────────────────────────────────────────────────────────

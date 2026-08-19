@@ -174,6 +174,10 @@ def scan_supply_edges(
         "edges": [dataclasses.asdict(e) for e in edges[:limit]],
         "axes": [dataclasses.asdict(a) for a in scan.axes],
         "skipped": [{"reason": r, "count": c} for r, c in scan.skipped],
+        # 보상은 있는데 들어오는 비례 공급이 0인 축 — 플랫 성장(속성)이거나
+        # 행동 획득(충전·저주)이거나 **다리 누락**이다. 다리 갭을 침묵시키지
+        # 않는 가시성 장치이므로 그냥 지나치지 말 것.
+        "unsourced_axes": list(scan.unsourced_axes),
         "truncated": len(edges) > limit,
         "total_matched": len(edges),
     }
