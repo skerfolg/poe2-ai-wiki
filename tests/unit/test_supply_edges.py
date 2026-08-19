@@ -196,6 +196,20 @@ def test_no_viable_cycles(store: Store) -> None:
         assert all(not c.viable for c in trace.cycles), (axis, trace.cycles)
 
 
+def test_stacking_jargon_diagnosis_points_here() -> None:
+    """강제 지점(철칙 5): '스태킹' 은어 0건 진단이 이 도구를 가리킨다.
+
+    문서 지침만으로는 도구가 안 꺼내진다 — "스태킹 빌드 찾아줘" 세션이
+    `search_kb`에서 막혔을 때 진단이 `scan_supply_edges`/`trace_chains`로
+    보내야 구현만 해놓고 한 번도 안 꺼내지는 일이 없다(사용자 지적 2026-08-19).
+    """
+    from pok.index.search import diagnose_empty
+
+    for query in ("stacking build", "스태킹 빌드"):
+        diag = diagnose_empty(query=query)
+        assert any("scan_supply_edges" in r and "trace_chains" in r for r in diag.reasons), query
+
+
 def test_conflict_annotation_on_slot_collision(store: Store) -> None:
     """함정 ④: 같은 슬롯을 두 담체가 요구하면 사슬에 충돌이 표시된다."""
     trace = trace_chains(store, "strength", depth=3, max_chains=200)
