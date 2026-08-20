@@ -27,8 +27,9 @@ flowchart TD
   ROUND[S3 라운드 러너 brief/measure/digest<br/>done]
   SKILL[S4 라운드 스킬<br/>done]
   FIRST[S5 첫 라운드 실행<br/>done]
-  NECESS[S6 조건부 필요성 전수 판정 #92<br/>active]
-  CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS
+  NECESS[S6 판정 큐 결정적 부분<br/>done]
+  JUDGE[S7 에이전트 판정 배치<br/>active]
+  CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
 ```
 
 ## Baseline Structure
@@ -46,11 +47,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S3 | 라운드 러너 — brief·measure·digest (`engine/proposal_round.py`) | done |
 | S4 | 라운드 스킬 `skills/proposal-round/` + 등록 shim | done |
 | S5 | 첫 라운드 실행 → 다이제스트 판정 | done |
-| S6 | **조건부 필요성 전수 판정** (#92) — 큐 89건, 판정은 에이전트가 | active |
+| S6 | 판정 큐 — 제공 축 분류·요구 기재·측정 경로 (결정적) | done |
+| S7 | 에이전트 판정 배치 — 89건, 근거 필수 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **판정 큐 89건 중 제공 축 분류에 실패한 37건의 어휘 갭을 메우고, 에이전트 판정 스킬을 만든다 (S6).**
+The only next executable step is: **에이전트 판정을 89건 전량으로 배치 실행하고 결과를 저장 규약에 넣는다 (S7).**
 
 ## Deferred Candidates
 

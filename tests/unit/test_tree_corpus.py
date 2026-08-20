@@ -665,3 +665,44 @@ def test_축을_못_잡으면_그렇다고_낸다() -> None:
     from pok.engine.node_necessity import classify_supply
 
     assert classify_supply(["완전히 새로운 무언가"]) is None
+
+
+def test_근거_없는_판정은_거부한다() -> None:
+    """⛔ 「기계적으로 안 되는 것은 LLM이 판단한다」(사용자 2026-08-20) — 단, 판단에는
+    **출처**가 붙어야 한다. 근거 없는 판정이 정본에 굳으면 그게 오염이다."""
+    import pytest
+
+    from pok.engine.node_necessity import NecessityError, validate_verdict
+
+    base = {
+        "node_id": 23416,
+        "verdict": "생명력으로 시전하는 빌드는 흡수 없이 유지가 안 된다",
+        "counter": "생명력 비용 기재가 없으면 불필요",
+        "evidence": [
+            {
+                "source": "kb",
+                "ref": "passive.sanguimancy-8415",
+                "quote": "Skills gain a Base Life Cost equal to Base Mana Cost",
+            }
+        ],
+    }
+    assert validate_verdict(base)["node_id"] == 23416
+
+    for drop in ("verdict", "counter", "evidence"):
+        with pytest.raises(NecessityError, match="근거 경로 없는|없다"):
+            validate_verdict({**base, drop: None})
+    with pytest.raises(NecessityError, match="모르는 출처"):
+        validate_verdict({**base, "evidence": [{"source": "vibes", "ref": "x"}]})
+    with pytest.raises(NecessityError, match="되짚을 수 없는"):
+        validate_verdict({**base, "evidence": [{"source": "kb", "ref": ""}]})
+
+
+def test_측정_가능한_축은_config로_표시된다() -> None:
+    """⚠ 「못 재는 것」과 「안 켠 것」은 다르다 — 실측: `Predatory Instinct`
+    ("50% more damage against Rare and Unique")는 PoB가 계산할 수 있는데 config가
+    꺼져 0으로 나왔다. 묶어 버리면 켜서 잴 수 있는 것을 영영 안 잰다."""
+    from pok.engine.node_necessity import build_queue
+
+    queue = build_queue(min_adoption=20.0)
+    assert all(c.ready for c in queue), "축을 못 잡은 노드가 남았다 — 어휘 갭"
+    assert any(c.measurable_via == "config" for c in queue), "config 경로 표시가 사라졌다"

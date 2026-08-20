@@ -35,7 +35,49 @@ from typing import Any
 #
 # 앞의 것이 이긴다(긴/특수 표현 먼저). 측정 축(CombinedDPS·Life·TotalEHP)에 안 잡히는
 # 것만 실린다 — 잡히는 것은 애초에 이 큐에 안 온다.
+# 축마다 **어떻게 재나** — 이게 판정의 절반이다.
+#   "config"   PoB가 계산할 수 있는데 **토글이 꺼져** 0으로 보인다 → 켜고 다시 재면 된다
+#   "trigger"  발동률 모델이 따로 있다(`compute_trigger_rate`)
+#   None       측정 경로가 아예 없다 → 에이전트 판정 + 갭 라벨
+#
+# ⚠ 「못 재는 것」과 「안 켠 것」을 가르는 것이 요점이다. 실측 2026-08-20:
+#    `Predatory Instinct`("50% more damage against Rare and Unique")는 PoB가 계산할
+#    수 있는데 config가 꺼져 0으로 나왔다 — 이걸 「측정 밖」으로 묶으면 켜서 잴 수
+#    있는 것을 영영 안 잰다(#44의 반대 실수).
+MEASURABLE_VIA: dict[str, str] = {
+    "조건부 배율": "config",
+    "추가 피해 변환": "config",
+    "상태이상 강도·지속": "config",
+    "상태이상 중첩": "config",
+    "반복 시전": "config",
+    "발동 자원 환급": "trigger",
+    "버프 스택": "config",
+    "상태이상 임계": "config",
+    "충전 생성": "config",
+    "충전 유지": "config",
+    "발동 주기": "trigger",
+    "쿨다운": "config",
+}
+
 SUPPLY_AXES: tuple[tuple[str, str], ...] = (
+    # ── 메커니즘 부여·구조 변경 (문구가 특수하므로 먼저) ──
+    ("스킬 부여", r"Grants Skill|Grants Sands|Can tattoo"),
+    ("발동 주기", r"instead Trigger|Trigger .* every"),
+    ("쿨다운", r"Cooldown Uses|Cooldown Recovery"),
+    ("자원 대체", r"is replaced by|Costs? Converted"),
+    ("소켓 변형", r"Rune-only sockets|Base Type transformed"),
+    ("추가 투사체", r"additional Arrow|additional Projectile"),
+    ("배치", r"Placement (?:speed|range)"),
+    ("이동 제약 무효", r"unaffected by Slows|cannot be Slowed"),
+    ("조건부 배율", r"if you've|against Rare and Unique|Recently, up to|more damage against"),
+    ("버프 스택", r"Tailwind|Combo\b|Infusion|Remnants?\b|stack of|minimum of \d+ Power"),
+    ("추가 피해 변환", r"Gain \d+% of .* as Extra"),
+    ("연쇄 폭발", r"to Explode|create an additional"),
+    ("반복 시전", r"chance to Echo|Repeatable Spells"),
+    ("상태이상 강도·지속", r"Magnitude of|Shock Duration|Ailment Duration"),
+    ("상태이상 중첩", r"affected by two of your"),
+    ("면역", r"\bImmune to"),
+    ("발동 자원 환급", r"refund .* Energy"),
     ("생명력 흡수", r"Life Leech|Leeched as Life"),
     ("마나 흡수", r"Mana Leech|Leeched as Mana"),
     ("흡수 일반", r"\bLeech"),
@@ -99,6 +141,8 @@ class NecessityCase:
     adoption_ci_low: float
     stats_en: tuple[str, ...]
     supply_axis: str | None  # 무엇을 주나 (None = 분류 실패 — 어휘 갭이다)
+    # 어떻게 재나 — "config"(토글 켜면 잰다) · "trigger"(발동률 모델) · None(경로 없음)
+    measurable_via: str | None = None
     demand_carriers: tuple[dict[str, str], ...] = field(default=())
     measured: dict[str, Any] = field(default_factory=dict)
 
@@ -230,6 +274,7 @@ def build_queue(
                 adoption_ci_low=ci_low,
                 stats_en=tuple(node.stats_en),
                 supply_axis=axis,
+                measurable_via=MEASURABLE_VIA.get(axis or ""),
                 demand_carriers=tuple(
                     demand_carriers(axis, records, for_ascendancy=node.ascendancy)
                 )
@@ -243,3 +288,59 @@ def build_queue(
         )
     out.sort(key=lambda c: -c.adoption_ci_low)
     return out[:limit] if limit else out
+
+
+# ── 판정 계약 — 에이전트가 쓰고, 근거 없으면 거부한다 ──────────────────
+#
+# 「기계적으로 안 되는 것은 LLM이 판단한다」(사용자 지시 2026-08-20). 다만 판단에는
+# **출처**가 붙어야 한다 — 「그럴 것 같다」가 정본에 들어가면 그게 오염이다.
+# M5 제안 계약의 `route`와 같은 사상이고, 여기서는 `evidence`가 그 자리다.
+EVIDENCE_SOURCES: dict[str, str] = {
+    "kb": "KB 정본 레코드 — id와 문구를 인용",
+    "pob-source": "PoB 소스(ModParser·Calcs 등) — 파일:줄",
+    "wiki": "커뮤니티 위키·공식 패치노트 — URL",
+    "measured": "PoB 실측 — config 토글 전후 수치",
+}
+
+
+class NecessityError(ValueError):
+    """판정이 계약을 못 지켰을 때 — 무엇이 왜 빠졌는지 문장으로."""
+
+
+def validate_verdict(doc: dict[str, Any]) -> dict[str, Any]:
+    """에이전트 판정 1건을 검증한다.
+
+    필수 넷: `node_id` · `verdict`(필요한 이유) · `counter`(불필요한 조건) ·
+    `evidence`(출처 목록). ⛔ `evidence`가 비면 거부한다 — 근거 없는 판정은
+    「측정된 것」으로 굳어 정본을 오염시킨다(M5 함정 ②와 같은 형태).
+    """
+    missing = [k for k in ("node_id", "verdict", "counter", "evidence") if not doc.get(k)]
+    if missing:
+        raise NecessityError(
+            f"판정에 {missing}이 없다 — 「무엇을 주는가」는 도구가 이미 냈고, "
+            "에이전트가 낼 것은 **필요한 이유**(verdict)·**불필요한 조건**(counter)·"
+            "**출처**(evidence)다. 사용자 지시 2026-08-20: 근거 경로 없는 판정은 안 받는다"
+        )
+    rows = []
+    for item in doc["evidence"]:
+        source = str(item.get("source") or "")
+        if source not in EVIDENCE_SOURCES:
+            raise NecessityError(
+                f"모르는 출처 {source!r} — 허용: {sorted(EVIDENCE_SOURCES)}. "
+                "출처를 못 대면 그건 판정이 아니라 추측이다"
+            )
+        if not str(item.get("ref") or "").strip():
+            raise NecessityError(
+                f"출처 {source}에 ref가 없다 — 되짚을 수 없는 근거는 근거가 아니다"
+            )
+        rows.append(
+            {"source": source, "ref": str(item["ref"]), "quote": str(item.get("quote") or "")}
+        )
+    return {
+        "node_id": int(doc["node_id"]),
+        "verdict": str(doc["verdict"]),
+        "counter": str(doc["counter"]),
+        "evidence": rows,
+        # 판정 주체 — 재현·교차 검증에 필요하다(M5 함정 ③과 같은 이유)
+        "judged_by": dict(doc.get("judged_by") or {}),
+    }
