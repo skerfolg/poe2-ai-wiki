@@ -689,7 +689,7 @@ def test_근거_없는_판정은_거부한다() -> None:
     assert validate_verdict(base)["node_id"] == 23416
 
     for drop in ("verdict", "counter", "evidence"):
-        with pytest.raises(NecessityError, match="근거 경로 없는|없다"):
+        with pytest.raises(NecessityError, match=r"근거 경로 없는|없다"):
             validate_verdict({**base, drop: None})
     with pytest.raises(NecessityError, match="모르는 출처"):
         validate_verdict({**base, "evidence": [{"source": "vibes", "ref": "x"}]})

@@ -29,9 +29,10 @@ flowchart TD
   FIRST[S5 첫 라운드 실행<br/>done]
   NECESS[S6 판정 큐 결정적 부분<br/>done]
   JUDGE[S7 에이전트 판정 배치<br/>blocked]
-  FIX[S8 측정 결함 #93·#94 수정<br/>active]
+  FIX[S8 #93 수정<br/>done]
+  REMEAS[S9 재측정 + #94 판정<br/>active]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
-  JUDGE -. 결함 발견 .-> FIX
+  JUDGE -. 결함 발견 .-> FIX --> REMEAS
 ```
 
 ## Baseline Structure
@@ -51,11 +52,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S5 | 첫 라운드 실행 → 다이제스트 판정 | done |
 | S6 | 판정 큐 — 제공 축 분류·요구 기재·측정 경로 (결정적) | done |
 | S7 | 에이전트 판정 배치 — 4건 시행 후 **중단**(측정 결함 발견) | blocked |
-| S8 | **#93 플라스크 비활성 · #94 오염 제외의 정보 손실** 수정 | active |
+| S8 | #93 `<Slot active>` 수정 + 통합 시험 | done |
+| S9 | 재측정(2,689벌) + #94(오염 제외의 정보 손실) 판정 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **#93(`<Slot active>` 누락으로 플라스크·호신부가 전 측정에서 비활성)을 고치고 영향 범위를 재측정한다 (S8).**
+The only next executable step is: **플라스크가 작동하는 상태로 캠페인 2,689벌을 재측정한다 (S9).**
 
 ## Deferred Candidates
 
