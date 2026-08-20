@@ -9,53 +9,46 @@ This is the single live work-control document for the current repository lane. T
 
 ## Active Lane
 
-Lane: `(none — between lanes after install)`
+Lane: `M5-proposal-rounds`
 
-This scaffold ships in the `between-lanes` state. After running `workflow-governance init`, the project has the governance documents installed but has not yet promoted a project-specific lane.
+M5(3층 제안) — 반사실 캠페인의 창의 층. **무인 라운드 배치**로 짓는다: 사람이 루프의
+동력이면 ①노가다 ②탐색이 사람 머릿속 상한에 갇힘 ③사용량에 기대면 축적 빈약, 셋이
+무너진다(사용자 지시 2026-08-20). M3 캠페인을 수십 시간 무인으로 돌린 것과 같은 형태다.
 
-To promote the first project lane:
-
-1. Choose a lane identifier (kebab-case, version-unassigned — e.g., `BI-feature-x`, NOT `v0.1.0-feature-x`).
-2. Replace the sentinel above with `` Lane: `<your-lane-id>` `` (real lane identifier — do not retain the parenthetical).
-3. Populate `## Baseline Structure` with sub-task / phase rows.
-4. Populate `## Canonical Next Step` with exactly one bolded actionable directive (per §13).
-5. Run `npm run workflow:guard precommit` and confirm 0 errors.
-
-Per §8 (Git and Worktree Hygiene), this lane targets the integration branch named in the header (`main` by default). If a different base is required, add an entry to `## Open Decisions` named "Integration branch override" with the override branch name, reason, and duration (single lane / until stated condition).
+사람은 **판정자**로만 남는다 — 정본 진입은 M6 큐레이션 게이트뿐이라 라운드가 아무리
+돌아도 정본은 안 움직인다. 상세 설계는 [ROADMAP §M5 확정 설계](ROADMAP.md).
 
 ## Status Graph
 
 ```mermaid
 flowchart TD
-  INSTALL[Governance installed<br/>done]
-  NEXT[First project lane<br/>NOT STARTED]
-  INSTALL -. promote next .-> NEXT
+  CONTRACT[S1 제안 계약 검증기<br/>done]
+  FLOW[S2 전개기 + 출처 분리 저장<br/>done]
+  ROUND[S3 라운드 러너 brief/measure/digest<br/>done]
+  SKILL[S4 라운드 스킬 + 예약 세션<br/>pending]
+  FIRST[S5 첫 라운드 무인 실행<br/>pending]
+  CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST
 ```
 
 ## Baseline Structure
 
-OPTIONAL in `between-lanes` state. When a lane is promoted, replace this section with a per-lane sub-task table:
-
-```markdown
-### <lane-identifier>
+### M5-proposal-rounds
 
 Status: `active`
 
-Lane scope: <one-line intent>
+Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제스트만 판정한다.
 
 | Sub | Subject | Status |
 | --- | --- | --- |
-| S1 | <first sub-task> | pending |
-| S2 | <second sub-task> | pending |
-```
-
-Per §13.2 the baseline-matching algorithm uses the first Markdown table within this section to determine the "first unclosed item" for the Canonical Next Step mismatch check. The `Status` column must use values matching `/^(done|PASS)$/i` for closed rows.
+| S1 | 제안 계약 검증기 — 3필드 강제·갭 라벨 (`engine/proposal.py`) | done |
+| S2 | 전개기 + 출처 분리 저장 (`engine/proposal_flow.py`) | done |
+| S3 | 라운드 러너 — brief·measure·digest (`engine/proposal_round.py`) | done |
+| S4 | 라운드 스킬 + 예약 세션(무인화의 LLM 구간) | pending |
+| S5 | 첫 라운드 무인 실행 → 다이제스트 판정 | pending |
 
 ## Canonical Next Step
 
-The only next executable step is: **Promote the first project lane from a planning artifact and replace the sentinel in `## Active Lane`.**
-
-When the lane is `active`, this section MUST contain exactly one bolded actionable directive (per §13.1). Multiple bolded list items or zero bolded items will fail the guard. In `between-lanes` state this section MAY be absent or MAY contain a sentinel directive like the example above.
+The only next executable step is: **`skills/proposal-round/`를 만들어 LLM 세션이 브리프를 읽고 계약대로 제안을 내는 구간을 규격화한다 (S4).**
 
 ## Deferred Candidates
 
@@ -78,13 +71,19 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| (none yet) | — | Record temporary worktrees, generated outputs, scratch files, and similar candidates here as they are created. Per §8 these must be resolved before lane closure. |
+| `artifacts/ingest-raw/proposals/0-5/` | active | 데이터 repo — 제안·전개·측정(파생). 정본 아님, 유지 |
+| `artifacts/ingest-raw/counterfactual/0-5/removals-pre87/` | keep | #87 수정 전 1차분 — 대조·감사용 보관 |
+| scratchpad `m4final`·`m4v2`·`m4v3` | disposable | 집계 대조용 임시 — 레인 종료 시 폐기 |
 
 ## Open Decisions
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
-| (none yet) | — | Record lane-affecting decisions here so future sessions can understand why the lane is shaped the way it is. Override entries (Canonical Next Step baseline-mismatch override per §13.1, or Integration Branch Override per §8) belong in this table. |
+| M5를 사람 트리거가 아니라 무인 라운드 배치로 | 배치 확정 — 사람은 판정자로만 | 2026-08-20 |
+| 제안 3필드(메커니즘·전제·검증 경로)를 문서가 아니라 검증기로 강제 | `engine/proposal.py` | 2026-08-20 |
+| 검증 경로 없는 제안을 배제하지 않고 **갭 라벨**로 보존 | 라벨 누적 = 다음 측정기 우선순위 | 2026-08-20 |
+| 유형 할당량으로 스태킹 쏠림 방지 (가로등 밑 열쇠 찾기) | `TYPE_QUOTA` | 2026-08-20 |
+| M4.5(메커니즘 그룹 조건)는 보류 — 홀드아웃 일반화 실패 | BACKLOG #89 · 재료 보존 | 2026-08-19 |
 
 ## Explicit Non-Actions
 
