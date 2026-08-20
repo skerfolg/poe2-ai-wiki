@@ -76,6 +76,59 @@ _CHARGES = {
     "Endurance": "self.charge.endurance",
 }
 
+# ── 0.5 신규 자원·객체 축 (vocab v2, #92) ────────────────────────────
+# 어휘에 없는 축은 요구·공급이 **통째로 보이지 않는다** — 저주(2026-08-06)·출혈
+# (2026-08-04)에서 두 번 겪은 형태다. 실측 2026-08-20: 룬 수호 54건·지면 효과
+# 52건·잔류물 23건·균열 23건·주입 14건이 정본 문구에 있는데 축이 없어 탐색 도구가
+# 한 건도 못 봤다. 아래 패턴은 그 문구들을 **실제로 읽고** 만든 것이다(추측 금지).
+#
+# ⚠ 크기 조절(scaling)은 공급이 아니다 — 이 파일의 기존 규율을 그대로 따른다.
+# "Remnants can be collected from 50% further away"(수거 범위)·"+30 to maximum
+# Runic Ward"(상한)는 공급이 아니라 스케일이므로 걸리지 않아야 한다.
+_RESOURCE_SUPPLY: list[tuple[str, str]] = [
+    # 주입: "5% chance when collecting an Elemental Infusion to gain an …"
+    (r"\bcollect(?:s|ing|ed)?\s+(?:an?\s+)?(?:\w+\s+)?Infusions?\b", "self.infusion.count"),
+    (r"\bgain(?:s|ing)?\s+(?:an?\s+)?(?:\w+\s+)?Infusions?\b", "self.infusion.count"),
+    # 콤보: "gain Combo when you successfully Strike" · "build an additional Combo on Hit"
+    (r"\bgain(?:s|ing)?\s+Combo\b", "self.combo.count"),
+    (r"\bbuild(?:s|ing)?\s+(?:an?\s+additional\s+)?Combo\b", "self.combo.count"),
+    # 룬 수호: "recover Runic Ward" — 상한(+N to maximum)은 스케일이라 제외
+    (r"\brecover(?:s|ed|ing)?\s+(?:\w+\s+){0,3}Runic Ward\b", "self.ward.pct"),
+    (r"\bRunic Ward\s+(?:constantly\s+)?[Rr]egenerat", "self.ward.pct"),
+    # 봉인: "Passively gains Seals over time"
+    (r"\bgain(?:s|ing)?\s+Seals?\b", "self.seal.count"),
+    # 잔류물: "Remnants you create" · "chance to create an additional Remnant"
+    (r"\bcreate(?:s|d)?\s+(?:an?\s+additional\s+)?Remnants?\b", "env.remnant.available"),
+    (r"\bRemnants? you create\b", "env.remnant.available"),
+    # 균열: "Consumes Rage to create additional Molten Fissures"
+    (
+        r"\bcreate(?:s|d)?\s+(?:an?\s+)?(?:additional\s+)?(?:\w+\s+)?Fissures?\b",
+        "env.fissure.count",
+    ),
+]
+_RESOURCE_DEMAND: list[tuple[str, str]] = [
+    # 주입 소비: "if you have consumed an Elemental Infusion Recently" ·
+    # "Consumes a Fire Infusion if possible"
+    (r"\bconsum(?:e|es|ed|ing)\s+(?:an?\s+)?(?:\w+\s+)?Infusions?\b", "self.infusion.count"),
+    # 콤보 소비: "per Combo expended when using Skills" · "reset their Combo on use"
+    (r"\bper Combo\b", "self.combo.count"),
+    (r"\bCombo (?:expended|consumed|spent|reset)\b", "self.combo.count"),
+    (r"\brequire Combo\b", "self.combo.count"),
+    # 룬 수호 소비: "Spend Runic Ward to create …" · "Sacrifice your Runic Ward"
+    (r"\bSpend(?:s|ing)?\s+Runic Ward\b", "self.ward.pct"),
+    (r"\bSacrifice\s+(?:a portion of\s+)?your Runic Ward\b", "self.ward.pct"),
+    # 봉인 소비: "The Seals are broken when cast"
+    (r"\bSeals? (?:are |is )?broken\b", "self.seal.count"),
+    (r"\bSealed Skills\b", "self.seal.count"),
+    # 잔류물 수거(소비): "Walking over a Remnant collects it to grant a bonus"
+    (r"\b[Ww]alking over a Remnant\b", "env.remnant.available"),
+    (r"\bcollect(?:s|ing|ed)?\s+(?:a |an |the )?Remnants?\b", "env.remnant.available"),
+    # 균열 소비: "Impacts on Molten Fissures … will activate them"
+    (r"\b(?:on|activate)\s+(?:\w+\s+)?Fissures?\b", "env.fissure.count"),
+]
+# 지면 효과는 값(set)을 가진다 — 어느 지면인지가 페이오프를 가른다.
+_GROUND_KINDS = "Ignited|Chilled|Shocked|Consecrated|Caustic|Jagged|Tar"
+
 
 @dataclass(frozen=True)
 class Predicate:
@@ -131,6 +184,14 @@ _DEMAND_PATTERNS: list[tuple[re.Pattern[str], str, str | None]] = [
     (re.compile(r"\b(?:if )?you've been Hit Recently\b", re.I), "event.hit-taken.recent", None),
     (re.compile(r"\b(?:if )?you've Blocked Recently\b", re.I), "event.block.recent", None),
     (re.compile(r"\bper Nearby Enemy\b", re.I), "env.nearby-enemies.count", None),
+    # 지면 효과 위에 서 있을 때의 요구 — "while on Consecrated Ground"
+    (
+        re.compile(rf"\bwhile on\s+(?P<v>{_GROUND_KINDS})\s+Ground\b", re.I),
+        "env.ground-effect",
+        "v",
+    ),
+    # 0.5 자원 축 소비 (vocab v2, #92)
+    *[(re.compile(pat, re.I), subj, None) for pat, subj in _RESOURCE_DEMAND],
     (re.compile(r"\bagainst Rare (?:or|and) Unique\b", re.I), "enemy.rarity", None),
     # 충전 소비·보유 요구: "per Power Charge" · "while you have Frenzy Charges" ·
     # "Consumes a Power Charge". 획득(gain)은 공급이므로 여기서 제외한다.
@@ -218,6 +279,14 @@ _SUPPLY_PATTERNS: list[tuple[re.Pattern[str], str, str | None]] = [
         "self.life.low",
         None,
     ),
+    # 지면 효과 생성 — "Creates Ignited Ground every 0.35 seconds"
+    (
+        re.compile(rf"\b[Cc]reat(?:e|es|ing)\s+(?P<v>{_GROUND_KINDS})\s+Ground\b", re.I),
+        "env.ground-effect",
+        "v",
+    ),
+    # 0.5 자원 축 공급 (vocab v2, #92)
+    *[(re.compile(pat, re.I), subj, None) for pat, subj in _RESOURCE_SUPPLY],
 ]
 
 
@@ -235,6 +304,15 @@ SUPPLIABLE_SUBJECTS: frozenset[str] = frozenset(
         "self.charge.frenzy",
         "self.charge.endurance",
         "self.life.low",
+        # 0.5 자원·객체 축 — 전부 무언가가 **만들어 주는** 것이라 공급 개념이 선다
+        # (행동·장비 축과 다르다). vocab v2에서 추가(#92).
+        "self.infusion.count",
+        "self.combo.count",
+        "self.ward.pct",
+        "self.seal.count",
+        "env.remnant.available",
+        "env.fissure.count",
+        "env.ground-effect",
     }
 )
 

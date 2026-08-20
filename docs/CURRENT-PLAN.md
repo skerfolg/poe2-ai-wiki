@@ -24,9 +24,12 @@ flowchart TD
   TOOL["S1 공급 그래프 도구 #91<br/>done"]
   WIRE["S2 강제 지점 배선<br/>done"]
   MEASURE["S3 컨셉 PoB 실측<br/>done"]
-  SEAL["S4 인사이트 봉인<br/>active"]
+  SEAL["S4 인사이트 봉인<br/>done"]
   VERDICT["S5 컨셉 채택 판정<br/>pending"]
+  MECH["S6 메커니즘 상태 그래프 #92<br/>done"]
+  GAPS["S7 연계 탐색·측정 갭 수집 #93<br/>active"]
   TOOL --> WIRE --> MEASURE --> SEAL --> VERDICT
+  SEAL --> MECH --> GAPS
 ```
 
 ## Baseline Structure
@@ -44,16 +47,19 @@ Lane scope: 스태킹 축을 도구로 발견하고, 나온 컨셉을 PoB 실측
 | S3 | 컨셉 PoB 실측 (전도성 룬 배율표·코스트 스태킹 대조·천장 측정) | done |
 | S4 | 실측 결과 인사이트 봉인 (`insight.conductive-runes-and-cost-stacking`) | done |
 | S5 | 컨셉 채택 판정 — 계속 팔 것인가 (사용자 게임 지식 게이트) | pending |
+| S6 | 메커니즘 상태 그래프 (#92) — vocab v2 + `scan_state_edges`/`trace_mechanism_chains` | done |
+| S7 | 그래프로 연계 탐색 + 측정 갭 수집 (#93 「개수 배수」 계열 등재) | done |
 
-S1~S2는 PR #86으로 머지됨. S5는 판정 대기이므로 세션이 진행할 수 없다(AD-3).
+S1~S2는 PR #86, S4는 PR #89로 머지됨. S5는 판정 대기이므로 세션이 진행할 수 없다(AD-3).
+S5(전도성 룬 컨셉)는 사용자가 기각 방향으로 판단했고, 탐색은 S6의 새 그래프로 이어간다.
 
 ## Canonical Next Step
 
-The only next executable step is: **사용자에게 전도성 룬 컨셉의 채택 여부 판정을 받는다 (S5) — 세션이 대신 결정하지 않는다(AD-3).**
+The only next executable step is: **메커니즘 상태 그래프(#92)가 낸 전이 25종·사슬 33개에서 다음 탐색 컨셉을 사용자와 고른다.**
 
-판정 재료는 `insight.conductive-runes-and-cost-stacking`에 전부 봉인돼 있다: 클리어는
-룬 10개 전량 효율이지만 단일 대상은 접촉 룬 수(2~3개)로 제한돼 보스 DPS 20~30만
-(현실 장비 환산)이고, 천둥신의 진노 연계는 Melee 조건이라 0이다.
+S6 산출물이 판정 재료다: `Snap`(원소 상태이상 → 주입+잔류물 변환기) · `Disengage`
+(패리 → 충전) 같은 전이가 나왔고, 생산자 없는 축 4종(격노·부서진 방어구·연소·패리)은
+수집 갭인지 어휘 갭인지 판정이 필요하다. 어느 사슬을 팔지는 게임 지식 게이트다(AD-3).
 
 ## Deferred Candidates
 

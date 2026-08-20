@@ -116,6 +116,80 @@ def discover_mechanics(
     }
 
 
+def scan_state_edges(
+    axis: str | None = None,
+    kind: str | None = None,
+    limit: int = 150,
+) -> dict[str, Any]:
+    """상태 축의 생산·소비·페이오프 엣지 전수 — 「무엇이 무엇을 만들고 먹나」 (#92).
+
+    `scan_supply_edges`(스탯→스탯)의 자매다. 두 소스를 **융합**한다:
+    구조화 타입(`GeneratesInfusion`·`SkillConsumesFreeze` 등 33종 — 소비/생산
+    의미론이 정확)과 텍스트 술어(상태이상 생산·페이오프). 어느 한쪽만 쓰면
+    그래프의 절반만 나온다(실측: 타입만 쓰면 20축 중 2축만 연쇄 가능).
+
+    axis: 특정 상태 축만 (예: "freeze", "infusion", "ward"). 축 목록은 `axes`에.
+    kind: "produce" | "consume" | "payoff"만 거르기.
+
+    ⚠ **consume과 payoff는 다르다** — 소비는 그 상태를 없애므로 다음 소비자가 먹지
+    못한다. 사슬을 이을 때 이 구분이 없으면 불가능한 연쇄가 나온다.
+    ⚠ `source`가 "text"인 엣지는 문구 패턴 매칭이라 소비/잔존을 구분하지 못한다 —
+    소비 판정은 "type" 출처에만 있다.
+    반환의 `unproduced_axes`는 **소비·페이오프는 있는데 생산자가 없는 축**이다:
+    수집 갭이거나 어휘 갭이니 "그 축은 못 쓴다"로 읽지 말 것.
+    """
+    from pok.kb.graph.mechanism import scan_state_edges as _scan_state
+
+    scan = _scan_state(kb_store.load())
+    edges = [
+        e
+        for e in scan.edges
+        if (axis is None or e.axis == axis) and (kind is None or e.kind == kind)
+    ]
+    return {
+        "edges": [dataclasses.asdict(e) for e in edges[:limit]],
+        "axes": [dataclasses.asdict(a) for a in scan.axes],
+        "unproduced_axes": list(scan.unproduced_axes),
+        "total_matched": len(edges),
+        "truncated": len(edges) > limit,
+    }
+
+
+def trace_mechanism_chains(
+    from_axis: str | None = None, depth: int = 4, max_chains: int = 60
+) -> dict[str, Any]:
+    """상태 전이를 이어 다단 연쇄를 편다 — 「A를 만들면 무엇까지 갈 수 있나」 (#92).
+
+    전이 = 한 담체가 상태 A를 먹고(consume/payoff) 상태 B를 만드는 것.
+    예: `Snap`은 동결·감전·점화를 소비해 주입과 잔류물을 생산한다 →
+    `freeze → infusion → charge` 같은 사슬이 나온다.
+
+    from_axis 생략 시 전이가 있는 모든 축에서 출발한다. 같은 축 경로를 여러 담체가
+    잇는 경우는 **한 사슬의 마디별 선택지**(`hop_options`)로 묶는다 — 담체 수만큼
+    사슬을 복제하지 않는다.
+
+    `terminal_payoffs`는 사슬 끝 축의 페이오프 수다(「여기까지 오면 무엇을 먹나」).
+    순위·점수는 없다 — 어느 연쇄가 좋은지는 호출자가 근거를 보고 판단한다(AD-3).
+    """
+    from pok.kb.graph.mechanism import trace_mechanism_chains as _trace
+
+    trace = _trace(kb_store.load(), from_axis, depth=depth, max_chains=max_chains)
+    return {
+        "chains": [
+            {
+                "axes": list(c.axes),
+                "hop_options": [list(o) for o in c.hop_options],
+                "terminal_payoffs": c.terminal_payoffs,
+                "warnings": list(c.warnings),
+                "transitions": [dataclasses.asdict(t) for t in c.transitions],
+            }
+            for c in trace.chains
+        ],
+        "transition_count": len(trace.transitions),
+        "truncated": trace.truncated,
+    }
+
+
 def find_carriers(skill: str, include_blocked: bool = False) -> dict[str, Any]:
     """이 스킬을 **담을 수 있는** 보조·메타 젬·토템·트리거 전량 (사용자 요청 2026-08-11).
 
