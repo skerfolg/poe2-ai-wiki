@@ -2,5 +2,28 @@
   "env": {
     "PYTHONIOENCODING": "utf-8",
     "PYTHONUTF8": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/workflow-briefing.mjs"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/workflow-pretooluse.mjs"
+          }
+        ]
+      }
+    ]
   }
 }

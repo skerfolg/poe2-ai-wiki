@@ -1,0 +1,56 @@
+#!/usr/bin/env sh
+# Workflow Governance Kit — universal pre-commit gate.
+#
+# Stage 1 (BLOCKING): scripts/workflow-precommit.mjs enforces the
+#   "non-doc staged without docs/CURRENT-PLAN.md" rule from
+#   WORKFLOW-GOVERNANCE.md §2. Same rule the Claude PreToolUse hook
+#   enforces, but agent-agnostic — fires for every coding agent and
+#   every plain terminal commit.
+#
+# Stage 2 (CONSUMER-CUSTOM, optional): if .workflow-governance.json
+#   sets commands.guard, run it before the kit's own hygiene gate.
+#   This is the consumer's hook for stack-specific pre-commit work
+#   (e.g. `pytest -q`, `cargo check`, etc.). The §2 rule above
+#   always runs first regardless of consumer customization.
+#
+#   Stage 2 reads .workflow-governance.json THROUGH the canonical
+#   scripts/lib/config-schema.mjs validator (via the
+#   scripts/workflow-resolve-command.mjs helper) so a malformed
+#   config (wrong version, length cap exceeded, newlines in
+#   commands.*) is rejected by the schema instead of slipping
+#   through to the shell. The resolved command runs via
+#   `sh -c -- "$CUSTOM_GUARD"` so the `--` end-of-options marker
+#   keeps the command string from being misinterpreted as an `sh`
+#   flag, and double-quoting passes it as a single argument to the
+#   inner shell for normal interpretation.
+#
+# Stage 3 (BLOCKING on errors only): scripts/workflow-guard.mjs precommit
+#   runs broader hygiene checks (Mermaid status graph, lane/branch
+#   coherence, cleanup candidates, .workflow-governance.json schema
+#   validity). It exits 0 on warnings and only blocks the commit
+#   when it finds errors.
+#
+# To bypass intentionally (rare and visible), use the standard git
+# escape hatch (`--no-verify` on the commit command).
+
+set -e
+node scripts/workflow-precommit.mjs
+
+# Stage 2 (optional) — consumer-supplied commands.guard.
+# resolve-command exits 2 when the config file is absent and 1 when
+# present-but-invalid. Exit 2 is benign (use kit default); exit 1 is
+# blocking (the schema rejected the config, so we refuse to run an
+# unvalidated guard command).
+if RESOLVED=$(node scripts/workflow-resolve-command.mjs guard); then
+  if [ -n "$RESOLVED" ]; then
+    sh -c -- "$RESOLVED"
+  fi
+else
+  status=$?
+  if [ "$status" -ne 2 ]; then
+    echo "pre-commit: refusing to run with invalid .workflow-governance.json (exit $status)" >&2
+    exit "$status"
+  fi
+fi
+
+node scripts/workflow-guard.mjs precommit
