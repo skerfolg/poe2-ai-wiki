@@ -1,322 +1,400 @@
 {
-  "version": 1,
-  "note": "조건 subject 통제 어휘 v1 (KB_DATA_MODEL §5.1). 확장은 vocab 갱신으로만 — 임의 문자열 금지.",
-  "subjects": {
-    "self.life.pct": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "생명력 %"
-    },
-    "self.life.full": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "생명력 가득"
-    },
-    "self.life.low": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "낮은 생명력(35% 규약)"
-    },
-    "self.mana.pct": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "마나 %"
-    },
-    "self.mana.full": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "마나 가득"
-    },
-    "self.energy-shield.pct": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "에너지 보호막 %"
-    },
-    "self.energy-shield.full": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "에너지 보호막 가득"
-    },
-    "self.spirit.free": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "미예약 정신력"
-    },
-    "self.rage.count": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "분노 스택"
-    },
-    "self.charge.power": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "권능 충전"
-    },
-    "self.charge.frenzy": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "격분 충전"
-    },
-    "self.charge.endurance": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "인내 충전"
-    },
-    "self.leeching": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "흡수 중"
-    },
-    "self.moving": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "이동 중"
-    },
-    "self.stationary": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "정지 상태"
-    },
-    "self.channelling": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "정신집중 중"
-    },
-    "enemy.status": {
-      "type": "set",
-      "ops": [
-        "has"
-      ],
-      "ko": "적 상태이상",
-      "values": [
-        "shocked",
-        "ignited",
-        "chilled",
-        "frozen",
-        "electrocuted",
-        "poisoned",
-        "bleeding",
-        "stunned",
-        "cursed",
-        "blinded",
-        "immobilised",
-        "dazed",
-        "hindered",
-        "burning",
-        "marked",
-        "maimed"
-      ]
-    },
-    "enemy.life.pct": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "적 생명력 %"
-    },
-    "enemy.life.low": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "적 낮은 생명력"
-    },
-    "enemy.life.full": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "적 생명력 가득"
-    },
-    "enemy.rarity": {
-      "type": "enum",
-      "ops": [
-        "==",
-        "!=",
-        "in"
-      ],
-      "ko": "적 희귀도",
-      "values": [
-        "normal",
-        "magic",
-        "rare",
-        "unique"
-      ]
-    },
-    "event.kill": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "처치 시"
-    },
-    "event.crit": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "치명타 시"
-    },
-    "event.hit-taken": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "피격 시"
-    },
-    "event.block": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "막기 시"
-    },
-    "event.kill.recent": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "최근 처치"
-    },
-    "event.crit.recent": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "최근 치명타"
-    },
-    "event.hit-taken.recent": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "최근 피격"
-    },
-    "event.block.recent": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "최근 막기"
-    },
-    "gear.weapon.class": {
-      "type": "enum",
-      "ops": [
-        "==",
-        "!=",
-        "in"
-      ],
-      "ko": "무기 종류",
-      "values": [
-        "mace",
-        "quarterstaff",
-        "bow",
-        "crossbow",
-        "wand",
-        "staff",
-        "sceptre",
-        "spear",
-        "flail",
-        "dagger",
-        "claw",
-        "axe",
-        "sword",
-        "unarmed"
-      ],
-      "note": "PoE2 0.5 기준 커버리지 UNVERIFIED — P1b에서 poe2db로 확정"
-    },
-    "gear.shield.equipped": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "방패 장착"
-    },
-    "gear.dual-wielding": {
-      "type": "bool",
-      "ops": [
-        "=="
-      ],
-      "ko": "쌍수 장착"
-    },
-    "env.nearby-enemies.count": {
-      "type": "number",
-      "ops": [
-        "<",
-        "<=",
-        ">",
-        ">=",
-        "=="
-      ],
-      "ko": "주변 적 수"
-    }
+ "note": "조건 subject 통제 어휘 v2 (KB_DATA_MODEL §5.1). 확장은 vocab 갱신으로만 — 임의 문자열 금지. v2에서 0.5 신규 축 7종 추가(주입·콤보·룬 수호·봉인·잔류물·균열·지면 효과) — 어휘 밖 축은 요구·공급이 통째로 보이지 않아 탐색 도구의 사각지대가 된다(#92).",
+ "subjects": {
+  "enemy.life.full": {
+   "ko": "적 생명력 가득",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "enemy.life.low": {
+   "ko": "적 낮은 생명력",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "enemy.life.pct": {
+   "ko": "적 생명력 %",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "enemy.rarity": {
+   "ko": "적 희귀도",
+   "ops": [
+    "==",
+    "!=",
+    "in"
+   ],
+   "type": "enum",
+   "values": [
+    "normal",
+    "magic",
+    "rare",
+    "unique"
+   ]
+  },
+  "enemy.status": {
+   "ko": "적 상태이상",
+   "ops": [
+    "has"
+   ],
+   "type": "set",
+   "values": [
+    "shocked",
+    "ignited",
+    "chilled",
+    "frozen",
+    "electrocuted",
+    "poisoned",
+    "bleeding",
+    "stunned",
+    "cursed",
+    "blinded",
+    "immobilised",
+    "dazed",
+    "hindered",
+    "burning",
+    "marked",
+    "maimed"
+   ]
+  },
+  "env.fissure.count": {
+   "ko": "균열 수",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "env.ground-effect": {
+   "ko": "지면 효과",
+   "ops": [
+    "has"
+   ],
+   "type": "set",
+   "values": [
+    "ignited",
+    "chilled",
+    "shocked",
+    "consecrated",
+    "caustic",
+    "jagged",
+    "tar"
+   ]
+  },
+  "env.nearby-enemies.count": {
+   "ko": "주변 적 수",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "env.remnant.available": {
+   "ko": "잔류물 존재",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "event.block": {
+   "ko": "막기 시",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "event.block.recent": {
+   "ko": "최근 막기",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "event.crit": {
+   "ko": "치명타 시",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "event.crit.recent": {
+   "ko": "최근 치명타",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "event.hit-taken": {
+   "ko": "피격 시",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "event.hit-taken.recent": {
+   "ko": "최근 피격",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "event.kill": {
+   "ko": "처치 시",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "event.kill.recent": {
+   "ko": "최근 처치",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "gear.dual-wielding": {
+   "ko": "쌍수 장착",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "gear.shield.equipped": {
+   "ko": "방패 장착",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "gear.weapon.class": {
+   "ko": "무기 종류",
+   "note": "PoE2 0.5 기준 커버리지 UNVERIFIED — P1b에서 poe2db로 확정",
+   "ops": [
+    "==",
+    "!=",
+    "in"
+   ],
+   "type": "enum",
+   "values": [
+    "mace",
+    "quarterstaff",
+    "bow",
+    "crossbow",
+    "wand",
+    "staff",
+    "sceptre",
+    "spear",
+    "flail",
+    "dagger",
+    "claw",
+    "axe",
+    "sword",
+    "unarmed"
+   ]
+  },
+  "self.channelling": {
+   "ko": "정신집중 중",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "self.charge.endurance": {
+   "ko": "인내 충전",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.charge.frenzy": {
+   "ko": "격분 충전",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.charge.power": {
+   "ko": "권능 충전",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.combo.count": {
+   "ko": "콤보 누적",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.energy-shield.full": {
+   "ko": "에너지 보호막 가득",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "self.energy-shield.pct": {
+   "ko": "에너지 보호막 %",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.infusion.count": {
+   "ko": "원소 주입 보유 수",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.leeching": {
+   "ko": "흡수 중",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "self.life.full": {
+   "ko": "생명력 가득",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "self.life.low": {
+   "ko": "낮은 생명력(35% 규약)",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "self.life.pct": {
+   "ko": "생명력 %",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.mana.full": {
+   "ko": "마나 가득",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "self.mana.pct": {
+   "ko": "마나 %",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.moving": {
+   "ko": "이동 중",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "self.rage.count": {
+   "ko": "분노 스택",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.seal.count": {
+   "ko": "봉인 보유 수",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.spirit.free": {
+   "ko": "미예약 정신력",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
+  },
+  "self.stationary": {
+   "ko": "정지 상태",
+   "ops": [
+    "=="
+   ],
+   "type": "bool"
+  },
+  "self.ward.pct": {
+   "ko": "룬 수호 %",
+   "ops": [
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=="
+   ],
+   "type": "number"
   }
+ },
+ "version": 2
 }

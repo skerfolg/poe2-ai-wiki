@@ -485,6 +485,9 @@ find_payloads = tool(_explore.find_payloads)
 # 스택 축 공급 그래프 (#91) — 「이 스탯은 어디로 흘러가나」, 사슬·순환 후보
 scan_supply_edges = tool(_explore.scan_supply_edges)
 trace_chains = tool(_explore.trace_chains)
+# 메커니즘 상태 그래프 (#92) — 「무엇이 무엇을 만들고 먹나」, 상태 전이 사슬
+scan_state_edges = tool(_explore.scan_state_edges)
+trace_mechanism_chains = tool(_explore.trace_mechanism_chains)
 
 
 def main() -> None:
