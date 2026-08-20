@@ -30,9 +30,10 @@ flowchart TD
   NECESS[S6 판정 큐 결정적 부분<br/>done]
   JUDGE[S7 에이전트 판정 배치<br/>blocked]
   FIX[S8 #93 수정<br/>done]
-  REMEAS[S9 재측정 + #94 판정<br/>active]
+  REMEAS[S9 #94 수정<br/>done]
+  REAGG[S10 재측정·재집계·재승격<br/>active]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
-  JUDGE -. 결함 발견 .-> FIX --> REMEAS
+  JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG
 ```
 
 ## Baseline Structure
@@ -53,11 +54,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S6 | 판정 큐 — 제공 축 분류·요구 기재·측정 경로 (결정적) | done |
 | S7 | 에이전트 판정 배치 — 4건 시행 후 **중단**(측정 결함 발견) | blocked |
 | S8 | #93 `<Slot active>` 수정 + 통합 시험 | done |
-| S9 | 재측정(2,689벌) + #94(오염 제외의 정보 손실) 판정 | active |
+| S9 | #94 수정 — 오염 포함본 병기(`with_tainted`) | done |
+| S10 | 재측정 완료 → 재집계 → NodeValue 재승격 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **플라스크가 작동하는 상태로 캠페인 2,689벌을 재측정한다 (S9).**
+The only next executable step is: **재측정이 끝나면 재집계해 `NodeValue`를 다시 승격한다 (S10).**
 
 ## Deferred Candidates
 
@@ -101,6 +103,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | 「측정 0 = 가치 없음」 전제 폐기 — 축을 못 잡은 것으로 재해석 | #92 · habit 판정 봉인 | 2026-08-20 |
 | 기계적으로 안 되는 판정은 **에이전트**가 근거를 찾아 수행 (사용자에게 미루지 않음) | 근거 경로 필수 | 2026-08-20 |
 | 에이전트 판정 배치를 중단하고 측정 결함부터 수정 | #93·#94 — 오염된 큐로 판정하면 판정도 오염된다 | 2026-08-20 |
+| #94는 제외 대신 **병기**(with_tainted) — 축 단위 제외는 기각 | 주얼이 어느 축에 얹었는지 모르는 경우가 많다 | 2026-08-20 |
 | Integration branch override — 작업 브랜치 `feat/m5-proposal-contract` | 레인명(`M5-proposal-rounds`)과 다름. 레인 승격 **전에** 브랜치를 열었고 PR이 이 이름으로 진행 중이라 유지. 이 레인 한정, 머지 시 소멸 | 2026-08-20 |
 
 ## Explicit Non-Actions

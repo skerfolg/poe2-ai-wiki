@@ -77,6 +77,12 @@ class _Node:
     axes: dict[str, list[float]] = field(default_factory=lambda: defaultdict(list))
     tainted: int = 0
     unmeasured: int = 0
+    # ⚠ **오염 행도 따로 모은다** (BACKLOG #94). 제외만 하면 신호가 통째로 사라지는
+    #    경우가 있다 — 실측 2026-08-20: Zealot's Oath는 EHP가 움직인 35행이 **전부**
+    #    오염 제외에 걸렸고, 남은 40행이 전부 0이라 집계가 「어느 빌드에서도 안
+    #    움직임」으로 냈다. 「측정 0」이 실측이 아니라 **집계의 산물**이었다.
+    #    제외도 손실이고 포함도 손실이라, 둘을 **함께 내고 읽는 쪽이 고르게** 한다.
+    axes_all: dict[str, list[float]] = field(default_factory=lambda: defaultdict(list))
     # 그룹 리프트를 **축마다** 센다 — DPS 조건을 정하는데 EHP가 움직인 것까지
     # 「작동」으로 세면 다른 축의 상관이 조건으로 둔갑한다.
     n_rows: Counter[str] = field(default_factory=Counter)
@@ -223,6 +229,11 @@ def collect(
                 continue
             if not usable or nid in taint.tainted_nodes:
                 here.tainted += 1
+                # 버리지 않는다 — 「오염 포함」 쪽에는 싣는다(#94)
+                for stat, delta in row["deltas"].items():
+                    loss = _loss_pct(base_stats.get(stat, 0.0), float(delta))
+                    if loss is not None and math.isfinite(loss):
+                        here.axes_all[stat].append(loss)
                 continue
             cov["rows_kept"] += 1
             here.points.append(int(row.get("points") or 1))
@@ -239,6 +250,7 @@ def collect(
                 loss = _loss_pct(base_stats.get(stat, 0.0), float(delta))
                 if loss is not None and math.isfinite(loss):
                     here.axes[stat].append(loss)
+                    here.axes_all[stat].append(loss)
     return dict(nodes), cov, pob_commit
 
 
@@ -283,6 +295,7 @@ def build_records(
             #    Gathering Winds는 어느 빌드에서도 안 움직인다 — 둘이 갈려야 한다.
             active = [v for v in values if abs(v) >= _ZERO_EPS]
             zero_share = round((len(values) - len(active)) / len(values) * 100, 2)
+            everything = node.axes_all.get(stat) or values
             axes[stat] = {
                 "n": len(values),
                 "loss_pct": _spread(values),
@@ -290,6 +303,21 @@ def build_records(
                 "active_share": round(100.0 - zero_share, 2),
                 "n_active": len(active),
                 "when_active": _spread(active),
+                # ── 오염 포함(#94) — 제외가 신호를 지웠는지 읽는 쪽이 판단한다 ──
+                "with_tainted": {
+                    "n": len(everything),
+                    # 남은 표본 비율. 급감했으면 「측정 0」을 그대로 믿지 말 것
+                    "kept_pct": round(len(values) / len(everything) * 100, 1)
+                    if everything
+                    else 100.0,
+                    "loss_pct": _spread(everything),
+                    "active_share": round(
+                        sum(1 for v in everything if abs(v) >= _ZERO_EPS)
+                        / max(len(everything), 1)
+                        * 100,
+                        2,
+                    ),
+                },
             }
         ref, kb_kind = index.get(nid, ("", ""))
         node_block: dict[str, Any] = {
