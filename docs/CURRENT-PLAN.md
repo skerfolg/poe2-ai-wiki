@@ -26,8 +26,9 @@ flowchart TD
   FLOW[S2 전개기 + 출처 분리 저장<br/>done]
   ROUND[S3 라운드 러너 brief/measure/digest<br/>done]
   SKILL[S4 라운드 스킬<br/>done]
-  FIRST[S5 첫 라운드 실행<br/>active]
-  CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST
+  FIRST[S5 첫 라운드 실행<br/>done]
+  NECESS[S6 조건부 필요성 전수 판정 #92<br/>active]
+  CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS
 ```
 
 ## Baseline Structure
@@ -44,11 +45,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S2 | 전개기 + 출처 분리 저장 (`engine/proposal_flow.py`) | done |
 | S3 | 라운드 러너 — brief·measure·digest (`engine/proposal_round.py`) | done |
 | S4 | 라운드 스킬 `skills/proposal-round/` + 등록 shim | done |
-| S5 | 첫 라운드 실행 → 다이제스트 판정 (기준 빌드 필요) | active |
+| S5 | 첫 라운드 실행 → 다이제스트 판정 | done |
+| S6 | **조건부 필요성 전수 판정** (#92) — 큐 89건, 판정은 에이전트가 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **기준 빌드 스펙을 정해 첫 라운드를 돌고 다이제스트를 낸다 (S5).**
+The only next executable step is: **판정 큐 89건 중 제공 축 분류에 실패한 37건의 어휘 갭을 메우고, 에이전트 판정 스킬을 만든다 (S6).**
 
 ## Deferred Candidates
 
@@ -89,6 +91,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | 검증 경로 없는 제안을 배제하지 않고 **갭 라벨**로 보존 | 라벨 누적 = 다음 측정기 우선순위 | 2026-08-20 |
 | 유형 할당량으로 스태킹 쏠림 방지 (가로등 밑 열쇠 찾기) | `TYPE_QUOTA` | 2026-08-20 |
 | M4.5(메커니즘 그룹 조건)는 보류 — 홀드아웃 일반화 실패 | BACKLOG #89 · 재료 보존 | 2026-08-19 |
+| 「측정 0 = 가치 없음」 전제 폐기 — 축을 못 잡은 것으로 재해석 | #92 · habit 판정 봉인 | 2026-08-20 |
+| 기계적으로 안 되는 판정은 **에이전트**가 근거를 찾아 수행 (사용자에게 미루지 않음) | 근거 경로 필수 | 2026-08-20 |
 | Integration branch override — 작업 브랜치 `feat/m5-proposal-contract` | 레인명(`M5-proposal-rounds`)과 다름. 레인 승격 **전에** 브랜치를 열었고 PR이 이 이름으로 진행 중이라 유지. 이 레인 한정, 머지 시 소멸 | 2026-08-20 |
 
 ## Explicit Non-Actions

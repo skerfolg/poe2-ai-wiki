@@ -579,3 +579,89 @@ def test_행_부착과_습관_수집이_끝까지_흐른다(monkeypatch) -> None
     # 측정이 없는 행은 None으로 **선언**된다 — 비워 두면 0으로 읽힌다
     others = [r for r in (*out["required"], *out["common"]) if r["node"] != target]
     assert all(r["removal"] is None for r in others)
+
+
+def test_흡수_노드는_habit로_찍히지_않는다() -> None:
+    """⛔ 이 도구가 낸 **가장 위험한 오류**의 회귀 고정 (사용자 지적 2026-08-20).
+
+    `Vitality Siphon`("20% of Spell Damage Leeched as Life", 블러드 메이지 채택
+    67%)이 habit으로 찍혀 「갈아탈 예산」 제안이 나갔다. 블러드 메이지는
+    `Sanguimancy`로 **생명력을 내고 시전**하므로 흡수를 빼면 유지가 무너진다 —
+    그런데 재는 축(DPS·최대생명·정적 EHP)엔 흡수가 안 잡혀 「빼도 0」이 된다.
+
+    「못 쟀다」를 「가치 없다」로 뒤집는 것이 철칙 4 위반이다.
+    """
+    from pok.engine.tree.corpus import _removal_summary, unmeasured_axis
+
+    leech = ["20% of Spell Damage Leeched as Life"]
+    assert unmeasured_axis(leech), "흡수 문구를 못 잡았다"
+
+    value = {"sample": {"n": 40}, "axes": {"CombinedDPS": _ax(0.0, 0.0, n_active=0)}}
+    _s, mark = _removal_summary(value, habit_max_loss=0.5)
+    assert mark == "habit", "문구가 없으면 예전대로 habit이어야 한다(대조군)"
+
+    summary, mark = _removal_summary(value, habit_max_loss=0.5, stats_en=leech)
+    assert mark is None, "흡수 노드가 여전히 habit으로 찍힌다"
+    assert "흡수" in summary["unmeasured_axis"], "왜 봉인했는지가 안 남는다"
+
+
+def test_실제_Vitality_Siphon이_봉인된다() -> None:
+    """가짜 문구가 아니라 **정본 노드**로 잠근다 — KB가 바뀌면 여기서 걸린다."""
+    from pok.engine.tree.corpus import unmeasured_axis
+
+    node = _graph.nodes[23416]
+    assert node.name_en == "Vitality Siphon"
+    assert unmeasured_axis(node.stats_en)
+
+
+def test_봉인_어휘는_넓게_잡는다() -> None:
+    """⚠ 비대칭이 설계 근거다 — 잘못 봉인하면 「판정 안 함」으로 끝나지만(싸다),
+    잘못 habit을 찍으면 **빌드가 무너지는 제안**이 나간다(비싸다)."""
+    from pok.engine.tree.corpus import unmeasured_axis
+
+    for text in (
+        "Regenerate 2% of maximum Life per second",
+        "Recoup 15% of Damage taken",
+        "Reserves 25% of Spirit",
+        "10% reduced Mana Cost of Skills",
+        "Gain 1 Power Charge on Kill",
+        "20% increased Movement Speed",
+    ):
+        assert unmeasured_axis([text]), f"안 걸렸다: {text}"
+
+
+# ── 조건부 필요성 판정 큐 (사용자 지시 2026-08-20) ──
+
+
+def test_필요성_큐가_전제를_뒤집는다() -> None:
+    """⛔ 「측정 0 = 가치 없음」이 아니라 **「축을 못 잡았다」**다.
+
+    사용자 정리: 「패시브 노드에 가치 없는 노드는 없다 — 중요도가 낮은 노드는
+    있어도」. 그래서 이 큐는 **판정 대상**이지 제거 후보 목록이 아니다.
+    """
+    from pok.engine.node_necessity import build_queue
+
+    queue = build_queue(min_adoption=50.0)
+    assert queue, "채택 50 이상인데 측정 0인 노드가 하나도 없다 — 큐 생성이 깨졌다"
+    assert all(c.adoption_ci_low >= 50.0 for c in queue)
+
+
+def test_흡수_노드가_요구원과_함께_큐에_온다() -> None:
+    """판정에 필요한 재료(제공 축 + 요구 기재 + 근거 문구)가 갖춰지는지."""
+    from pok.engine.node_necessity import classify_supply, demand_carriers
+    from pok.kb.store import load
+
+    node = _graph.nodes[23416]  # Vitality Siphon (Witch2)
+    axis = classify_supply(node.stats_en)
+    assert axis == "생명력 흡수"
+    got = demand_carriers(axis, load().records, for_ascendancy=node.ascendancy)
+    # ⚠ 같은 전직 기재가 먼저 와야 한다 — 전 KB 사전순이면 유니크들에 밀린다
+    assert got[0]["name"] == "Sanguimancy", f"요구원이 1순위가 아니다: {got[0]['name']}"
+    assert "Life Cost" in got[0]["evidence"]
+
+
+def test_축을_못_잡으면_그렇다고_낸다() -> None:
+    """⛔ 지어내지 않는다 — 분류 실패는 **어휘 갭**이고, 그 사실이 산출물이다."""
+    from pok.engine.node_necessity import classify_supply
+
+    assert classify_supply(["완전히 새로운 무언가"]) is None
