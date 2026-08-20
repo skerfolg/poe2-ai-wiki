@@ -1522,120 +1522,82 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
 
 ## 2. 기능 제안
 
-### #93 〔신규 결함〕 ⛔ **`TotalDPS`가 DPS가 아닌 스킬이 96종(24%)인데 도구가 그대로 낸다**
+### #93 〔신규 결함〕 ⛔ **한 번 사용에 인스턴스가 여러 개인 스킬을 PoB가 1개로 센다** (설치·소비형)
 
-- **상태**: 미착수 · `[빌드]` 탐색 세션 2026-08-20 발견 · **구조 결함**(사례 모음 아님)
-- **근본 원인**: PoB의 DPS 모델은 `인스턴스 1회 피해 x 발동률`이다. 피해가 **개체 수**
-  (설치물·소비한 상태이상·반복 횟수·소환체)에 비례하는 스킬에서는 그 곱이 성립하지
-  않으므로, PoB는 **DPS 계산을 포기하고** engine_stats에
-  `base skill show average damage instead of dps [1]`를 세워 그 사실을 **선언한다**.
-  우리 도구는 **그 선언을 읽지 않고** `TotalDPS`를 그대로 반환한다 — 그래서 호출자는
-  DPS가 아닌 숫자를 DPS로 읽는다.
-- **모집단 (실측 2026-08-20)**: 이 플래그를 단 스킬 **96종 / 전체 401종 = 23.9%**.
-  단건 결함이 아니라 **스킬 4개 중 1개**가 해당한다. 지금까지 사례로만 보고돼서
-  (#3 계열 보고 4건) 규모가 드러난 적이 없다.
-- ⚠ **형태 ③보다 위험하다**: 형태 ③(PoB가 못 읽으면 델타 0)은 **0**이 나와서 이상함을
-  눈치챌 여지가 있는데, 이것은 **그럴듯한 숫자**가 나온다. 실측: 전도성 룬 최대 세팅이
+- **상태**: 미착수 · `[빌드]` 탐색 세션 2026-08-20 발견 · **2026-08-21 사용자 지적으로
+  범위 정정**(아래 「정정 이력」) · 구조 결함
+- **근본 원인**: PoB의 DPS는 `인스턴스 1회 피해 x 발동률`이다. 발동률은 `Speed`(시전
+  속도) 또는 `HitSpeed`(스킬 내부 타격률)로 표현되는데, **설치물 개수·소비한 상태이상
+  개수처럼 어느 쪽에도 안 실리는 배수**가 있는 스킬이 있다. 그런 스킬은 `TotalDPS`가
+  **인스턴스 1개분**이고, 우리 도구는 그것을 DPS로 그대로 반환한다.
+- ⚠ **형태 ③보다 위험하다**: 형태 ③(못 읽으면 델타 0)은 **0**이라 이상함을 눈치챌
+  여지가 있는데, 이것은 **그럴듯한 숫자**가 나온다. 실측: 전도성 룬 최대 세팅이
   153,322를 표시했고 그 값은 실효의 **1/10**이었다(룬 10개 미계상). 세션이 그 숫자로
   "엔드게임 미달" 판정을 내릴 뻔했다.
 
-#### 일반 해법 — 3단 (개별 스킬 대응 금지)
+#### 확인된 모집단 (실측 2026-08-21, 스냅샷 5d173cb)
 
-1. **탐지는 전수·결정적이다** — 플래그 자체가 탐지기다. `kb/ingest`가 스킬 레코드에
-   `dps_semantics: "per_instance"`를 백필하고(#3이 `pob_modeling`을 백필한 것과 같은
-   방식), `compute_pob`·`evaluate_delta` 등 **수치를 내는 모든 도구가 반환에
-   `dps_is_per_instance` 경고를 자동 부착**한다. 문서에 적지 말 것 — 철칙 5,
+`TotalDPS = AverageDamage x Speed`인데 **한 번 사용이 인스턴스를 여러 개 만드는** 스킬:
+
+| 스킬 | 인스턴스 수 (engine_stats) | 실측 |
+|---|---|---|
+| 전도성 룬 | 시전당 **10**개 생성 · 최대 20 | Avg 174.68 · Speed 1.0 · DPS 174.68 (x10 누락) |
+| 으스스한 기둥 | 시전당 **8**개 생성 · 최대 20 | Avg 69.44 · Speed 1.429 · DPS 99.20 (x8 누락) |
+| 원소 작렬 | 소비 **최대 20**개 | config `multiplierFreezeShockIgniteOnEnemy`가 **있는데 1↔20 전 스탯 diff 0** |
+| 루잔의 덫 | 화염 룬 최대 21 | 젬 카탈로그 거부로 미측정 — 착수 시 확인 |
+
+얼어붙은 궤적은 개수 스탯이 있으나 **최대 1**이라 보정 계수가 1이다(무해).
+
+#### 정정 이력 — 「플래그 = 결함」은 틀렸다 (사용자 지적 2026-08-21)
+
+1차 작성은 `base skill show average damage instead of dps` 플래그를 탐지기로 삼아
+**96종(전체 401종의 24%)이 영향**이라고 적었다. **틀렸다.** 사용자 지적("혜성이나
+화염파같이 계산되는 스킬들이 있는데") 후 검증한 결과:
+
+- **혜성**: Avg 555.96 x Speed 0.5 = DPS 277.98. 1시전=1타격이라 **정확하다**.
+- **화염 폭풍**: `HitSpeed=5.0`으로 볼트 수가 **정확히 반영**된다(DPS = Avg x HitSpeed).
+- **화염파**: `stages` 파라미터를 **게이트가 강제**한다(안 주면 거부). 이미 강제 지점이 있다.
+- 대조: `TotalDPS = Avg x Speed`는 **플래그 없는 Arc에도** 성립한다 — 그냥 PoB의 DPS
+  공식이지 결함 표지가 아니다.
+
+→ 그 플래그는 **UI 표시 선호**(버스트·지연 스킬은 평균 피해로 보여준다)이지 결함
+마커가 아니다. **탐지기를 플래그로 삼으면 91종을 거짓 양성으로 부른다.**
+교훈: 「PoB가 무언가를 선언했다」와 「그 선언이 결함을 뜻한다」는 다르다 — 형태 ③의
+성공(`pob_modeling` 백필)을 다른 축에 그대로 옮기려다 과잉 일반화했다.
+
+#### 일반 해법 — 개별 스킬 대응 금지
+
+1. **탐지는 「인스턴스 수 vs 발동률」 대조로** — 플래그가 아니라 **engine_stats의 개수
+   스탯**(`number of ... to create` 계열)이 있는데 그 배수가 `Speed`·`HitSpeed` 어느
+   쪽에도 안 실린 경우만 결함이다. 화염 폭풍이 `HitSpeed`로 반영되듯 **PoB가 이미
+   반영한 것을 이중 계상하면 안 된다** — 대조가 판정의 핵심이다.
+2. **보정은 구조화 필드에서 파생** — 개수는 engine_stats에 있다(`rune hazard number of
+   runes to create [10]` 등). `per_instance x count`를 도구가 자동 계산해 함께 낸다
+   (#91·#92에서 확립한 「큐레이션 표가 아니라 파생」).
+3. **부착 지점은 도구** — `compute_pob`·`evaluate_delta` 반환에 `instance_scaling`
+   (인스턴스당 피해·개수·유효 범위·사유)을 싣는다. 문서에 적으면 안 지켜진다(철칙 5) —
    실측으로 이번 세션도 손으로 곱해야 했다.
-2. **보정은 구조화 필드에서 파생한다** — 개수는 engine_stats에 이미 있다:
-   `rune hazard number of runes to create [10]` · `elemental sundering number of
-   explosion allowed [20]` · `grim pillars number of pillars to create [8]` 등
-   **16종**이 개수 스탯을 보유. 이들은 `per_instance x count` 산수를 도구가 **자동
-   계산해 함께 낸다**(#91·#92에서 확립한 「큐레이션 표가 아니라 구조화 필드 파생」).
-3. **파생 불가는 정직하게 미측정으로 남긴다** — 나머지 **80종**은 개수가 engine_stats에
-   없다(유탄의 도화선·전령의 발동률·슬램의 타격 수 등 상황 의존). 추측해 곱하지 말고
-   `unmeasured` + 사유를 낸다. ⛔ 이 80종에 임의 계수를 넣는 순간 「측정값 ≠ 실현
-   가능성」(철칙 4)이 무너진다.
+4. **단일 대상 실효는 여전히 미측정으로 남긴다** — 전도성 룬은 8.5m 원뿔에 퍼지므로
+   보스 한 마리가 밟는 룬 수(현실 2~3개)는 기하 문제라 계산기 밖이다. 개수 보정은
+   **상한**을 줄 뿐이니 `unmeasured` 사유를 함께 낼 것(철칙 4).
 
 #### 별개 축 — PoB 쪽 결함 (우리 계층에서 못 고침)
 
-위 3단으로 **안 풀리는** 것들이다. 상류 보고 또는 대리 측정 규약이 필요하다:
 - **config가 있는데 효과가 없다**: `multiplierFreezeShockIgniteOnEnemy`(원소 작렬)를
-  1↔20으로 바꿔도 **전 스탯 diff 0**. 값 전달 경로 문제인지 PoB 버그인지 가르는 것이
-  선행 과제 — 전자면 우리 수정, 후자면 상류 보고.
+  1↔20으로 바꿔도 전 스탯 diff 0. 전달 경로 문제인지 PoB 버그인지 가르는 것이 선행.
 - **봉인 반복 미모델**: Unleash·Salvo·Expand·툴의 눈사태가 `waitForMaxSeals`를 켜도
-  x1.000·`Repeats` 1.0 고정. 같은 계열인 자로크의 봉기만 `DpsMultiplier` 5.0으로
-  정상 모델되므로 **선택적 미구현**이다.
+  x1.000·`Repeats` 1.0. 같은 계열 자로크의 봉기만 `DpsMultiplier` 5.0으로 모델된다
+  → **선택적 미구현**.
 - **채널링 코스트 미표출**: 뼈 폭풍 `LifeCost`/`ManaCost` = 0 (구형 번개는 96 정상).
-- **기하 미모델**: 룬 원뿔 확산·접촉 개수 — 좌표 시뮬레이션이라 계산기 영역 밖.
+- **기하 미모델**: 룬 원뿔 확산·접촉 개수(좌표 시뮬레이션이라 계산기 영역 밖).
+- **주입 접사 pob_gap**: `Glacial`·`Erupting`·`Energising`(각 41-59% 원소 피해) 등.
 
-#### 검증 표본 (위 규칙이 맞는지 대조할 것)
-
-| 스킬 | 플래그 | 개수 스탯 | 기대 동작 |
-|---|---|---|---|
-| 전도성 룬 | O | `to create [10]`·`allowed [20]` | 2단 자동 보정 대상 |
-| 원소 작렬 | O | `explosion allowed [20]` | 2단 대상 + config 축 별도 |
-| 으스스한 기둥 | O | `to create [8]`·`allowed [20]` | 2단 대상 |
-| 구형 번개·코멧 | O | 없음 | 3단(미측정 표시)이어야 정상 |
-
-- **반례로 기록 — `unset_config`는 작동했다**: 봉인 4종이 x1.000일 때 `unset_config`가
-  `waitForMaxSeals`를 지목했고, 켜자 자로크가 x0.269 → **x2.000**으로 뒤집혔다.
-  "봉인은 손해"라고 오판할 뻔한 것을 **도구가 막았다** — 갭만 쌓지 말고 이런 성공도
-  같이 남긴다(#29 계열).
-- **근거 위치**: 세션 실측 2026-08-20(PoB 스냅샷 5d173cb) ·
+- **반례로 기록 — 강제 지점 2개가 실제로 작동했다**: ① `unset_config`가
+  `waitForMaxSeals`를 지목해 "봉인은 손해" 오판을 막았다(자로크 x0.269 → **x2.000**)
+  ② `stages` 미지정 거부가 화염파를 1단계로 조용히 계산하는 것을 막았다.
+  갭만 쌓지 말고 이런 성공도 같이 남긴다(#29 계열).
+- **근거 위치**: 세션 실측 2026-08-20~21(PoB 스냅샷 5d173cb) ·
   `insight.conductive-runes-and-cost-stacking` · 스킬 레코드 `data.engine_stats`.
-
-#### 부록 — 플래그 보유 스킬 전수 96종 (실측 2026-08-20, 스냅샷 5d173cb)
-
-판정 기준: `data.engine_stats`에 `base skill show average damage instead of dps [1]`.
-착수 시 이 목록을 **재생성해 대조**할 것 — 패치마다 바뀐다(생성 스크립트는 플래그
-문자열 하나로 끝나므로 하드코딩하지 말 것).
-
-**A군 — 개수 스탯 보유(2단 자동 보정 대상) 5종**
-
-| 스킬 | 개수 스탯 |
-|---|---|
-| 전도성 룬 (Conductive Runes) | `rune hazard base number of runes allowed [20]` · `rune hazard number of runes to create [10]` |
-| 원소 작렬 (Elemental Sundering) | `elemental sundering number of explosion allowed [20]` |
-| 얼어붙은 궤적 (Frozen Locus) | `base number of frozen locus allowed [1]` |
-| 으스스한 기둥 (Grim Pillars) | `base number of grim pillars allowed [20]` · `grim pillars number of pillars to create [8]` |
-| 루잔의 덫 (Ruzhan's Trap) | `fire djinn maximum flame runes allowed [21]` |
-
-**B군 — 개수 스탯 없음(3단 미측정 표시 대상) 91종**
-
-개수가 상황 의존(유탄 도화선·전령 발동률·슬램 타격 수 등)이라 engine_stats에
-없다. ⛔ **임의 계수를 넣지 말 것**(철칙 4) — `unmeasured` + 사유로 남긴다.
-
-- 아콘 오브 차율라(Archon of Chayula) · 원통한 망자(Bitter Dead) · 피사냥개의 징표(Bloodhound's Mark)
-- 혼돈의 쇄도(Chaotic Surge) · 집속 유탄(Cluster Grenade) · 혜성(Comet)
-- 치직대는 손바닥(Crackling Palm) · 타쇄하는 공포(Crushing Fear) · 원소 쇄도(Elemental Surge)
-- 얽어매기(Entangle) · 탈출 사격(Escape Shot) · 폭발 유탄(Explosive Grenade)
-- 폭발성 사격(Explosive Shot) · 서리의 송곳니(Fangs of Frost) · 화염 폭풍(Firestorm)
-- 화염파(Flameblast) · 섬광 유탄(Flash Grenade) · 점멸 타격(Flicker Strike)
-- 보강하는 함성(Fortifying Cry) · 파편 탄환(Fragmentation Rounds) · 서리 폭탄(Frost Bomb)
-- 서리 방벽(Frost Wall) · 서리불꽃 폭발(Frostflame Nova) · 충격장(Galvanic Field)
-- 가스 유탄(Gas Grenade) · 몰려드는 폭풍(Gathering Storm) · 쌍둥이 쇄도(Gemini Surge)
-- 빙하 볼트(Glacial Bolt) · 우박폭풍 탄환(Hailstorm Rounds) · 차율라의 손(Hand of Chayula)
-- 얼음의 심장(Heart of Ice) · 피의 전령(Herald of Blood) · 얼음의 전령(Herald of Ice)
-- 천둥의 전령(Herald of Thunder) · 위풍당당한 여왕의 전령(Herald of the Royal Queen) · 고속 탄환(High Velocity Rounds)
-- 공허의 집중(Hollow Focus) · 공허의 공명(Hollow Resonance) · 얼음 폭발(Ice Nova)
-- 얼음태풍(Icestorm) · 소이 사격(Incendiary Shot) · 소각(Incinerate)
-- 지옥불 함성(Infernal Cry) · 켈라리의 기만(Kelari's Deception) · 켈라리의 심판(Kelari's Judgment)
-- 살상 장법(Killing Palm) · 도약 강타(Leap Slam) · 번개 차원 이동(Lightning Warp)
-- 살아있는 폭탄(Living Bomb) · 달의 축복(Lunar Blessing) · 마그마 장벽(Magma Barrier)
-- 나비라의 파열(Navira's Fracturing) · 기름 유탄(Oil Grenade) · 흘려보내기(Parry)
-- 완벽한 타격(Perfect Strike) · 영구 결빙 볼트(Permafrost Bolts) · 급습(Pounce)
-- 여왕의 행진(Queen's Procession) · 방패 들기(Raise Shield) · 갈퀴질(Rake)
-- 광란(Rampage) · 반발(Repulsion) · 몰려오는 강타(Rolling Slam)
-- 룬의 유예(Runic Reprieve) · 루잔의 광분(Ruzhan's Fury) · 루잔의 선고(Ruzhan's Reckoning)
-- 격파 장법(Shattering Palm) · 방패 돌진(Shield Charge) · 하늘 붕괴(Skyfall)
-- 돌발(Snap) · 태양의 보주(Solar Orb) · 창의 지대(Spearfield)
-- 충격 장법(Staggering Palm) · 쇄도(Stampede) · 산산조각(Sunder)
-- 초과 충전 강타(Supercharged Slam) · 무기 담금질(Temper Weapon) · 폭풍의 종(Tempest Bell)
-- 별들의 응답(The Stars Answer) · 천둥 같은 도약(Thunderous Leap) · 뇌우(Thunderstorm)
-- 마름쇠의 발자취(Trail of Caltrops) · 심연의 살아있는 폭탄(Untether) · 혈기 쇄도(Vivid Stampede)
-- 시체 불덩이(Volatile Dead) · 화산(Volcano) · 전도성 유탄(Voltaic Grenade)
-- 걸어다니는 대재난(Walking Calamity) · 선회 공격(Whirling Assault) · 소용돌이 베기(Whirling Slash)
-- 와류 기병창(Whirlwind Lance)
 
 ### #92 〔신규 제안〕 **메커니즘 연계 그래프가 없다 — 0.5 신규 축이 탐색 도구에 통째로 안 보인다** (#91 자매)
 
@@ -2669,11 +2631,12 @@ Build가 쌓이면 「축별 점유·빈 자리」는 집계 쿼리다 → `desc
 
 ## 3. 검증으로 뒤집힌 보고 (재발 방지 기록)
 
-**보고 15건이 틀렸다**(이관 13 + 자체 2). 그대로 받았으면 참값을 훼손했다.
+**보고 16건이 틀렸다**(이관 13 + 자체 3). 그대로 받았으면 참값을 훼손했다.
 **그중 1건은 이 백로그에 적힌 「검증 완료」 자체가 틀린 것이다** — 검증도 검증된다.
 
 | 보고 | 실제 | 무엇이 갈랐나 |
 |---|---|---|
+| 〔#93 자체〕 `base skill show average damage instead of dps` 플래그 = 개수 배수 미계상 결함, **96종(전체의 24%) 영향** | **탐지기가 틀렸다.** 그 플래그는 UI 표시 선호(버스트·지연 스킬을 평균 피해로 보여줌)이지 결함 마커가 아니다. 혜성은 Avg x Speed가 정확하고, 화염 폭풍은 `HitSpeed=5.0`으로 볼트 수를 이미 반영하며, 화염파는 `stages` 미지정을 게이트가 거부한다. 실제 영향은 **설치·소비형 3~4종** | 사용자 지적("혜성이나 화염파같이 계산되는 스킬들이 있는데") 후 **플래그 없는 Arc와 대조** — `TotalDPS = Avg x Speed`가 Arc에도 성립해 공식일 뿐임이 드러났다. ⚠ 형태 ③의 성공(`pob_modeling` 백필)을 다른 축에 그대로 옮기려다 과잉 일반화했다 |
 | 〔이관 D3 → #66〕 함양 유니크의 explicits가 원본과 같다 = **수집 갭** | **관찰은 맞고 진단이 틀렸다.** 수집할 변형이 없다 — PoB에 Cultivated 변형 자체가 없고, 함양은 원본 모드 1~2개를 **무작위 교체**하는 것이라 정적 목록으로 표현 불가. 진짜 결함은 "원본과 같아 보이는 것"이 아니라 **변이 접사 풀과의 연결 부재**다 | poe2db·PoB·웹 3소스를 갈랐다 — "KB에 없다"를 보면 **소스에 있는데 못 담았나**와 **소스에도 결정적 값이 없나**를 먼저 나눈다 |
 | 〔이관 D1 → #64〕 `find_carriers` 거짓 차단의 원인은 **KB 레코드 내부 모순**(source=gem ↔ from_item=true) | **모순이 아니다.** PoB의 `fromItem`은 "아이템도 부여한다"는 표시일 뿐 젬의 부재를 뜻하지 않는다 — 82건 전부가 젬을 함께 갖는다. 진짜 원인은 **내 전사 오류**(PoB는 `gemData` 유무를 보는데 `fromItem`을 대리로 썼다). 실제 거짓 차단은 82건이 아니라 **2건**(poe2db가 젬이라 말하는 것) | 증상의 출처를 데이터가 아니라 **판정 코드**에서 찾았다 — PoB 원문 함수를 열어 내 전사와 한 줄씩 대조했다 |
 | 〔#63〕 "PoB 젬 50종이 KB에 없다 — 그중 20종은 수집됐는데 **병합에서 소리 없이 빠진 수집 갭**" | **50종 전부 제외 원장에 사람 승인과 함께 있다**(잔재 31 · 미획득 6 · 수락 거부 12 · 통합 2, 2026-07-29~08-04 판정). 갭이 아니라 판정 완료분이었다 | `exclusions.json`을 **키별로 전부** 대조했다(첫 검색은 슬러그 키 이름을 잘못 짚어 0건이 나왔고, 그걸 "원장에 없다"로 읽었다). 도구에 원장 대조를 넣어 재발을 막음(`pob_only_unexplained`) |
