@@ -28,8 +28,10 @@ flowchart TD
   SKILL[S4 라운드 스킬<br/>done]
   FIRST[S5 첫 라운드 실행<br/>done]
   NECESS[S6 판정 큐 결정적 부분<br/>done]
-  JUDGE[S7 에이전트 판정 배치<br/>active]
+  JUDGE[S7 에이전트 판정 배치<br/>blocked]
+  FIX[S8 측정 결함 #93·#94 수정<br/>active]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
+  JUDGE -. 결함 발견 .-> FIX
 ```
 
 ## Baseline Structure
@@ -48,11 +50,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S4 | 라운드 스킬 `skills/proposal-round/` + 등록 shim | done |
 | S5 | 첫 라운드 실행 → 다이제스트 판정 | done |
 | S6 | 판정 큐 — 제공 축 분류·요구 기재·측정 경로 (결정적) | done |
-| S7 | 에이전트 판정 배치 — 89건, 근거 필수 | active |
+| S7 | 에이전트 판정 배치 — 4건 시행 후 **중단**(측정 결함 발견) | blocked |
+| S8 | **#93 플라스크 비활성 · #94 오염 제외의 정보 손실** 수정 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **에이전트 판정을 89건 전량으로 배치 실행하고 결과를 저장 규약에 넣는다 (S7).**
+The only next executable step is: **#93(`<Slot active>` 누락으로 플라스크·호신부가 전 측정에서 비활성)을 고치고 영향 범위를 재측정한다 (S8).**
 
 ## Deferred Candidates
 
@@ -95,6 +98,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | M4.5(메커니즘 그룹 조건)는 보류 — 홀드아웃 일반화 실패 | BACKLOG #89 · 재료 보존 | 2026-08-19 |
 | 「측정 0 = 가치 없음」 전제 폐기 — 축을 못 잡은 것으로 재해석 | #92 · habit 판정 봉인 | 2026-08-20 |
 | 기계적으로 안 되는 판정은 **에이전트**가 근거를 찾아 수행 (사용자에게 미루지 않음) | 근거 경로 필수 | 2026-08-20 |
+| 에이전트 판정 배치를 중단하고 측정 결함부터 수정 | #93·#94 — 오염된 큐로 판정하면 판정도 오염된다 | 2026-08-20 |
 | Integration branch override — 작업 브랜치 `feat/m5-proposal-contract` | 레인명(`M5-proposal-rounds`)과 다름. 레인 승격 **전에** 브랜치를 열었고 PR이 이 이름으로 진행 중이라 유지. 이 레인 한정, 머지 시 소멸 | 2026-08-20 |
 
 ## Explicit Non-Actions
