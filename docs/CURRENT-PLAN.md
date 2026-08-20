@@ -25,8 +25,8 @@ flowchart TD
   CONTRACT[S1 제안 계약 검증기<br/>done]
   FLOW[S2 전개기 + 출처 분리 저장<br/>done]
   ROUND[S3 라운드 러너 brief/measure/digest<br/>done]
-  SKILL[S4 라운드 스킬 + 예약 세션<br/>active]
-  FIRST[S5 첫 라운드 무인 실행<br/>pending]
+  SKILL[S4 라운드 스킬<br/>done]
+  FIRST[S5 첫 라운드 실행<br/>active]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST
 ```
 
@@ -43,12 +43,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S1 | 제안 계약 검증기 — 3필드 강제·갭 라벨 (`engine/proposal.py`) | done |
 | S2 | 전개기 + 출처 분리 저장 (`engine/proposal_flow.py`) | done |
 | S3 | 라운드 러너 — brief·measure·digest (`engine/proposal_round.py`) | done |
-| S4 | 라운드 스킬 + 예약 세션(무인화의 LLM 구간) | pending |
-| S5 | 첫 라운드 무인 실행 → 다이제스트 판정 | pending |
+| S4 | 라운드 스킬 `skills/proposal-round/` + 등록 shim | done |
+| S5 | 첫 라운드 실행 → 다이제스트 판정 (기준 빌드 필요) | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **`skills/proposal-round/`를 만들어 LLM 세션이 브리프를 읽고 계약대로 제안을 내는 구간을 규격화한다 (S4).**
+The only next executable step is: **기준 빌드 스펙을 정해 첫 라운드를 돌고 다이제스트를 낸다 (S5).**
 
 ## Deferred Candidates
 
