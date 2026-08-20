@@ -25,7 +25,7 @@ flowchart TD
   CONTRACT[S1 제안 계약 검증기<br/>done]
   FLOW[S2 전개기 + 출처 분리 저장<br/>done]
   ROUND[S3 라운드 러너 brief/measure/digest<br/>done]
-  SKILL[S4 라운드 스킬 + 예약 세션<br/>pending]
+  SKILL[S4 라운드 스킬 + 예약 세션<br/>active]
   FIRST[S5 첫 라운드 무인 실행<br/>pending]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST
 ```
@@ -74,6 +74,11 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | `artifacts/ingest-raw/proposals/0-5/` | active | 데이터 repo — 제안·전개·측정(파생). 정본 아님, 유지 |
 | `artifacts/ingest-raw/counterfactual/0-5/removals-pre87/` | keep | #87 수정 전 1차분 — 대조·감사용 보관 |
 | scratchpad `m4final`·`m4v2`·`m4v3` | disposable | 집계 대조용 임시 — 레인 종료 시 폐기 |
+| worktree `.claude/worktrees/arc-measure` | unknown | 다른 세션 소유 추정 — **임의 삭제 금지**, 소유 세션 확인 후 처리 |
+| worktree `.claude/worktrees/ecstatic-benz-b4d93c` | unknown | 위와 같음 |
+| worktree `.claude/worktrees/zealous-dewdney-e94861` | unknown | 위와 같음 |
+| branch `feat/m5-proposal-contract` | active | 이 레인의 작업 브랜치 — 머지 후 삭제 |
+| branch `feat/long-jump-bundles` | unknown | 다른 세션 소유 추정 — 확인 후 처리 |
 
 ## Open Decisions
 
@@ -84,6 +89,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | 검증 경로 없는 제안을 배제하지 않고 **갭 라벨**로 보존 | 라벨 누적 = 다음 측정기 우선순위 | 2026-08-20 |
 | 유형 할당량으로 스태킹 쏠림 방지 (가로등 밑 열쇠 찾기) | `TYPE_QUOTA` | 2026-08-20 |
 | M4.5(메커니즘 그룹 조건)는 보류 — 홀드아웃 일반화 실패 | BACKLOG #89 · 재료 보존 | 2026-08-19 |
+| Integration branch override — 작업 브랜치 `feat/m5-proposal-contract` | 레인명(`M5-proposal-rounds`)과 다름. 레인 승격 **전에** 브랜치를 열었고 PR이 이 이름으로 진행 중이라 유지. 이 레인 한정, 머지 시 소멸 | 2026-08-20 |
 
 ## Explicit Non-Actions
 
