@@ -512,11 +512,30 @@ def test_표본이_적으면_판정하지_않는다() -> None:
     assert mark is None and summary["axes"] == {}
 
 
-def test_NodeValue가_없으면_채택률만으로_골랐다고_말한다() -> None:
-    """⛔ 조용한 0 금지 — 지금 KB에는 NodeValue가 없다(M3 재측정 후 승격).
-    이 선언이 없으면 「빼도 아픈지 확인된 후보」로 읽힌다."""
+def test_제거_실측이_정본에서_붙는다() -> None:
+    """NodeValue가 정본에 승격됐다(2026-08-20) — 휴면이던 부착 경로가 실데이터로
+    켜졌는지 잠근다. 없어지면(레코드 삭제 등) 부재 선언 경로가 받는다 — 그 경로는
+    아래 monkeypatch 시험이 별도로 잠근다."""
     from pok.engine.tree.corpus import suggest_anchors
 
+    out = suggest_anchors(_graph, "Blood Mage")
+    assert out["removal_source"] is not None and "NodeValue" in out["removal_source"]
+    rows = [r for r in out["required"] if r.get("removal")]
+    assert rows, "required에 제거 실측이 하나도 안 붙었다"
+
+
+def test_NodeValue가_없으면_채택률만으로_골랐다고_말한다(monkeypatch) -> None:
+    """⛔ 조용한 0 금지 — NodeValue가 없는 KB(다른 시즌·초기 셋업)에서는 이 선언이
+    없으면 「빼도 아픈지 확인된 후보」로 읽힌다."""
+    import pok.kb.store as store
+    from pok.engine.tree.corpus import suggest_anchors
+
+    real = store.load()
+
+    class _Bare:
+        records: ClassVar[dict] = {k: v for k, v in real.records.items() if v.type != "NodeValue"}
+
+    monkeypatch.setattr(store, "load", lambda root=None: _Bare)
     out = suggest_anchors(_graph, "Martial Artist")
     assert out["removal_source"] is None
     assert "채택률만으로" in out["removal_why"]
@@ -544,7 +563,9 @@ def test_행_부착과_습관_수집이_끝까지_흐른다(monkeypatch) -> None
     target = suggest_anchors(_graph, "Martial Artist")["required"][0]["node"]
 
     class _Fake:
-        records: ClassVar[dict] = dict(real.records)
+        # 실제 NodeValue는 뺀다 — 정본 승격(2026-08-20) 후에도 이 시험은 주입한
+        # 한 건만으로 흐름을 판정해야 밀폐된다(실데이터가 바뀌면 같이 흔들린다)
+        records: ClassVar[dict] = {k: v for k, v in real.records.items() if v.type != "NodeValue"}
 
     _Fake.records["node-value.test"] = _nv(target, {"CombinedDPS": _ax(0.0, 0.1)})  # type: ignore[index]
     monkeypatch.setattr(store, "load", lambda root=None: _Fake)

@@ -429,19 +429,39 @@ def main(argv: list[str] | None = None) -> int:
     linked = sum(1 for r in records if "ref" in r["data"]["node"])
     out = args.out or (kb / "game-data" / "tree")
     out.mkdir(parents=True, exist_ok=True)
-    path = out / f"node-values-{args.season}.ndjson"
+
+    # **종류별 샤드**로 나눈다 — 트리 정본(keystones.ndjson…)과 같은 관례이고,
+    # 한 파일이면 pre-commit의 2MB 상한에 걸린다(실측: 통짜 3.9MB · small만 2.27MB
+    # 라 small은 node_id 짝홀로 한 번 더 가른다). 샤드 기준이 바뀌면 옛 파일이
+    # 남아 **중복 id**로 로드가 죽는다 — 기준을 바꿀 땐 옛 샤드를 지울 것.
+    def shard_key(record: dict[str, Any]) -> str:
+        node = record["data"]["node"]
+        kind = str(node["kind"])
+        return f"small-{int(node['node_id']) % 2}" if kind == "small" else kind
+
+    by_shard: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for record in records:
+        by_shard[shard_key(record)].append(record)
     # ⛔ 직접 write_text 하지 않는다 — 스키마 검사가 **쓴 뒤** 남의 시험에서 터진다.
     #    store API가 쓰고 곧바로 전량 로드로 검증한다(깨진 채로 안 남는다).
-    report = write_shard(path, records)
+    added = updated = 0
+    paths = []
+    for key, subset in sorted(by_shard.items()):
+        path = out / f"node-values-{args.season}-{key}.ndjson"
+        report = write_shard(path, subset)
+        added += len(report.added)
+        updated += len(report.updated)
+        paths.append(path.name)
     print(
         json.dumps(
             {
                 "records": len(records),
                 "kb_linked": linked,
-                "added": len(report.added),
-                "updated": len(report.updated),
+                "added": added,
+                "updated": updated,
                 "coverage": cov,
-                "out": str(path),
+                "out": str(out),
+                "shards": paths,
             },
             ensure_ascii=False,
             indent=2,
