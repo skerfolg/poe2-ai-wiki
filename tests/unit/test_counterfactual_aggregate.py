@@ -106,11 +106,15 @@ def test_시즌_커버리지가_레코드마다_실린다() -> None:
     assert cov["rows_kept"] < cov["rows_total"], "거른 사실이 안 보인다"
 
 
-def test_기준값이_없으면_거부한다(tmp_path: Path) -> None:
-    """⛔ 조용히 절대 델타로 넘어가지 않는다 — 그러면 척도가 섞인 값이 정본에 간다."""
+def test_기준이_없는_빌드는_세지_않는_방식으로_빠진다(tmp_path: Path) -> None:
+    """⛔ 조용히 절대 델타로 넘어가지 않는다 — 척도가 섞인 값이 정본에 가면 안 된다.
+
+    옛 동작은 사이드카가 없으면 즉사였는데, 재측정본(2026-08-19~)은 행과 함께
+    기준(`baseline`)을 실으므로 사이드카 없이도 돈다. 둘 다 없는 빌드만
+    `builds_measured`에 안 잡히는 방식으로 빠진다 — coverage가 손실을 드러낸다."""
     (tmp_path / "counterfactual" / "9-9" / agg.REMOVALS).mkdir(parents=True)
-    with pytest.raises(SystemExit, match="기준값이 없다"):
-        agg.collect("9-9", None, raw_root=tmp_path, base=tmp_path)  # type: ignore[arg-type]
+    nodes, cov, _commit = agg.collect("9-9", None, raw_root=tmp_path, base=tmp_path)  # type: ignore[arg-type]
+    assert nodes == {} and cov["builds_measured"] == 0
 
 
 def test_레코드가_스키마를_통과한다() -> None:

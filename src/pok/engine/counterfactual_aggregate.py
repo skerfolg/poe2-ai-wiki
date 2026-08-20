@@ -175,12 +175,9 @@ def collect(
     results = campaign_dir(season, base=base) / REMOVALS
     baselines = load_baselines(season, base=base)
     groups = derive()
-    if not baselines:
-        raise SystemExit(
-            f"⛔ 기준값이 없다 ({campaign_dir(season, base=base) / BASELINES}) — "
-            "손실을 비율로 모을 수 없다. 1층 행은 델타만 싣는다(2026-08-18 확인). "
-            "먼저 `python -m pok.engine.counterfactual_aggregate baseline --season <시즌>`"
-        )
+    # ⚠ 사이드카가 없어도 바로 죽지 않는다 — 재측정본(2026-08-19~)은 행과 함께
+    #   기준(`baseline`)을 싣는다. 둘 다 없는 빌드는 세지 않는 방식으로 빠지고
+    #   coverage.builds_measured가 그만큼 줄어 드러난다(조용한 손실 아님).
     nodes: dict[int, _Node] = defaultdict(_Node)
     seen: set[str] = set()
     cov = {"builds_measured": 0, "rows_total": 0, "rows_kept": 0}
@@ -203,8 +200,9 @@ def collect(
         except Exception:  # 복원 실패는 표본에서 빠질 뿐이다 (커버리지에 안 센다)
             continue
 
-        base_stats = baselines.get(bid)
-        if base_stats is None:
+        # 재측정본(2026-08-19~)은 행과 함께 기준을 싣는다. 없으면 사이드카(옛 파일).
+        base_stats = result.get("baseline") or baselines.get(bid)
+        if not base_stats:
             continue  # 기준을 못 구한 빌드는 비율을 못 낸다 — 세지도 않는다
         # 이 빌드가 쓰는 메커니즘 — 노드의 **조건**을 짚는 데 쓴다(M4.5)
         build_groups = _build_groups(spec, groups)
@@ -431,19 +429,39 @@ def main(argv: list[str] | None = None) -> int:
     linked = sum(1 for r in records if "ref" in r["data"]["node"])
     out = args.out or (kb / "game-data" / "tree")
     out.mkdir(parents=True, exist_ok=True)
-    path = out / f"node-values-{args.season}.ndjson"
+
+    # **종류별 샤드**로 나눈다 — 트리 정본(keystones.ndjson…)과 같은 관례이고,
+    # 한 파일이면 pre-commit의 2MB 상한에 걸린다(실측: 통짜 3.9MB · small만 2.27MB
+    # 라 small은 node_id 짝홀로 한 번 더 가른다). 샤드 기준이 바뀌면 옛 파일이
+    # 남아 **중복 id**로 로드가 죽는다 — 기준을 바꿀 땐 옛 샤드를 지울 것.
+    def shard_key(record: dict[str, Any]) -> str:
+        node = record["data"]["node"]
+        kind = str(node["kind"])
+        return f"small-{int(node['node_id']) % 2}" if kind == "small" else kind
+
+    by_shard: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for record in records:
+        by_shard[shard_key(record)].append(record)
     # ⛔ 직접 write_text 하지 않는다 — 스키마 검사가 **쓴 뒤** 남의 시험에서 터진다.
     #    store API가 쓰고 곧바로 전량 로드로 검증한다(깨진 채로 안 남는다).
-    report = write_shard(path, records)
+    added = updated = 0
+    paths = []
+    for key, subset in sorted(by_shard.items()):
+        path = out / f"node-values-{args.season}-{key}.ndjson"
+        report = write_shard(path, subset)
+        added += len(report.added)
+        updated += len(report.updated)
+        paths.append(path.name)
     print(
         json.dumps(
             {
                 "records": len(records),
                 "kb_linked": linked,
-                "added": len(report.added),
-                "updated": len(report.updated),
+                "added": added,
+                "updated": updated,
                 "coverage": cov,
-                "out": str(path),
+                "out": str(out),
+                "shards": paths,
             },
             ensure_ascii=False,
             indent=2,
