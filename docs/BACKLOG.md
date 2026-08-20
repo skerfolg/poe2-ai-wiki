@@ -1584,6 +1584,59 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
 - **근거 위치**: 세션 실측 2026-08-20(PoB 스냅샷 5d173cb) ·
   `insight.conductive-runes-and-cost-stacking` · 스킬 레코드 `data.engine_stats`.
 
+#### 부록 — 플래그 보유 스킬 전수 96종 (실측 2026-08-20, 스냅샷 5d173cb)
+
+판정 기준: `data.engine_stats`에 `base skill show average damage instead of dps [1]`.
+착수 시 이 목록을 **재생성해 대조**할 것 — 패치마다 바뀐다(생성 스크립트는 플래그
+문자열 하나로 끝나므로 하드코딩하지 말 것).
+
+**A군 — 개수 스탯 보유(2단 자동 보정 대상) 5종**
+
+| 스킬 | 개수 스탯 |
+|---|---|
+| 전도성 룬 (Conductive Runes) | `rune hazard base number of runes allowed [20]` · `rune hazard number of runes to create [10]` |
+| 원소 작렬 (Elemental Sundering) | `elemental sundering number of explosion allowed [20]` |
+| 얼어붙은 궤적 (Frozen Locus) | `base number of frozen locus allowed [1]` |
+| 으스스한 기둥 (Grim Pillars) | `base number of grim pillars allowed [20]` · `grim pillars number of pillars to create [8]` |
+| 루잔의 덫 (Ruzhan's Trap) | `fire djinn maximum flame runes allowed [21]` |
+
+**B군 — 개수 스탯 없음(3단 미측정 표시 대상) 91종**
+
+개수가 상황 의존(유탄 도화선·전령 발동률·슬램 타격 수 등)이라 engine_stats에
+없다. ⛔ **임의 계수를 넣지 말 것**(철칙 4) — `unmeasured` + 사유로 남긴다.
+
+- 아콘 오브 차율라(Archon of Chayula) · 원통한 망자(Bitter Dead) · 피사냥개의 징표(Bloodhound's Mark)
+- 혼돈의 쇄도(Chaotic Surge) · 집속 유탄(Cluster Grenade) · 혜성(Comet)
+- 치직대는 손바닥(Crackling Palm) · 타쇄하는 공포(Crushing Fear) · 원소 쇄도(Elemental Surge)
+- 얽어매기(Entangle) · 탈출 사격(Escape Shot) · 폭발 유탄(Explosive Grenade)
+- 폭발성 사격(Explosive Shot) · 서리의 송곳니(Fangs of Frost) · 화염 폭풍(Firestorm)
+- 화염파(Flameblast) · 섬광 유탄(Flash Grenade) · 점멸 타격(Flicker Strike)
+- 보강하는 함성(Fortifying Cry) · 파편 탄환(Fragmentation Rounds) · 서리 폭탄(Frost Bomb)
+- 서리 방벽(Frost Wall) · 서리불꽃 폭발(Frostflame Nova) · 충격장(Galvanic Field)
+- 가스 유탄(Gas Grenade) · 몰려드는 폭풍(Gathering Storm) · 쌍둥이 쇄도(Gemini Surge)
+- 빙하 볼트(Glacial Bolt) · 우박폭풍 탄환(Hailstorm Rounds) · 차율라의 손(Hand of Chayula)
+- 얼음의 심장(Heart of Ice) · 피의 전령(Herald of Blood) · 얼음의 전령(Herald of Ice)
+- 천둥의 전령(Herald of Thunder) · 위풍당당한 여왕의 전령(Herald of the Royal Queen) · 고속 탄환(High Velocity Rounds)
+- 공허의 집중(Hollow Focus) · 공허의 공명(Hollow Resonance) · 얼음 폭발(Ice Nova)
+- 얼음태풍(Icestorm) · 소이 사격(Incendiary Shot) · 소각(Incinerate)
+- 지옥불 함성(Infernal Cry) · 켈라리의 기만(Kelari's Deception) · 켈라리의 심판(Kelari's Judgment)
+- 살상 장법(Killing Palm) · 도약 강타(Leap Slam) · 번개 차원 이동(Lightning Warp)
+- 살아있는 폭탄(Living Bomb) · 달의 축복(Lunar Blessing) · 마그마 장벽(Magma Barrier)
+- 나비라의 파열(Navira's Fracturing) · 기름 유탄(Oil Grenade) · 흘려보내기(Parry)
+- 완벽한 타격(Perfect Strike) · 영구 결빙 볼트(Permafrost Bolts) · 급습(Pounce)
+- 여왕의 행진(Queen's Procession) · 방패 들기(Raise Shield) · 갈퀴질(Rake)
+- 광란(Rampage) · 반발(Repulsion) · 몰려오는 강타(Rolling Slam)
+- 룬의 유예(Runic Reprieve) · 루잔의 광분(Ruzhan's Fury) · 루잔의 선고(Ruzhan's Reckoning)
+- 격파 장법(Shattering Palm) · 방패 돌진(Shield Charge) · 하늘 붕괴(Skyfall)
+- 돌발(Snap) · 태양의 보주(Solar Orb) · 창의 지대(Spearfield)
+- 충격 장법(Staggering Palm) · 쇄도(Stampede) · 산산조각(Sunder)
+- 초과 충전 강타(Supercharged Slam) · 무기 담금질(Temper Weapon) · 폭풍의 종(Tempest Bell)
+- 별들의 응답(The Stars Answer) · 천둥 같은 도약(Thunderous Leap) · 뇌우(Thunderstorm)
+- 마름쇠의 발자취(Trail of Caltrops) · 심연의 살아있는 폭탄(Untether) · 혈기 쇄도(Vivid Stampede)
+- 시체 불덩이(Volatile Dead) · 화산(Volcano) · 전도성 유탄(Voltaic Grenade)
+- 걸어다니는 대재난(Walking Calamity) · 선회 공격(Whirling Assault) · 소용돌이 베기(Whirling Slash)
+- 와류 기병창(Whirlwind Lance)
+
 ### #92 〔신규 제안〕 **메커니즘 연계 그래프가 없다 — 0.5 신규 축이 탐색 도구에 통째로 안 보인다** (#91 자매)
 
 - **상태**: **1차 구현 완료(2026-08-20, 사용자 지시 당일)** · **#62 계열**
