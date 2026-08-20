@@ -114,3 +114,11 @@ pytest tests/integration    # PoB 부팅 — 파일당 수 분, 전량 30분~1�
 ## 스택 (요약)
 
 Python 3.12+ · FastMCP · git 텍스트 정본 + SQLite(FTS5) 인덱스 · PoB(LuaJIT, headless) 계산 오라클 · Windows+macOS.
+
+<!-- WORKFLOW-GOVERNANCE:START -->
+This repository follows [Workflow Governance](docs/WORKFLOW-GOVERNANCE.md).
+
+Agents must keep [Current Plan](docs/CURRENT-PLAN.md) and its Mermaid status graph updated when work status changes. Durable history belongs in [History Map](docs/HISTORY-MAP.md).
+
+This AGENTS.md block is intentionally thin. Do not duplicate workflow policy here.
+<!-- WORKFLOW-GOVERNANCE:END -->
