@@ -26,9 +26,10 @@ flowchart TD
   MEASURE["S3 컨셉 PoB 실측<br/>done"]
   SEAL["S4 인사이트 봉인<br/>done"]
   VERDICT["S5 컨셉 채택 판정<br/>pending"]
-  MECH["S6 메커니즘 상태 그래프 #92<br/>active"]
+  MECH["S6 메커니즘 상태 그래프 #92<br/>done"]
+  GAPS["S7 연계 탐색·측정 갭 수집 #93<br/>active"]
   TOOL --> WIRE --> MEASURE --> SEAL --> VERDICT
-  SEAL --> MECH
+  SEAL --> MECH --> GAPS
 ```
 
 ## Baseline Structure
@@ -47,6 +48,7 @@ Lane scope: 스태킹 축을 도구로 발견하고, 나온 컨셉을 PoB 실측
 | S4 | 실측 결과 인사이트 봉인 (`insight.conductive-runes-and-cost-stacking`) | done |
 | S5 | 컨셉 채택 판정 — 계속 팔 것인가 (사용자 게임 지식 게이트) | pending |
 | S6 | 메커니즘 상태 그래프 (#92) — vocab v2 + `scan_state_edges`/`trace_mechanism_chains` | done |
+| S7 | 그래프로 연계 탐색 + 측정 갭 수집 (#93 「개수 배수」 계열 등재) | done |
 
 S1~S2는 PR #86, S4는 PR #89로 머지됨. S5는 판정 대기이므로 세션이 진행할 수 없다(AD-3).
 S5(전도성 룬 컨셉)는 사용자가 기각 방향으로 판단했고, 탐색은 S6의 새 그래프로 이어간다.
