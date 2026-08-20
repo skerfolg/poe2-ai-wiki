@@ -254,6 +254,8 @@ _HANGUL = re.compile(r"[\uac00-\ud7a3]")
 # 모르면 소비자는 "KB에 없다"로 오판하고 파일 탐색으로 도피한다(실측 2026-08-05, 9건).
 # 현재 값은 describe_type(type).korean_effect_pct 로 언제든 다시 잰다.
 _KO_SPARSE_TYPES = ("Skill", "Support")
+# 스태킹 은어 — 효과 문구엔 없고, 전용 도구(#91)가 있다는 신호다.
+_STACKING_JARGON = re.compile(r"스태킹|스택|사슬|연계|stack(?:ing|er)?\b", re.IGNORECASE)
 _KO_EFFECT_COVERAGE = "Passive 99.6% · Modifier 45% · Item 29% — 그러나 **Skill 0.2% · Support 0%**"
 
 
@@ -343,6 +345,17 @@ def diagnose_empty(
                     "다단어는 **AND 매칭**이다 — 토큰이 각각은 있지만 **한 레코드에 "
                     "함께 있지는 않다**. 토큰을 줄이거나 tags 필터로 좁혀라"
                 )
+
+    if query and _STACKING_JARGON.search(query):
+        # 은어는 효과 문구에 없다 — 그리고 이 질문엔 전용 도구가 있다(#91).
+        # 강제 지점: 문서 지침만으로는 도구가 안 꺼내진다(철칙 5) — 0건 진단이
+        # 도구를 가리켜야 "스태킹 빌드 찾아줘" 세션이 여기서 길을 찾는다.
+        reasons.append(
+            "'스태킹/사슬'은 유저 은어라 효과 문구에 없다. 이 질문의 전용 도구가 "
+            "있다 — **`scan_supply_edges`**(축별 공급·보상 엣지 전수)와 "
+            "**`trace_chains(from_axis=...)`**(다단 사슬·공존 진단). 특정 축의 "
+            "문구를 찾는 중이면 게임 표기로 재시도하라 — 예: 'per 100 maximum Life'"
+        )
 
     if tags:
         reasons.append(f"tags={tags} 필터가 걸려 있다 — 태그는 게임 공식 소문자 표기다")

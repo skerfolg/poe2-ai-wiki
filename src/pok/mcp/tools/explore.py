@@ -136,6 +136,83 @@ def find_carriers(skill: str, include_blocked: bool = False) -> dict[str, Any]:
     return _carriers(skill, include_blocked=include_blocked)
 
 
+def scan_supply_edges(
+    axis: str | None = None,
+    kind: str | None = None,
+    include_flow: bool = False,
+    limit: int = 200,
+) -> dict[str, Any]:
+    """스택 축의 비례 엣지 전수 — 「이 스탯은 어디로 흘러가나」 (#91, #62 계열).
+
+    유니크 explicits·트리 노드·속성 고유 보너스(전부 KB 정본)에서
+    `per N X` / `for every N X` / `equal to N% of X` / `N% of X as Y` 문구를
+    결정적으로 추출한다. supply(축→축 공급)와 payoff(축→피해·효과)를 가르고,
+    배타 판단 재료(슬롯·전직 잠금·대가 줄)와 근거 문구를 함께 낸다.
+
+    axis: 이 축이 source 또는 target인 엣지만 (예: "life", "strength").
+          축 어휘는 반환 `axes` 요약에 전부 나온다.
+    kind: "supply" | "payoff"만 거르기.
+    include_flow: 이벤트 획득(처치·적중·소모 시)도 포함 — 스택 사슬이 아니라
+          기본 제외. 제외분은 조용히 사라지지 않고 `axes`/skipped에 집계된다.
+
+    ⚠ `scope="item_static"`은 장비에 박힌 수치의 정적 판독이다 — 전역 스탯과
+    섞어 사슬을 그리면 가짜 순환이 생긴다(사슬은 trace_chains가 올바르게 잇는다).
+    ⚠ 접사(Modifier) 레코드는 구변형을 구분 없이 담아 **일부러 안 본다** —
+    신성모독·바알 변이 경로는 이 도구 밖이다(수동 확인 필요).
+    """
+    from pok.kb.graph.supply import scan_supply_edges as _scan_supply
+
+    scan = _scan_supply(kb_store.load())
+    edges = [
+        e
+        for e in scan.edges
+        if (axis is None or axis in (e.source_axis, e.target_axis))
+        and (kind is None or e.kind == kind)
+        and (include_flow or e.scope != "flow")
+    ]
+    return {
+        "edges": [dataclasses.asdict(e) for e in edges[:limit]],
+        "axes": [dataclasses.asdict(a) for a in scan.axes],
+        "skipped": [{"reason": r, "count": c} for r, c in scan.skipped],
+        # 보상은 있는데 들어오는 비례 공급이 0인 축 — 플랫 성장(속성)이거나
+        # 행동 획득(충전·저주)이거나 **다리 누락**이다. 다리 갭을 침묵시키지
+        # 않는 가시성 장치이므로 그냥 지나치지 말 것.
+        "unsourced_axes": list(scan.unsourced_axes),
+        "truncated": len(edges) > limit,
+        "total_matched": len(edges),
+    }
+
+
+def trace_chains(from_axis: str, depth: int = 3, max_chains: int = 40) -> dict[str, Any]:
+    """from_axis에서 시작하는 다단 공급 사슬과 순환 후보 (#91).
+
+    예: trace_chains("strength") → 힘→생명(고유 보너스)→ES(Beidat's Hand)…처럼
+    「이 축을 밀면 무엇이 따라 자라는가」를 그래프 순회로 편다. 각 사슬에는
+    공존 진단(전직 잠금·슬롯 충돌)이 붙고, 순환 후보는 잘라내지 않고 성립/불성립
+    사유와 함께 낸다. scope="global" 엣지만 잇는다 — 장비 정적 판독(item_static)과
+    이벤트 플로우는 전역 스탯을 되먹이지 못한다.
+
+    점수·순위는 없다 — 어느 사슬이 유망한가는 호출자가 payoff 수와 근거로 판단
+    한다. 공존 진단은 **발견된 충돌만** 말한다(충돌 없음 ≠ 성립 보장, 철칙 4).
+    """
+    from pok.kb.graph.supply import trace_chains as _trace
+
+    trace = _trace(kb_store.load(), from_axis, depth=depth, max_chains=max_chains)
+    return {
+        "chains": [
+            {
+                "axes": list(c.axes),
+                "conflicts": list(c.conflicts),
+                "edges": [dataclasses.asdict(e) for e in c.edges],
+            }
+            for c in trace.chains
+        ],
+        "cycles": [dataclasses.asdict(c) for c in trace.cycles],
+        "payoff_counts": [{"axis": a, "payoffs": n} for a, n in trace.payoff_counts],
+        "truncated": trace.truncated,
+    }
+
+
 def find_payloads(carrier: str, limit: int = 200) -> dict[str, Any]:
     """이 담체(메타 젬·토템·보조)에 **넣을 수 있는** 활성 스킬 전량.
 
