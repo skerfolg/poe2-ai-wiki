@@ -9,17 +9,11 @@ This is the single live work-control document for the current repository lane. T
 
 ## Active Lane
 
-Lane: `(none — between lanes after install)`
+Lane: `BI-stacking-axis-exploration`
 
-This scaffold ships in the `between-lanes` state. After running `workflow-governance init`, the project has the governance documents installed but has not yet promoted a project-specific lane.
-
-To promote the first project lane:
-
-1. Choose a lane identifier (kebab-case, version-unassigned — e.g., `BI-feature-x`, NOT `v0.1.0-feature-x`).
-2. Replace the sentinel above with `` Lane: `<your-lane-id>` `` (real lane identifier — do not retain the parenthetical).
-3. Populate `## Baseline Structure` with sub-task / phase rows.
-4. Populate `## Canonical Next Step` with exactly one bolded actionable directive (per §13).
-5. Run `npm run workflow:guard precommit` and confirm 0 errors.
+스태킹 축 탐색 레인 — 공급 그래프 도구(#91, PR #86 머지 완료)를 만들고, 그 도구로
+전도성 룬·코스트 스태킹 컨셉을 PoB 실측까지 검증해 결과를 정본 인사이트로 봉인한다.
+컨셉 채택 여부(계속 팔 것인가)는 사용자 게임 지식 판정 대기 중이다.
 
 Per §8 (Git and Worktree Hygiene), this lane targets the integration branch named in the header (`main` by default). If a different base is required, add an entry to `## Open Decisions` named "Integration branch override" with the override branch name, reason, and duration (single lane / until stated condition).
 
@@ -27,35 +21,39 @@ Per §8 (Git and Worktree Hygiene), this lane targets the integration branch nam
 
 ```mermaid
 flowchart TD
-  INSTALL[Governance installed<br/>done]
-  NEXT[First project lane<br/>NOT STARTED]
-  INSTALL -. promote next .-> NEXT
+  TOOL["S1 공급 그래프 도구 #91<br/>done"]
+  WIRE["S2 강제 지점 배선<br/>done"]
+  MEASURE["S3 컨셉 PoB 실측<br/>done"]
+  SEAL["S4 인사이트 봉인<br/>active"]
+  VERDICT["S5 컨셉 채택 판정<br/>pending"]
+  TOOL --> WIRE --> MEASURE --> SEAL --> VERDICT
 ```
 
 ## Baseline Structure
 
-OPTIONAL in `between-lanes` state. When a lane is promoted, replace this section with a per-lane sub-task table:
-
-```markdown
-### <lane-identifier>
+### BI-stacking-axis-exploration
 
 Status: `active`
 
-Lane scope: <one-line intent>
+Lane scope: 스태킹 축을 도구로 발견하고, 나온 컨셉을 PoB 실측으로 검증해 정본에 봉인한다.
 
 | Sub | Subject | Status |
 | --- | --- | --- |
-| S1 | <first sub-task> | pending |
-| S2 | <second sub-task> | pending |
-```
+| S1 | 공급 엣지 스캔·사슬 순회 도구 (#91) — `scan_supply_edges`/`trace_chains` | done |
+| S2 | 강제 지점 4곳 배선 (0건 진단·AGENTS·스킬·서버 instructions) | done |
+| S3 | 컨셉 PoB 실측 (전도성 룬 배율표·코스트 스태킹 대조·천장 측정) | done |
+| S4 | 실측 결과 인사이트 봉인 (`insight.conductive-runes-and-cost-stacking`) | done |
+| S5 | 컨셉 채택 판정 — 계속 팔 것인가 (사용자 게임 지식 게이트) | pending |
 
-Per §13.2 the baseline-matching algorithm uses the first Markdown table within this section to determine the "first unclosed item" for the Canonical Next Step mismatch check. The `Status` column must use values matching `/^(done|PASS)$/i` for closed rows.
+S1~S2는 PR #86으로 머지됨. S5는 판정 대기이므로 세션이 진행할 수 없다(AD-3).
 
 ## Canonical Next Step
 
-The only next executable step is: **Promote the first project lane from a planning artifact and replace the sentinel in `## Active Lane`.**
+The only next executable step is: **사용자에게 전도성 룬 컨셉의 채택 여부 판정을 받는다 (S5) — 세션이 대신 결정하지 않는다(AD-3).**
 
-When the lane is `active`, this section MUST contain exactly one bolded actionable directive (per §13.1). Multiple bolded list items or zero bolded items will fail the guard. In `between-lanes` state this section MAY be absent or MAY contain a sentinel directive like the example above.
+판정 재료는 `insight.conductive-runes-and-cost-stacking`에 전부 봉인돼 있다: 클리어는
+룬 10개 전량 효율이지만 단일 대상은 접촉 룬 수(2~3개)로 제한돼 보스 DPS 20~30만
+(현실 장비 환산)이고, 천둥신의 진노 연계는 Melee 조건이라 0이다.
 
 ## Deferred Candidates
 
@@ -84,7 +82,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
-| (none yet) | — | Record lane-affecting decisions here so future sessions can understand why the lane is shaped the way it is. Override entries (Canonical Next Step baseline-mismatch override per §13.1, or Integration Branch Override per §8) belong in this table. |
+| Integration branch override | `insight/conductive-runes-cost-stacking` 브랜치에서 작업 — 협업 규율상 main 직접 커밋 금지(AGENTS.md §협업 1), PR로 머지한다. 이 레인 한정. | 2026-08-20 |
+| 코스트 스태킹 컨셉 | **조건부 기각** — 동일 생명 예산에서 완드+래스피스에 x2.0~3.2 열세(슬롯 기회비용). 재평가 조건: 코스트 배수 합산 x2.5+ 확인 또는 +레벨급 코스트 무기 등장 | 2026-08-20 |
+| 로우라이프 연계 | **제외** — 문턱 35% vs 시전당 코스트 10~17%로 산술 불성립. 판정 시점 논쟁은 이 산수로 무의미 | 2026-08-20 |
+| 묠니르-전도성 룬 연계 | **불가 확정** — 천둥신의 진노 에너지 조건이 Melee 적중인데 전도성 룬에 Melee 타입 없음. 묠니르는 +레벨 스탯막대로만 가치 | 2026-08-20 |
 
 ## Explicit Non-Actions
 
