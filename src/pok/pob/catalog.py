@@ -62,6 +62,12 @@ class ConfigOption:
     label: str
     conditions: tuple[str, ...]  # ifFlag/ifMod/… 값들 (관련성 판정용)
     tooltip: str = ""
+    # 각 조건이 **어느 키에서 왔는가**(`conditions`와 같은 순서). 종류마다 관련성의
+    # 뜻이 다르다 — 특히 `ifMult`는 "그 승수를 **쓰는 접사가 빌드에 있을 때만**"
+    # 의미가 있다(승수만 세워 두면 아무것도 안 변한다). 이 구분이 없어서
+    # `multiplierFreezeShockIgniteOnEnemy`가 원소 작렬에 거짓 양성으로 붙었다
+    # (실측 2026-08-21 — 그 힌트를 좇아 있지도 않은 PoB 버그를 조사했다).
+    condition_kinds: tuple[str, ...] = ()
 
     @property
     def keywords(self) -> tuple[str, ...]:
@@ -132,8 +138,11 @@ def config_options(root: Path | None = None) -> tuple[ConfigOption, ...]:
         end = starts[i + 1].start() if i + 1 < len(starts) else len(text)
         body = text[match.end() : end]
         conditions: list[str] = []
+        kinds: list[str] = []
         for key in _COND_KEYS:
-            conditions.extend(re.findall(rf'{key}\s*=\s*"([^"]+)"', body))
+            found = re.findall(rf'{key}\s*=\s*"([^"]+)"', body)
+            conditions.extend(found)
+            kinds.extend([key] * len(found))
         label = _LABEL.search(body)
         tooltip = _TOOLTIP.search(body)
         out.append(
@@ -142,6 +151,7 @@ def config_options(root: Path | None = None) -> tuple[ConfigOption, ...]:
                 label=label.group(1) if label else "",
                 conditions=tuple(conditions),
                 tooltip=tooltip.group(1) if tooltip else "",
+                condition_kinds=tuple(kinds),
             )
         )
     return tuple(out)
