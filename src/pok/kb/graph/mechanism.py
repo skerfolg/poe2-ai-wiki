@@ -38,7 +38,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from pok.kb.graph.predicates import extract_predicates, record_texts
+from pok.kb.graph.predicates import canon_status, extract_predicates, record_texts
 from pok.kb.store import Record, Store
 
 # ── 구조화 타입 토큰 → 상태 축 ──────────────────────────────────────────
@@ -91,6 +91,7 @@ _STATUS_AXIS: dict[str, str] = {
     "cursed": "curse",
     "blinded": "blind",
     "immobilised": "immobilise",
+    "pinned": "pin",
     "dazed": "daze",
     "hindered": "hinder",
     "burning": "burning",
@@ -169,7 +170,9 @@ class StateEdge:
     carrier_id: str
     carrier_name: str
     carrier_type: str  # Skill | Support | Passive | Item | Modifier | Mechanic
-    source: str  # "type"(구조화 토큰) | "text"(술어) — 신뢰도 구분
+    # "type"(구조화 토큰) | "text"(술어) | "object"(월드 객체) | "umbrella"(상위 상태
+    # 전파) — 신뢰도 구분. `umbrella`는 **유도된** 엣지라 근거가 두 줄로 붙는다.
+    source: str
     evidence: str
 
 
@@ -212,6 +215,97 @@ def object_edges_of(texts: list[str]) -> tuple[tuple[str, str, str], ...]:
                     out.append((axis, "consume", sentence))
                 break  # 축 어휘는 앞의 것이 이긴다(긴 표현 우선)
     return tuple(out)
+
+
+# ── 우산 상태 (#96) ─────────────────────────────────────────────────────
+# 어떤 상태는 **다른 상태들의 상위 개념**이다. 정본이 그걸 문장으로 말해 준다:
+#   "Pinned targets count as Immobilised."
+#   "While an enemy is Heavy Stunned, they … count as Immobilised."
+#   "A target is immobilised if it cannot move, for example due to being
+#    Frozen, Pinned, Heavy Stunned, or Electrocuted."
+# 이 관계가 없으면 상위 축은 **생산자가 없는 것처럼 보인다**. 실측 2026-08-21:
+# 속박은 페이오프 18건인데 생산 3건(그나마 1건은 부정문 오독)이라 "공급이 마름"으로
+# 판정됐다 — 실제로는 동결 14·기절 6·전기충격 2가 전부 속박을 만든다.
+#
+# ⚠ 관계를 **손으로 적지 않는다**. 시즌마다 새 규칙이 생기면 수동 표는 못 따라간다
+# (사용자 지적 2026-08-20: "새로운 규칙을 찾을 때마다 수동으로 추가하라고 할 수도 없고").
+# 정본 Mechanic 문구에서 읽는다.
+_UMB_COUNTS_AS = re.compile(
+    r"(?:(?P<src>[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?)\s+(?:targets?|enemies)\s+)?"
+    r"count(?:s)? as\s+(?P<dst>[A-Z][A-Za-z]+)",
+)
+_UMB_DUE_TO = re.compile(r"due to being\s+(?P<list>[^.]+)", re.I)
+# "Enemies taking Fire damage over time are Burning. Usually this occurs **because
+# the enemy is Ignited**." — 같은 우산 관계인데 표현이 다르다. 이 형태를 안 읽으면
+# 연소가 「생산자 0」으로 남는다(실측 2026-08-21: 페이오프 5건인데 공급 0).
+_UMB_BECAUSE = re.compile(
+    r"because\s+(?:the\s+)?(?:enemy|enemies|target|they)\s+(?:is|are)\s+(?P<src>[A-Z][A-Za-z]+)",
+    re.I,
+)
+_UMB_NEGATION = re.compile(r"\b(?:do(?:es)? not|cannot|can't|never)\b[^.;]{0,20}$", re.I)
+
+
+@dataclass(frozen=True)
+class UmbrellaRelation:
+    """`source_axis` 상태가 걸리면 `target_axis` 상태로도 친다 (정본 문구 유래)."""
+
+    source_axis: str
+    target_axis: str
+    evidence: str
+
+
+def _axis_of_state_name(word: str) -> str | None:
+    """ "Frozen"·"Heavy Stunned"·"Pinned" 같은 상태 이름 → 축.
+
+    `Heavy Stunned`는 `Stunned`의 강도 구분이라 같은 축으로 접는다 — 우리 어휘에
+    강도 축이 없고, 페이오프 문구도 강도를 가리지 않는다.
+    """
+    # 목록 분리 잔여물("or Electrocuted")과 강도 수식어를 함께 턴다 — 안 털면
+    # "Frozen, Pinned, Heavy Stunned, or Electrocuted"의 **마지막 항목만** 조용히
+    # 빠진다(실측 2026-08-21: 전기충격 → 속박 경로가 사라졌다).
+    cleaned = re.sub(r"^(?:or|and|the|a|an)\s+", "", word.strip(), flags=re.I)
+    cleaned = re.sub(r"^(?:Heavy|Light)\s+", "", cleaned, flags=re.I)
+    value = canon_status(cleaned)
+    return _STATUS_AXIS.get(value) if value else None
+
+
+def umbrella_relations(store: Store) -> tuple[UmbrellaRelation, ...]:
+    """정본 Mechanic 문구에서 「A는 B로도 친다」 관계를 읽는다 (결정적, 판단 없음)."""
+    out: dict[tuple[str, str], UmbrellaRelation] = {}
+    for record in store.records.values():
+        if record.type != "Mechanic":
+            continue
+        data = record.raw.get("data", {}) or {}
+        own_axis = _axis_of_state_name(record.name_en)
+        for stat in data.get("keyword_stats") or data.get("stats") or ():
+            for sentence in re.split(r"(?<=[.;])\s+|\n", str(stat)):
+                sentence = sentence.strip()
+                if not sentence:
+                    continue
+                # ① "X count as Y" — X가 없으면 이 레코드 자신이 X다
+                for m in _UMB_COUNTS_AS.finditer(sentence):
+                    if _UMB_NEGATION.search(sentence[: m.start()]):
+                        continue  # "do not count as"는 반대다
+                    src = _axis_of_state_name(m.group("src") or "") or own_axis
+                    dst = _axis_of_state_name(m.group("dst") or "")
+                    if src and dst and src != dst:
+                        out.setdefault((src, dst), UmbrellaRelation(src, dst, sentence))
+                # ② "… due to being A, B, C, or D" — 이 레코드가 상위 축이다
+                due = _UMB_DUE_TO.search(sentence)
+                if due and own_axis:
+                    for word in re.split(r",\s*|\s+or\s+|\s+and\s+", due.group("list")):
+                        src = _axis_of_state_name(word)
+                        if src and src != own_axis:
+                            out.setdefault(
+                                (src, own_axis), UmbrellaRelation(src, own_axis, sentence)
+                            )
+                # ③ "… because the enemy is Ignited" — 같은 관계의 다른 표현형
+                because = _UMB_BECAUSE.search(sentence)
+                if because and own_axis and not _UMB_NEGATION.search(sentence[: because.start()]):
+                    src = _axis_of_state_name(because.group("src"))
+                    if src and src != own_axis:
+                        out.setdefault((src, own_axis), UmbrellaRelation(src, own_axis, sentence))
+    return tuple(out.values())
 
 
 def _carrier_types(record: Record) -> set[str]:
@@ -300,6 +394,37 @@ def scan_state_edges(store: Store) -> StateScan:
                     evidence=predicate.evidence,
                 )
             )
+
+    # ④ 우산 상태 전파 (#96) — 하위 상태를 만드는 담체는 **상위 상태도 만든다**.
+    #    이걸 안 하면 상위 축이 "생산자 없음"으로 보여 거짓 갭 판정이 난다.
+    umbrellas = umbrella_relations(store)
+    by_source: dict[str, list[UmbrellaRelation]] = defaultdict(list)
+    for relation in umbrellas:
+        by_source[relation.source_axis].append(relation)
+    derived: list[StateEdge] = []
+    seen: set[tuple[str, str]] = set()
+    for edge in edges:
+        if edge.kind != "produce":
+            continue
+        for relation in by_source.get(edge.axis, ()):
+            key = (relation.target_axis, edge.carrier_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            derived.append(
+                StateEdge(
+                    axis=relation.target_axis,
+                    kind="produce",
+                    carrier_id=edge.carrier_id,
+                    carrier_name=edge.carrier_name,
+                    carrier_type=edge.carrier_type,
+                    source="umbrella",
+                    # 근거는 두 줄이다 — 담체가 하위 상태를 만든다는 문구 + 하위가
+                    # 상위로 친다는 정본 규칙. 둘 다 있어야 사람이 판정할 수 있다(AD-8).
+                    evidence=f"{edge.evidence} ⟶ {relation.evidence}",
+                )
+            )
+    edges.extend(derived)
 
     by_axis: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
     for edge in edges:

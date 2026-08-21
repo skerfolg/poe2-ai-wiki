@@ -32,9 +32,10 @@ flowchart TD
   ROOT["S9 unset_config 거짓 양성 수정<br/>done"]
   UP["S10 가동률 축 #94<br/>done"]
   OBJ["S11 월드 객체 연쇄 #95<br/>done"]
-  XW["S12 어휘 통일·교차 조인 #95<br/>active"]
+  XW["S12 어휘 통일·교차 조인 #95<br/>done"]
+  UMB["S13 우산 상태 #96<br/>active"]
   TOOL --> WIRE --> MEASURE --> SEAL --> VERDICT
-  SEAL --> MECH --> GAPS --> FIX --> ROOT --> UP --> OBJ --> XW
+  SEAL --> MECH --> GAPS --> FIX --> ROOT --> UP --> OBJ --> XW --> UMB
 ```
 
 ## Baseline Structure
@@ -59,17 +60,29 @@ Lane scope: 스태킹 축을 도구로 발견하고, 나온 컨셉을 PoB 실측
 | S10 | 가동률(uptime) 축 신설 (#94) — 지속/쿨다운 정합을 엔진에 | done |
 | S11 | 월드 객체 연쇄 (#95) — #92 확장, 객체 축 15종·전이 27종 신규 | done |
 | S12 | 축 어휘 통일 + 3층 교차 조인 (#95) — 공유 축 2→7종, `crosswalk.py` | done |
+| S13 | 우산 상태 (#96) — 상위 상태 전파·부정문 공통 관문·고정 축 신설 | done |
 
 S1~S2는 PR #86, S4는 PR #89로 머지됨. S5는 판정 대기이므로 세션이 진행할 수 없다(AD-3).
 S5(전도성 룬 컨셉)는 사용자가 기각 방향으로 판단했고, 탐색은 S6의 새 그래프로 이어간다.
 
 ## Canonical Next Step
 
-The only next executable step is: **메커니즘 상태 그래프(#92)가 낸 전이 25종·사슬 33개에서 다음 탐색 컨셉을 사용자와 고른다.**
+The only next executable step is: **곰(형태변환) 속박 연쇄 — 「기절 축적 → Heavy Stun → 속박 → 증가 피해 110%」를 PoB로 실측할지 사용자와 정한다.**
 
-S6 산출물이 판정 재료다: `Snap`(원소 상태이상 → 주입+잔류물 변환기) · `Disengage`
-(패리 → 충전) 같은 전이가 나왔고, 생산자 없는 축 4종(격노·부서진 방어구·연소·패리)은
-수집 갭인지 어휘 갭인지 판정이 필요하다. 어느 사슬을 팔지는 게임 지식 게이트다(AD-3).
+S13이 낸 판정 재료: 속박(Immobilised)은 **우산 상태**라 동결·고정·기절·전기충격
+넷이 전부 만든다. 전파 전에는 생산 3(그중 1건은 부정문 오독)·페이오프 18이라
+도구가 「공급이 마름」이라는 **없는 공백**을 보고했다 — 전파 후 생산 27로 뒤집혔다.
+
+트리 좌표 실측으로 페이오프 군집 4개 중 하나가 한 뭉치다(곰 군집, 반경 ~350):
+`Spirit of the Bear`(속박 대상 피해 50% + 기절 축적 25%) + 소형 3종(각 20%) =
+증가 피해 110%. 공급도 같은 계보에 있다 — `Bear's Roar` 40% · `Shapeshifting Stun
+Buildup` 20%, 그리고 물리·근접은 기절 축적에 각각 50% **more**(곱연산, 정본 명시)라
+물리 근접 강타는 기반이 ×2.25다.
+
+PoB에 `Is the enemy Immobilised?` config가 있어 **측정 가능하다**. 다만 보스
+Heavy Stun 지속·재기절 저항("harder to Heavy Stun them again")은 정본에 수치가 없어
+미측정이고, 증가(increased)는 가산이라 희석된다 — 어느 쪽을 팔지는 게임 지식
+게이트다(AD-3).
 
 ## Deferred Candidates
 
