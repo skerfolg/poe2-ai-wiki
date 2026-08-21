@@ -488,6 +488,8 @@ trace_chains = tool(_explore.trace_chains)
 # 메커니즘 상태 그래프 (#92) — 「무엇이 무엇을 만들고 먹나」, 상태 전이 사슬
 scan_state_edges = tool(_explore.scan_state_edges)
 trace_mechanism_chains = tool(_explore.trace_mechanism_chains)
+# 3층 교차 순회 (#95) — 스탯·상태·객체를 한 사슬로, 마디마다 층 꼬리표
+trace_cross_chains = tool(_explore.trace_cross_chains)
 
 
 def main() -> None:

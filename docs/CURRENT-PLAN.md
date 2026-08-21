@@ -31,9 +31,10 @@ flowchart TD
   FIX["S8 #93 범위 정정·인사이트 정정<br/>done"]
   ROOT["S9 unset_config 거짓 양성 수정<br/>done"]
   UP["S10 가동률 축 #94<br/>done"]
-  OBJ["S11 월드 객체 연쇄 #95<br/>active"]
+  OBJ["S11 월드 객체 연쇄 #95<br/>done"]
+  XW["S12 어휘 통일·교차 조인 #95<br/>active"]
   TOOL --> WIRE --> MEASURE --> SEAL --> VERDICT
-  SEAL --> MECH --> GAPS --> FIX --> ROOT --> UP --> OBJ
+  SEAL --> MECH --> GAPS --> FIX --> ROOT --> UP --> OBJ --> XW
 ```
 
 ## Baseline Structure
@@ -57,6 +58,7 @@ Lane scope: 스태킹 축을 도구로 발견하고, 나온 컨셉을 PoB 실측
 | S9 | #93 원인 규명·수정 — `unset_config` 거짓 양성(극성·승수형 의미) | done |
 | S10 | 가동률(uptime) 축 신설 (#94) — 지속/쿨다운 정합을 엔진에 | done |
 | S11 | 월드 객체 연쇄 (#95) — #92 확장, 객체 축 15종·전이 27종 신규 | done |
+| S12 | 축 어휘 통일 + 3층 교차 조인 (#95) — 공유 축 2→7종, `crosswalk.py` | done |
 
 S1~S2는 PR #86, S4는 PR #89로 머지됨. S5는 판정 대기이므로 세션이 진행할 수 없다(AD-3).
 S5(전도성 룬 컨셉)는 사용자가 기각 방향으로 판단했고, 탐색은 S6의 새 그래프로 이어간다.

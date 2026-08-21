@@ -44,6 +44,9 @@ from pok.kb.store import Record, Store
 # ── 축 어휘 ──────────────────────────────────────────────────────────────
 # (축 키, 표면형 정규식). **앞의 것이 이긴다** — 긴/특수 표현을 먼저 둔다
 # ("Life Cost"가 "Life"보다, "Item Armour"가 "Armour"보다 먼저).
+# ⚠ 축 이름은 `graph/mechanism.py`(상태·객체 그래프)와 **같은 어휘를 쓴다** —
+# 두 그래프를 교차 순회하려면 이름이 같아야 한다(#95). `curse_count`·
+# `minion_count`가 저쪽의 `curse`·`minion`과 갈려 있어 잇지 못했다.
 AXIS_VOCAB: tuple[tuple[str, str], ...] = (
     ("item_energy_shield", r"Item Energy Shield"),
     ("item_armour", r"Item Armour"),
@@ -69,8 +72,8 @@ AXIS_VOCAB: tuple[tuple[str, str], ...] = (
     ("armour", r"Armour"),
     ("evasion", r"Evasion(?: Rating)?"),
     ("rage", r"(?:[Mm]aximum )?Rage"),
-    ("curse_count", r"Curses?"),
-    ("minion_count", r"(?:Undead )?Minions?|Companions?"),
+    ("curse", r"Curses?"),
+    ("minion", r"(?:Undead )?Minions?|Companions?"),
     ("combo", r"Combo"),
     ("devotion", r"Devotion"),
     ("quality", r"Quality"),
@@ -143,8 +146,8 @@ _INHERENT_IDS = ("mechanic.strength", "mechanic.dexterity", "mechanic.intelligen
 # 다리도 따라온다. 수동 목록은 「태그→축」 대응 하나뿐이고, 그건 새 규칙이
 # 아니라 새 **규칙 범주**(스키마 변화)가 생길 때만 는다.
 _RESERVER_TAG_AXIS: tuple[tuple[str, str], ...] = (
-    ("minion", "minion_count"),
-    ("companion", "minion_count"),
+    ("minion", "minion"),
+    ("companion", "minion"),
 )
 
 

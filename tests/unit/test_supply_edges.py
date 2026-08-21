@@ -196,12 +196,12 @@ def test_spirit_minion_bridge_is_derived_not_curated(scan: SupplyScan, store: St
     다리가 없으면 생명→정신력→소환수 사슬(Beidat's Will → Hysseg's Claw)이 끊긴다.
     """
     derived = [e for e in scan.edges if e.carrier_kind == "derived"]
-    [bridge] = [e for e in derived if (e.source_axis, e.target_axis) == ("spirit", "minion_count")]
+    [bridge] = [e for e in derived if (e.source_axis, e.target_axis) == ("spirit", "minion")]
     assert bridge.carrier_id == "kb:skill.reservation"
     assert "파생" in bridge.evidence and "예:" in bridge.evidence  # 건수+실례가 근거다
     trace = trace_chains(store, "life", depth=3)
-    assert any(c.axes == ("life", "spirit", "minion_count") for c in trace.chains)
-    assert dict(trace.payoff_counts).get("minion_count", 0) >= 2  # Hysseg's·Dark Defiler
+    assert any(c.axes == ("life", "spirit", "minion") for c in trace.chains)
+    assert dict(trace.payoff_counts).get("minion", 0) >= 2  # Hysseg's·Dark Defiler
 
 
 def test_unsourced_axes_are_visible(scan: SupplyScan) -> None:

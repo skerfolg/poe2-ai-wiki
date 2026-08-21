@@ -125,11 +125,17 @@ def test_chain_paths_are_deduped_by_axes(store: Store) -> None:
 
 
 def test_multi_hop_chain_exists(store: Store) -> None:
-    """3단 이상 사슬이 실제로 나온다 — 쌍만 내던 기존 도구와의 차이."""
+    """3단 이상 사슬이 실제로 나온다 — 쌍만 내던 기존 도구와의 차이.
+
+    ⚠ 특정 사슬은 **출발 축을 지정해** 확인한다. 전체 순회는 `max_chains` 상한에
+    걸리므로(축이 늘면 먼저 잘린다) 거기서 특정 경로를 찾으면 테스트가 축 개수에
+    따라 깨진다 — 실제로 충전을 종류별로 가른 뒤 그렇게 깨졌다(#95).
+    """
     trace = trace_mechanism_chains(store, depth=4, max_chains=200)
-    long_chains = [c for c in trace.chains if len(c.axes) >= 3]
-    assert long_chains
-    assert any(c.axes[:2] == ("freeze", "infusion") for c in trace.chains)
+    assert [c for c in trace.chains if len(c.axes) >= 3]
+
+    freeze = trace_mechanism_chains(store, from_axis="freeze", depth=3)
+    assert any(c.axes[:2] == ("freeze", "infusion") for c in freeze.chains)
 
 
 def test_hop_options_carry_evidence(store: Store) -> None:

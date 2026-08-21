@@ -63,10 +63,13 @@ PRODUCE_TYPES: dict[str, str] = {
     "ComboStacking": "combo",
 }
 CONSUME_TYPES: dict[str, str] = {
+    # ⚠ 토큰이 **종류를 말하면 종류로** 쓴다 — `power_charge` 소비자와 `frenzy_charge`
+    # 생산자를 같은 축으로 뭉치면 성립하지 않는 사슬이 나온다. 종류를 안 말하는
+    # 일반 토큰(`ConsumesCharges`)만 `charge`로 남긴다(#95 어휘 통일).
     "ConsumesCharges": "charge",
-    "SkillConsumesPowerChargesOnUse": "charge",
-    "SkillConsumesFrenzyChargesOnUse": "charge",
-    "SkillConsumesEnduranceChargesOnUse": "charge",
+    "SkillConsumesPowerChargesOnUse": "power_charge",
+    "SkillConsumesFrenzyChargesOnUse": "frenzy_charge",
+    "SkillConsumesEnduranceChargesOnUse": "endurance_charge",
     "SkillConsumesFreeze": "freeze",
     "SkillConsumesShock": "shock",
     "SkillConsumesIgnite": "ignite",
@@ -95,9 +98,9 @@ _STATUS_AXIS: dict[str, str] = {
     "maimed": "maim",
 }
 _SUBJECT_AXIS: dict[str, str] = {
-    "self.charge.power": "charge",
-    "self.charge.frenzy": "charge",
-    "self.charge.endurance": "charge",
+    "self.charge.power": "power_charge",
+    "self.charge.frenzy": "frenzy_charge",
+    "self.charge.endurance": "endurance_charge",
     "self.infusion.count": "infusion",
     "self.combo.count": "combo",
     "self.ward.pct": "ward",
@@ -274,11 +277,14 @@ def scan_state_edges(store: Store) -> StateScan:
         if not texts:
             continue
         for predicate in extract_predicates(texts, store.subjects):
-            axis = (
-                _STATUS_AXIS.get(predicate.value or "")
-                if predicate.subject == "enemy.status"
-                else _SUBJECT_AXIS.get(predicate.subject)
-            )
+            if predicate.subject == "enemy.status":
+                axis = _STATUS_AXIS.get(predicate.value or "")
+            elif predicate.subject == "env.ground-effect" and predicate.value:
+                # 지면은 **종류가 페이오프를 가른다** — 점화 지대 생산자와 냉각 지대
+                # 소비자를 한 축으로 뭉치면 성립하지 않는 사슬이 나온다(#95 남은 것 ③).
+                axis = f"ground_{predicate.value}"
+            else:
+                axis = _SUBJECT_AXIS.get(predicate.subject)
             if axis is None:
                 continue
             edges.append(
