@@ -31,9 +31,10 @@ flowchart TD
   JUDGE[S7 에이전트 판정 배치<br/>blocked]
   FIX[S8 #93 수정<br/>done]
   REMEAS[S9 #94 수정<br/>done]
-  REAGG[S10 재측정·재집계·재승격<br/>active]
+  REAGG[S10 재측정·재집계·재승격<br/>done]
+  RESUME[S11 에이전트 판정 재개<br/>active]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
-  JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG
+  JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME
 ```
 
 ## Baseline Structure
@@ -55,11 +56,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S7 | 에이전트 판정 배치 — 4건 시행 후 **중단**(측정 결함 발견) | blocked |
 | S8 | #93 `<Slot active>` 수정 + 통합 시험 | done |
 | S9 | #94 수정 — 오염 포함본 병기(`with_tainted`) | done |
-| S10 | 재측정 완료 → 재집계 → NodeValue 재승격 | active |
+| S10 | 재측정(2,689벌) → 재집계 → NodeValue 재승격 | done |
+| S11 | 에이전트 판정 배치 재개 — 오염 없는 큐로 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **재측정이 끝나면 재집계해 `NodeValue`를 다시 승격한다 (S10).**
+The only next executable step is: **`with_tainted`를 반영해 판정 큐를 다시 만들고 에이전트 판정을 재개한다 (S11).**
 
 ## Deferred Candidates
 
