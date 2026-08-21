@@ -142,7 +142,40 @@ def _pick(
         stale = stale_components(build_spec)
         if stale:
             out["stale"] = stale
+        # 방어·버프의 값은 **크기 x 가동률**인데 도구는 크기만 냈다(#94). 지속·쿨다운이
+        # 둘 다 있으면 가동률을 **매번** 싣는다 — 1회성 경고는 문서와 동급이다(#29).
+        reading = _uptime_of(result)
+        if reading:
+            out["uptime"] = reading
     return out
+
+
+def _uptime_of(result: PobResult) -> dict[str, Any] | None:
+    """계산 결과에 지속·쿨다운이 함께 있으면 가동률을 낸다 (#94).
+
+    ⚠ 주기 공식이 둘이다 — 「지속 중 쿨다운 미회복」 문구가 있으면 `지속 + 쿨다운`이라
+    **100%에 도달할 수 없다**. 그 판정은 스킬 문구를 읽어야 하므로 여기서는 보수적으로
+    일반 공식을 쓰고, 문구 판정이 필요하다는 사실을 `note`로 함께 낸다.
+    """
+    from pok.engine.constraints.uptime import uptime as _uptime
+
+    duration = result.stats.get("Duration")
+    cooldown = result.stats.get("Cooldown")
+    if not duration or not cooldown or duration <= 0 or cooldown <= 0:
+        return None
+    reading = _uptime(float(duration), float(cooldown))
+    return {
+        "duration_s": reading.duration_s,
+        "cooldown_s": reading.cooldown_s,
+        "cycle_s": round(reading.cycle_s, 3),
+        "uptime_pct": reading.uptime_pct,
+        "note": (
+            "주기 = max(지속, 쿨다운) 가정. 스킬 문구에 「지속 중 쿨다운 미회복」"
+            "(예: `Cooldown does not recover during Buff effect`)이 있으면 주기가 "
+            "**지속 + 쿨다운**이라 가동률이 더 낮고 100%에 도달할 수 없다 — "
+            "`engine.constraints.uptime`의 `additive_cycle=True`로 다시 잴 것"
+        ),
+    }
 
 
 @functools.lru_cache(maxsize=1)

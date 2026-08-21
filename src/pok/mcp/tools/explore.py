@@ -190,6 +190,52 @@ def trace_mechanism_chains(
     }
 
 
+def trace_cross_chains(
+    from_axis: str | None = None,
+    depth: int = 4,
+    max_chains: int = 60,
+    cross_only: bool = False,
+) -> dict[str, Any]:
+    """스탯·상태·객체를 **한 사슬로** 잇는 교차 순회 (#95).
+
+    `trace_chains`(스탯)와 `trace_mechanism_chains`(상태·객체)는 각각 자기 층만
+    순회한다 — 두 축 어휘가 갈려 있어 「생명을 쌓으면 어떤 상태가 열리나」에 답할 수
+    없었다. 이 도구는 두 전이 목록을 합쳐 순회하고, 마디마다 **층 꼬리표**를 단다:
+
+      · `supply` — A가 늘면 B가 **비례해서** 는다
+      · `state`  — 한 담체가 A를 **먹고** B를 만든다(A는 사라질 수 있다)
+
+    `cross_only=True`면 **층이 바뀌는 사슬만** 낸다(이 도구의 고유 산출).
+
+    ⚠ **실측 2026-08-21: 교차 전이는 아직 0건이다.** 어휘를 통일해 공유 축이 7종이
+    됐는데도 방향이 안 겹친다 — supply는 스탯에 도착하고 state는 상태·객체에서
+    출발한다. 그래서 지금 이 도구의 실익은 **페이오프 병합**이다: `power_charge`는
+    스탯 그래프만 보면 2건이지만 두 층을 합치면 **60건**이다(한 층만 보면 그 축을
+    과소평가한다).
+    """
+    from pok.kb.graph.crosswalk import trace_cross_chains as _trace
+
+    trace = _trace(
+        kb_store.load(), from_axis, depth=depth, max_chains=max_chains, cross_only=cross_only
+    )
+    return {
+        "chains": [
+            {
+                "axes": list(c.axes),
+                "layers": list(c.layers),
+                "hop_options": [list(o) for o in c.hop_options],
+                "terminal_payoffs": c.terminal_payoffs,
+                "crosses_layers": c.crosses_layers,
+                "hops": [dataclasses.asdict(h) for h in c.hops],
+            }
+            for c in trace.chains
+        ],
+        "edge_count": trace.edge_count,
+        "shared_axes": list(trace.shared_axes),
+        "truncated": trace.truncated,
+    }
+
+
 def find_carriers(skill: str, include_blocked: bool = False) -> dict[str, Any]:
     """이 스킬을 **담을 수 있는** 보조·메타 젬·토템·트리거 전량 (사용자 요청 2026-08-11).
 

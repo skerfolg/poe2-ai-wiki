@@ -34,6 +34,7 @@
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 
@@ -62,10 +63,13 @@ PRODUCE_TYPES: dict[str, str] = {
     "ComboStacking": "combo",
 }
 CONSUME_TYPES: dict[str, str] = {
+    # ⚠ 토큰이 **종류를 말하면 종류로** 쓴다 — `power_charge` 소비자와 `frenzy_charge`
+    # 생산자를 같은 축으로 뭉치면 성립하지 않는 사슬이 나온다. 종류를 안 말하는
+    # 일반 토큰(`ConsumesCharges`)만 `charge`로 남긴다(#95 어휘 통일).
     "ConsumesCharges": "charge",
-    "SkillConsumesPowerChargesOnUse": "charge",
-    "SkillConsumesFrenzyChargesOnUse": "charge",
-    "SkillConsumesEnduranceChargesOnUse": "charge",
+    "SkillConsumesPowerChargesOnUse": "power_charge",
+    "SkillConsumesFrenzyChargesOnUse": "frenzy_charge",
+    "SkillConsumesEnduranceChargesOnUse": "endurance_charge",
     "SkillConsumesFreeze": "freeze",
     "SkillConsumesShock": "shock",
     "SkillConsumesIgnite": "ignite",
@@ -94,9 +98,9 @@ _STATUS_AXIS: dict[str, str] = {
     "maimed": "maim",
 }
 _SUBJECT_AXIS: dict[str, str] = {
-    "self.charge.power": "charge",
-    "self.charge.frenzy": "charge",
-    "self.charge.endurance": "charge",
+    "self.charge.power": "power_charge",
+    "self.charge.frenzy": "frenzy_charge",
+    "self.charge.endurance": "endurance_charge",
     "self.infusion.count": "infusion",
     "self.combo.count": "combo",
     "self.ward.pct": "ward",
@@ -106,6 +110,54 @@ _SUBJECT_AXIS: dict[str, str] = {
     "env.ground-effect": "ground_effect",
     "self.rage.count": "rage",
 }
+
+# ── 월드 객체 축 (#95) ──────────────────────────────────────────────────
+# 「스킬 A가 만든 **객체**를 스킬 B가 대상·조건으로 쓴다」는 연쇄. 상태(상태이상·자원)와
+# 생산/소비 의미론이 같아서 **같은 그래프에 얹는다** — 세 번째 평행 그래프를 만들면
+# 축 어휘 분열만 깊어진다(실측: #91 28축 vs #92 32축인데 공유가 2종뿐이었다).
+#
+# 사용자 지적 2026-08-21: "번개 차원 이동은 구형 번개를 대상으로 사용할 수 있다" —
+# 이런 **대상 객체** 연쇄가 상태 그래프에도 호스팅 도구에도 안 잡혔다. 실측: 축 17종.
+#
+# ⚠ **자기 서술을 걸러야 한다.** `Fissure duration is 8 seconds`·`Shockwave radius is
+# 2 metres`는 그 스킬이 **자기 객체의 속성**을 말하는 것이지 연쇄가 아니다. 이걸 안
+# 거르면 이론 쌍이 872 → 3,455로 4배 부풀려진다(실측 2026-08-21).
+_OBJECT_AXES: tuple[tuple[str, str], ...] = (
+    # (축 이름, 문구 표면형 정규식) — 긴 표현을 먼저 둔다("Ice Crystal" ⊃ "Crystal")
+    ("ball_lightning", r"Ball Lightning"),
+    ("ice_crystal", r"Ice Crystals?"),
+    ("ice_fragment", r"Ice Fragments?"),
+    ("solar_orb", r"Solar Orbs?"),
+    ("frostbolt", r"Frostbolts?"),
+    ("corpse", r"[Cc]orpses?"),
+    ("aftershock", r"Aftershocks?"),
+    ("shockwave", r"Shockwaves?"),
+    ("volcano", r"Volcanoes|Volcanos?"),
+    ("totem", r"Totems?"),
+    ("banner", r"Banners?"),
+    ("bell", r"Bells?"),
+    ("wall", r"Walls?"),
+    ("pillar", r"Pillars?"),
+    ("crystal", r"Crystals?"),
+)
+_OBJ_CREATE = re.compile(
+    r"\b(?:create|creates|creating|summon|summons|leaves? behind|drops?|places?|forms?"
+    r"|spawns?|transform(?:s|ing)?\s+.{0,20}\binto)\b",
+    re.I,
+)
+_OBJ_CONSUME = re.compile(
+    r"\b(?:consume|consumes|consuming|detonat\w+|target(?:s|ing)?|activat\w+|destroy\w*"
+    r"|shatter\w*|reanimat\w+|that hits? an?|impacts? on|cast on|used? on)\b",
+    re.I,
+)
+# 자기 객체의 속성을 말하는 문장 — 연쇄가 아니다.
+_OBJ_SELF_DESC = re.compile(
+    r"\b(?:duration|radius|limit|maximum Life|number of|Fires?|branch(?:es)?|expires?)\b",
+    re.I,
+)
+# 부정문은 관계가 아니라 **반대**다 (#93에서 얻은 교훈 — 극성 검사 없이 AND 매칭하면
+# `Cannot inflict …`가 관련으로 잡힌다).
+_OBJ_NEGATION = re.compile(r"\bcannot\b|\bdoes not\b|\bcan't\b", re.I)
 
 
 @dataclass(frozen=True)
@@ -136,6 +188,30 @@ class StateScan:
     # 소비·페이오프는 있는데 **생산자가 없는** 축. 수집 갭이거나 어휘 갭이다 —
     # 조용히 두면 "이 축은 못 쓴다"로 오독된다(#21·B-11과 같은 형태).
     unproduced_axes: tuple[str, ...] = ()
+
+
+def object_edges_of(texts: list[str]) -> tuple[tuple[str, str, str], ...]:
+    """문구에서 (축, kind, 근거문장) 객체 엣지를 뽑는다 (#95).
+
+    **문장 단위**로 본다 — 부정어·자기 서술이 그 문장에만 걸리기 때문이다.
+    한 문장이 생성과 소비를 동시에 말할 수 있다("Consume a Corpse **to create** a
+    Zombie") — 그때는 둘 다 낸다.
+    """
+    out: list[tuple[str, str, str]] = []
+    for text in texts:
+        for sentence in re.split(r"(?<=[.;])\s+|\n", str(text)):
+            sentence = sentence.strip()
+            if not sentence or _OBJ_NEGATION.search(sentence) or _OBJ_SELF_DESC.search(sentence):
+                continue
+            for axis, pattern in _OBJECT_AXES:
+                if not re.search(rf"\b{pattern}\b", sentence, re.I):
+                    continue
+                if _OBJ_CREATE.search(sentence):
+                    out.append((axis, "produce", sentence))
+                if _OBJ_CONSUME.search(sentence):
+                    out.append((axis, "consume", sentence))
+                break  # 축 어휘는 앞의 것이 이긴다(긴 표현 우선)
+    return tuple(out)
 
 
 def _carrier_types(record: Record) -> set[str]:
@@ -178,16 +254,37 @@ def scan_state_edges(store: Store) -> StateScan:
                         evidence=f"PoB 타입 토큰 `{token}`",
                     )
                 )
-        # ② 텍스트 술어 — 상태이상 생산·페이오프를 읽는 쪽
+        # ② 월드 객체 (#95) — 「A가 만든 객체를 B가 대상으로 쓴다」. 구조화 타입에도
+        #    통제 어휘에도 없어서 지금까지 어느 도구에도 안 잡혔다.
+        if record.type in ("Skill", "Support"):
+            data = record.raw.get("data", {})
+            obj_texts = [str(data.get("description") or "")]
+            obj_texts += [str(x) for x in (data.get("stats") or ())]
+            for obj_axis, obj_kind, sentence in object_edges_of(obj_texts):
+                edges.append(
+                    StateEdge(
+                        axis=obj_axis,
+                        kind=obj_kind,
+                        carrier_id=record.id,
+                        carrier_name=name,
+                        carrier_type=rtype,
+                        source="object",
+                        evidence=sentence,
+                    )
+                )
+        # ③ 텍스트 술어 — 상태이상 생산·페이오프를 읽는 쪽
         texts = record_texts(record.raw)
         if not texts:
             continue
         for predicate in extract_predicates(texts, store.subjects):
-            axis = (
-                _STATUS_AXIS.get(predicate.value or "")
-                if predicate.subject == "enemy.status"
-                else _SUBJECT_AXIS.get(predicate.subject)
-            )
+            if predicate.subject == "enemy.status":
+                axis = _STATUS_AXIS.get(predicate.value or "")
+            elif predicate.subject == "env.ground-effect" and predicate.value:
+                # 지면은 **종류가 페이오프를 가른다** — 점화 지대 생산자와 냉각 지대
+                # 소비자를 한 축으로 뭉치면 성립하지 않는 사슬이 나온다(#95 남은 것 ③).
+                axis = f"ground_{predicate.value}"
+            else:
+                axis = _SUBJECT_AXIS.get(predicate.subject)
             if axis is None:
                 continue
             edges.append(
