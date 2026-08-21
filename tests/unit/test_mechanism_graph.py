@@ -72,17 +72,26 @@ def test_new_axes_actually_match_canon(scan: StateScan) -> None:
 
 
 def test_both_sources_contribute(scan: StateScan) -> None:
-    """어느 한쪽만 쓰면 그래프가 절반이다 — 두 출처가 모두 엣지를 내야 한다."""
-    sources = {e.source for e in scan.edges}
-    assert sources == {"type", "text"}
+    """어느 하나만 쓰면 그래프가 조각난다 — 세 출처가 모두 엣지를 내야 한다.
 
-
-def test_consume_only_comes_from_structured_types(scan: StateScan) -> None:
-    """텍스트는 「없앤다」를 구분 못 한다 — 소비 판정은 타입 출처에만 있어야 한다.
-
-    이 구분이 무너지면 같은 상태를 두 번 먹는 불가능한 연쇄가 사슬로 나온다.
+    `type`(구조화 토큰) · `text`(상태이상 술어) · `object`(월드 객체, #95).
     """
-    assert all(e.source == "type" for e in scan.edges if e.kind == "consume")
+    sources = {e.source for e in scan.edges}
+    assert sources == {"type", "text", "object"}
+
+
+def test_소비_판정은_술어_텍스트에서_나오지_않는다(scan: StateScan) -> None:
+    """상태이상 **술어**는 「없앤다」를 구분 못 한다 — 소비는 거기서 나오면 안 된다.
+
+    "against Chilled Enemies"는 냉각을 **먹지 않는다**(페이오프일 뿐). 이 구분이
+    무너지면 같은 상태를 두 번 먹는 불가능한 연쇄가 사슬로 나온다.
+
+    ⚠ 단 **객체 출처는 예외다**(#95): `Consume a Corpse`·`detonate`는 문구 자체가
+    **제거를 명시**하므로 소비로 읽는 것이 옳다. 상태이상 술어와 성격이 다르다.
+    """
+    consume_sources = {e.source for e in scan.edges if e.kind == "consume"}
+    assert consume_sources <= {"type", "object"}
+    assert "text" not in consume_sources
 
 
 def test_freeze_axis_has_both_producer_and_consumer(scan: StateScan) -> None:
@@ -137,3 +146,72 @@ def test_unproduced_axes_are_reported(scan: StateScan) -> None:
     assert scan.unproduced_axes
     # 격노는 소비자(ConsumesRage)가 있는데 생산 패턴이 없다 — 알려진 어휘 갭이다.
     assert "rage" in scan.unproduced_axes
+
+
+# ── 월드 객체 축 (#95) ──────────────────────────────────────────────────
+
+
+def test_객체_연쇄가_잡힌다(scan: StateScan) -> None:
+    """「A가 만든 객체를 B가 대상으로 쓴다」 — 상태 그래프에도 호스팅 도구에도 없던 축.
+
+    사용자 지적 2026-08-21: "번개 차원 이동은 구형 번개를 대상으로 사용할 수 있다."
+    구조화 타입에도 통제 어휘에도 없어 어느 도구에도 안 잡혔다.
+    """
+    warp = [
+        e for e in scan.edges if e.axis == "ball_lightning" and e.carrier_name == "Lightning Warp"
+    ]
+    assert warp and warp[0].kind == "consume"
+    assert "Ball Lightning" in warp[0].evidence
+    assert warp[0].source == "object"
+
+
+def test_자기_서술은_연쇄가_아니다() -> None:
+    """`Fissure duration is 8 seconds`는 그 스킬이 **자기 객체의 속성**을 말하는 것이다.
+
+    안 거르면 이론 쌍이 872 → 3,455로 **4배 부풀려진다**(실측 2026-08-21).
+    """
+    from pok.kb.graph.mechanism import object_edges_of
+
+    assert object_edges_of(["Ice Crystal duration is 8 seconds"]) == ()
+    assert object_edges_of(["Shockwave radius is 2 metres"]) == ()
+    assert object_edges_of(["Limit 8 Fissures"]) == ()
+    # 진짜 연쇄는 살아남는다
+    real = object_edges_of(["Bolts that hit an Ice Crystal cause it to explode."])
+    assert any(a == "ice_crystal" and k == "consume" for a, k, _ in real)
+
+
+def test_객체_부정문은_관계가_아니다() -> None:
+    """#93의 교훈(극성)을 객체 축에도 적용한다 — `cannot`은 반대다."""
+    from pok.kb.graph.mechanism import object_edges_of
+
+    assert object_edges_of(["Cannot consume Corpses"]) == ()
+
+
+def test_한_문장이_생성과_소비를_함께_말할_수_있다() -> None:
+    """`Consume a Corpse to create a Zombie` — 둘 다 내야 사슬이 이어진다."""
+    from pok.kb.graph.mechanism import object_edges_of
+
+    kinds = {k for _, k, _ in object_edges_of(["Consume a Corpse to create a short-lived Zombie."])}
+    assert kinds == {"produce", "consume"}
+
+
+def test_객체_축이_상태_그래프와_한_그래프에_있다(scan: StateScan) -> None:
+    """세 번째 평행 그래프를 만들지 않는다 — 축 어휘 분열을 키우지 않기 위해서다.
+
+    실측 배경: #91(28축) vs #92(32축)인데 공유가 2종뿐이라 교차 순회가 불가능했다.
+    객체는 생산/소비 의미론이 상태와 같으므로 같은 스캔에 얹는다.
+    """
+    sources = {e.source for e in scan.edges}
+    assert sources == {"type", "text", "object"}
+    axes = {a.axis for a in scan.axes}
+    assert {"corpse", "ice_crystal", "shockwave"} <= axes  # 객체
+    assert {"freeze", "charge", "infusion"} <= axes  # 상태·자원
+
+
+def test_객체가_낀_전이가_실제로_나온다(store: Store) -> None:
+    """객체 축이 붙으면서 새 전이가 열려야 한다 — 안 열리면 축만 늘고 사슬은 그대로다."""
+    transitions = find_transitions(scan_state_edges(store))
+    obj = {"corpse", "ball_lightning", "frostbolt", "ice_crystal", "shockwave"}
+    crossing = {(t.from_axis, t.to_axis) for t in transitions if obj & {t.from_axis, t.to_axis}}
+    assert len(crossing) >= 10, sorted(crossing)
+    assert ("corpse", "minion") in crossing  # 시체 → 소환수 (좀비 소환 등)
