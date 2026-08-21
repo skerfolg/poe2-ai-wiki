@@ -56,6 +56,8 @@ MEASURABLE_VIA: dict[str, str] = {
     "충전 생성": "config",
     "충전 유지": "config",
     "발동 주기": "trigger",
+    # 감속이 config에 안 켜져 있어 0으로 보인다 — Predatory Instinct와 동형(배치 B)
+    "이동 제약 무효": "config",
     "쿨다운": "config",
 }
 
@@ -76,7 +78,10 @@ SUPPLY_AXES: tuple[tuple[str, str], ...] = (
     ("반복 시전", r"chance to Echo|Repeatable Spells"),
     ("상태이상 강도·지속", r"Magnitude of|Shock Duration|Ailment Duration"),
     ("상태이상 중첩", r"affected by two of your"),
-    ("면역", r"\bImmune to"),
+    # ⚠ `Cannot be X`(면역 = **이득**)와 `Cannot X`(제약 = **대가**)는 구문으로 갈린다 —
+    #    수동태면 면역이다. 실측: `Unwavering Stance`의 "Cannot be Light Stunned"가
+    #    이득인데 "Cannot Dodge Roll"과 같이 대가로 묶여 축을 놓쳤다(판정 배치 B).
+    ("면역", r"\bImmune to|\bCannot be \w+"),
     ("발동 자원 환급", r"refund .* Energy"),
     ("생명력 흡수", r"Life Leech|Leeched as Life"),
     ("마나 흡수", r"Mana Leech|Leeched as Mana"),
@@ -88,12 +93,14 @@ SUPPLY_AXES: tuple[tuple[str, str], ...] = (
     ("회수", r"Recoup"),
     ("회복", r"Recover|Recovery"),
     ("자원 비용", r"Cost Efficiency|\bCost of Skills|\bMana Cost|\bLife Cost"),
-    ("점유", r"Reserv"),
+    # ⚠ `Reserv`는 "**Un**reserved"에도 걸린다 — 플라스크 노드가 점유로 오분류됐다
+    ("점유", r"(?<!Un)(?<!un)Reserv"),
     ("정신력", r"\bSpirit\b"),
     ("충전 생성", r"gain .* Charge|Charge on|additional .* Charge"),
     ("충전 유지", r"Charge"),
     ("이동", r"Movement Speed"),
-    ("기절·경직", r"\bStun\b|\bDaze\b"),
+    # ⚠ `\bStun\b`는 "Stunned"·"Stunning"에 안 걸린다 — 배치 C가 잡았다
+    ("기절·경직", r"\bStun\w*\b|\bDaze\w*\b"),
     ("상태이상 임계", r"Ailment Threshold|Buildup"),
     ("저항", r"Resistance"),
     ("플라스크", r"Flask"),
@@ -152,9 +159,27 @@ class NecessityCase:
         return self.supply_axis is not None
 
 
+# 「대가」 줄 — 이 줄에서 축을 뽑으면 **비용을 공급으로 오독**한다.
+# 실측(판정 배치 B): `Unwavering Stance`의 2줄 "Cannot Dodge Roll or Sprint"에서
+# "Dodge"를 잡아 `회피 판정`으로 분류했는데, 실제 공급은 1줄의 기절 면역이고
+# 2줄은 대가다. 키스톤은 「이득 + 대가」 구조라 이 오독이 구조적으로 반복된다.
+# ⚠ `Cannot be …`는 **제외한다** — 그건 면역이라 이득이다(위 축 표 참조).
+_COST_LINE = re.compile(r"^\s*(?:Cannot(?! be)|You cannot(?! be)|-\d|\d+% (?:less|reduced))", re.I)
+
+
 def classify_supply(stats_en: Sequence[str]) -> str | None:
-    """이 노드가 **무엇을 공급하나**. 모르면 None — 지어내지 않는다."""
+    """이 노드가 **무엇을 공급하나**. 모르면 None — 지어내지 않는다.
+
+    ⛔ 대가 줄(`Cannot …`·`N% less …`)은 건너뛴다 — 거기서 축을 뽑으면 비용이
+    공급으로 둔갑한다. 대가 줄밖에 없으면 마지막에 그것으로라도 분류한다(무분류보다 낫다).
+    """
     for line in stats_en:
+        if _COST_LINE.search(line):
+            continue
+        for name, pattern in _SUPPLY:
+            if pattern.search(line):
+                return name
+    for line in stats_en:  # 대가 줄뿐인 노드 — 없는 것보다 낫다
         for name, pattern in _SUPPLY:
             if pattern.search(line):
                 return name
@@ -241,11 +266,19 @@ def build_queue(
         for rid, r in records.items()
         if r.type == "Passive" and (r.raw.get("data") or {}).get("node_id") is not None
     }
+    # ⛔ **자기 자신을 질의로 삼은 프로파일은 세지 않는다** (판정 배치 B가 잡았다).
+    #    `keypassives-<노드>` 프로파일 27종은 **그 노드를 가진 빌드만** 뽑은 표본이라
+    #    자기 채택률 100%는 정의상 참이다 — 동어반복이다. 이걸 「채택 92.9」로 읽으면
+    #    「전원이 찍는 필수」로 오독하고, 실제로 그렇게 오독해 큐를 만들었다.
+    #    실측: Unwavering Stance는 그 표본에서도 **트리 배정 42%**(58%는 룬·장비)다.
     adoption: dict[int, float] = {}
     for path in glob.glob(str(kb / "game-data" / "usage-profiles" / "*.json")):
         doc = json.loads(Path(path).read_text(encoding="utf-8"))
+        anchor_ref = str((doc["data"].get("anchor") or {}).get("ref") or "")
         for key in ("passives", "keystones"):
             for entry in doc["data"]["observed"].get(key, []):
+                if entry["ref"] == anchor_ref:
+                    continue  # 앵커 자신 — 이 표본은 그 노드로 걸러 뽑았다
                 nid = node_of.get(entry["ref"])
                 if nid and entry.get("ci_low", 0) > adoption.get(nid, 0):
                     adoption[nid] = float(entry["ci_low"])
@@ -259,8 +292,14 @@ def build_queue(
         dps, ehp = axes.get("CombinedDPS") or {}, axes.get("TotalEHP") or {}
         if int(dps.get("n") or 0) < min_n:
             continue
-        # 둘 중 하나라도 움직였으면 측정 축 안이다 — 이 큐의 대상이 아니다
+        # 둘 중 하나라도 움직였으면 측정 축 안이다 — 이 큐의 대상이 아니다.
+        # ⛔ **오염 포함본까지 본다**(#94) — 제외본의 0이 「표본을 버린 뒤의 0」인
+        #    경우가 실제로 39건 있었다(Invigorating Archon: 잔존 7.4%인데 포함하면
+        #    작동률 92.0%). 그걸 「축을 못 잡았다」로 큐에 넣으면 에이전트가 없는
+        #    수수께끼를 푼다.
         if dps.get("active_share") or ehp.get("active_share"):
+            continue
+        if any((axis.get("with_tainted") or {}).get("active_share", 0) > 0 for axis in (dps, ehp)):
             continue
         node = graph.nodes.get(nid)
         if node is None:
@@ -282,7 +321,10 @@ def build_queue(
                 else (),
                 measured={
                     "CombinedDPS_n": int(dps.get("n") or 0),
-                    "note": "DPS·EHP 어느 빌드에서도 안 움직였다 — 축을 못 잡은 것이다",
+                    # 오염 제외로 표본이 얼마나 줄었나 — 낮으면 결론을 약하게 낼 것
+                    "kept_pct": (dps.get("with_tainted") or {}).get("kept_pct"),
+                    "note": "DPS·EHP가 **오염 포함본에서도** 안 움직였다 — "
+                    "축을 못 잡은 것이다(#94 반영)",
                 },
             )
         )

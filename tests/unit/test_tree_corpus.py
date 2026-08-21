@@ -706,3 +706,44 @@ def test_측정_가능한_축은_config로_표시된다() -> None:
     queue = build_queue(min_adoption=20.0)
     assert all(c.ready for c in queue), "축을 못 잡은 노드가 남았다 — 어휘 갭"
     assert any(c.measurable_via == "config" for c in queue), "config 경로 표시가 사라졌다"
+
+
+def test_큐가_오염_포함본까지_본다() -> None:
+    """⛔ 제외본의 0이 「표본을 버린 뒤의 0」인 경우가 실제로 39건 있었다(#94) —
+    Invigorating Archon은 잔존 7.4%인데 오염을 포함하면 작동률 92.0%다.
+
+    그걸 「축을 못 잡았다」로 큐에 넣으면 에이전트가 **없는 수수께끼**를 푼다.
+    실측 2026-08-21: 이 필터로 큐가 89 → 58건이 됐다.
+    """
+    from pok.engine.node_necessity import build_queue
+
+    queue = build_queue(min_adoption=20.0)
+    for case in queue:
+        kept = case.measured.get("kept_pct")
+        assert kept is None or kept >= 0
+    names = {c.name_en for c in queue}
+    assert "Invigorating Archon" not in names, (
+        "오염 포함본에서 작동하는 노드가 「측정 0」 큐에 남았다"
+    )
+
+
+def test_동어반복_채택률을_안_센다() -> None:
+    """⛔ `keypassives-<노드>` 프로파일은 **그 노드를 가진 빌드만** 뽑은 표본이라
+    자기 채택률 100%는 정의상 참이다(판정 배치 B가 잡았다).
+
+    실측: `Unwavering Stance`는 그 표본에서 ci_low 92.9로 「전원 채택」처럼 보이지만
+    **트리 배정은 42%**이고 58%는 룬·장비로 받는다.
+    """
+    from pok.engine.node_necessity import build_queue
+
+    names = {c.name_en for c in build_queue(min_adoption=90.0)}
+    assert "Unwavering Stance" not in names, "동어반복 채택률이 큐에 들어왔다"
+
+
+def test_면역과_제약을_가른다() -> None:
+    """`Cannot be X`(면역 = 이득) vs `Cannot X`(제약 = 대가) — 수동태면 면역이다.
+    구별 못 하면 대가 줄에서 축을 뽑아 **비용을 공급으로 오독**한다."""
+    from pok.engine.node_necessity import classify_supply
+
+    assert classify_supply(["Cannot be Light Stunned", "Cannot Dodge Roll or Sprint"]) == "면역"
+    assert classify_supply(["20% increased Movement Speed"]) == "이동"

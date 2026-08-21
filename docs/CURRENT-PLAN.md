@@ -32,9 +32,10 @@ flowchart TD
   FIX[S8 #93 수정<br/>done]
   REMEAS[S9 #94 수정<br/>done]
   REAGG[S10 재측정·재집계·재승격<br/>done]
-  RESUME[S11 에이전트 판정 재개<br/>active]
+  RESUME[S11 에이전트 판정 14건<br/>done]
+  AXES[S12 축 확장 재측정 #95<br/>active]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
-  JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME
+  JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES
 ```
 
 ## Baseline Structure
@@ -57,11 +58,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S8 | #93 `<Slot active>` 수정 + 통합 시험 | done |
 | S9 | #94 수정 — 오염 포함본 병기(`with_tainted`) | done |
 | S10 | 재측정(2,689벌) → 재집계 → NodeValue 재승격 | done |
-| S11 | 에이전트 판정 배치 재개 — 오염 없는 큐로 | active |
+| S11 | 에이전트 판정 14건 — 큐 결함 3건·도구 결함 2건 발견 | done |
+| S12 | #95 측정 축 13개로 재측정 → 재집계 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **`with_tainted`를 반영해 판정 큐를 다시 만들고 에이전트 판정을 재개한다 (S11).**
+The only next executable step is: **확장한 13개 축으로 캠페인을 재측정한다 (S12, #95).**
 
 ## Deferred Candidates
 
@@ -106,6 +108,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | 기계적으로 안 되는 판정은 **에이전트**가 근거를 찾아 수행 (사용자에게 미루지 않음) | 근거 경로 필수 | 2026-08-20 |
 | 에이전트 판정 배치를 중단하고 측정 결함부터 수정 | #93·#94 — 오염된 큐로 판정하면 판정도 오염된다 | 2026-08-20 |
 | #94는 제외 대신 **병기**(with_tainted) — 축 단위 제외는 기각 | 주얼이 어느 축에 얹었는지 모르는 경우가 많다 | 2026-08-20 |
+| 측정 축을 3 → 13개로 확장 | #95 — PoB가 이미 내보내는 값을 안 읽어 계열 전체가 0이었다 | 2026-08-21 |
+| PoB 모델 갭 3건은 조치 불가로 기록만 | #96 — Jade·플라스크 가동률·투사체 수 | 2026-08-21 |
 | Integration branch override — 작업 브랜치 `feat/m5-proposal-contract` | 레인명(`M5-proposal-rounds`)과 다름. 레인 승격 **전에** 브랜치를 열었고 PR이 이 이름으로 진행 중이라 유지. 이 레인 한정, 머지 시 소멸 | 2026-08-20 |
 
 ## Explicit Non-Actions
