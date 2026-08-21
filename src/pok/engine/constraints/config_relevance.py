@@ -42,6 +42,26 @@ _STOPWORDS = frozenset(
 )  # fmt: skip
 _MIN_KEYWORD_LEN = 4
 
+# ── 거짓 양성 차단 2종 (실측 2026-08-21) ────────────────────────────────
+# 힌트가 틀리면 **없는 결함을 조사하게 만든다.** 실제로 원소 작렬에
+# `multiplierFreezeShockIgniteOnEnemy`가 붙어서, 그 config를 1↔20으로 바꿔도 값이
+# 안 변하는 것을 **PoB 버그로 의심하고 상류 보고 후보로 백로그에 올렸다**. 원인은
+# 둘 다 이 매처에 있었다.
+
+# ① 극성 — 부정 문장에 걸린 키워드는 관련성이 아니라 **반대**다.
+#    원소 작렬의 매칭 근거는 `Cannot inflict Freeze, Shock or Ignite`였다.
+#    그 스킬은 상태이상을 **못 거는데** "상태이상 수" config가 관련 있다고 나왔다.
+_NEGATION = re.compile(
+    r"\b(?:cannot|can't|never|no longer|do(?:es)? not|don't|doesn't|unaffected by|immune to)\b",
+    re.I,
+)
+
+# ② `ifMult` 의미 — 승수를 **세우는** config는 그 승수를 **쓰는 접사**가 빌드에 있을
+#    때만 값이 변한다. PoB에서 이 승수의 유일한 소비처는 `ModParser.lua`의
+#    `"per freeze, shock and ignite on enemy"` 같은 **"per …" 문구**다. 그런 문구가
+#    빌드에 없으면 config를 켜도 전 스탯이 그대로다(= 켜라고 알릴 이유가 없다).
+_PER_PHRASE = re.compile(r"\bper\b", re.I)
+
 
 @dataclass(frozen=True)
 class UnsetOption:
@@ -81,19 +101,32 @@ def find_unset_options(
         if not keywords:
             continue
         patterns = [re.compile(rf"\b{re.escape(k)}", re.I) for k in keywords]
+        # 승수형(ifMult) config는 그 승수를 소비하는 "per …" 문구가 있어야 관련이다
+        mult_only = bool(option.condition_kinds) and set(option.condition_kinds) == {"ifMult"}
         for source, lines in build_stats_text.items():
-            blob = " ".join(lines)
+            # 키워드가 **부정 아닌 문장에** 전부 있어야 한다. 줄 단위로 보는 것은
+            # 부정어가 그 문장에만 걸리기 때문이다("Cannot inflict Freeze, Shock or
+            # Ignite" 옆 줄에 멀쩡한 Freeze 문구가 있으면 그건 관련이 맞다).
+            usable = [ln for ln in lines if not _NEGATION.search(ln)]
+            if not usable:
+                continue
+            blob = " ".join(usable)
             # **전부** 있어야 한다 — 하나만 걸리면 기능어 때문에 전 config가 잡힌다
-            if all(p.search(blob) for p in patterns):
-                out.append(
-                    UnsetOption(
-                        var=option.var,
-                        label=option.label,
-                        matched_keyword=" + ".join(keywords),
-                        matched_in=source,
-                        tooltip=option.tooltip,
-                    )
+            if not all(p.search(blob) for p in patterns):
+                continue
+            if mult_only and not any(
+                _PER_PHRASE.search(ln) and all(p.search(ln) for p in patterns) for ln in usable
+            ):
+                continue
+            out.append(
+                UnsetOption(
+                    var=option.var,
+                    label=option.label,
+                    matched_keyword=" + ".join(keywords),
+                    matched_in=source,
+                    tooltip=option.tooltip,
                 )
-                seen.add(option.var)
-                break
+            )
+            seen.add(option.var)
+            break
     return tuple(out)
