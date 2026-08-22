@@ -35,7 +35,7 @@ from typing import Any
 from pok.artifacts.ladder import LadderError, ladder_dir
 from pok.engine.corpus_fidelity import _snapshot_stamp
 from pok.engine.tree.counterfactual import (
-    _DEFAULT_STATS,
+    ALL_STATS,
     evaluate_removals,
     removable_nodes,
 )
@@ -46,7 +46,8 @@ PLAN = "measure-plan.json"
 STATUS = "measure-status.json"
 REMOVALS = "removals"
 # 캠페인 축 — 하네스와 **같은 것을 쓴다**. 갈라 두면 한쪽만 넓혀도 모른다.
-_STATS = _DEFAULT_STATS
+# ⛔ 이제 목록이 아니다(#108) — PoB가 낸 축 **전부**가 대상이고 움직인 것만 실린다.
+_STATS = ALL_STATS
 
 # 데몬을 몇 벌마다 갈아 끼우나. **오래 산 데몬은 느려진다**(실측: 50벌 9.2초 →
 # 250벌 이후 77초, 11배). 부팅이 2초뿐이라 50벌마다 갈아도 상각은 1벌당 0.04초다.
@@ -191,7 +192,10 @@ def measure_build(
     return {
         "build": build_id(doc),
         "pob_commit": pob_commit,
-        "baseline": {k: baseline.get(k, 0.0) for k in stats},
+        # ⛔ **전 축을 싣는다**(#108). 이건 값이자 **「무엇을 쟀나」의 목록**이다 —
+        # 관측에 안 실린 축을 「0」으로 읽어도 되는 근거가 여기뿐이다. 여기를 다시
+        # 좁히면 압축이 거짓말이 된다.
+        "baseline": dict(baseline) if not stats else {k: baseline.get(k, 0.0) for k in stats},
         # 빌드 통째 실패 사유 — 비어 있지 않으면 이 빌드의 관측은 0행이고 그 이유다
         "failed": failed,
         "restored": {

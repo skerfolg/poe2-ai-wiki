@@ -48,29 +48,32 @@ from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import BuildSpec
 from pok.pob.daemon import PobDaemon
 
-# ⛔ **세 축만 읽으면 「측정 0」이 도구의 산물이 된다** (판정 배치 C, 2026-08-21).
-#    PoB는 이미 흡수·정신력·마나 수지·이동속도를 내보내는데(BuildDisplayStats.lua)
-#    우리가 안 읽었다. 그 결과 **흡수 노드 70건 전량 0 · 정신력 노드 100건 전량 0**이
-#    나왔고, 나는 그걸 「가치 없음」으로 읽어 교체 제안까지 냈다(Vitality Siphon).
-#    ⚠ 읽는 비용은 0이다 — 같은 PoB 호출의 반환값에서 키를 더 꺼낼 뿐이다.
-_DEFAULT_STATS = (
+# ⛔ **축을 「열거」로 고정하는 것 자체가 결함 생성기다** (#108, 2026-08-22).
+#    3축 → 13축으로 넓힌 것은 넓힌 게 아니라 **목록을 갈아 끼운 것**이었다. PoB는 한
+#    빌드에 **675~769축**을 내는데(실측) 우리는 손으로 적은 13개만 골랐다. 그 결과
+#    판정 배치 D·E·F가 **서로 모르는 채** 같은 결함에 도달했다 —
+#    `EHPSurvivalTime` 하나에 **생존시간 11배 노드**(Apex of the Moment)가 잠겨 있었고,
+#    회수·상태이상 면역·범위·지속·마나·발현반경·투사체수가 전부 같은 이유로 0이었다.
+#
+#    그래서 이제 **고르지 않는다** — PoB가 낸 축 전부를 대상으로 하고, 그중 **움직인
+#    것만** 싣는다(실측: 노드 하나 제거에 37~89축, 중앙값 70 → 전량 기록의 1/10 크기).
+#    ⚠ 「안 실린 축 = 0」이 성립하려면 **무엇을 쟀는지**가 따로 남아야 한다 — 기준선
+#    stats가 그 목록이고, 한쪽에만 있던 축은 `unmeasured`가 들고 있다(#109).
+#
+#    `_CORE_STATS`는 목록이 아니라 **최소 보증**이다. 값이 0이어도 반드시 실어서
+#    「이 관측은 살아 있다」를 말한다 — 전부 0인 노드가 「기록 없음」과 구별된다.
+_CORE_STATS = (
     "CombinedDPS",
     "Life",
     "TotalEHP",
-    # 유지 축 — 정적 풀엔 안 들어가지만 빌드 성립을 좌우한다
-    "LifeLeechGainRate",
-    "LifeRegenRecovery",
-    "EnergyShieldRegenRecovery",
-    # 자원 축 — 예약·시전 지속성
-    "Spirit",
-    "SpiritUnreserved",
-    "ManaRegenRecovery",
-    "ManaCost",
-    # 그 밖에 PoB가 이미 내주는 것들
-    "EffectiveMovementSpeedMod",
-    "PhysicalDamageReduction",
-    "StunAvoidChance",
 )
+
+# 하위 호환 — 예전 호출부가 축 목록을 명시하던 자리. 새 코드는 `ALL_STATS`를 쓴다.
+_DEFAULT_STATS = _CORE_STATS
+
+#: `stats=ALL_STATS`면 PoB가 낸 축 전부가 대상이다 (#108).
+ALL_STATS: tuple[str, ...] = ()
+
 
 _ROOT_REASON = "뿌리 — 포인트를 안 쓰고 항상 켜져 있다(클래스 시작·전직 시작·기본 할당)"
 
@@ -368,7 +371,9 @@ def _head(graph: TreeGraph, node_id: int) -> dict[str, Any]:
 
 
 def _deltas(
-    base_stats: dict[str, float], new_stats: dict[str, float], stats: Sequence[str]
+    base_stats: dict[str, float],
+    new_stats: dict[str, float],
+    stats: Sequence[str] = ALL_STATS,
 ) -> tuple[dict[str, float], tuple[str, ...]]:
     """양쪽에 **다 있는** 축만 뺀다. 한쪽만 있으면 델타가 아니라 **결측**이다 (#109).
 
@@ -378,20 +383,24 @@ def _deltas(
     기준선에서만 사라진다. 실측(2026-08-22): 기준 결측 · 제거본 70.0 →
     `70.0 - 0 = +70.0`. **노드를 빼서 좋아졌다**고 읽히는 부호 반전이었다.
 
-    13축에서는 안 드러났다 — 그 13개가 거의 항상 유한이라서다. 축을 넓히는 순간
-    대량으로 터진다. 그래서 축 확장(#108)보다 이 고침이 먼저다.
+    `stats`가 비어 있으면(`ALL_STATS`) **PoB가 낸 축 전부**가 대상이고, 그중 **움직인
+    것만** 싣는다 (#108). 안 실린 축은 「0」이고, 그 판독의 근거는 기준선 stats(=무엇을
+    쟀나)와 `unmeasured`(=한쪽에만 있던 축)다. 둘 중 하나라도 없으면 이 압축은
+    거짓말이 된다 — 그래서 캠페인은 기준선을 **전 축** 싣는다.
 
-    빠진 축은 조용히 사라지지 않고 두 번째 반환값으로 나온다(BACKLOG 형태 ① —
-    선언이 없으면 조용한 0이 된다).
+    `_CORE_STATS`는 0이어도 싣는다 — 전부 0인 관측이 「기록 없음」과 구별되게.
     """
+    keys: Iterable[str] = stats or (set(base_stats) | set(new_stats))
     out: dict[str, float] = {}
     missing: list[str] = []
-    for k in stats:
+    for k in keys:
         if k in base_stats and k in new_stats:
-            out[k] = round(new_stats[k] - base_stats[k], 4)
+            delta = round(new_stats[k] - base_stats[k], 4)
+            if delta or k in _CORE_STATS or stats:
+                out[k] = delta
         else:
             missing.append(k)
-    return out, tuple(missing)
+    return out, tuple(sorted(missing))
 
 
 @dataclass(frozen=True)
@@ -429,7 +438,7 @@ def evaluate_removals(
     graph: TreeGraph,
     targets: Sequence[int],
     *,
-    stats: tuple[str, ...] = _DEFAULT_STATS,
+    stats: tuple[str, ...] = ALL_STATS,
     daemon: PobDaemon | None = None,
 ) -> list[NodeRemoval]:
     """`targets`를 하나씩 빼서 각각의 델타를 실측한다 — 데몬 1개로 N회.
@@ -551,7 +560,7 @@ def evaluate_swaps(
     graph: TreeGraph,
     swaps: Sequence[tuple[int, int]],
     *,
-    stats: tuple[str, ...] = _DEFAULT_STATS,
+    stats: tuple[str, ...] = ALL_STATS,
     daemon: PobDaemon | None = None,
 ) -> list[SwapDelta]:
     """`(빼는 노드, 넣는 노드)` 쌍을 **한 빌드에서 동시에** 재고 델타를 낸다.
@@ -640,7 +649,7 @@ def corpus_counterfactuals(
     *,
     base: Path | None = None,
     limit: int | None = None,
-    stats: tuple[str, ...] = _DEFAULT_STATS,
+    stats: tuple[str, ...] = ALL_STATS,
     daemon: PobDaemon | None = None,
 ) -> list[dict[str, Any]]:
     """래더 코퍼스를 되돌려(`restore.spec_from_pob`) 제거 측정을 돌리는 **얇은** 입구.

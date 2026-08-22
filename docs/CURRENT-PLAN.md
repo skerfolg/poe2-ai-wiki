@@ -37,10 +37,11 @@ flowchart TD
   NEXT2[S13 남은 37건 판정 배치<br/>done]
   DEF[S14 판정이 드러낸 측정 결함 등재<br/>done]
   FIXDELTA[S15 #109 결측 키를 0으로 취급 수정<br/>done]
-  WIDEN[S16 #108 축 열거 제거 + 재측정<br/>active: 범위 판정 대기]
+  WIDEN[S16 #108 축 열거 제거<br/>done]
+  REMEAS2[S17 재측정 — 범위 판정 대기<br/>blocked]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
-  NEXT2 --> DEF --> FIXDELTA --> WIDEN
+  NEXT2 --> DEF --> FIXDELTA --> WIDEN --> REMEAS2
 ```
 
 ## Baseline Structure
@@ -68,15 +69,16 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S13 | 남은 판정 큐 37건 에이전트 배치 — 41건 저장, 「가치 없음」 0건 | done |
 | S14 | 판정이 드러낸 측정 결함 등재 (#108~#111) | done |
 | S15 | #109 수정 — 결측 키를 0.0으로 취급하는 가짜 델타 | done |
-| S16 | #108 — 축 열거 제거 + 재측정 (범위는 사용자 판정 대기) | active |
+| S16 | #108 — 축 열거 제거. 하위 호환은 정본 샤드 바이트 동일로 확인 | done |
+| S17 | 재측정 — **범위는 사용자 판정 대기**(전량 2,689벌 vs 판정 큐 노드만) | blocked |
 
 ## Canonical Next Step
 
-The only next executable step is: **#108 — 축 열거를 없앤다 (S16).** 선행 조건이던
-#109는 닫혔다.
+The only next executable step is: **재측정 범위를 판정받는다 (S17).**
 
-⛔ **재측정 범위는 사용자 판정 대기**다: 전량(2,689벌 · 수시간) vs 판정 큐에 걸린
-노드만(훨씬 쌈). 어느 쪽이든 축 확장 코드가 먼저다.
+코드는 닫혔다(#109·#108). 남은 것은 **얼마나 다시 재느냐**이고 그건 판정이다:
+전량(2,689벌 · 수시간)인가, 판정 큐에 걸린 노드만(훨씬 쌈)인가. 그리고 #110 —
+PoB가 꺼 놓은 트리거·미라주를 되살릴 것인가(⚠ 상류가 왜 껐는지 모른다).
 
 ## Deferred Candidates
 
