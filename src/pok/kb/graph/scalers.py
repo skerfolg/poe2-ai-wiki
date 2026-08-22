@@ -130,6 +130,7 @@ class Scaler:
     input_axis: str  # 무엇을 세는가 ("Power", "Rage", "Combo"…)
     payoff_kind: str  # more | increased | added | counter | resource | sustain | reach | other
     cap: int | None  # 상한 (없으면 None)
+    cap_source: str | None  # "line"(같은 줄, 확실) | "carrier"(다른 줄, **오탐 가능**)
     attribution: str  # player | weapon | unattributed
     obtainable: bool  # unused · carrier_unknown 이면 False
     pob_measurable: bool  # PoB가 읽는가 (pob_gap / pob_modeling.supported)
@@ -156,10 +157,22 @@ def classify_payoff(text: str) -> str:
     return "other"
 
 
-def find_cap(text: str) -> int | None:
-    """상한을 뽑는다. 여럿이면 **가장 작은 것**이 실질 상한이다."""
-    found = [int(m.group(1)) for rx in _CAPS for m in rx.finditer(text)]
-    return min(found) if found else None
+def find_cap(text: str, carrier_texts: Sequence[str] = ()) -> tuple[int | None, str | None]:
+    """상한을 뽑는다. 여럿이면 **가장 작은 것**이 실질 상한이다.
+
+    ⚠ **상한은 배율과 다른 줄에 있는 경우가 많다** — 귀속과 같은 형태의 함정이다.
+    실측 2026-08-22: `Cirel's Cultivation`의 배율 줄은 "10% more damage per allied
+    Totem"인데 상한 *"up to **5** Totems in effect radius"*는 두 줄 아래에 있어서,
+    토템 10기로 계산해 총 출력을 19배로 부풀렸다(실제 상한은 5기).
+    그래서 담체 전체를 함께 본다.
+    """
+    same = [int(m.group(1)) for rx in _CAPS for m in rx.finditer(text)]
+    if same:
+        return min(same), "line"
+    other = [int(m.group(1)) for rx in _CAPS for o in carrier_texts for m in rx.finditer(o)]
+    # ⚠ 다른 줄에서 온 상한은 **무관한 줄일 수 있다**(예: 별개의 `Limit 1`).
+    # 그래도 침묵보다 낫다 — 출처를 붙여 신뢰도를 사람이 판정하게 한다(AD-8).
+    return (min(other), "carrier") if other else (None, None)
 
 
 def classify_attribution(text: str, carrier_texts: Sequence[str] = ()) -> str:
@@ -232,7 +245,12 @@ def _texts(record: Record) -> list[str]:
 
 
 def _warnings(
-    kind: str, cap: int | None, attribution: str, measurable: bool, text: str = ""
+    kind: str,
+    cap: int | None,
+    attribution: str,
+    measurable: bool,
+    text: str = "",
+    cap_source: str | None = None,
 ) -> tuple[str, ...]:
     """오독하기 쉬운 지점을 **결과에 붙여서** 낸다 — 문서가 아니라 반환값으로."""
     out: list[str] = []
@@ -248,8 +266,10 @@ def _warnings(
         out.append("가산(increased)이라 다른 증가%와 **희석**된다")
     if kind in ("counter", "resource"):
         out.append(f"{kind}는 딜이 아니라 게이지다 — **무엇에 쓰이는지 한 단계 더** 봐야 한다")
-    if cap is not None:
+    if cap is not None and cap_source == "line":
         out.append(f"상한 {cap} — 그 위로는 투자해도 0이다")
+    elif cap is not None:
+        out.append(f"상한 {cap}? — **담체의 다른 줄**에서 읽었다. 무관한 줄일 수 있으니 원문 확인")
     if attribution == "player":
         out.append("「네가」 귀속 — 프록시(공허의 형상·토템·소환수)에서는 발동하지 않는다")
     if not measurable:
@@ -291,13 +311,14 @@ def scan_scalers(store: Store, input_axis: str | None = None) -> ScalerScan:
                     excluded[reason or "unknown"] += 1
                     continue
                 kind = classify_payoff(text)
-                cap = find_cap(text)
+                cap, cap_source = find_cap(text, carrier_texts)
                 attribution = classify_attribution(text, carrier_texts)
                 scalers.append(
                     Scaler(
                         input_axis=axis,
                         payoff_kind=kind,
                         cap=cap,
+                        cap_source=cap_source,
                         attribution=attribution,
                         obtainable=True,
                         pob_measurable=measurable,
@@ -305,7 +326,7 @@ def scan_scalers(store: Store, input_axis: str | None = None) -> ScalerScan:
                         carrier_name=record.name_en,
                         carrier_type=record.type,
                         evidence=text.strip()[:200],
-                        warnings=_warnings(kind, cap, attribution, measurable, text),
+                        warnings=_warnings(kind, cap, attribution, measurable, text, cap_source),
                     )
                 )
 

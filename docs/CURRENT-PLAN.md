@@ -34,9 +34,10 @@ flowchart TD
   OBJ["S11 월드 객체 연쇄 #95<br/>done"]
   XW["S12 어휘 통일·교차 조인 #95<br/>done"]
   UMB["S13 우산 상태 #96<br/>done"]
-  SCAL["S14 스케일러 크기 판정 #97<br/>active"]
+  SCAL["S14 스케일러 크기 판정 #97<br/>done"]
+  RESWEEP["S15 필터 재탐색 (B)<br/>active"]
   TOOL --> WIRE --> MEASURE --> SEAL --> VERDICT
-  SEAL --> MECH --> GAPS --> FIX --> ROOT --> UP --> OBJ --> XW --> UMB --> SCAL
+  SEAL --> MECH --> GAPS --> FIX --> ROOT --> UP --> OBJ --> XW --> UMB --> SCAL --> RESWEEP
 ```
 
 ## Baseline Structure
@@ -63,13 +64,14 @@ Lane scope: 스태킹 축을 도구로 발견하고, 나온 컨셉을 PoB 실측
 | S12 | 축 어휘 통일 + 3층 교차 조인 (#95) — 공유 축 2→7종, `crosswalk.py` | done |
 | S13 | 우산 상태 (#96) — 상위 상태 전파·부정문 공통 관문·고정 축 신설 | done |
 | S14 | 스케일러 크기 판정 (#97) — `scan_scalers` 네 축 분해·프록시 귀속·획득 관문 | done |
+| S15 | 고친 필터로 축 전수 재탐색 (B) — 872건 → 곱연산 88 → 필터 통과 61 | active |
 
 S1~S2는 PR #86, S4는 PR #89로 머지됨. S5는 판정 대기이므로 세션이 진행할 수 없다(AD-3).
 S5(전도성 룬 컨셉)는 사용자가 기각 방향으로 판단했고, 탐색은 S6의 새 그래프로 이어간다.
 
 ## Canonical Next Step
 
-The only next executable step is: **고친 필터(`scan_scalers`)로 곱연산 축을 다시 훑어 다음 빌드 컨셉을 고른다.**
+The only next executable step is: **재탐색으로 나온 곱연산 후보 61건 중 어디를 팔지 사용자와 고른다.**
 
 S14가 만들어진 계기: `per Power` 탐색에서 **같은 오독을 세 번 연속** 냈다(#97) — 담체
 개수를 배율 크기로 착각. 이제 `scan_scalers`가 `payoff_kind`·`cap`·`attribution`·

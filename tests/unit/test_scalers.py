@@ -84,12 +84,19 @@ def test_줄이_잘려도_상한을_찾는다() -> None:
     "Empowers one Slam per 10 enemy Power in" / "range, counting up to 50 Power"
     — 소문자로 시작하는 줄은 앞줄의 연속이다.
     """
-    assert find_cap("Empowers one Slam per 10 enemy Power in range, counting up to 50 Power") == 50
-    assert (
-        find_cap("... to gain Mountain's Teachings on Immobilising an enemy, up to a maximum of 30")
-        == 30
+    assert find_cap("Empowers one Slam per 10 enemy Power in range, counting up to 50 Power") == (
+        50,
+        "line",
     )
-    assert find_cap("10% more Damage per Power of killed target") is None
+    assert find_cap(
+        "... to gain Mountain's Teachings on Immobilising an enemy, up to a maximum of 30"
+    ) == (30, "line")
+    assert find_cap("10% more Damage per Power of killed target") == (None, None)
+    # 다른 줄에서 온 상한은 출처가 표시된다 (오탐 가능 — 사람이 원문 확인)
+    assert find_cap("10% more damage per allied Totem", ["up to 5 Totems in radius"]) == (
+        5,
+        "carrier",
+    )
 
 
 def test_상한이_실물에서_붙는다(power: ScalerScan) -> None:
