@@ -85,6 +85,9 @@ mcp: FastMCP = FastMCP(
         "**파일을 뒤지기 전에 그것부터 읽을 것**. "
         "스태킹·「X당 Y」 사슬 탐색은 search_kb가 아니라 **scan_supply_edges·"
         "trace_chains**로(축별 공급·보상 엣지 전수, 다단 사슬·공존 진단). "
+        "그리고 **크기를 말하기 전에 scan_scalers**로 분해할 것 — 「X당 Y」는 "
+        "곱연산(more)·가산(increased)·횟수·게이지·반경이 뒤섞여 있고, 상한·프록시 "
+        "귀속·획득 불가(unused)까지 봐야 배율을 오독하지 않는다. "
         "레코드의 verification 라벨(GAME_DATA > "
         "POB_CODE ≈ IN_GAME > SUPPORTED_INFERENCE > UNVERIFIED, CONTRADICTED=모순 "
         "경고)을 판단 신뢰도에 반영할 것."
@@ -490,6 +493,8 @@ scan_state_edges = tool(_explore.scan_state_edges)
 trace_mechanism_chains = tool(_explore.trace_mechanism_chains)
 # 3층 교차 순회 (#95) — 스탯·상태·객체를 한 사슬로, 마디마다 층 꼬리표
 trace_cross_chains = tool(_explore.trace_cross_chains)
+# 스케일러 크기 판정 (#97) — 「담체가 많다」를 「배율이 크다」로 오독하지 않도록
+scan_scalers = tool(_explore.scan_scalers)
 
 
 def main() -> None:
