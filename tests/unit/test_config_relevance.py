@@ -49,3 +49,51 @@ def test_unset_config_sees_tree_nodes_and_items() -> None:
     # 게이트는 양방향 — 조건을 켜 두면 다시 말하지 않는다
     configured = _unset_config({**spec, "config": {"conditionEnemyIgnited": True}})
     assert not any(u["var"] == "conditionEnemyIgnited" for u in configured), configured
+
+
+def test_부정_문구는_관련성이_아니다() -> None:
+    """`Cannot inflict …`에 걸린 키워드는 관련이 아니라 **반대**다.
+
+    실측 2026-08-21: 원소 작렬(`Cannot inflict Freeze, Shock or Ignite`)에
+    `multiplierFreezeShockIgniteOnEnemy`가 붙었다. 그 힌트를 좇아 config를
+    1↔20으로 바꿔도 값이 안 변하는 것을 **PoB 버그로 의심하고 백로그에 올렸다** —
+    거짓 힌트는 없는 결함을 조사하게 만든다.
+    """
+    from pok.engine.constraints.config_relevance import find_unset_options
+
+    negated = find_unset_options(
+        {"skill.probe": ["Cannot inflict Freeze, Shock or Ignite", "Pulse radius is 5 metres"]},
+        [],
+    )
+    assert not any(u.var == "multiplierFreezeShockIgniteOnEnemy" for u in negated), negated
+
+
+def test_승수형_config는_소비하는_per_문구가_있어야_관련이다() -> None:
+    """`ifMult` config는 승수를 **세울** 뿐이다 — 쓰는 접사가 없으면 값이 안 변한다.
+
+    PoB에서 이 승수의 유일한 소비처는 `ModParser`의 `per freeze, shock and ignite
+    on enemy` 문구다. 그 문구가 빌드에 없으면 켜라고 알릴 이유가 없다.
+    """
+    from pok.engine.constraints.config_relevance import find_unset_options
+
+    # 키워드는 다 있지만 "per …"가 없다 → 관련 아님
+    mentions_only = find_unset_options(
+        {"skill.probe": ["Deals more damage to enemies with Freeze, Shock and Ignite"]}, []
+    )
+    assert not any(u.var == "multiplierFreezeShockIgniteOnEnemy" for u in mentions_only)
+
+    # 실제 소비 문구가 있으면 관련이다
+    consumer = find_unset_options(
+        {"passive.probe": ["10% increased Damage per Freeze, Shock and Ignite on Enemy"]}, []
+    )
+    assert any(u.var == "multiplierFreezeShockIgniteOnEnemy" for u in consumer), consumer
+
+
+def test_승수형_필터가_기존_진짜_양성을_죽이지_않는다() -> None:
+    """절개 스택(#이관 3의 회귀 사례)은 계속 나와야 한다 — 필터는 좁게만 자른다."""
+    from pok.engine.constraints.config_relevance import find_unset_options
+    from pok.kb import store as kb_store
+
+    stats = (kb_store.load().get("support.incision").raw["data"].get("stats")) or []
+    found = {u.var for u in find_unset_options({"support.incision": stats}, [])}
+    assert "multiplierIncisionStackCount" in found, sorted(found)
