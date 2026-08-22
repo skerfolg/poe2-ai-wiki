@@ -139,6 +139,17 @@ def _spread(values: list[float]) -> dict[str, float]:
     }
 
 
+def _measured_axes(base_stats: dict[str, Any], row: dict[str, Any]) -> list[str]:
+    """이 관측에서 **실제로 잰** 축. 「안 실린 축 = 0」을 읽을 수 있게 하는 근거다 (#108).
+
+    기준선 stats가 「무엇을 쟀나」의 목록이고, 거기서 `unmeasured`(한쪽 실행에만 있던
+    축, #109)를 뺀 것이 잰 축이다. 예전 데이터(13축 시절)는 기준선도 13개라 그대로
+    맞는다 — 그때는 모든 축이 값과 함께 실렸으므로 결과가 달라지지 않는다.
+    """
+    skip = set(row.get("unmeasured") or ())
+    return [k for k in base_stats if k not in skip]
+
+
 def _loss_pct(base: float, delta: float) -> float | None:
     """제거 시 손실률(%). 양수 = 빼면 나빠진다. 기준이 0이면 비율이 없다."""
     if base is None or abs(base) < _ZERO_EPS:
@@ -227,27 +238,37 @@ def collect(
             if not row["deltas"]:
                 here.unmeasured += 1
                 continue
+            # ⛔ **분모는 `deltas`가 아니라 「잰 축」이다** (#108).
+            #    이제 관측에는 **움직인 축만** 실린다 — `deltas`를 훑으면 모든 축의
+            #    작동률이 정의상 100%가 되어 「채택되는데 안 움직인다」는 신호가
+            #    통째로 사라진다. 잰 축은 기준선 stats가 들고 있고, 한쪽 실행에만
+            #    있던 축은 `unmeasured`가 뺀다(#109).
+            #    ⚠ 여기의 `deltas.get(stat, 0.0)`은 #109에서 고친 그 표현과 **같아
+            #    보이지만 반대**다 — 저기선 키 없음이 「안 쟀다」였고, 여기선 순회
+            #    대상이 이미 「잰 축」이라 키 없음이 **「재서 0이었다」**를 뜻한다.
+            measured = _measured_axes(base_stats, row)
+            deltas = row["deltas"]
             if not usable or nid in taint.tainted_nodes:
                 here.tainted += 1
                 # 버리지 않는다 — 「오염 포함」 쪽에는 싣는다(#99)
-                for stat, delta in row["deltas"].items():
-                    loss = _loss_pct(base_stats.get(stat, 0.0), float(delta))
+                for stat in measured:
+                    loss = _loss_pct(base_stats.get(stat, 0.0), float(deltas.get(stat, 0.0)))
                     if loss is not None and math.isfinite(loss):
                         here.axes_all[stat].append(loss)
                 continue
             cov["rows_kept"] += 1
             here.points.append(int(row.get("points") or 1))
             # **축마다** 따로 센다 — 축을 안 가리면 다른 축의 상관이 조건이 된다
-            for stat, delta in row["deltas"].items():
-                moved = abs(float(delta)) > 0
+            for stat in measured:
+                delta = float(deltas.get(stat, 0.0))
+                moved = abs(delta) > 0
                 here.n_rows[stat] += 1
                 here.n_fired[stat] += int(moved)
                 for name in build_groups:
                     here.seen_groups[stat][name] += 1
                     if moved:
                         here.fired_groups[stat][name] += 1
-            for stat, delta in row["deltas"].items():
-                loss = _loss_pct(base_stats.get(stat, 0.0), float(delta))
+                loss = _loss_pct(base_stats.get(stat, 0.0), delta)
                 if loss is not None and math.isfinite(loss):
                     here.axes[stat].append(loss)
                     here.axes_all[stat].append(loss)

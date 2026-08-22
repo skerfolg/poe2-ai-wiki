@@ -465,3 +465,43 @@ def test_반경을_못_읽으면_안_살리고_고아로_남긴다() -> None:
     got = removable_nodes(_witch(_NO_RADIUS, _RING_CHAIN), _graph)
     assert got.no_path_zone == ()
     assert set(_RING_CHAIN) <= set(got.orphans)
+
+
+def test_한쪽에만_있는_축은_델타가_아니라_결측이다() -> None:
+    """#109 — `get(k, 0.0)`으로 메우면 **재지 않은 값이 델타가 된다**.
+
+    데몬이 비유한 값을 버리므로 키가 한쪽 실행에만 있는 일이 실제로 생긴다.
+    실측(2026-08-22): `enemySkillTime`이 기준선에서 ∞라 사라지고 제거본에만 70.0이
+    남아 `+70.0` — **노드를 빼서 좋아졌다**는 부호 반전이 나왔다.
+    """
+    from pok.engine.tree.counterfactual import _deltas
+
+    deltas, missing = _deltas(
+        {"CombinedDPS": 100.0},
+        {"CombinedDPS": 90.0, "enemySkillTime": 70.0},
+        ("CombinedDPS", "enemySkillTime", "TotalEHP"),
+    )
+    assert deltas == {"CombinedDPS": -10.0}, "양쪽에 있는 축만 델타가 된다"
+    assert "enemySkillTime" not in deltas, "기준에 없던 축이 +70.0으로 둔갑하면 안 된다"
+    assert missing == ("TotalEHP", "enemySkillTime"), "빠진 축은 조용히 사라지지 않는다"
+
+
+def test_축을_고르지_않으면_움직인_것만_싣는다() -> None:
+    """#108 — 목록을 손으로 적는 한 다음 노드도 같은 이유로 0이 된다.
+
+    PoB는 빌드당 675~769축을 내는데(실측 2026-08-22) 13개만 골랐다. 이제 **고르지
+    않고** 전부를 대상으로 하되 **움직인 것만** 싣는다 — 안 실린 축은 0이고, 그렇게
+    읽어도 되는 근거는 기준선 stats(무엇을 쟀나)와 `unmeasured`(한쪽에만 있던 축)다.
+    """
+    from pok.engine.tree.counterfactual import _deltas
+
+    base = {"CombinedDPS": 100.0, "Life": 50.0, "TotalEHP": 10.0, "안움직임": 7.0, "왼쪽만": 1.0}
+    new = {"CombinedDPS": 100.0, "Life": 40.0, "TotalEHP": 10.0, "안움직임": 7.0, "오른쪽만": 9.0}
+    deltas, missing = _deltas(base, new)
+
+    assert deltas["Life"] == -10.0
+    assert "안움직임" not in deltas, "안 움직인 축은 싣지 않는다 — 그게 압축의 전부다"
+    assert deltas["CombinedDPS"] == 0.0 and deltas["TotalEHP"] == 0.0, (
+        "핵심 축은 0이어도 싣는다 — 전부 0인 관측이 「기록 없음」과 구별돼야 한다"
+    )
+    assert missing == ("오른쪽만", "왼쪽만"), "한쪽에만 있던 축은 결측으로 남는다"
