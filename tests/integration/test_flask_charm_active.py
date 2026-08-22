@@ -1,4 +1,4 @@
-"""장착 슬롯이 **활성**으로 나가는지 (BACKLOG #93).
+"""장착 슬롯이 **활성**으로 나가는지 (BACKLOG #98).
 
 PoB는 `active = child.attrib.active == "true"`로 읽는다(`Classes/ItemsTab.lua:1159`).
 속성을 안 쓰면 **전부 비활성**이 되고, 비활성 플라스크·호신부는 `env.flasks`/
@@ -63,7 +63,7 @@ def test_플라스크가_계산에_실제로_들어간다() -> None:
         with_flask = daemon.compute_build(spec).stats or {}
         without = daemon.compute_build(bare).stats or {}
     assert with_flask.get("LifeFlaskRecovery"), (
-        "플라스크를 꽂았는데 회복 출력이 없다 — 슬롯이 비활성이다(#93 재발)"
+        "플라스크를 꽂았는데 회복 출력이 없다 — 슬롯이 비활성이다(#98 재발)"
     )
     assert not without.get("LifeFlaskRecovery"), "대조군에 플라스크 출력이 있다"
 

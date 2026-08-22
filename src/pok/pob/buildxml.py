@@ -689,7 +689,7 @@ def to_xml(spec: BuildSpec) -> str:
         f'    <Item id="{i}">{escape(strip_probe_tags(_with_substitutes(item)))}</Item>'
         for i, item in enumerate(all_items, start=1)
     )
-    # ⛔ **`active="true"`를 반드시 쓴다** (BACKLOG #93). PoB는
+    # ⛔ **`active="true"`를 반드시 쓴다** (BACKLOG #98). PoB는
     #    `active = child.attrib.active == "true"`로 읽으므로(`Classes/ItemsTab.lua:1159`)
     #    속성이 없으면 **전부 비활성**이고, 비활성 플라스크·호신부는
     #    `env.flasks`/`env.charms`에 안 들어간다(`Modules/CalcSetup.lua:1095-1110`).

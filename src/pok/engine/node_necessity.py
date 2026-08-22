@@ -293,11 +293,11 @@ def build_queue(
         if int(dps.get("n") or 0) < min_n:
             continue
         # ⛔ **어느 축에서든 움직였으면 잰 것이다 — 전 축을 본다.**
-        #    DPS·EHP만 보면 축 확장(#95)의 이득이 큐에 반영되지 않는다. 실측
+        #    DPS·EHP만 보면 축 확장(#100)의 이득이 큐에 반영되지 않는다. 실측
         #    2026-08-22: 축을 13개로 넓혀 `Vitality Siphon`이 `LifeLeechGainRate`
         #    55벌 전부 100% 손실로 잡혔는데도, 필터가 DPS·EHP만 봐서 「측정 0」 큐에
         #    그대로 남았다 — 6시간 재측정의 이득이 큐에서 증발할 뻔했다.
-        # ⛔ **오염 포함본까지 본다**(#94) — 제외본의 0이 「표본을 버린 뒤의 0」인
+        # ⛔ **오염 포함본까지 본다**(#99) — 제외본의 0이 「표본을 버린 뒤의 0」인
         #    경우가 39건 있었다(Invigorating Archon: 잔존 7.4%인데 포함하면 92.0%).
         if any(
             axis.get("active_share") or (axis.get("with_tainted") or {}).get("active_share", 0) > 0
@@ -327,7 +327,7 @@ def build_queue(
                     # 오염 제외로 표본이 얼마나 줄었나 — 낮으면 결론을 약하게 낼 것
                     "kept_pct": (dps.get("with_tainted") or {}).get("kept_pct"),
                     "note": "DPS·EHP가 **오염 포함본에서도** 안 움직였다 — "
-                    "축을 못 잡은 것이다(#94 반영)",
+                    "축을 못 잡은 것이다(#99 반영)",
                 },
             )
         )

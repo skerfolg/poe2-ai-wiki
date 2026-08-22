@@ -77,7 +77,7 @@ class _Node:
     axes: dict[str, list[float]] = field(default_factory=lambda: defaultdict(list))
     tainted: int = 0
     unmeasured: int = 0
-    # ⚠ **오염 행도 따로 모은다** (BACKLOG #94). 제외만 하면 신호가 통째로 사라지는
+    # ⚠ **오염 행도 따로 모은다** (BACKLOG #99). 제외만 하면 신호가 통째로 사라지는
     #    경우가 있다 — 실측 2026-08-20: Zealot's Oath는 EHP가 움직인 35행이 **전부**
     #    오염 제외에 걸렸고, 남은 40행이 전부 0이라 집계가 「어느 빌드에서도 안
     #    움직임」으로 냈다. 「측정 0」이 실측이 아니라 **집계의 산물**이었다.
@@ -229,7 +229,7 @@ def collect(
                 continue
             if not usable or nid in taint.tainted_nodes:
                 here.tainted += 1
-                # 버리지 않는다 — 「오염 포함」 쪽에는 싣는다(#94)
+                # 버리지 않는다 — 「오염 포함」 쪽에는 싣는다(#99)
                 for stat, delta in row["deltas"].items():
                     loss = _loss_pct(base_stats.get(stat, 0.0), float(delta))
                     if loss is not None and math.isfinite(loss):
@@ -303,7 +303,7 @@ def build_records(
                 "active_share": round(100.0 - zero_share, 2),
                 "n_active": len(active),
                 "when_active": _spread(active),
-                # ── 오염 포함(#94) — 제외가 신호를 지웠는지 읽는 쪽이 판단한다 ──
+                # ── 오염 포함(#99) — 제외가 신호를 지웠는지 읽는 쪽이 판단한다 ──
                 "with_tainted": {
                     "n": len(everything),
                     # 남은 표본 비율. 급감했으면 「측정 0」을 그대로 믿지 말 것
