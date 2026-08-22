@@ -9,82 +9,70 @@ This is the single live work-control document for the current repository lane. T
 
 ## Active Lane
 
-Lane: `BI-stacking-axis-exploration`
+Lane: `M5-proposal-rounds`
 
-스태킹 축 탐색 레인 — 공급 그래프 도구(#91, PR #86 머지 완료)를 만들고, 그 도구로
-전도성 룬·코스트 스태킹 컨셉을 PoB 실측까지 검증해 결과를 정본 인사이트로 봉인한다.
-컨셉 채택 여부(계속 팔 것인가)는 사용자 게임 지식 판정 대기 중이다.
+M5(3층 제안) — 반사실 캠페인의 창의 층. **무인 라운드 배치**로 짓는다: 사람이 루프의
+동력이면 ①노가다 ②탐색이 사람 머릿속 상한에 갇힘 ③사용량에 기대면 축적 빈약, 셋이
+무너진다(사용자 지시 2026-08-20). M3 캠페인을 수십 시간 무인으로 돌린 것과 같은 형태다.
 
-Per §8 (Git and Worktree Hygiene), this lane targets the integration branch named in the header (`main` by default). If a different base is required, add an entry to `## Open Decisions` named "Integration branch override" with the override branch name, reason, and duration (single lane / until stated condition).
+사람은 **판정자**로만 남는다 — 정본 진입은 M6 큐레이션 게이트뿐이라 라운드가 아무리
+돌아도 정본은 안 움직인다. 상세 설계는 [ROADMAP §M5 확정 설계](ROADMAP.md).
 
 ## Status Graph
 
 ```mermaid
 flowchart TD
-  TOOL["S1 공급 그래프 도구 #91<br/>done"]
-  WIRE["S2 강제 지점 배선<br/>done"]
-  MEASURE["S3 컨셉 PoB 실측<br/>done"]
-  SEAL["S4 인사이트 봉인<br/>done"]
-  VERDICT["S5 컨셉 채택 판정<br/>pending"]
-  MECH["S6 메커니즘 상태 그래프 #92<br/>done"]
-  GAPS["S7 연계 탐색·측정 갭 수집 #93<br/>done"]
-  FIX["S8 #93 범위 정정·인사이트 정정<br/>done"]
-  ROOT["S9 unset_config 거짓 양성 수정<br/>done"]
-  UP["S10 가동률 축 #94<br/>done"]
-  OBJ["S11 월드 객체 연쇄 #95<br/>done"]
-  XW["S12 어휘 통일·교차 조인 #95<br/>done"]
-  UMB["S13 우산 상태 #96<br/>done"]
-  SCAL["S14 스케일러 크기 판정 #97<br/>done"]
-  RESWEEP["S15 필터 재탐색 (B)<br/>active"]
-  TOOL --> WIRE --> MEASURE --> SEAL --> VERDICT
-  SEAL --> MECH --> GAPS --> FIX --> ROOT --> UP --> OBJ --> XW --> UMB --> SCAL --> RESWEEP
+  CONTRACT[S1 제안 계약 검증기<br/>done]
+  FLOW[S2 전개기 + 출처 분리 저장<br/>done]
+  ROUND[S3 라운드 러너 brief/measure/digest<br/>done]
+  SKILL[S4 라운드 스킬<br/>done]
+  FIRST[S5 첫 라운드 실행<br/>done]
+  NECESS[S6 판정 큐 결정적 부분<br/>done]
+  JUDGE[S7 에이전트 판정 배치<br/>blocked]
+  FIX[S8 #98 수정<br/>done]
+  REMEAS[S9 #99 수정<br/>done]
+  REAGG[S10 재측정·재집계·재승격<br/>done]
+  RESUME[S11 에이전트 판정 14건<br/>done]
+  AXES[S12 축 확장 재측정·재승격<br/>done]
+  NEXT2[S13 남은 37건 판정 배치<br/>active]
+  CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
+  JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
 ```
 
 ## Baseline Structure
 
-### BI-stacking-axis-exploration
+### M5-proposal-rounds
 
 Status: `active`
 
-Lane scope: 스태킹 축을 도구로 발견하고, 나온 컨셉을 PoB 실측으로 검증해 정본에 봉인한다.
+Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제스트만 판정한다.
 
 | Sub | Subject | Status |
 | --- | --- | --- |
-| S1 | 공급 엣지 스캔·사슬 순회 도구 (#91) — `scan_supply_edges`/`trace_chains` | done |
-| S2 | 강제 지점 4곳 배선 (0건 진단·AGENTS·스킬·서버 instructions) | done |
-| S3 | 컨셉 PoB 실측 (전도성 룬 배율표·코스트 스태킹 대조·천장 측정) | done |
-| S4 | 실측 결과 인사이트 봉인 (`insight.conductive-runes-and-cost-stacking`) | done |
-| S5 | 컨셉 채택 판정 — 계속 팔 것인가 (사용자 게임 지식 게이트) | pending |
-| S6 | 메커니즘 상태 그래프 (#92) — vocab v2 + `scan_state_edges`/`trace_mechanism_chains` | done |
-| S7 | 그래프로 연계 탐색 + 측정 갭 수집 (#93 등재) | done |
-| S8 | #93 범위 2회 정정 + 인사이트 정정 (검증으로 뒤집힌 보고 §3 등재) | done |
-| S9 | #93 원인 규명·수정 — `unset_config` 거짓 양성(극성·승수형 의미) | done |
-| S10 | 가동률(uptime) 축 신설 (#94) — 지속/쿨다운 정합을 엔진에 | done |
-| S11 | 월드 객체 연쇄 (#95) — #92 확장, 객체 축 15종·전이 27종 신규 | done |
-| S12 | 축 어휘 통일 + 3층 교차 조인 (#95) — 공유 축 2→7종, `crosswalk.py` | done |
-| S13 | 우산 상태 (#96) — 상위 상태 전파·부정문 공통 관문·고정 축 신설 | done |
-| S14 | 스케일러 크기 판정 (#97) — `scan_scalers` 네 축 분해·프록시 귀속·획득 관문 | done |
-| S15 | 고친 필터로 축 전수 재탐색 (B) — 872건 → 곱연산 88 → 필터 통과 61 | active |
-
-S1~S2는 PR #86, S4는 PR #89로 머지됨. S5는 판정 대기이므로 세션이 진행할 수 없다(AD-3).
-S5(전도성 룬 컨셉)는 사용자가 기각 방향으로 판단했고, 탐색은 S6의 새 그래프로 이어간다.
+| S1 | 제안 계약 검증기 — 3필드 강제·갭 라벨 (`engine/proposal.py`) | done |
+| S2 | 전개기 + 출처 분리 저장 (`engine/proposal_flow.py`) | done |
+| S3 | 라운드 러너 — brief·measure·digest (`engine/proposal_round.py`) | done |
+| S4 | 라운드 스킬 `skills/proposal-round/` + 등록 shim | done |
+| S5 | 첫 라운드 실행 → 다이제스트 판정 | done |
+| S6 | 판정 큐 — 제공 축 분류·요구 기재·측정 경로 (결정적) | done |
+| S7 | 에이전트 판정 배치 — 4건 시행 후 **중단**(측정 결함 발견) | blocked |
+| S8 | #98 `<Slot active>` 수정 + 통합 시험 | done |
+| S9 | #99 수정 — 오염 포함본 병기(`with_tainted`) | done |
+| S10 | 재측정(2,689벌) → 재집계 → NodeValue 재승격 | done |
+| S11 | 에이전트 판정 14건 — 큐 결함 3건·도구 결함 2건 발견 | done |
+| S12 | #100 축 13개 재측정 → 재집계 → 재승격 · 큐 필터 전 축 반영 | done |
+| S13 | 남은 판정 큐 37건 에이전트 배치 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **재탐색으로 나온 곱연산 후보 61건 중 어디를 팔지 사용자와 고른다.**
-
-S14가 만들어진 계기: `per Power` 탐색에서 **같은 오독을 세 번 연속** 냈다(#97) — 담체
-개수를 배율 크기로 착각. 이제 `scan_scalers`가 `payoff_kind`·`cap`·`attribution`·
-`obtainable` 넷으로 갈라 주므로, **`kind="more"` + `attribution!="player"` + 상한 없음**을
-필터로 걸고 축 전수를 다시 돌리는 것이 다음 탐색의 출발점이다.
-
-⚠ 다음 탐색 전에 #98(정본에 무기 계열 제약 없음)을 기억할 것 — 도구가 통과시켜도
-**빌드 전제(무기·전직·슬롯)는 사용자 확인이 필요하다**. 이번에 육척봉 전용 스킬을
-철퇴 빌드 핵심으로 설계해 컨셉을 두 번 다시 짰다.
-
-판정은 사용자 게임 지식 게이트다(AD-3).
+The only next executable step is: **남은 판정 큐 37건을 에이전트 배치로 판정한다 (S13).**
 
 ## Deferred Candidates
+
+- `BI-stacking-axis-exploration` — 스태킹 축 탐색(공급 그래프 #91 기반, 전도성 룬·코스트
+  스태킹 컨셉을 PoB 실측까지). **다른 세션이 활성으로 쓰던 레인이다** — 이 레인
+  (`M5-proposal-rounds`)과 병합하며 여기로 옮겼다. 거버넌스는 활성 레인이 하나라
+  둘을 동시에 못 싣는다. ⛔ 지우지 말 것: 그 세션이 돌아오면 여기서 이어받는다.
 
 Pre-promotion lane candidates and Tier-4 follow-ups belong in a project-specific work backlog (e.g., `docs/WORK-BACKLOG.md`), not in this file. Replace this section's contents with a short list of named candidates when they exist:
 
@@ -105,13 +93,33 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| (none yet) | — | Record temporary worktrees, generated outputs, scratch files, and similar candidates here as they are created. Per §8 these must be resolved before lane closure. |
+| CI 환경 가드 규약 | enforced | `tests/unit/test_integration_guards.py` — PoB 쓰는 통합 시험에 `skipif` 강제(내 시험이 CI를 깨뜨린 뒤 도입) |
+| `artifacts/ingest-raw/proposals/0-5/` | active | 데이터 repo — 제안·전개·측정(파생). 정본 아님, 유지 |
+| `artifacts/ingest-raw/counterfactual/0-5/removals-pre87/` | keep | #87 수정 전 1차분 — 대조·감사용 보관 |
+| scratchpad `m4final`·`m4v2`·`m4v3` | disposable | 집계 대조용 임시 — 레인 종료 시 폐기 |
+| worktree `.claude/worktrees/arc-measure` | unknown | 다른 세션 소유 추정 — **임의 삭제 금지**, 소유 세션 확인 후 처리 |
+| worktree `.claude/worktrees/ecstatic-benz-b4d93c` | unknown | 위와 같음 |
+| worktree `.claude/worktrees/zealous-dewdney-e94861` | unknown | 위와 같음 |
+| branch `feat/m5-proposal-contract` | active | 이 레인의 작업 브랜치 — 머지 후 삭제 |
+| branch `feat/long-jump-bundles` | unknown | 다른 세션 소유 추정 — 확인 후 처리 |
 
 ## Open Decisions
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
-| Integration branch override | `insight/conductive-runes-cost-stacking` 브랜치에서 작업 — 협업 규율상 main 직접 커밋 금지(AGENTS.md §협업 1), PR로 머지한다. 이 레인 한정. | 2026-08-20 |
+| M5를 사람 트리거가 아니라 무인 라운드 배치로 | 배치 확정 — 사람은 판정자로만 | 2026-08-20 |
+| 제안 3필드(메커니즘·전제·검증 경로)를 문서가 아니라 검증기로 강제 | `engine/proposal.py` | 2026-08-20 |
+| 검증 경로 없는 제안을 배제하지 않고 **갭 라벨**로 보존 | 라벨 누적 = 다음 측정기 우선순위 | 2026-08-20 |
+| 유형 할당량으로 스태킹 쏠림 방지 (가로등 밑 열쇠 찾기) | `TYPE_QUOTA` | 2026-08-20 |
+| M4.5(메커니즘 그룹 조건)는 보류 — 홀드아웃 일반화 실패 | BACKLOG #89 · 재료 보존 | 2026-08-19 |
+| 「측정 0 = 가치 없음」 전제 폐기 — 축을 못 잡은 것으로 재해석 | #97 · habit 판정 봉인 | 2026-08-20 |
+| 기계적으로 안 되는 판정은 **에이전트**가 근거를 찾아 수행 (사용자에게 미루지 않음) | 근거 경로 필수 | 2026-08-20 |
+| 에이전트 판정 배치를 중단하고 측정 결함부터 수정 | #98·#99 — 오염된 큐로 판정하면 판정도 오염된다 | 2026-08-20 |
+| #94는 제외 대신 **병기**(with_tainted) — 축 단위 제외는 기각 | 주얼이 어느 축에 얹었는지 모르는 경우가 많다 | 2026-08-20 |
+| 측정 축을 3 → 13개로 확장 | #100 — PoB가 이미 내보내는 값을 안 읽어 계열 전체가 0이었다 | 2026-08-21 |
+| PoB 모델 갭 3건은 조치 불가로 기록만 | #101 — Jade·플라스크 가동률·투사체 수 | 2026-08-21 |
+| Integration branch override — 작업 브랜치 `feat/96-umbrella-states` | **다른 레인**(`BI-stacking-axis-exploration`, 탐색 도구)의 작업이다. M5 레인과 파일이 겹치지 않아 병행했고, `origin/main`을 병합해 레인 구조는 M5(정본)를 따른다. 백로그 번호는 충돌을 피해 #102·#103으로 재발급했다. 이 PR 한정, 머지 시 소멸 | 2026-08-22 |
+| Integration branch override — 작업 브랜치 `feat/m5-proposal-contract` | 레인명(`M5-proposal-rounds`)과 다름. 레인 승격 **전에** 브랜치를 열었고 PR이 이 이름으로 진행 중이라 유지. 이 레인 한정, 머지 시 소멸 | 2026-08-20 |
 | 코스트 스태킹 컨셉 | **조건부 기각** — 동일 생명 예산에서 완드+래스피스에 x2.0~3.2 열세(슬롯 기회비용). 재평가 조건: 코스트 배수 합산 x2.5+ 확인 또는 +레벨급 코스트 무기 등장 | 2026-08-20 |
 | 로우라이프 연계 | **제외** — 문턱 35% vs 시전당 코스트 10~17%로 산술 불성립. 판정 시점 논쟁은 이 산수로 무의미 | 2026-08-20 |
 | 묠니르-전도성 룬 연계 | **불가 확정** — 천둥신의 진노 에너지 조건이 Melee 적중인데 전도성 룬에 Melee 타입 없음. 묠니르는 +레벨 스탯막대로만 가치 | 2026-08-20 |
@@ -124,6 +132,21 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 - Do not delete project documents before durable facts are absorbed into `HISTORY-MAP.md` or a closure artifact.
 - Do not assign a release/version label to a lane up front; version assignment happens at release composition (`release compose`).
 - Do not insert new H2 sections between the 9 CORE sections above (would fail the guard's `section-unknown-interleaved` check). Consumer-specific sections may be appended after `## Explicit Non-Actions`.
+
+## 탐색 도구 (BI-stacking 레인 산출물)
+
+M5 레인과 별개로 진행한 탐색 도구 작업. **파일이 겹치지 않아** 병행했고, 레인 구조는
+M5(정본)를 따른다. 여기에는 **무엇이 생겼고 왜 생겼는지**만 남긴다.
+
+| 도구 | 무엇을 막나 | 백로그 |
+| --- | --- | --- |
+| `kb/graph/mechanism.py::umbrella_relations` | 상위 상태(속박·연소)를 몰라 「공급이 마름」이라는 **없는 공백**을 보고하던 것 | #96 |
+| `kb/graph/predicates.py::_NEGATION_BEFORE` | 극성 검사가 패턴마다 달려 안 단 패턴이 뚫리던 것(3번째 재발) | #96 |
+| `kb/graph/scalers.py::scan_scalers` | **담체 개수를 배율 크기로 착각**하던 것(하루에 3번 반복) | #102 |
+| (미해결) | 정본에 무기 계열 제약이 없어 **조용한 거짓 성립**이 나는 것 | #103 |
+
+`scan_scalers` 적용 결과: 「X당 Y」 872건 → 획득 불가 260건 자동 배제 → 곱연산 88건 →
+`player` 귀속·상한 제외 시 **61건**. 나머지는 게이지·횟수·희석·반경이었다.
 
 ## 보류 컨셉 (탐색 산출물)
 

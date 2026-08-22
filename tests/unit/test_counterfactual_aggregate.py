@@ -250,3 +250,46 @@ def test_그룹을_축마다_따로_센다() -> None:
         node.fired_groups[stat].update({"저주": hit})
     assert set(node.groups_for("CombinedDPS")) == {"저주"}
     assert node.groups_for("TotalEHP") == {}, "EHP에선 조건이 아닌데 붙었다"
+
+
+def test_오염_행도_함께_낸다() -> None:
+    """⛔ 제외만 하면 신호가 통째로 사라지는 경우가 있다(#99).
+
+    실측 2026-08-20: `Zealot's Oath`는 EHP가 움직인 35행이 **전부** 오염 제외에
+    걸렸고, 남은 40행이 전부 0이라 집계가 「어느 빌드에서도 안 움직임」으로 냈다 —
+    「측정 0」이 실측이 아니라 **집계의 산물**이었다.
+    """
+    node = agg._Node(kind="keystone", label="오염이 신호를 가린 노드")
+    node.points = [1] * 3
+    node.axes["TotalEHP"] = [0.0, 0.0, 0.0]  # 깨끗한 행은 전부 0
+    node.axes_all["TotalEHP"] = [0.0, 0.0, 0.0, 45.0, 60.0]  # 오염 행에 신호가 있다
+    node.tainted = 2
+    (rec,) = agg.build_records(
+        "0-5",
+        {52: node},
+        {"builds_measured": 5, "rows_kept": 3, "rows_total": 5},
+        pob_commit="abc",
+        tree_nodes=4553,
+        refs={},
+    )
+    ax = rec["data"]["axes"]["TotalEHP"]
+    assert ax["active_share"] == 0.0, "제외본은 여전히 0이어야 한다(대조)"
+    assert ax["with_tainted"]["active_share"] > 0, "오염 포함 신호가 안 실렸다"
+    assert ax["with_tainted"]["kept_pct"] == 60.0, "잔존율이 안 맞는다"
+    assert ax["with_tainted"]["loss_pct"]["p90"] > 0
+
+
+def test_오염이_없으면_잔존율_100() -> None:
+    node = agg._Node(kind="notable", label="깨끗")
+    node.points = [1, 1]
+    node.axes["CombinedDPS"] = [5.0, 7.0]
+    node.axes_all["CombinedDPS"] = [5.0, 7.0]
+    (rec,) = agg.build_records(
+        "0-5",
+        {9: node},
+        {"builds_measured": 2, "rows_kept": 2, "rows_total": 2},
+        pob_commit="abc",
+        tree_nodes=4553,
+        refs={},
+    )
+    assert rec["data"]["axes"]["CombinedDPS"]["with_tainted"]["kept_pct"] == 100.0

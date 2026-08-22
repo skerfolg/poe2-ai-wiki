@@ -493,7 +493,7 @@ scan_state_edges = tool(_explore.scan_state_edges)
 trace_mechanism_chains = tool(_explore.trace_mechanism_chains)
 # 3층 교차 순회 (#95) — 스탯·상태·객체를 한 사슬로, 마디마다 층 꼬리표
 trace_cross_chains = tool(_explore.trace_cross_chains)
-# 스케일러 크기 판정 (#97) — 「담체가 많다」를 「배율이 크다」로 오독하지 않도록
+# 스케일러 크기 판정 (#102) — 「담체가 많다」를 「배율이 크다」로 오독하지 않도록
 scan_scalers = tool(_explore.scan_scalers)
 
 

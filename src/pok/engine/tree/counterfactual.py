@@ -48,7 +48,29 @@ from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import BuildSpec
 from pok.pob.daemon import PobDaemon
 
-_DEFAULT_STATS = ("CombinedDPS", "Life", "TotalEHP")
+# ⛔ **세 축만 읽으면 「측정 0」이 도구의 산물이 된다** (판정 배치 C, 2026-08-21).
+#    PoB는 이미 흡수·정신력·마나 수지·이동속도를 내보내는데(BuildDisplayStats.lua)
+#    우리가 안 읽었다. 그 결과 **흡수 노드 70건 전량 0 · 정신력 노드 100건 전량 0**이
+#    나왔고, 나는 그걸 「가치 없음」으로 읽어 교체 제안까지 냈다(Vitality Siphon).
+#    ⚠ 읽는 비용은 0이다 — 같은 PoB 호출의 반환값에서 키를 더 꺼낼 뿐이다.
+_DEFAULT_STATS = (
+    "CombinedDPS",
+    "Life",
+    "TotalEHP",
+    # 유지 축 — 정적 풀엔 안 들어가지만 빌드 성립을 좌우한다
+    "LifeLeechGainRate",
+    "LifeRegenRecovery",
+    "EnergyShieldRegenRecovery",
+    # 자원 축 — 예약·시전 지속성
+    "Spirit",
+    "SpiritUnreserved",
+    "ManaRegenRecovery",
+    "ManaCost",
+    # 그 밖에 PoB가 이미 내주는 것들
+    "EffectiveMovementSpeedMod",
+    "PhysicalDamageReduction",
+    "StunAvoidChance",
+)
 
 _ROOT_REASON = "뿌리 — 포인트를 안 쓰고 항상 켜져 있다(클래스 시작·전직 시작·기본 할당)"
 

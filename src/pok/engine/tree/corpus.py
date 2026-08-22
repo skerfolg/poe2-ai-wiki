@@ -456,6 +456,50 @@ _REQUIRED_MIN_CI_LOW = 80.0
 
 # 「빼도 안 아프다」의 문턱(손실률 %). 해석 층의 몫이라 인자로도 노출한다.
 _HABIT_MAX_LOSS = 0.5
+
+# ⛔ **측정 밖 축 어휘 — habit 판정을 봉인하는 유일한 장치** (사용자 지적 2026-08-20).
+#
+# 재는 축은 `CombinedDPS`·`Life`(최대치)·`TotalEHP`(정적 풀) 셋뿐이다. 유지(흡수·
+# 재생·회복)·자원 비용·유틸은 **어느 축에도 안 잡힌다.** 그런데 옛 코드는 「세 축이
+# 안 움직임」을 **「가치 없음」으로 뒤집어** habit 도장을 찍었다 — 침묵보다 나쁘다.
+#
+# 실측 사고: `Vitality Siphon`("20% of Spell Damage Leeched as Life", 채택 67%)이
+# habit으로 찍혀 「갈아탈 예산」 제안이 나갔다. 블러드 메이지는 `Sanguimancy`로
+# **생명력을 내고 시전**하므로 흡수를 빼면 유지가 무너진다 — 사용자가 잡았다.
+#
+# ⚠ **비대칭이 설계 근거다**: 잘못 봉인하면 「판정을 안 한다」로 끝나지만(싸다),
+#    잘못 habit을 찍으면 **빌드가 무너지는 제안**이 나간다(비싸다). 그래서 어휘는
+#    넓게 잡고, 걸리면 무조건 판정을 유보한다.
+_UNMEASURED_AXIS: tuple[tuple[str, str], ...] = (
+    (r"\bLeech", "흡수 — 유지 축이라 DPS·최대생명·정적 EHP 어디에도 안 잡힌다"),
+    (r"\bRegenerat", "재생 — 유지 축"),
+    (r"\bRecoup", "회수 — 유지 축"),
+    (r"\bRecover", "회복 — 유지 축"),
+    (r"\bReserv", "점유 — 자원 예산 축"),
+    (r"\bCost\b", "자원 비용 — 시전 유지 가능성"),
+    (r"\bMovement Speed", "이동 — 측정 밖"),
+    (r"\bCharges?\b", "충전 생성·유지 — 사건 축"),
+    (r"\bon Kill\b", "처치 시 획득 — 사건 축"),
+    (r"\bStun\b", "기절 — 측정 밖"),
+    (r"\bFlask", "플라스크 — 측정 밖"),
+    (r"\bPresence\b", "발현 범위 — 측정 밖"),
+)
+_UNMEASURED_RES = tuple((re.compile(p, re.I), why) for p, why in _UNMEASURED_AXIS)
+
+
+def unmeasured_axis(stats_en: Sequence[str]) -> str | None:
+    """이 노드의 값어치가 **재는 축 밖**에 있나 — 있으면 사유, 없으면 None.
+
+    ⛔ 여기 걸리면 habit 판정을 **하지 않는다**. 「안 아프다」와 「못 쟀다」를
+    구별하지 못하는 상태에서 전자로 단정하면 그게 철칙 4 위반이다.
+    """
+    for line in stats_en:
+        for pattern, why in _UNMEASURED_RES:
+            if pattern.search(line):
+                return f"{why} (문구: {line[:60]})"
+    return None
+
+
 # 「작동할 땐 아프다」의 문턱 — #88 실측에서 조건부 27종이 전부 2% 위였다.
 _CONDITIONAL_MIN_LOSS = 2.0
 
@@ -474,7 +518,7 @@ def _node_values(records: Mapping[str, Any]) -> dict[int, dict[str, Any]]:
 
 
 def _removal_summary(
-    value: dict[str, Any], *, habit_max_loss: float
+    value: dict[str, Any], *, habit_max_loss: float, stats_en: Sequence[str] = ()
 ) -> tuple[dict[str, Any], str | None]:
     """행에 붙일 요약 + 표시(habit/conditional/None).
 
@@ -509,10 +553,15 @@ def _removal_summary(
         else:
             verdicts.append("habit")
     summary = {"n": int((value.get("sample") or {}).get("n") or 0), "axes": axes}
+    # ⛔ **측정 밖 축이면 판정 자체를 봉인한다** — 「세 축이 안 움직임」을 「가치
+    #    없음」으로 뒤집는 것이 이 도구가 낸 가장 위험한 오류였다(Vitality Siphon).
+    blind = unmeasured_axis(stats_en)
+    if blind:
+        summary["unmeasured_axis"] = blind
     if not axes:
         return summary, None  # 판정할 축이 없다 — 표시 없음이지 「습관 아님」이 아니다
     if all(v == "habit" for v in verdicts):
-        return summary, "habit"
+        return summary, None if blind else "habit"
     if "hurts" not in verdicts:
         return summary, "conditional"
     return summary, None
@@ -620,7 +669,12 @@ def suggest_anchors(
                     # 측정이 없는 것과 안 아픈 것은 다르다 — 비워 두면 0으로 읽힌다
                     row["removal"] = None
                     continue
-                summary, mark = _removal_summary(value, habit_max_loss=_HABIT_MAX_LOSS)
+                node = graph.nodes.get(row["node"])
+                summary, mark = _removal_summary(
+                    value,
+                    habit_max_loss=_HABIT_MAX_LOSS,
+                    stats_en=node.stats_en if node else (),
+                )
                 row["removal"] = summary
                 if mark:
                     row["removal_mark"] = mark
@@ -636,7 +690,9 @@ def suggest_anchors(
                     "⚠ **required인데 어느 빌드에서도 빼서 안 아팠다** — 전원이 찍지만 "
                     "값은 실측되지 않는 「메타 습관」 후보다(#62). 앵커에서 빼는 판단은 "
                     "호출자 몫이지만, 여기 있는 포인트는 갈아탈 수 있는 예산일 수 있다. "
-                    "⚠ conditional 표시가 붙은 것은 다르다 — 쓰는 빌드에선 아프다(#88)"
+                    "⚠ conditional 표시가 붙은 것은 다르다 — 쓰는 빌드에선 아프다(#88). "
+                    "⛔ **여기 없다고 안전한 것도 아니다** — 흡수·재생·비용처럼 재는 축 "
+                    "밖에 값어치가 있는 노드는 판정 자체를 봉인했다(`unmeasured_axis`)"
                 )
         else:
             # ⛔ 조용한 0 금지 — 없으면 채택률만으로 고른 것임을 말한다
