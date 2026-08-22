@@ -50,6 +50,10 @@ _STATUS_VERBS = {
     "Hinder": "hindered",
     "Maim": "maimed",
     "Mark": "marked",
+    # 고정(Pin)은 0.5에서 축적형 상태다 — 패시브·접사·PoB config가 모두 있는데
+    # 어휘에 없어 통째로 안 보였다. 속박(Immobilised)의 공급 경로 넷 중 하나라서
+    # 빠지면 "속박은 공급이 마름"이라는 거짓 갭이 난다(실측 2026-08-21).
+    "Pin": "pinned",
 }
 _STATUS_ADJS = {
     "Shocked": "shocked",
@@ -68,7 +72,18 @@ _STATUS_ADJS = {
     "Maimed": "maimed",
     "Burning": "burning",
     "Marked": "marked",
+    "Pinned": "pinned",
 }
+
+# 부정문은 공급이 아니라 **반대**다. 패턴마다 `(?<!cannot )`을 붙이는 방식은
+# 붙인 패턴만 막는다 — 실제로 `inflict`에만 붙어 있어서 동사형 패턴이 "Cannot
+# Immobilise enemies"를 공급으로 셌다(실측 2026-08-21, #93과 같은 부류의 3번째 재발).
+# 그래서 패턴이 아니라 **매칭 지점 앞**을 보는 공통 관문으로 옮긴다.
+_NEGATION_BEFORE = re.compile(
+    r"\b(?:cannot|can't|never|no longer|do(?:es)? not|don't|doesn't|"
+    r"unaffected by|immune to|prevent(?:s|ed)? from)\b[^.;]{0,24}$",
+    re.I,
+)
 
 _CHARGES = {
     "Power": "self.charge.power",
@@ -163,6 +178,17 @@ _DEMAND_PATTERNS: list[tuple[re.Pattern[str], str, str | None]] = [
     # 이 형태를 안 잡아 "저주 대상에 출혈 악화"(피 가시)가 **요구**로 안 읽혔고,
     # config 감사가 그 노드를 저주 **공급원**으로 오판했다(2026-08-06).
     (re.compile(r"\bon\s+(?P<v>\w+)\s+targets?\b", re.I), "enemy.status", "v"),
+    # "Enemies are Intimidated for 4 seconds when you Immobilise them" — **동사형**
+    # 조건절이다. 위의 요구 패턴은 전부 과거분사(상태형)만 봐서 이 형태를 놓쳤고,
+    # 그 결과 속박 페이오프가 실제보다 적게 세어졌다(실측 2026-08-21).
+    (
+        re.compile(
+            rf"\bwhen (?:you|they)\s+(?P<v>{'|'.join(_STATUS_VERBS)})\b",
+            re.I,
+        ),
+        "enemy.status",
+        "v",
+    ),
     (re.compile(r"\b(?:while|when)(?:\s+you are)?\s+on Low Life\b", re.I), "self.life.low", None),
     (re.compile(r"\b(?:while|when)(?:\s+you are)?\s+on Full Life\b", re.I), "self.life.full", None),
     (re.compile(r"\bwhile Dual Wielding\b", re.I), "gear.dual-wielding", None),
@@ -317,7 +343,7 @@ SUPPLIABLE_SUBJECTS: frozenset[str] = frozenset(
 )
 
 
-def _canon_status(word: str) -> str | None:
+def canon_status(word: str) -> str | None:
     """공급 동사형·요구 형용사형을 vocab 값으로 정규화. 어휘 밖이면 버린다."""
     w = word.strip().title()
     return _STATUS_ADJS.get(w) or _STATUS_VERBS.get(w)
@@ -347,9 +373,11 @@ def extract_predicates(texts: list[str], subjects: dict[str, Any]) -> tuple[Pred
         for patterns, direction in ((_DEMAND_PATTERNS, "demand"), (_SUPPLY_PATTERNS, "supply")):
             for pattern, subject, group in patterns:
                 for m in pattern.finditer(text):
+                    if direction == "supply" and _NEGATION_BEFORE.search(text[: m.start()]):
+                        continue  # "Cannot Immobilise enemies"는 공급이 아니다
                     value: str | None = None
                     if group:
-                        value = _canon_status(m.group(group))
+                        value = canon_status(m.group(group))
                         if value is None:
                             continue  # 어휘 밖 단어 — 거짓 양성으로 보고 버린다
                     spec = subjects.get(subject)

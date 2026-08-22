@@ -72,12 +72,13 @@ def test_new_axes_actually_match_canon(scan: StateScan) -> None:
 
 
 def test_both_sources_contribute(scan: StateScan) -> None:
-    """어느 하나만 쓰면 그래프가 조각난다 — 세 출처가 모두 엣지를 내야 한다.
+    """어느 하나만 쓰면 그래프가 조각난다 — 네 출처가 모두 엣지를 내야 한다.
 
-    `type`(구조화 토큰) · `text`(상태이상 술어) · `object`(월드 객체, #95).
+    `type`(구조화 토큰) · `text`(상태이상 술어) · `object`(월드 객체, #95) ·
+    `umbrella`(상위 상태 전파, #96).
     """
     sources = {e.source for e in scan.edges}
-    assert sources == {"type", "text", "object"}
+    assert sources == {"type", "text", "object", "umbrella"}
 
 
 def test_소비_판정은_술어_텍스트에서_나오지_않는다(scan: StateScan) -> None:
@@ -208,7 +209,7 @@ def test_객체_축이_상태_그래프와_한_그래프에_있다(scan: StateSc
     객체는 생산/소비 의미론이 상태와 같으므로 같은 스캔에 얹는다.
     """
     sources = {e.source for e in scan.edges}
-    assert sources == {"type", "text", "object"}
+    assert {"type", "text", "object"} <= sources
     axes = {a.axis for a in scan.axes}
     assert {"corpse", "ice_crystal", "shockwave"} <= axes  # 객체
     assert {"freeze", "charge", "infusion"} <= axes  # 상태·자원
@@ -221,3 +222,67 @@ def test_객체가_낀_전이가_실제로_나온다(store: Store) -> None:
     crossing = {(t.from_axis, t.to_axis) for t in transitions if obj & {t.from_axis, t.to_axis}}
     assert len(crossing) >= 10, sorted(crossing)
     assert ("corpse", "minion") in crossing  # 시체 → 소환수 (좀비 소환 등)
+
+
+# ── 우산 상태 (#96) ─────────────────────────────────────────────────────
+
+
+def test_우산_관계는_정본에서_유도된다(store: Store) -> None:
+    """「A는 B로도 친다」를 **손으로 적지 않는다** — 정본 Mechanic 문구에서 읽는다.
+
+    사용자 지적 2026-08-20: "새로운 규칙을 찾을 때마다 수동으로 추가하라고 할 수도
+    없고말야. 서비스를 운영한다고 생각하면 이런 구조로는 서비스 못하잖아."
+
+    정본은 세 가지 표현형으로 말한다 — 셋 다 읽어야 경로가 안 빠진다:
+      ① "Pinned targets count as Immobilised."
+      ② "… due to being Frozen, Pinned, Heavy Stunned, or Electrocuted."
+      ③ "Usually this occurs because the enemy is Ignited."
+    """
+    from pok.kb.graph.mechanism import umbrella_relations
+
+    pairs = {(r.source_axis, r.target_axis) for r in umbrella_relations(store)}
+    # 속박은 네 경로 **전부** 있어야 한다 — 하나라도 빠지면 공급이 실제보다 적게 세어진다.
+    assert {"freeze", "pin", "stun", "electrocute"} == {s for s, t in pairs if t == "immobilise"}
+    assert ("ignite", "burning") in pairs
+    for relation in umbrella_relations(store):
+        assert relation.evidence, "근거 문구 없이는 사람이 판정할 수 없다(AD-8)"
+
+
+def test_우산_전파가_거짓_공급갭을_지운다(scan: StateScan) -> None:
+    """속박·연소는 **자기 이름의 공급 문구가 거의 없다** — 하위 상태가 만들어 준다.
+
+    실측 2026-08-21: 전파 전 속박은 생산 3(그나마 1건은 부정문 오독)·페이오프 18이라
+    「공급이 마름」으로 판정됐다. 실제로는 동결·기절·전기충격·고정이 전부 속박을
+    만든다 — 도구가 그걸 몰라 **없는 공백을 보고했다**.
+    """
+    by_axis = {a.axis: a for a in scan.axes}
+    assert by_axis["immobilise"].producers >= 20
+    assert by_axis["burning"].producers >= 3
+    assert "immobilise" not in scan.unproduced_axes
+    assert "burning" not in scan.unproduced_axes
+
+
+def test_우산_엣지는_근거_두_줄을_단다(scan: StateScan) -> None:
+    """담체가 하위를 만든다는 문구 + 하위가 상위로 친다는 정본 규칙, 둘 다 필요하다."""
+    derived = [e for e in scan.edges if e.source == "umbrella"]
+    assert derived
+    for edge in derived:
+        assert "⟶" in edge.evidence, edge.evidence
+        assert edge.kind == "produce"  # 우산은 생산만 전파한다(소비는 상위≠하위)
+
+
+def test_부정문은_우산_관계가_아니다() -> None:
+    """ "You do not count as your own Ally"·"Slam attacks do not count as Strikes"."""
+    from pok.kb.graph.mechanism import _UMB_NEGATION
+
+    assert _UMB_NEGATION.search("Slam attacks do not count as ")
+    assert not _UMB_NEGATION.search("Pinned targets count as ")
+
+
+def test_목록_마지막_항목이_조용히_빠지지_않는다() -> None:
+    """ "A, B, C, **or** D"의 D는 분리 잔여물 `or `를 달고 나온다 — 안 털면 사라진다."""
+    from pok.kb.graph.mechanism import _axis_of_state_name
+
+    assert _axis_of_state_name("or Electrocuted") == "electrocute"
+    assert _axis_of_state_name("Heavy Stunned") == "stun"  # 강도는 같은 축으로 접는다
+    assert _axis_of_state_name("Pinned") == "pin"

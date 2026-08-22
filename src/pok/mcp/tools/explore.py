@@ -343,3 +343,58 @@ def find_payloads(carrier: str, limit: int = 200) -> dict[str, Any]:
     from pok.engine.hosting import find_payloads as _payloads
 
     return _payloads(carrier, limit=limit)
+
+
+def scan_scalers(
+    axis: str | None = None,
+    kind: str | None = None,
+    attribution: str | None = None,
+    limit: int = 120,
+) -> dict[str, Any]:
+    """「X당 Y」 스케일러를 **크기 판정 가능한 형태로 분해**한다 (#102).
+
+    `scan_supply_edges`가 「어디로 흘러가나」(연결)를 본다면, 이쪽은 **「얼마나 큰가」**를
+    본다. 문구를 그냥 나열하면 담체 개수를 배율 크기로 착각하게 된다 — 실제로 그 오독이
+    2026-08-22에 **세 번 연속** 났다(per Power 17종 · 위세 담체 93종 · 워크라이 카운트).
+
+    각 스케일러를 네 축으로 가른다:
+
+    - `payoff_kind` — `more`(곱연산·희석 없음) / `increased`(가산·**희석**) /
+      `added` / `counter`(횟수) / `resource`(게이지) / `sustain` /
+      `reach`(**반경은 페이오프가 아니다**) / `other`
+    - `cap` — 상한. 있으면 그 위 투자는 **0**이다(워크라이 50 · 산의 가르침 30).
+    - `attribution` — `player`(「네가 명중/처치」)면 **프록시에서 발동하지 않는다**
+      (공허의 형상 분신·토템·소환수). 인게임 실측 2026-08-22 확인.
+    - `obtainable` — id에 `unused`거나 `carrier_unknown`이면 **아예 제외**하고
+      사유별로 세어 `excluded`에 보고한다(조용한 절단 금지).
+
+    axis: 세는 대상만 거르기 (예: "Power", "Rage", "Combo"). 대소문자 무시.
+    kind / attribution: 위 값으로 거르기.
+
+    ⚠ `counter`·`resource`는 **딜이 아니다** — 그 게이지가 무엇에 쓰이는지
+    한 단계 더 봐야 한다. 반환값의 `warnings`가 그때그때 알려 준다.
+    """
+    from pok.kb.graph.scalers import scan_scalers as _scan
+
+    scan = _scan(kb_store.load(), input_axis=axis)
+    rows = [
+        s
+        for s in scan.scalers
+        if (kind is None or s.payoff_kind == kind)
+        and (attribution is None or s.attribution == attribution)
+    ]
+    # 곱연산이 먼저 보이도록 — 크기 순서가 곧 판정 순서다.
+    order = {
+        k: i
+        for i, k in enumerate(
+            ["more", "added", "sustain", "increased", "counter", "resource", "reach", "other"]
+        )
+    }
+    rows.sort(key=lambda s: (order.get(s.payoff_kind, 99), s.carrier_name))
+    return {
+        "total_matched": len(rows),
+        "by_kind": [{"kind": k, "count": n} for k, n in scan.by_kind],
+        "excluded": [{"reason": r, "count": n} for r, n in scan.excluded],
+        "scalers": [dataclasses.asdict(s) for s in rows[:limit]],
+        "truncated": len(rows) > limit,
+    }

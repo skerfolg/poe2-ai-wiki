@@ -109,6 +109,40 @@ def test_유발_부정문은_공급이_아니다() -> None:
     assert _predicates("Deflected Hits cannot inflict Bleeding on you") == {}
 
 
+def test_부정_관문은_패턴마다가_아니라_공통이다() -> None:
+    """`(?<!cannot )`을 패턴에 붙이는 방식은 **붙인 패턴만** 막는다.
+
+    실제로 `inflict`에만 붙어 있어서 동사형 패턴이 "Cannot Immobilise enemies"를
+    공급으로 셌다(실측 2026-08-21). #93(부정문 오독)의 세 번째 재발이라 관문을
+    매칭 지점 앞을 보는 **공통 검사**로 옮겼다 — 새 패턴을 추가해도 자동으로 막힌다.
+    """
+    assert _predicates("Cannot Immobilise enemies") == {}
+    assert _predicates("Hits do not Freeze Enemies") == {}
+    # 부정이 아닌 것까지 죽이면 안 된다
+    assert _predicates("Immobilise enemies at 50% buildup instead of 100%") == {
+        "enemy.status=immobilised": "supply"
+    }
+
+
+def test_동사형_조건절도_요구다() -> None:
+    """ "Enemies are Intimidated for 4 seconds **when you Immobilise them**".
+
+    기존 요구 패턴은 전부 과거분사(상태형)만 봐서 이 형태를 놓쳤고, 그 결과 속박
+    페이오프가 실제보다 적게 세어졌다(실측 2026-08-21).
+    """
+    assert _predicates("Enemies are Intimidated for 4 seconds when you Immobilise them") == {
+        "enemy.status=immobilised": "demand"
+    }
+
+
+def test_고정은_어휘에_있다() -> None:
+    """고정(Pin)은 속박을 만드는 네 경로 중 하나 — 어휘 밖이면 통째로 안 보인다."""
+    assert _predicates("25% increased Pin Buildup") == {}  # 축적 스케일은 공급이 아니다
+    assert _predicates("Pin Enemies which are Primed for Pinning") == {
+        "enemy.status=pinned": "supply"
+    }
+
+
 # ── 잡지 말아야 할 것 ────────────────────────────────────────────────
 
 
