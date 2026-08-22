@@ -16,8 +16,26 @@ from __future__ import annotations
 
 import dataclasses
 
+import pytest
+
 from pok.pob.buildxml import spec_from_dict, to_xml
 from pok.pob.daemon import PobDaemon
+from pok.pob.versions import find_luajit, resolve_snapshot
+
+
+def _env_ready() -> bool:
+    try:
+        find_luajit()
+        resolve_snapshot()
+    except (FileNotFoundError, RuntimeError):
+        return False
+    return True
+
+
+# ⛔ CI에는 PoB 스냅샷이 없다 — 다른 통합 시험과 **같은 규약**을 쓴다.
+#    이걸 안 붙여 CI가 깨졌다(2026-08-22). XML 규약 시험은 PoB가 필요 없지만
+#    파일 단위로 건너뛰므로, 그쪽은 단위 시험이 이미 잠근다.
+pytestmark = pytest.mark.skipif(not _env_ready(), reason="LuaJIT 또는 external/pob 스냅샷 없음")
 
 _FLASK = "\n".join(
     [
