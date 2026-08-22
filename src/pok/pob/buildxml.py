@@ -689,8 +689,15 @@ def to_xml(spec: BuildSpec) -> str:
         f'    <Item id="{i}">{escape(strip_probe_tags(_with_substitutes(item)))}</Item>'
         for i, item in enumerate(all_items, start=1)
     )
+    # ⛔ **`active="true"`를 반드시 쓴다** (BACKLOG #98). PoB는
+    #    `active = child.attrib.active == "true"`로 읽으므로(`Classes/ItemsTab.lua:1159`)
+    #    속성이 없으면 **전부 비활성**이고, 비활성 플라스크·호신부는
+    #    `env.flasks`/`env.charms`에 안 들어간다(`Modules/CalcSetup.lua:1095-1110`).
+    #    실측 2026-08-20: 기준 빌드에서 플라스크를 통째로 빼도 DPS·Life·EHP가 전부
+    #    Δ 0.0이었다 — 캠페인 2,689벌 전량이 플라스크 없이 측정된 셈이다.
+    #    장착 슬롯은 **항상 활성**이다(비활성 장비를 표현할 자리가 우리 스펙엔 없다).
     slot_els = "\n".join(
-        f'      <Slot name={quoteattr(item.slot)} itemId="{i}"/>'
+        f'      <Slot name={quoteattr(item.slot)} itemId="{i}" active="true"/>'
         for i, item in enumerate(spec.items, start=1)
     )
     items_xml = (
