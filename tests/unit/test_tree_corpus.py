@@ -747,3 +747,16 @@ def test_면역과_제약을_가른다() -> None:
 
     assert classify_supply(["Cannot be Light Stunned", "Cannot Dodge Roll or Sprint"]) == "면역"
     assert classify_supply(["20% increased Movement Speed"]) == "이동"
+
+
+def test_큐가_전_축을_본다() -> None:
+    """⛔ DPS·EHP만 보면 축 확장(#95)의 이득이 큐에 반영되지 않는다.
+
+    실측 2026-08-22: 축을 13개로 넓혀 `Vitality Siphon`이 `LifeLeechGainRate`
+    55벌 전부 100% 손실로 잡혔는데도, 필터가 DPS·EHP만 봐서 「측정 0」 큐에 그대로
+    남았다 — 6시간 재측정의 이득이 큐에서 증발할 뻔했다. 전 축 반영으로 59 → 37건.
+    """
+    from pok.engine.node_necessity import build_queue
+
+    ids = {c.node_id for c in build_queue(min_adoption=20.0)}
+    assert 23416 not in ids, "흡수 축에서 값이 난 노드가 「측정 0」 큐에 남았다"

@@ -33,9 +33,10 @@ flowchart TD
   REMEAS[S9 #94 수정<br/>done]
   REAGG[S10 재측정·재집계·재승격<br/>done]
   RESUME[S11 에이전트 판정 14건<br/>done]
-  AXES[S12 축 확장 재측정 #95<br/>active]
+  AXES[S12 축 확장 재측정·재승격<br/>done]
+  NEXT2[S13 남은 37건 판정 배치<br/>active]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
-  JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES
+  JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
 ```
 
 ## Baseline Structure
@@ -59,11 +60,12 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S9 | #94 수정 — 오염 포함본 병기(`with_tainted`) | done |
 | S10 | 재측정(2,689벌) → 재집계 → NodeValue 재승격 | done |
 | S11 | 에이전트 판정 14건 — 큐 결함 3건·도구 결함 2건 발견 | done |
-| S12 | #95 측정 축 13개로 재측정 → 재집계 | active |
+| S12 | #95 축 13개 재측정 → 재집계 → 재승격 · 큐 필터 전 축 반영 | done |
+| S13 | 남은 판정 큐 37건 에이전트 배치 | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **확장한 13개 축으로 캠페인을 재측정한다 (S12, #95).**
+The only next executable step is: **남은 판정 큐 37건을 에이전트 배치로 판정한다 (S13).**
 
 ## Deferred Candidates
 
