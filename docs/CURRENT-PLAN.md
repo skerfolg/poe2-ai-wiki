@@ -36,8 +36,8 @@ flowchart TD
   AXES[S12 축 확장 재측정·재승격<br/>done]
   NEXT2[S13 남은 37건 판정 배치<br/>done]
   DEF[S14 판정이 드러낸 측정 결함 등재<br/>done]
-  FIXDELTA[S15 #109 결측 키를 0으로 취급 수정<br/>active]
-  WIDEN[S16 #108 축 열거 제거 + 재측정<br/>blocked: 범위 판정 대기]
+  FIXDELTA[S15 #109 결측 키를 0으로 취급 수정<br/>done]
+  WIDEN[S16 #108 축 열거 제거 + 재측정<br/>active: 범위 판정 대기]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN
@@ -67,16 +67,16 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S12 | #100 축 13개 재측정 → 재집계 → 재승격 · 큐 필터 전 축 반영 | done |
 | S13 | 남은 판정 큐 37건 에이전트 배치 — 41건 저장, 「가치 없음」 0건 | done |
 | S14 | 판정이 드러낸 측정 결함 등재 (#108~#111) | done |
-| S15 | #109 수정 — 결측 키를 0.0으로 취급하는 가짜 델타 | active |
-| S16 | #108 — 축 열거 제거 + 재측정 (범위는 사용자 판정 대기) | blocked |
+| S15 | #109 수정 — 결측 키를 0.0으로 취급하는 가짜 델타 | done |
+| S16 | #108 — 축 열거 제거 + 재측정 (범위는 사용자 판정 대기) | active |
 
 ## Canonical Next Step
 
-The only next executable step is: **#109를 고친다 — 결측 키를 0.0으로 대체해 가짜 델타를
-만드는 것 (S15).**
+The only next executable step is: **#108 — 축 열거를 없앤다 (S16).** 선행 조건이던
+#109는 닫혔다.
 
-⛔ **순서가 뒤바뀌면 안 된다**: #108(축 확장)을 먼저 하면 가짜 델타가 대량 생산된다.
-13축에서 안 드러난 이유는 그 13개가 거의 항상 유한이라서다.
+⛔ **재측정 범위는 사용자 판정 대기**다: 전량(2,689벌 · 수시간) vs 판정 큐에 걸린
+노드만(훨씬 쌈). 어느 쪽이든 축 확장 코드가 먼저다.
 
 ## Deferred Candidates
 

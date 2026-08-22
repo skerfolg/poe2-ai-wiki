@@ -465,3 +465,22 @@ def test_반경을_못_읽으면_안_살리고_고아로_남긴다() -> None:
     got = removable_nodes(_witch(_NO_RADIUS, _RING_CHAIN), _graph)
     assert got.no_path_zone == ()
     assert set(_RING_CHAIN) <= set(got.orphans)
+
+
+def test_한쪽에만_있는_축은_델타가_아니라_결측이다() -> None:
+    """#109 — `get(k, 0.0)`으로 메우면 **재지 않은 값이 델타가 된다**.
+
+    데몬이 비유한 값을 버리므로 키가 한쪽 실행에만 있는 일이 실제로 생긴다.
+    실측(2026-08-22): `enemySkillTime`이 기준선에서 ∞라 사라지고 제거본에만 70.0이
+    남아 `+70.0` — **노드를 빼서 좋아졌다**는 부호 반전이 나왔다.
+    """
+    from pok.engine.tree.counterfactual import _deltas
+
+    deltas, missing = _deltas(
+        {"CombinedDPS": 100.0},
+        {"CombinedDPS": 90.0, "enemySkillTime": 70.0},
+        ("CombinedDPS", "enemySkillTime", "TotalEHP"),
+    )
+    assert deltas == {"CombinedDPS": -10.0}, "양쪽에 있는 축만 델타가 된다"
+    assert "enemySkillTime" not in deltas, "기준에 없던 축이 +70.0으로 둔갑하면 안 된다"
+    assert missing == ("enemySkillTime", "TotalEHP"), "빠진 축은 조용히 사라지지 않는다"

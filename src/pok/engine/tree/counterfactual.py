@@ -367,6 +367,33 @@ def _head(graph: TreeGraph, node_id: int) -> dict[str, Any]:
 # ────────────────────── 제거 측정 ──────────────────────
 
 
+def _deltas(
+    base_stats: dict[str, float], new_stats: dict[str, float], stats: Sequence[str]
+) -> tuple[dict[str, float], tuple[str, ...]]:
+    """양쪽에 **다 있는** 축만 뺀다. 한쪽만 있으면 델타가 아니라 **결측**이다 (#109).
+
+    ⛔ `get(k, 0.0)`으로 메우면 **재지 않은 값이 델타가 된다**. 데몬은 비유한
+    값(inf·nan)을 버리므로(`scripts/pob_daemon.lua`) 키가 한쪽 실행에만 있는 일이
+    실제로 생긴다 — PoB가 적 행동속도를 0으로 클램프하면 `enemySkillTime`이 ∞가 되고,
+    기준선에서만 사라진다. 실측(2026-08-22): 기준 결측 · 제거본 70.0 →
+    `70.0 - 0 = +70.0`. **노드를 빼서 좋아졌다**고 읽히는 부호 반전이었다.
+
+    13축에서는 안 드러났다 — 그 13개가 거의 항상 유한이라서다. 축을 넓히는 순간
+    대량으로 터진다. 그래서 축 확장(#108)보다 이 고침이 먼저다.
+
+    빠진 축은 조용히 사라지지 않고 두 번째 반환값으로 나온다(BACKLOG 형태 ① —
+    선언이 없으면 조용한 0이 된다).
+    """
+    out: dict[str, float] = {}
+    missing: list[str] = []
+    for k in stats:
+        if k in base_stats and k in new_stats:
+            out[k] = round(new_stats[k] - base_stats[k], 4)
+        else:
+            missing.append(k)
+    return out, tuple(missing)
+
+
 @dataclass(frozen=True)
 class NodeRemoval:
     """노드 하나를 뺐을 때의 실측.
@@ -383,6 +410,8 @@ class NodeRemoval:
     points: int  # 회수 포인트 (제거로 되돌려받는 양). 실패 표본은 0
     pool: str  # 그 포인트가 어느 예산인가 — passive|ascendancy (#68)
     deltas: dict[str, float]  # stat → (변경안 - 기준). **음수 = 나빠졌다** = negative 표본
+    # 한쪽 실행에만 있던 축 — 0이 아니라 **안 잰 것**이다 (#109)
+    unmeasured: tuple[str, ...] = ()
     pruned: tuple[int, ...] = ()
     failed: str = ""  # 측정 실패 사유 (비어 있으면 유효)
 
@@ -437,16 +466,14 @@ def evaluate_removals(
             )
             pruned: tuple[int, ...] = ()
             deltas: dict[str, float] = {}
+            unmeasured: tuple[str, ...] = ()
             if not failed:
                 result = m.measure(_drop(spec, nid))
                 pruned = result.pruned_nodes
                 if pruned:
                     failed = _pruned_reason(pruned, f"노드 {nid} 제거안")
                 else:
-                    deltas = {
-                        k: round(result.stats.get(k, 0.0) - base.stats.get(k, 0.0), 4)
-                        for k in stats
-                    }
+                    deltas, unmeasured = _deltas(base.stats, result.stats, stats)
             out.append(
                 NodeRemoval(
                     node_id=nid,
@@ -457,6 +484,7 @@ def evaluate_removals(
                     points=0 if failed else 1,
                     pool=_pool(graph, nid),
                     deltas=deltas,
+                    unmeasured=unmeasured,
                     pruned=pruned,
                     failed=failed,
                     **_head(graph, nid),
@@ -487,6 +515,8 @@ class SwapDelta:
     points: int  # 순증 포인트 = len(added) - len(removed). 음수면 포인트가 남는다
     pool: str
     deltas: dict[str, float]
+    # 한쪽 실행에만 있던 축 — 0이 아니라 **안 잰 것**이다 (#109)
+    unmeasured: tuple[str, ...] = ()
     pruned: tuple[int, ...] = ()
     failed: str = ""
 
@@ -552,6 +582,7 @@ def evaluate_swaps(
             added: tuple[int, ...] = ()
             pruned: tuple[int, ...] = ()
             deltas: dict[str, float] = {}
+            unmeasured: tuple[str, ...] = ()
             failed = base_failed or _swap_problem(
                 spec, graph, candidates, reduced, out_node, in_node
             )
@@ -572,10 +603,7 @@ def evaluate_swaps(
                     if pruned:
                         failed = _pruned_reason(pruned, f"{out_node}→{in_node} 교체안")
                     else:
-                        deltas = {
-                            k: round(result.stats.get(k, 0.0) - base.stats.get(k, 0.0), 4)
-                            for k in stats
-                        }
+                        deltas, unmeasured = _deltas(base.stats, result.stats, stats)
             # 실패 표본에는 아무것도 적용되지 않았다 — `removed`·`points`를 채우면
             # 재지 못한 교체가 「1개 빼고 0개 넣었다」로 집계된다(`evaluate_removals` 동일).
             removed = () if failed else (out_node,)
@@ -590,6 +618,7 @@ def evaluate_swaps(
                     points=len(added) - len(removed),
                     pool=_pool(graph, out_node),
                     deltas=deltas,
+                    unmeasured=unmeasured,
                     pruned=pruned,
                     failed=failed,
                 )

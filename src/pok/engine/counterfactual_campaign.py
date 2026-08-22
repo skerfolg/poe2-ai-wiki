@@ -234,6 +234,9 @@ def measure_build(
                 "pool": r.pool,
                 # 값은 **잰 것만** 싣는다 — pruned가 섰으면 비우고 사유를 남긴다
                 "deltas": dict(r.deltas) if (r.measured and not r.pruned) else {},
+                # 한쪽 실행에만 있던 축 — 0으로 메우지 않고 **왜 없는지 보이게** 남긴다.
+                # 비어 있지 않으면 그 축은 이 관측에서 「0」이 아니라 「모름」이다 (#109)
+                "unmeasured": list(r.unmeasured),
                 "pruned": list(r.pruned),
                 "failed": r.failed,
             }
