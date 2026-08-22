@@ -293,3 +293,23 @@ def test_오염이_없으면_잔존율_100() -> None:
         refs={},
     )
     assert rec["data"]["axes"]["CombinedDPS"]["with_tainted"]["kept_pct"] == 100.0
+
+
+def test_안_실린_축은_안_쟀다가_아니라_재서_0이다() -> None:
+    """#108의 함정 — 분모를 `deltas`에서 뽑으면 **작동률이 정의상 100%**가 된다.
+
+    관측에 움직인 축만 싣게 바꾼 뒤 집계기가 `deltas`를 훑으면, 안 움직인 축은 아예
+    세어지지 않아 「채택되는데 안 움직인다」는 신호가 통째로 사라진다 — 판정 큐를
+    만드는 근거가 바로 그 신호다.
+    """
+    from pok.engine.counterfactual_aggregate import _measured_axes
+
+    base = {"CombinedDPS": 100.0, "Life": 50.0, "EHPSurvivalTime": 20.0}
+    row = {"deltas": {"Life": -5.0}, "unmeasured": ["EHPSurvivalTime"]}
+
+    axes = _measured_axes(base, row)
+    assert axes == ["CombinedDPS", "Life"], "결측 축(#109)은 분모에서 빠진다"
+    assert "CombinedDPS" in axes, "안 실린 축도 **잰 축**이므로 0으로 세어야 한다"
+
+    # 결측 표기가 없던 예전 데이터(13축 시절)는 기준선 그대로가 잰 축이다
+    assert _measured_axes(base, {"deltas": {"Life": -5.0}}) == list(base)
