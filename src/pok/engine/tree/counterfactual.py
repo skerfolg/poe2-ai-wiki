@@ -440,6 +440,7 @@ def evaluate_removals(
     *,
     stats: tuple[str, ...] = ALL_STATS,
     daemon: PobDaemon | None = None,
+    on_drop: Callable[[BuildSpec, int], BuildSpec] | None = None,
 ) -> list[NodeRemoval]:
     """`targets`를 하나씩 빼서 각각의 델타를 실측한다 — 데몬 1개로 N회.
 
@@ -477,7 +478,13 @@ def evaluate_removals(
             deltas: dict[str, float] = {}
             unmeasured: tuple[str, ...] = ()
             if not failed:
-                result = m.measure(_drop(spec, nid))
+                # ⚠ **노드가 만들던 config도 함께 빼야 하는 경우가 있다**(#111).
+                #    PoB의 `BuildModList`는 config를 `ifFlag`와 무관하게 적용하므로
+                #    Tailwind 승수를 켜 둔 채 `Gathering Winds`를 빼면 승수가 남아
+                #    델타가 **영원히 0**이다. 무엇이 그런 노드인지는 **게임 지식**이라
+                #    엔진이 들지 않는다 — 호출자가 후크로 넣는다(철칙 3).
+                variant = _drop(spec, nid)
+                result = m.measure(on_drop(variant, nid) if on_drop else variant)
                 pruned = result.pruned_nodes
                 if pruned:
                     failed = _pruned_reason(pruned, f"노드 {nid} 제거안")

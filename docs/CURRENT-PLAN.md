@@ -38,13 +38,16 @@ flowchart TD
   DEF[S14 판정이 드러낸 측정 결함 등재<br/>done]
   FIXDELTA[S15 #109 결측 키를 0으로 취급 수정<br/>done]
   WIDEN[S16 #108 축 열거 제거<br/>done]
-  STEM[S19 #117 게이트 어간<br/>done]
-  REMEAS2[S17 재측정 — 범위 판정 대기<br/>blocked]
-  CFG[S18 #104 config 프로파일 회수<br/>active]
+  NARROW[S17 좁은 재측정 — 게이트<br/>done]
+  CFG[S18 #104 config 프로파일 회수<br/>done]
+  CPL[S19 #111 상태 프로파일 + 스택 결합<br/>done]
+  FULL[S20 전량 재측정<br/>next]
+  STEM[S21 #117 게이트 어간<br/>done]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
-  NEXT2 --> DEF --> FIXDELTA --> WIDEN --> REMEAS2
-  WIDEN --> CFG
+  NEXT2 --> DEF --> FIXDELTA --> WIDEN --> NARROW --> CPL --> FULL
+  WIDEN --> CFG --> CPL
+  WIDEN --> STEM
 ```
 
 ## Baseline Structure
@@ -73,17 +76,21 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S14 | 판정이 드러낸 측정 결함 등재 (#108~#111) | done |
 | S15 | #109 수정 — 결측 키를 0.0으로 취급하는 가짜 델타 | done |
 | S16 | #108 — 축 열거 제거. 하위 호환은 정본 샤드 바이트 동일로 확인 | done |
-| S17 | 재측정 — **범위는 사용자 판정 대기**(전량 2,689벌 vs 판정 큐 노드만) | blocked |
-| S18 | #104 config 프로파일을 main 직접 커밋에서 브랜치로 회수 | active |
-| S19 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) | done |
+| S17 | 좁은 재측정(1,489벌·60분) — 게이트. 41종 중 **16종이 값을 냈다** | done |
+| S18 | #104 config 프로파일을 main 직접 커밋에서 브랜치로 회수 (PR #96) | done |
+| S19 | #111 — 상태 프로파일 3종 + 스택 결합. 4건 전수 검증 | done |
+| S20 | 전량 재측정 — 축 전량 + config 결합으로 2,689벌 | next |
+| S21 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) (PR #98) | done |
 
 ## Canonical Next Step
 
-The only next executable step is: **재측정 범위를 판정받는다 (S17).**
+The only next executable step is: **전량 재측정 (S20).**
 
-코드는 닫혔다(#109·#108). 남은 것은 **얼마나 다시 재느냐**이고 그건 판정이다:
-전량(2,689벌 · 수시간)인가, 판정 큐에 걸린 노드만(훨씬 쌈)인가. 그리고 #110 —
-PoB가 꺼 놓은 트리거·미라주를 되살릴 것인가(⚠ 상류가 왜 껐는지 모른다).
+게이트를 통과했다 — 좁은 재측정에서 41종 중 16종이 값을 냈고, 에이전트가 예측한 축에서
+정확히 나왔다. #111까지 들어가 측정 조건이 확정됐으므로 이제 한 번만 돌리면 된다.
+
+남은 판정 하나: **#110** — PoB가 꺼 놓은 트리거·미라주를 되살릴 것인가
+(⚠ 상류가 왜 껐는지 모른다 — 되살려 틀린 값이 나오면 「측정 못 함」보다 나쁘다).
 
 ## Deferred Candidates
 
@@ -150,6 +157,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | Canonical Next Step이 첫 미종결 항목(S7)과 다름 | S7은 **측정 결함 발견으로 중단**된 것이고 그 결함 연쇄(#98~#101·#108~#111)를 푸는 것이 S8~S16이다. S7은 결함이 닫힌 뒤 재개한다 | 2026-08-22 |
 | config 프로파일 기본은 **빌드 원본 그대로** | #104 — 상태이상은 빌드 메커니즘에 달린 판단이라 엔진이 일괄로 못 켠다(일괄 시 +97.6% 부풀림). 액트 보상은 이미 복원본에 실려 온다 | 2026-08-22 |
 | Integration branch override — 작업 브랜치 `feat/104-config-profiles` | #104 작업이 **`main`에 직접 커밋돼 있었다**(협업 규율 1 위반). 원격이 앞서가며 갈라져 로컬 main을 당길 수 없게 됐다 — 코드를 브랜치로 빼 `origin/main` 위에 다시 얹었다. 이 PR 한정 | 2026-08-23 |
+| 좁은 재측정을 전량 전의 **게이트**로 삼는다 | 41종 중 16종이 값을 냈고 예측한 축에서 나왔다 — 전량이 정당화됨. 안 나왔으면 수시간을 버릴 뻔했다 | 2026-08-23 |
+| 상태(config)와 스택(결합)을 갈라 다룬다 | #111 — 상태는 상황이라 노드와 독립, 스택은 노드가 생산하므로 제거 시 0이 되어야 한다. 실측이 이 구분을 확인 | 2026-08-23 |
+| `#101`의 「조치 불가」 2건을 정정 | `Endless Munitions`·`Enduring Elixirs`는 DPS엔 안 닿지만 `ProjectileCount`·ES 재생에서 보인다 — DPS만 보고 닫았던 것 | 2026-08-23 |
+| Integration branch override — 작업 브랜치 `feat/111-config-coupling` | 레인명과 다름. #96 머지 후 `main` 위로 옮겼다. 이 PR 한정 | 2026-08-23 |
 | 냉기 주입 순환 컨셉 | **성립 가능 · 보류** — 수지·발동률 모두 흑자로 계산됨. 진행 전 해결 과제는 **쿨다운 병목 하나**(아래 §보류 컨셉 참조). 재개 조건: 쿨다운 회복 예산 100%+ 확보 경로 확인 | 2026-08-21 |
 | 자로크의 봉기 컨셉 | **보류** — 쿨다운 10초가 최대 병목. 회복 265%로 상쇄하려면 무기·목걸이까지 유니크 강제라 슬롯 손실이 큼. 재평가 조건: 쿨다운 회복이 **다른 축과 공유**되는 구성 발견 시(냉기 주입 순환이 그 사례) | 2026-08-20 |
 
