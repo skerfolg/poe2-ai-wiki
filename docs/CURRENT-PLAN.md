@@ -38,6 +38,7 @@ flowchart TD
   DEF[S14 판정이 드러낸 측정 결함 등재<br/>done]
   FIXDELTA[S15 #109 결측 키를 0으로 취급 수정<br/>done]
   WIDEN[S16 #108 축 열거 제거<br/>done]
+  STEM[S18 #117 게이트 어간<br/>done]
   REMEAS2[S17 재측정 — 범위 판정 대기<br/>blocked]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -71,6 +72,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S15 | #109 수정 — 결측 키를 0.0으로 취급하는 가짜 델타 | done |
 | S16 | #108 — 축 열거 제거. 하위 호환은 정본 샤드 바이트 동일로 확인 | done |
 | S17 | 재측정 — **범위는 사용자 판정 대기**(전량 2,689벌 vs 판정 큐 노드만) | blocked |
+| S18 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) | done |
 
 ## Canonical Next Step
 

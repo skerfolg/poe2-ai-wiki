@@ -163,8 +163,30 @@ def _is_demand_only(lines: Sequence[str], patterns: Sequence[re.Pattern[str]]) -
 
 def _stem_pattern(keyword: str) -> re.Pattern[str]:
     """어미 변화를 흡수한 매칭 — 'Aggravated' 설정이 'Aggravate Bleeding' 문구에
-    걸려야 한다. 접미 2자를 떼고 `\\w*`로 여는 방식(실측: 룬 문구가 동사형이다)."""
-    stem = keyword[:-2] if len(keyword) > 6 else keyword
+    걸려야 한다.
+
+    ⚠ config 이름은 **과거분사**인데(`conditionEnemyHeavyStunned`) 공급 문구는
+    대부분 **명사·원형**이다(*"cause a Heavy **Stun**"*). 접미 2자만 떼는 방식은
+    `Stunned` → `Stunn`을 만들어 **`Stun`을 못 잡았다** — 강력 기절을 공급하는 기재가
+    정본에 여럿 있는데(뼈 박살·공허의 집중·두개골 충격·충돌 충격파) 그 축의 게이트가
+    **통과 불가능**했다(실측 2026-08-23). `Cursed` → `Cursed`, `Maimed` → `Maimed`도
+    같은 이유로 원형을 놓쳤다.
+
+    그래서 `-ed`를 먼저 떼고 **중복 자음을 되돌린다**: `Stunned`→`Stunn`→`Stun` ·
+    `Shocked`→`Shock` · `Cursed`→`Curs` · `Aggravated`→`Aggravat`. `-ed`가 아닌
+    불규칙형(`Frozen`)은 종전 규칙을 그대로 쓴다.
+    """
+    stem = keyword
+    if len(stem) > 4 and stem.lower().endswith("ed"):
+        stem = stem[:-2]
+        if (
+            len(stem) > 3
+            and stem[-1].lower() == stem[-2].lower()
+            and stem[-1].lower() not in "aeiou"
+        ):
+            stem = stem[:-1]
+    elif len(stem) > 6:
+        stem = stem[:-2]
     return re.compile(rf"\b{re.escape(stem)}\w*", re.I)
 
 

@@ -19,7 +19,7 @@
 >
 > **번호 규칙 (v0.2에서 정함)**: 번호는 **이 파일이 발급한다.** `[빌드]` 세션의 보고
 > 안 번호(#1~#8 등)와 섞이면 참조가 깨진다 — 실제로 `#17`이 두 항목에 붙어 있었고
-> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#117**다.
+> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#119**다.
 > ⚠ 번호 충돌이 **두 번** 났다(#97~#101 · #108). 병렬 브랜치는 서로의 발급을 못 본다 —
 > **머지 시점에 재발급**하는 것이 유일한 해소다. `Fox Idol` 항목은 #108 → **#112**로 옮겼다.
 >
@@ -2017,6 +2017,60 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
   아무 소용이 없다.** 재현율 문제라 정밀도(분류)보다 먼저다.
 - **함께 고칠 것**: 이번에 `cap`을 담체 전체에서 찾도록 고쳤듯(`cap_source`), 입력 축
   추출도 표현형을 넓히고 **놓친 것을 세어서 보고**해야 한다(조용한 절단 금지).
+
+### #117 〔신규 · 해결〕 ⛔⛔ **가정 게이트의 어간 처리가 「강력 기절」 축을 통과 불가로 만들었다**
+
+- **상태**: **해결(2026-08-23)** — `_stem_pattern` 수정 + 회귀
+- **증상**: 강력 기절 통화 빌드에서 `assemble_pob`이 계속 거부했다 —
+  *"config `conditionEnemyHeavyStunned`=True — 빌드에 공급원이 없다"*. 그런데 빌드에는
+  공급 기재가 **넷**이나 있었다(뼈 박살 · 공허의 집중 · 두개골 충격 노터블 ·
+  충돌 충격파 보조).
+- **원인**: config 이름은 **과거분사**(`…HeavyStunned`)인데 정본 공급 문구는 전부
+  **명사형**이다 — *"cause a Heavy **Stun** on enemies that are Primed for Stun"*.
+  `_stem_pattern`이 접미 2자만 떼어 `Stunned` → `Stunn`을 만들었고, 그것은 `Stun`을
+  **매칭하지 못한다**. 즉 이 축의 게이트는 **원리상 통과 불가능**했다.
+- **범위**: 이 축만이 아니다. `Cursed` → `Cursed`(6자 이하라 그대로), `Maimed` →
+  `Maimed`도 원형을 놓쳤다 — 게이트가 **거짓 거부**하는 축이 여럿이었다.
+- **수정**: `-ed`를 먼저 떼고 **중복 자음을 되돌린다** — `Stunned`→`Stunn`→`Stun` ·
+  `Cursed`→`Curs` · `Maimed`→`Maim` · `Shocked`→`Shock`. `-ed`가 아닌 불규칙형
+  (`Frozen`)은 종전 규칙 유지.
+- **오탐이 늘지 않는다**: 요구/공급 구분은 `_DEMAND_HEAD`가 계속 담당한다. 회귀로
+  고정 — 피 가시의 *"Bleeding you inflict **on Cursed targets** is Aggravated"* 는
+  여전히 **요구 전용**으로 판정된다(x2.76 부풀림 사고의 회귀).
+- **교훈(§0에 넣을 형태)**: **거짓 거부는 거짓 통과만큼 위험하다.** 통과 불가능한
+  게이트는 「우회할 이유」를 만들어 게이트 자체를 무력화한다.
+
+### #118 〔신규 · 열림〕 ⛔ **하이브리드 접사(두 줄짜리 한 모드)를 접사 2개로 세어 정상 무기를 거부한다**
+
+- **상태**: **열림** · 발견 2026-08-23
+- **증상**: 사용자가 인게임 기준 「양손 철퇴의 정답」으로 지정한 접사 구성이
+  `check_item_legality`에서 거부됐다:
+
+  ```
+  Adds 55 to 94 Physical Damage          ← 접두 T1
+  179% increased Physical Damage         ← 접두 T1 (Merciless, LocalPhysicalDamagePercent)
+  79% increased Physical Damage          ┐ 접두 T1 (Dictator's,
+  +200 to Accuracy Rating                ┘  LocalIncreasedPhysicalDamagePercentAndAccuracyRating)
+  +5 to Level of all Melee Skills        ← 접미
+  +5% to Critical Hit Chance             ← 접미
+  28% increased Attack Speed             ← 접미
+  ```
+
+  → *"group 중복: LocalPhysicalDamagePercent"* · *"prefix 4개 — 한도 3 초과"* ·
+  *"접사 총 7개 — 총한도 6 초과"*
+- **원인**: 검사기가 **줄 단위로 독립 매칭**한다(`legality.py` — 연속 줄을 하나의
+  모드로 합치는 경로가 없다). 그래서 하이브리드의 첫 줄
+  `79% increased Physical Damage`가 **단독 접사**
+  (`localincreasedphysicaldamagepercent3`)로 잡혀 ①없는 group 충돌을 만들고
+  ②접사 수를 하나 더 센다.
+- **정본은 맞다**: 두 모드의 `group`이 서로 달라 인게임에서 공존한다
+  (`LocalPhysicalDamagePercent` vs `LocalIncreasedPhysicalDamagePercentAndAccuracyRating`).
+  **틀린 것은 매칭기**다.
+- **왜 심각한가**: #117과 같은 **거짓 거부**다. 이번엔 `assemble_pob`을 끝까지 막아
+  PoB 공유 코드를 `to_xml`+`encode` 직접 호출로 우회해야 했다 — 게이트를 우회하는
+  경로를 배우게 만든 것이 실제 피해다.
+- **필요한 것**: 모드의 `texts`가 2줄 이상이면 **연속 줄 묶음**으로 먼저 매칭하고,
+  긴 것부터 소비한다(최장 일치). 하이브리드는 정본에 이미 2-텍스트로 있다.
 
 ### #113 〔신규 · 열림〕 ⛔⛔ **`CombinedDPS`가 「평균 피해 표시」 스킬에서 공격 속도를 통째로 뺀다 — 접사 판정이 뒤집혔다**
 
