@@ -28,6 +28,7 @@ quest 선택 8건(액트 보상: 저항 5%·능력치 5·호신부 슬롯 …)�
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -98,17 +99,103 @@ OPEN_WEAKNESS = ConfigProfile(
     toggles=(("conditionEnemyHasOpenWeakness", True),),
 )
 
+# ── 플레이어·적 **상태** — 프로파일로 충분하다 ────────────────────────────
+#
+# 노드가 만드는 것이 아니라 **상황**이다. 노드를 빼면 그 상황에 걸린 모드만 빠지므로
+# 토글을 켜 두는 것만으로 델타가 잡힌다. (스택과 다르다 — `STACK_SOURCES` 참조.)
+SPRINTING = ConfigProfile(
+    name="sprinting",
+    why="질주 중 — 주파·재위치 축을 재려면 켜야 한다. 질주는 노드가 아니라 플레이어 행동이다",
+    toggles=(("conditionSprinting", True),),
+)
+OPEN_WEAKNESS_PRESENCE = ConfigProfile(
+    name="open-weakness-presence",
+    why=(
+        "약점 드러난 적이 **발현 안에** 있다 — `open-weakness`(적 자신이 약점 노출)와 "
+        "다른 토글이다(`conditionOpenWeaknessEnemyPresence`). 발현 반경 기재를 재려면 이쪽이다"
+    ),
+    toggles=(("conditionOpenWeaknessEnemyPresence", True),),
+)
+ALLIES = ConfigProfile(
+    name="allies",
+    why=(
+        "인접 아군 1명 — **최소 가정**이다. 동료·토템·소환수 구성이면 호출자가 더 올린다. "
+        "0이면 '접근' 계열 기재가 통째로 안 걸린다"
+    ),
+    toggles=(("multiplierNearbyAlly", 1),),
+)
+
 # 버프 스택 — PoB가 스택 수를 **사용자 입력**으로만 받으므로 안 넣으면 영원히 0이다.
-# ⚠ 실측 2026-08-22: 이걸 켜도 해당 노드들의 델타는 0이었다 — PoB 모델 갭 쪽이다.
 STACKED = ConfigProfile(
     name="stacked",
     why=(
         "버프 스택 최대(Tailwind 10·Combo 10). PoB는 스택 수를 사용자 입력으로만 받는다. "
-        "⚠ 실측에서 관련 노드 델타는 여전히 0이었다 — 모델 갭일 수 있다"
+        "⛔ 이 프로파일만 켜면 델타는 **여전히 0이다** — `STACK_SOURCES` 결합이 함께 필요하다"
     ),
     toggles=(("multiplierTailwind", 10), ("multiplierCombo", 10)),
 )
 
 PROFILES: dict[str, ConfigProfile] = {
-    p.name: p for p in (BASELINE, BOSS, SHOCKED, FROZEN, IGNITED, OPEN_WEAKNESS, STACKED)
+    p.name: p
+    for p in (
+        BASELINE,
+        BOSS,
+        SHOCKED,
+        FROZEN,
+        IGNITED,
+        OPEN_WEAKNESS,
+        OPEN_WEAKNESS_PRESENCE,
+        SPRINTING,
+        ALLIES,
+        STACKED,
+    )
 }
+
+
+# ── 스택은 프로파일만으로 **영원히 0이다** ────────────────────────────────
+#
+# PoB의 `BuildModList`는 config를 **`ifFlag`/`ifCond`와 무관하게** 적용한다
+# (`Classes/ConfigTab.lua:891-901` — 그 조건들은 UI 표시용이다). 그래서
+# `multiplierTailwind=10`을 켜 두면 **노드를 빼도 승수가 그대로 남아** 델타가 0이다.
+# 「켜도 0이니 모델 갭」이라고 닫았던 것이 사실은 이 구조였다(실측 2026-08-22).
+#
+# 상태(질주·약점)와 갈리는 지점이 여기다 — 상태는 **상황**이라 노드와 독립이지만,
+# 스택은 **노드가 생산하는 것**이라 노드를 빼면 0이 되어야 한다.
+#
+# ⚠ **이건 가정이다** — 「그 빌드에서 이 노드가 그 스택의 유일한 원천이다」. 그래서
+#    `stack_coupler`는 **프로파일이 넣은 키만** 0으로 만든다. 빌드가 원래 들고 온
+#    승수는 건드리지 않는다 — 그건 우리 가정이 아니라 주인의 선언이기 때문이다.
+STACK_SOURCES: dict[int, tuple[tuple[str, str], ...]] = {
+    30: (
+        (
+            "multiplierTailwind",
+            "Gathering Winds가 Tailwind를 준다 — 스택당 스킬속도 2%·이동 1%·회피 10%(최대 10)",
+        ),
+    ),
+    61586: (
+        (
+            "multiplierCombo",
+            "Martial Master가 모든 공격을 콤보 생성으로 바꾼다 — 콤보 스택의 원천",
+        ),
+    ),
+}
+
+
+def stack_coupler(profile: ConfigProfile) -> Callable[[Any, int], Any]:
+    """노드를 뺄 때 **그 노드가 공급하던 스택도 0으로** 만드는 후크를 낸다 (#111).
+
+    `evaluate_removals(on_drop=...)`에 넘긴다. 프로파일이 넣은 키만 건드리므로,
+    빌드가 자기 config로 들고 온 승수는 그대로 남는다.
+    """
+    owned = {k for k, _ in profile.toggles}
+
+    def couple(spec: Any, node_id: int) -> Any:
+        keys = [k for k, _ in STACK_SOURCES.get(int(node_id), ()) if k in owned]
+        if not keys:
+            return spec
+        merged = dict(spec.config or ())
+        for k in keys:
+            merged[k] = 0
+        return replace(spec, config=tuple(merged.items()))
+
+    return couple
