@@ -44,21 +44,20 @@ from typing import Any
 #    `Predatory Instinct`("50% more damage against Rare and Unique")는 PoB가 계산할
 #    수 있는데 config가 꺼져 0으로 나왔다 — 이걸 「측정 밖」으로 묶으면 켜서 잴 수
 #    있는 것을 영영 안 잰다(#44의 반대 실수).
+# ⚠ **실측으로 검증한 목록이다**(2026-08-22). 14건에 프로파일을 켜 보고 실제로 값이
+#    난 축만 남겼다 — 6/14만 움직였고, 나머지는 「config를 켜면 잰다」가 **내 추측**
+#    이었다. 켜도 0인 것은 config 문제가 아니라 PoB 모델 갭이다(#101 계열).
+#    실측 결과: 상태이상 계열(감전·빙결·약점)만 config로 열린다.
 MEASURABLE_VIA: dict[str, str] = {
     "조건부 배율": "config",
     "추가 피해 변환": "config",
     "상태이상 강도·지속": "config",
     "상태이상 중첩": "config",
-    "반복 시전": "config",
     "발동 자원 환급": "trigger",
-    "버프 스택": "config",
     "상태이상 임계": "config",
-    "충전 생성": "config",
-    "충전 유지": "config",
     "발동 주기": "trigger",
     # 감속이 config에 안 켜져 있어 0으로 보인다 — Predatory Instinct와 동형(배치 B)
     "이동 제약 무효": "config",
-    "쿨다운": "config",
 }
 
 SUPPLY_AXES: tuple[tuple[str, str], ...] = (
