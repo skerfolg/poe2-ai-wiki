@@ -33,6 +33,30 @@ class PobResult:
     cached: bool
 
     @property
+    def oracle_gaps(self) -> dict[str, int]:
+        """PoB가 **보고도 안 센 것** — 0이 아니면 이 빌드의 딜은 과소평가다 (#110).
+
+        PoB 0.23.1은 플레이어의 트리거·미라주 계산을 꺼 뒀다
+        (`Modules/CalcPerform.lua:3433`). 되살려 보니 `CalcTriggers.lua:396`·
+        `CalcMirages.lua:59`이 둘 다 `skillFlags`(nil)에서 죽는다 — 정책이 아니라
+        **미완성**이고, 상류 `dev` HEAD가 우리 스냅샷이라 올라갈 곳도 없다
+        (실측 2026-08-23). 그래서 발동 스킬의 딜은 `CombinedDPS`에 **0**으로 들어간다.
+
+        ⛔ 이 값이 0이 아닌 빌드에서 「딜이 낮다」고 판정하면 안 된다 — 못 잰 것이다.
+        """
+        return {
+            "triggered_skills": int(self.meta.get("gapTriggeredSkills") or 0),
+            "mirage_skills": int(self.meta.get("gapMirageSkills") or 0),
+            # 방향이 다르다 — 주력기가 발동이면 발동률이 안 걸려 **과대평가** 쪽이다
+            "main_skill_triggered": int(self.meta.get("gapMainSkillTriggered") or 0),
+        }
+
+    @property
+    def measures_all_damage(self) -> bool:
+        """딜 수치를 **그대로 믿어도 되는가** — 발동·미라주가 없어야 참이다 (#110)."""
+        return not any(self.oracle_gaps.values())
+
+    @property
     def is_tree_legal(self) -> bool:
         """요청한 노드가 전부 반영됐는가 — 비연결 노드는 PoB가 소리 없이 잘라낸다."""
         return not self.pruned_nodes

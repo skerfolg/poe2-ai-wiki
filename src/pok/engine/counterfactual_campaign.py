@@ -174,8 +174,11 @@ def measure_build(
     #   실측 3/2,689벌)는 기준 계산부터 죽는데, 여기서 예외가 새면 **파일 자체가 안
     #   쓰여** pending이 영원히 남는다 — 1차분은 같은 빌드를 「전 행 실패」로 기록하고
     #   넘어갔다. 기준을 못 재면 빈 dict로 두고 행들이 각자 사유를 남기게 한다.
+    gaps: dict[str, int] = {}
     try:
-        baseline = daemon.compute_build(spec).stats or {}
+        answer = daemon.compute_build(spec)
+        baseline = answer.stats or {}
+        gaps = {k: v for k, v in answer.oracle_gaps.items() if v}
         rows = evaluate_removals(spec, graph, list(candidates.nodes), stats=stats, daemon=daemon)
         failed = ""
     except Exception as exc:
@@ -198,6 +201,10 @@ def measure_build(
         "baseline": dict(baseline) if not stats else {k: baseline.get(k, 0.0) for k in stats},
         # 빌드 통째 실패 사유 — 비어 있지 않으면 이 빌드의 관측은 0행이고 그 이유다
         "failed": failed,
+        # ⛔ **오라클이 보고도 안 센 것**(#110) — 비어 있지 않으면 이 빌드의 딜은
+        # 과소평가다. PoB가 플레이어 트리거·미라주 계산을 꺼 뒀고(미완성이라 크래시)
+        # 상류에 올라갈 곳도 없다. 「딜이 낮다」는 판정을 여기서 막아야 한다.
+        "oracle_gaps": gaps,
         "restored": {
             "faithful": restored.faithful,
             "damage_comparable": restored.damage_comparable,

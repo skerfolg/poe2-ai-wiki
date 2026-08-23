@@ -133,6 +133,8 @@ def test_후보에서_빠진_이유가_결과에_남는다(monkeypatch: Any) -> 
         def compute_build(self, spec: Any) -> Any:
             class _R:
                 stats: ClassVar[dict] = {"CombinedDPS": 123_456.0}
+                # 오라클이 못 센 것 — 실물 `PobResult`와 계약을 맞춘다 (#110)
+                oracle_gaps: ClassVar[dict] = {"triggered_skills": 0, "mirage_skills": 0}
 
             return _R()
 
