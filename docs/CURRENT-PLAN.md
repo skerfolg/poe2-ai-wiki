@@ -38,11 +38,13 @@ flowchart TD
   DEF[S14 판정이 드러낸 측정 결함 등재<br/>done]
   FIXDELTA[S15 #109 결측 키를 0으로 취급 수정<br/>done]
   WIDEN[S16 #108 축 열거 제거<br/>done]
-  STEM[S18 #117 게이트 어간<br/>done]
+  STEM[S19 #117 게이트 어간<br/>done]
   REMEAS2[S17 재측정 — 범위 판정 대기<br/>blocked]
+  CFG[S18 #104 config 프로파일 회수<br/>active]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN --> REMEAS2
+  WIDEN --> CFG
 ```
 
 ## Baseline Structure
@@ -72,7 +74,8 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S15 | #109 수정 — 결측 키를 0.0으로 취급하는 가짜 델타 | done |
 | S16 | #108 — 축 열거 제거. 하위 호환은 정본 샤드 바이트 동일로 확인 | done |
 | S17 | 재측정 — **범위는 사용자 판정 대기**(전량 2,689벌 vs 판정 큐 노드만) | blocked |
-| S18 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) | done |
+| S18 | #104 config 프로파일을 main 직접 커밋에서 브랜치로 회수 | active |
+| S19 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) | done |
 
 ## Canonical Next Step
 
@@ -145,6 +148,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | PoB v0.23.1이 플레이어 트리거·미라주를 꺼 놓은 것 | #110 — 상류 상태. 되살릴지는 **사용자 판정**(상류가 왜 껐는지 모른다) | 2026-08-22 |
 | Integration branch override — 작업 브랜치 `docs/108-measure-defects` | 레인명(`M5-proposal-rounds`)과 다름 — 이 PR은 측정 결함 등재·수정이라 레인 이름을 안 쓴다. ⚠ 처음엔 `feat/105-tool-gaps`(다른 세션) 위에서 분기했으나, **그 브랜치가 원격에 없어** 남의 미푸시 커밋이 실려 나가는 것을 피하려 `origin/main` 위로 리베이스했다. 백로그 #104~#107은 그 세션 몫으로 **비워 두었다**. 이 PR 한정 | 2026-08-22 |
 | Canonical Next Step이 첫 미종결 항목(S7)과 다름 | S7은 **측정 결함 발견으로 중단**된 것이고 그 결함 연쇄(#98~#101·#108~#111)를 푸는 것이 S8~S16이다. S7은 결함이 닫힌 뒤 재개한다 | 2026-08-22 |
+| config 프로파일 기본은 **빌드 원본 그대로** | #104 — 상태이상은 빌드 메커니즘에 달린 판단이라 엔진이 일괄로 못 켠다(일괄 시 +97.6% 부풀림). 액트 보상은 이미 복원본에 실려 온다 | 2026-08-22 |
+| Integration branch override — 작업 브랜치 `feat/104-config-profiles` | #104 작업이 **`main`에 직접 커밋돼 있었다**(협업 규율 1 위반). 원격이 앞서가며 갈라져 로컬 main을 당길 수 없게 됐다 — 코드를 브랜치로 빼 `origin/main` 위에 다시 얹었다. 이 PR 한정 | 2026-08-23 |
 | 냉기 주입 순환 컨셉 | **성립 가능 · 보류** — 수지·발동률 모두 흑자로 계산됨. 진행 전 해결 과제는 **쿨다운 병목 하나**(아래 §보류 컨셉 참조). 재개 조건: 쿨다운 회복 예산 100%+ 확보 경로 확인 | 2026-08-21 |
 | 자로크의 봉기 컨셉 | **보류** — 쿨다운 10초가 최대 병목. 회복 265%로 상쇄하려면 무기·목걸이까지 유니크 강제라 슬롯 손실이 큼. 재평가 조건: 쿨다운 회복이 **다른 축과 공유**되는 구성 발견 시(냉기 주입 순환이 그 사례) | 2026-08-20 |
 
