@@ -29,6 +29,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
@@ -148,8 +149,16 @@ def measure_build(
     pob_commit: str,
     daemon: Any = None,
     stats: tuple[str, ...] = _STATS,
+    only: Collection[int] | None = None,
+    profile: Any = None,
+    on_drop: Any = None,
 ) -> dict[str, Any]:
     """빌드 1벌의 **제거 전량**을 잰다. 못 잰 것은 버리지 않고 사유로 남긴다.
+
+    `only`를 주면 **그 노드만** 잰다 — 축을 넓힌 뒤 판정 큐 노드가 실제로 값을 내는지
+    좁게 확인하는 용도다(#108). ⚠ 그때 `coverage.scope`가 `"narrow"`가 되고
+    `coverage.only`에 대상이 실린다 — 부분 데이터셋이 전량으로 읽히면 「이 노드는
+    코퍼스에 이만큼뿐」이라는 거짓 결론이 나온다(#67의 재발 방지와 같은 자리).
 
     필수 3종(스킬 P2)이 여기서 붙는다:
       1. `pruned`가 비지 않은 측정은 **값을 쓰지 않는다** — 그건 「A를 뺀 효과」가
@@ -165,7 +174,12 @@ def measure_build(
     #    (실측 2026-08-16: 무작위 11벌 중 6벌). 여기서 재는 것은 **트리**이고 스킬은
     #    기준·변경안 양쪽에 똑같이 들어가므로 델타에 영향을 주지 않는다.
     spec = spec_from_dict(restored.spec, validate_catalog=False)
+    # 가정을 얹는다면 **이름이 결과에 실린다**(#104) — 「그 수치는 무엇을 가정한 것인가」
+    if profile is not None:
+        spec = profile.apply(spec)
     candidates = removable_nodes(spec, graph)
+    pick = None if only is None else set(only)
+    wanted = [n for n in candidates.nodes if pick is None or n in pick]
     # 기준 스탯을 **행과 함께** 싣는다 — 델타만 실으면 손실을 비율로 못 만든다
     # (M4 실측 2026-08-18: 사이드카(baselines.ndjson)로 2,687벌을 따로 채워야 했다).
     # 데몬이 스펙을 캐시하므로 이 계산은 evaluate_removals의 기준 계산과 겹치지 않는다.
@@ -179,7 +193,7 @@ def measure_build(
         answer = daemon.compute_build(spec)
         baseline = answer.stats or {}
         gaps = {k: v for k, v in answer.oracle_gaps.items() if v}
-        rows = evaluate_removals(spec, graph, list(candidates.nodes), stats=stats, daemon=daemon)
+        rows = evaluate_removals(spec, graph, wanted, stats=stats, daemon=daemon, on_drop=on_drop)
         failed = ""
     except Exception as exc:
         # 빌드 통째의 실패도 **파일로 기록**한다 — 안 쓰면 pending이 영원히 남아
@@ -225,6 +239,12 @@ def measure_build(
         # 그 사실이 결과에 안 남으면 **없는 값이 0으로 읽힌다**(BACKLOG #87).
         # 실측 2026-08-18: 연결 불요 주얼 보유 빌드 39/40에서 고아 발생, 중앙 7개.
         "coverage": {
+            # ⛔ **부분을 전량으로 읽지 못하게 한다** — `narrow`면 `candidates`는
+            # 「이 빌드가 가진 후보 전량」이지만 `measured`는 그중 지목된 것뿐이다.
+            "scope": "full" if only is None else "narrow",
+            # 어떤 가정 위에서 잰 값인가 — 없으면 빌드 원본 config 그대로다
+            "profile": getattr(profile, "name", "baseline"),
+            "only": sorted(wanted) if only is not None else [],
             "measured": len(measured),
             "candidates": len(candidates.nodes),
             "allocated": len(spec.tree_nodes),

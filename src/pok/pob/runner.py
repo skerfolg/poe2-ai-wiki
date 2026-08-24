@@ -22,6 +22,24 @@ _DRIVER = "scripts/pob_driver.lua"
 _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
 
 
+def _gap_count(meta: dict[str, object], key: str) -> int:
+    """`POK_META`의 갭 카운터 하나를 읽는다 (#110).
+
+    `meta`는 드라이버 JSON이라 값 타입이 `object`다 — `int(...)`를 그대로 부르면
+    strict mypy가 거부한다(`call-overload`). 드라이버는 `%d`로 찍으므로 정수이고,
+    아니면 프로토콜이 깨진 것이라 0으로 둔다.
+
+    ⚠ **없는 키를 0으로 읽는다** — 갭 키가 없던 시절의 결과에도 안 깨지게 하려는
+    선택이다. 그 등가("없는 것 = 0")는 **갭 키 없는 payload가 안 읽힐 때만** 참이고,
+    지금 `_cache_path`는 드라이버 프로토콜을 키에 안 넣어 그 보장이 없다(BACKLOG #119).
+    """
+    value = meta.get(key)
+    # bool은 int의 하위형이라 먼저 걸러낸다 (buildxml._config_value_attrs와 같은 이유)
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value
+
+
 @dataclass(frozen=True)
 class PobResult:
     """PoB 계산 결과 + 적법성 신호."""
@@ -45,10 +63,10 @@ class PobResult:
         ⛔ 이 값이 0이 아닌 빌드에서 「딜이 낮다」고 판정하면 안 된다 — 못 잰 것이다.
         """
         return {
-            "triggered_skills": int(self.meta.get("gapTriggeredSkills") or 0),
-            "mirage_skills": int(self.meta.get("gapMirageSkills") or 0),
+            "triggered_skills": _gap_count(self.meta, "gapTriggeredSkills"),
+            "mirage_skills": _gap_count(self.meta, "gapMirageSkills"),
             # 방향이 다르다 — 주력기가 발동이면 발동률이 안 걸려 **과대평가** 쪽이다
-            "main_skill_triggered": int(self.meta.get("gapMainSkillTriggered") or 0),
+            "main_skill_triggered": _gap_count(self.meta, "gapMainSkillTriggered"),
         }
 
     @property
