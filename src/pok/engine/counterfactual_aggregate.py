@@ -42,6 +42,7 @@ from pok.common.paths import knowledge_dir
 from pok.engine.counterfactual_campaign import REMOVALS, build_id, campaign_dir
 from pok.engine.jewel_taint import classify
 from pok.engine.ladder_aggregate import _tree_index
+from pok.engine.tree.counterfactual import _CORE_STATS
 from pok.engine.tree.graph import TreeGraph
 from pok.kb.store import write_shard
 
@@ -359,7 +360,31 @@ def build_records(
                 "coverage": cov,
             },
             "points": _spread([float(p) for p in node.points]),
-            "axes": axes,
+            # ⛔ **움직인 축만 싣는다** — 축 열거를 없애자(#108) 노드마다 잰 축이 ~700개가
+            #    됐고, 그중 **90.7%는 표본 전체에서 한 번도 안 움직였다**. 전부 실으면
+            #    정본이 14MB → **414MB**가 되고 샤드 하나가 2MB 상한의 100배가 된다
+            #    (실측 2026-08-24). 측정층은 이미 「움직인 것만」으로 압축하는데
+            #    집계층에서 도로 펼치고 있었다.
+            # ⚠ **핵심 축은 0이어도 싣는다** — 측정층의 `_CORE_STATS`와 같은 이유이고,
+            #    소비자가 「이 노드를 재기는 했나」의 관문으로 쓴다. 실측 2026-08-24:
+            #    빼 봤더니 `node_necessity.build_queue`가 `axes["CombinedDPS"]["n"]`에서
+            #    막혀 **판정 큐가 통째로 비었다**. 「재서 0」이 사라지면 「안 쟀다」와
+            #    구별이 안 된다 — 이 프로젝트가 반복해서 데인 그 지점이다.
+            "axes": {
+                k: v for k, v in axes.items() if (v.get("n_active") or 0) > 0 or k in _CORE_STATS
+            },
+            # ⚠ 버리는 게 아니라 **개수로 남긴다**. 「재서 안 움직였다」와 「안 쟀다」를
+            #    섞는 것이 이 프로젝트가 반복해서 데인 지점이다(#97·#100·#108).
+            #    축 이름까지 실으면 노드당 13KB라 다시 35MB가 된다 — 전량은
+            #    `artifacts/ingest-raw/counterfactual/`에 있고 정본은 큐레이션이다.
+            "axes_quiet": {
+                "n_axes": sum(
+                    1
+                    for k, v in axes.items()
+                    if not (v.get("n_active") or 0) and k not in _CORE_STATS
+                ),
+                "note": "잰 축이지만 표본 전체에서 한 번도 안 움직였다 — 「안 쟀다」가 아니다",
+            },
         }
         out.append(
             {
@@ -483,10 +508,15 @@ def main(argv: list[str] | None = None) -> int:
     # 한 파일이면 pre-commit의 2MB 상한에 걸린다(실측: 통짜 3.9MB · small만 2.27MB
     # 라 small은 node_id 짝홀로 한 번 더 가른다). 샤드 기준이 바뀌면 옛 파일이
     # 남아 **중복 id**로 로드가 죽는다 — 기준을 바꿀 땐 옛 샤드를 지울 것.
+    # 축 전량 측정(#108) 뒤로는 **짝홀 2조각으로 안 된다** — 움직인 축만 실어도
+    # small이 21MB다(실측 2026-08-24). 상한 2MB에 맞춰 잘게 가른다.
+    _SPLIT = {"small": 24, "notable": 24, "keystone": 4, "jewel-socket": 2}
+
     def shard_key(record: dict[str, Any]) -> str:
         node = record["data"]["node"]
         kind = str(node["kind"])
-        return f"small-{int(node['node_id']) % 2}" if kind == "small" else kind
+        parts = _SPLIT.get(kind, 1)
+        return f"{kind}-{int(node['node_id']) % parts}" if parts > 1 else kind
 
     by_shard: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for record in records:
