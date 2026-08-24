@@ -910,16 +910,40 @@ class ItemLegalityChecker:
                 )
                 if ok:
                     note = f"접미어 효과 {suffix_effect:g}% 반영 상한"
+            rounding_assumed = False
             if not ok and catalyst:
                 # 촉매는 접사 수치를 **실제로** 올린다 — `Craft()`가 `getCatalystScalar`를
                 # `applyRange`에 태운다(L1723). 검사기가 이걸 모르면 **정상 아이템을
                 # 티어 범위 밖으로 찍는다** — 실측 2026-08-09: 사용자 정본 목걸이의
                 # `50% increased Evasion Rating`(Sibilant 40)이 그렇게 ILLEGAL이 됐다.
                 scalar = catalyst_scalar(catalyst, catalyst_quality, d.get("mod_tags") or [])
+                label = f"촉매 {catalyst} {catalyst_quality:g}%"
                 if scalar > 1.0:
-                    ok, why = _values_in_range(line, d.get("texts", []), hi_scale=scalar)
+                    ok, why = _values_in_range(
+                        line, d.get("texts", []), hi_scale=scalar, scale_label=label
+                    )
                     if ok:
-                        note = f"촉매 {catalyst} {catalyst_quality:g}% 반영 상한"
+                        note = f"{label} 반영 상한"
+                    else:
+                        # ⛔ **끝수 처리가 미확정이다** (#116). 티어 상한 x 배율이 정수가
+                        #    아닐 때 게임이 내리는지 반올림하는지에 따라 한 칸이 갈린다 —
+                        #    예: +3 x 1.20 = 3.6 → 내림 3 · 반올림 4.
+                        #    PoB는 **내림**이고(`ItemTools.lua:48` floorSymmetric),
+                        #    사용자 기억은 반올림이며 웹에서 확정하지 못했다(2026-08-24).
+                        #    ⚠ 어느 쪽으로든 박으면 반대 방향 결함이 난다 — 올리면 없는
+                        #    아이템을 통과시키고(#115 형태), 내리면 정상을 거부해
+                        #    **ILLEGAL 목록을 통째로 무시하게** 만든다(#27이 막으려던 것).
+                        #    그래서 그 한 칸만 `CONDITIONAL`로 가르고 가정을 표기한다.
+                        ok_round, _ = _values_in_range(
+                            line, d.get("texts", []), hi_scale=scalar, round_up=True
+                        )
+                        #    ⚠ 여기서 바로 통과시키면 **ilvl·스폰 검사를 건너뛴다** —
+                        #    실측: 양손무기 전용 +4 티어가 목걸이에서 통과했다. 흐름을
+                        #    끊지 말고 표식만 세워 아래 검사를 그대로 받게 한다.
+                        if ok_round:
+                            ok = True
+                            rounding_assumed = True
+                            note = f"{label} 반영 상한(끝수 미확정)"
             if not ok:
                 reasons.append(f"{rec['id']}: {why}")
                 continue
@@ -930,6 +954,8 @@ class ItemLegalityChecker:
                 weights = d.get("spawn_weights", {})
                 tags = base.get("data", {}).get("spawn_tags", [])
                 if any(weights.get(t, 0) > 0 for t in tags):
+                    if rounding_assumed:
+                        return _rounding_verdict(line, rec["id"], label)
                     return LineVerdict(line, "LEGAL", rec["id"], note)
                 routes = [a for a in d.get("acquisition", []) if a not in _CRAFT_EQUIVALENT]
                 if routes:
@@ -947,6 +973,8 @@ class ItemLegalityChecker:
                     continue
                 reasons.append(f"{rec['id']}: 이 베이스에 스폰 불가 (weight 0·경로 없음)")
                 continue
+            if rounding_assumed:
+                return _rounding_verdict(line, rec["id"], label)
             return LineVerdict(line, "LEGAL", rec["id"], note)
         if conditional is not None:
             return conditional
@@ -1101,11 +1129,41 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
     return rarity, base_name, ilvl, mod_lines, sockets, rune_effect
 
 
-def _values_in_range(line: str, texts: list[str], *, hi_scale: float = 1.0) -> tuple[bool, str]:
+def _rounding_verdict(line: str, mod_id: str, label: str) -> LineVerdict:
+    """끝수 한 칸이 갈리는 줄 — 통과시키되 **무엇을 가정했는지 적는다** (#116).
+
+    확정 경로: 인게임에서 티어 상한 x 배율이 정수가 아닌 접사 하나를 촉매로 올려
+    표시값을 확인하면 끝난다. 그때 이 분기를 지우고 한쪽으로 박으면 된다.
+    """
+    return LineVerdict(
+        line,
+        "CONDITIONAL",
+        mod_id,
+        reason=(
+            f"{label} 상한의 **끝수 처리 미확정** — 내림이면 범위 밖, 반올림이면 성립한다. "
+            "PoB는 내림(`ItemTools.lua:48`), 인게임은 미확인(#116). "
+            "이 값을 설계 근거로 쓰기 전에 인게임 확인 필요"
+        ),
+    )
+
+
+def _values_in_range(
+    line: str,
+    texts: list[str],
+    *,
+    hi_scale: float = 1.0,
+    scale_label: str = "접미어 효과",
+    round_up: bool = False,
+) -> tuple[bool, str]:
     """줄의 수치들이 어느 한 티어 텍스트의 범위 안에 있는지.
 
     hi_scale > 1 은 접미어 효과 선반영(주얼): 표시 수치가 롤 x 배율이므로 범위
     상한만 배율만큼 확장해 대조한다 (하한은 유지 — 미적용 표기도 통과 허용).
+
+    `round_up`은 **끝수 처리가 미확정인 축**을 위한 것이다 (#116). 배율을 곱한 상한이
+    정수가 아닐 때 게임이 내리는지 올리는지에 따라 한 칸이 갈린다 — 예: 티어 상한 +3에
+    촉매 20%면 3.6이고, 내림이면 3 · 반올림이면 4다. 확정 전까지 **양쪽을 다 계산해
+    호출자가 `CONDITIONAL`로 가를 수 있게** 한다.
     """
     line_nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", line)]
     for text in texts:
@@ -1119,15 +1177,29 @@ def _values_in_range(line: str, texts: list[str], *, hi_scale: float = 1.0) -> t
             m = _RANGE.fullmatch(span.group())
             if m:
                 lo, hi = float(m.group(1)), float(m.group(2)) * hi_scale
+                # 끝수 처리 미확정(#116) — 반올림 쪽 상한까지 열어 볼 수 있게 한다.
+                # PoB는 내림(`ItemTools.lua:48` floorSymmetric)이라 기본은 내림 쪽이다.
+                if round_up:
+                    hi = math.floor(hi + 0.5)
                 if not lo <= v <= hi + 1e-9:
                     fit = False
                     break
-            elif abs(float(span.group()) * hi_scale - v) > 1e-9 and float(span.group()) != v:
-                fit = False
-                break
+            else:
+                # 고정치 티어(범위가 아닌 `+3` 같은 값). 배율을 곱한 결과가 정수가
+                # 아니면 여기서도 끝수 한 칸이 갈린다 — 실측: `+3 to Level of all
+                # Melee Skills` x 촉매 1.20 = 3.6 (내림 3 · 반올림 4).
+                scaled_v = float(span.group()) * hi_scale
+                if round_up:
+                    scaled_v = math.floor(scaled_v + 0.5)
+                if abs(scaled_v - v) > 1e-9 and float(span.group()) != v:
+                    fit = False
+                    break
         if fit:
             return True, ""
-    scaled = " (접미어 효과 확장 포함)" if hi_scale > 1 else ""
+    # ⚠ 라벨은 **호출자가 준다** — 상한을 넓히는 이유가 접미어 효과만이 아니다.
+    #    촉매로 넓힌 거부에 「접미어 효과」라고 적히면 사용자가 엉뚱한 곳을 본다
+    #    (거짓 거부 자체보다 **어디를 봐야 하는지 잘못 알려주는 것**이 더 비싸다).
+    scaled = f" ({scale_label} 확장 포함)" if hi_scale > 1 else ""
     return False, f"수치 {line_nums} 가 티어 범위 밖{scaled}"
 
 
