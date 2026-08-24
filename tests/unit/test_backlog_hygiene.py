@@ -64,10 +64,15 @@ def test_pr_numbers_are_never_written_as_this_pr(text: str) -> None:
 def test_open_entries_carry_a_status_line(text: str) -> None:
     """상태가 없으면 다음 세션이 **처음부터 다시 조사한다**(기재 규약)."""
     section = _section(text, "## 1. 열린 결함", "## 2. ")
+    # ⚠ **항목이 아닌 제목은 뺀다** — §1에는 결함 항목(`### #N …`) 말고 절 머리
+    #   요약(예: 「우선순위」 표)도 들어온다. 그것까지 상태 줄을 요구하면 규율이
+    #   엉뚱한 곳을 막고, 막힌 세션은 규율을 우회한다(실측 2026-08-24: 우선순위 절이
+    #   머지되자마자 `main`이 빨간불이 됐다). 규칙의 대상은 **번호가 붙은 항목**이다.
     missing = [
-        block.splitlines()[0][4:]
+        head[4:]
         for block in re.split(r"(?m)^(?=### )", section)[1:]
-        if "- **상태**" not in block
+        for head in [block.splitlines()[0]]
+        if head[4:].startswith("#") and "- **상태**" not in block
     ]
     assert not missing, f"상태 줄 없는 항목: {missing}"
 
