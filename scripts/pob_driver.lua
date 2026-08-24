@@ -37,13 +37,46 @@ local function jesc(s)
   return tostring(s):gsub('[\\"]', '\\%0'):gsub("[%c]", " ")
 end
 
+-- ⛔ **오라클이 못 센 것을 스스로 신고한다** (#110).
+--    PoB 0.23.1은 플레이어의 트리거·미라주 계산을 통째로 꺼 뒀다
+--    (`Modules/CalcPerform.lua:3433` "TURNING OFF CALC TRIGGERS AND MIRAGES").
+--    되살려 보니 `CalcTriggers.lua:396`·`CalcMirages.lua:59`이 둘 다
+--    `skillFlags`(nil)에서 죽는다 — 정책이 아니라 **미완성**이다(실측 2026-08-23).
+--    그래서 발동 스킬의 딜은 CombinedDPS에 **0으로** 들어간다. 그 사실이 결과에
+--    안 남으면 트리거 빌드가 조용히 과소평가된다 — 「없는 값이 0으로 읽힌다」.
+local function pokOracleGaps()
+  local env = build.calcsTab and build.calcsTab.mainEnv
+  local trig, mir = 0, 0
+  if env and env.player and env.player.activeSkillList then
+    for _, skill in ipairs(env.player.activeSkillList) do
+      local sd = skill.skillData or {}
+      local st = skill.skillTypes or {}
+      if sd.triggered or skill.triggeredBy or st[SkillType.Triggered] then trig = trig + 1 end
+      local cond = skill.skillCfg and skill.skillCfg.skillCond
+      if sd.triggeredByMirageArcher or (cond and cond["usedByMirage"]) then mir = mir + 1 end
+    end
+  end
+  -- 주력기 자신이 발동인가 — **오차의 방향이 갈린다**. 주력기가 아닌 발동 스킬은
+  -- 기여가 0으로 빠져 과소평가지만, 주력기가 발동이면 발동률이 안 걸려 시전 속도대로
+  -- 계산되므로 **과대평가**일 수 있다. 하나로 뭉치면 어느 쪽인지 말할 수 없다.
+  local main = build.calcsTab.mainEnv and build.calcsTab.mainEnv.player
+      and build.calcsTab.mainEnv.player.mainSkill
+  local mainTrig = 0
+  if main then
+    local sd = main.skillData or {}
+    local st = main.skillTypes or {}
+    if sd.triggered or main.triggeredBy or st[SkillType.Triggered] then mainTrig = 1 end
+  end
+  return trig, mir, mainTrig
+end
+
 -- 메타: 적법성 신호 (연결 안 된 노드는 PoB가 소리 없이 해제하므로 여기서 노출)
 local points, asc, secAsc = build.spec:CountAllocNodes()
 print(string.format(
-  'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d}',
+  'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d}',
   jesc(build.spec.curClassName or ""),
   jesc(build.spec.curAscendClassName or ""),
-  build.characterLevel or 0, points or 0, asc or 0, secAsc or 0))
+  build.characterLevel or 0, points or 0, asc or 0, secAsc or 0, pokOracleGaps()))
 
 local ids = {}
 for id, node in pairs(build.spec.allocNodes) do
