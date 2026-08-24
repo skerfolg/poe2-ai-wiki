@@ -33,6 +33,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from pok.engine import dps_axis
 from pok.engine.proposal import UNVERIFIABLE, VERIFICATION_ROUTES
 from pok.engine.proposal_flow import proposals_dir, record_measurement
 
@@ -226,7 +227,11 @@ def digest(season: str, *, base: Path | None = None) -> dict[str, Any]:
             continue
         best = None
         for m in doc.get("measurements") or []:
-            dps = (m.get("deltas") or {}).get("CombinedDPS")
+            # ⛔ 축을 **고른다**(#113) — `showAverage` 스킬에서 `CombinedDPS`는 밑값이
+            #    1회 평균 피해라 속도가 안 곱해진다. 기준선(`baseline`)이 있으면 거기서
+            #    갈리고, 없으면 기본 축을 그대로 둔다(판정 불가를 확신으로 바꾸지 않는다).
+            axis = dps_axis.axis_for(m.get("baseline") or {}, m.get("meta"))
+            dps = (m.get("deltas") or {}).get(axis)
             if dps is None:
                 continue
             if best is None or dps > best[0]:
@@ -238,7 +243,12 @@ def digest(season: str, *, base: Path | None = None) -> dict[str, Any]:
                     "mechanism": mech,
                     "premise": p.get("premise"),
                     "best_dps_delta": best[0],
-                    "synergy": (best[1].get("synergy") or {}).get("CombinedDPS"),
+                    "best_dps_axis": dps_axis.axis_for(
+                        best[1].get("baseline") or {}, best[1].get("meta")
+                    ),
+                    "synergy": (best[1].get("synergy") or {}).get(
+                        dps_axis.axis_for(best[1].get("baseline") or {}, best[1].get("meta"))
+                    ),
                     "proposed_by": p.get("proposed_by"),
                 }
             )

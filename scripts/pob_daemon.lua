@@ -27,6 +27,23 @@ end
 --    `skillFlags`(nil)에서 죽는다 — 정책이 아니라 **미완성**이다(실측 2026-08-23).
 --    그래서 발동 스킬의 딜은 CombinedDPS에 **0으로** 들어간다. 그 사실이 결과에
 --    안 남으면 트리거 빌드가 조용히 과소평가된다 — 「없는 값이 0으로 읽힌다」.
+-- ⛔ **`CombinedDPS`가 속도 배수를 잃는 조건을 신고한다** (#113).
+--    `Modules/CalcOffence.lua:6136`:
+--        local baseDPS = output[(skillData.showAverage and "AverageDamage") or "TotalDPS"]
+--        output.CombinedDPS = baseDPS
+--    주력기에 `showAverage`가 서면 CombinedDPS의 **밑값이 1회 평균 피해**다 — 공격·시전
+--    속도가 안 곱해진다. `TotalDPS`(:4447 = Avg x (HitSpeed or Speed))는 정상이므로
+--    결함은 **축 선택 하나**에 있다. 신고가 없으면 속도 축이 조용히 0으로 읽힌다
+--    (실측: 채택 35수 중 공격 속도 노터블 0건).
+--    ⚠ 이 플래그 자체는 스킬 피해 모델의 결함 표지가 **아니다** — BACKLOG §3이 그 오독을
+--       한 번 뒤집었다. 여기서 재는 것은 「CombinedDPS를 그대로 쓰면 안 되는가」뿐이다.
+local function pokShowsAverage()
+  local main = build.calcsTab and build.calcsTab.mainEnv
+      and build.calcsTab.mainEnv.player and build.calcsTab.mainEnv.player.mainSkill
+  if main and main.skillData and main.skillData.showAverage then return 1 end
+  return 0
+end
+
 local function pokOracleGaps()
   local env = build.calcsTab and build.calcsTab.mainEnv
   local trig, mir = 0, 0
@@ -64,10 +81,10 @@ local function emit()
 
   local points, asc, secAsc = build.spec:CountAllocNodes()
   print(string.format(
-    'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d}',
+    'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"mainSkillShowsAverage":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d}',
     jesc(build.spec.curClassName or ""),
     jesc(build.spec.curAscendClassName or ""),
-    build.characterLevel or 0, points or 0, asc or 0, secAsc or 0, pokOracleGaps()))
+    build.characterLevel or 0, points or 0, asc or 0, secAsc or 0, pokShowsAverage(), pokOracleGaps()))
 
   local ids = {}
   for id, node in pairs(build.spec.allocNodes) do
