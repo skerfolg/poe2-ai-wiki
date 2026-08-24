@@ -776,3 +776,40 @@ def test_촉매로_넓힌_거부는_촉매라고_말한다(checker: ItemLegality
     reason = checker.check(text).verdicts[0].reason
     assert "촉매 reaver 20%" in reason, "상한을 넓힌 주체가 사유에 있어야 한다"
     assert "접미어 효과 확장" not in reason, "촉매인데 접미어 효과라고 말하면 안 된다"
+
+
+_MELEE_LV4 = (
+    "Rarity: Rare\nTest Amulet\nStellar Amulet\nItem Level: 82\n"
+    "{extra}+4 to Level of all Melee Skills\n"
+)
+_REAVER = "Catalyst: reaver\nCatalystQuality: 20\n"
+
+
+def test_촉매_없이는_끝수를_봐주지_않는다(checker: ItemLegalityChecker) -> None:
+    """상한을 넓힐 근거가 없으면 `+4`는 그냥 범위 밖이다 (#116).
+
+    ⛔ 이쪽이 거짓 양성으로 새면 **없는 아이템을 통과시킨다**(#115가 그 형태였다).
+    """
+    assert checker.check(_MELEE_LV4.format(extra="")).verdicts[0].status == "ILLEGAL"
+
+
+def test_끝수_한_칸은_CONDITIONAL로_가른다(checker: ItemLegalityChecker) -> None:
+    """`+3` x 촉매 1.20 = 3.6 — 내림이면 3, 반올림이면 4다 (#116).
+
+    PoB는 **내림**이고(`ItemTools.lua:48` floorSymmetric) 인게임은 미확정이다
+    (웹 조사 2026-08-24: 품질 상한 20%·브리치 반지 50%는 확인, 끝수 처리는 확정 못 함).
+
+    ⛔ 어느 쪽으로 박아도 반대 방향 결함이 난다 — 올리면 없는 아이템을 통과시키고,
+    내리면 정상을 거부해 **ILLEGAL 목록을 통째로 무시하게** 만든다(#27이 막으려던 것).
+    그래서 그 **한 칸만** CONDITIONAL로 열고 가정을 사유에 적는다.
+    """
+    v = checker.check(_MELEE_LV4.format(extra=_REAVER)).verdicts[0]
+    assert v.status == "CONDITIONAL", "거부도 무조건 통과도 아니다"
+    assert "끝수 처리 미확정" in v.reason
+    assert "인게임 확인 필요" in v.reason, "가정을 쓰는 쪽이 무엇을 확인할지 나와야 한다"
+
+
+def test_끝수를_넘어서면_여전히_거부한다(checker: ItemLegalityChecker) -> None:
+    """반올림으로도 안 되는 값(+5)은 촉매를 선언해도 막힌다 — **한 칸만** 연 것이다."""
+    text = _MELEE_LV4.format(extra=_REAVER).replace("+4 to Level", "+5 to Level")
+    assert checker.check(text).verdicts[0].status == "ILLEGAL"
