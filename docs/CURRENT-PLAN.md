@@ -43,11 +43,13 @@ flowchart TD
   CPL[S19 #111 상태 프로파일 + 스택 결합<br/>done]
   FULL[S20 전량 재측정<br/>next]
   STEM[S21 #117 게이트 어간<br/>done]
+  ORACLE[S22 #110 오라클 갭 신고<br/>done]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN --> NARROW --> CPL --> FULL
   WIDEN --> CFG --> CPL
   WIDEN --> STEM
+  DEF --> ORACLE
 ```
 
 ## Baseline Structure
@@ -81,6 +83,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S19 | #111 — 상태 프로파일 3종 + 스택 결합. 4건 전수 검증 | done |
 | S20 | 전량 재측정 — 축 전량 + config 결합으로 2,689벌 | next |
 | S21 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) (PR #98) | done |
+| S22 | #110 대응 — 되살리기 불가 확정, 오라클이 `POK_META`로 자기 갭 신고 (PR #99) | done |
 
 ## Canonical Next Step
 
@@ -89,8 +92,11 @@ The only next executable step is: **전량 재측정 (S20).**
 게이트를 통과했다 — 좁은 재측정에서 41종 중 16종이 값을 냈고, 에이전트가 예측한 축에서
 정확히 나왔다. #111까지 들어가 측정 조건이 확정됐으므로 이제 한 번만 돌리면 된다.
 
-남은 판정 하나: **#110** — PoB가 꺼 놓은 트리거·미라주를 되살릴 것인가
-(⚠ 상류가 왜 껐는지 모른다 — 되살려 틀린 값이 나오면 「측정 못 함」보다 나쁘다).
+마지막까지 열려 있던 판정 #110은 닫혔다(S22 · PR #99, 2026-08-24). 되살리기는 불가로
+확정됐고(트리거·미라주 둘 다 `skillFlags` nil에서 크래시 · 우리 스냅샷이 이미 상류 `dev`
+HEAD) 대신 오라클이 자기 갭을 신고한다. S20 앞을 막는 판정은 이제 없다.
+
+⚠ S20의 **후속 범위가 미확정**이다(재집계·재승격) — Open Decisions의 해당 항목을 볼 것.
 
 ## Deferred Candidates
 
@@ -122,11 +128,11 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | `artifacts/ingest-raw/proposals/0-5/` | active | 데이터 repo — 제안·전개·측정(파생). 정본 아님, 유지 |
 | `artifacts/ingest-raw/counterfactual/0-5/removals-pre87/` | keep | #87 수정 전 1차분 — 대조·감사용 보관 |
 | scratchpad `m4final`·`m4v2`·`m4v3` | disposable | 집계 대조용 임시 — 레인 종료 시 폐기 |
-| worktree `.claude/worktrees/arc-measure` | unknown | 다른 세션 소유 추정 — **임의 삭제 금지**, 소유 세션 확인 후 처리 |
-| worktree `.claude/worktrees/ecstatic-benz-b4d93c` | unknown | 위와 같음 |
-| worktree `.claude/worktrees/zealous-dewdney-e94861` | unknown | 위와 같음 |
-| branch `feat/m5-proposal-contract` | active | 이 레인의 작업 브랜치 — 머지 후 삭제 |
-| branch `feat/long-jump-bundles` | unknown | 다른 세션 소유 추정 — 확인 후 처리 |
+| worktree `.claude/worktrees/*` (arc-measure·ecstatic-benz·zealous-dewdney) | **소멸** | 2026-08-24 확인: `.claude/worktrees` **디렉터리 자체가 없다**. 표만 남아 있었다 |
+| worktree `.worktrees/ci-fix` (실제 경로는 다른 세션 scratchpad) | prunable | 실재하는 유일한 외부 워크트리 — 다른 세션(`3dee16c4`) scratchpad, detached `9eeb97e`(2026-08-13 「CI 복구 — mypy strict 17건」). **커밋은 main에 흡수 완료**(ancestor 확인)라 잃을 것이 없다. 가드가 「Current Plan에 없는 워크트리」로 경고하는 대상. **미커밋 변경 0건**(2026-08-24 확인)이라 지워도 잃을 것이 없다. ⛔ 그래도 소유 세션 확인 후 `git worktree remove` — 이 표에 적힌 것은 삭제 근거이지 삭제 승인이 아니다 |
+| branch `feat/m5-proposal-contract` | **소멸** | 머지 후 삭제됨 — 로컬·원격 모두 없다 |
+| branch `feat/long-jump-bundles` | stale | main이 #70을 PR #83으로 완결했고 `engine/tree/optimize.py`에 `long_jump`가 실재한다 — 이 브랜치는 **그 이전 작업분**이다. 로컬·원격 모두 잔존 · 삭제 후보 |
+| 원격 브랜치 21개 | stale | 스쿼시 머지 뒤 안 지워진 잔재(`fix/restore-item-granted-groups` 등). 일괄 정리는 **사용자 판정** — 소유 세션을 특정할 수 없다 |
 
 ## Open Decisions
 
@@ -169,6 +175,11 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | 충돌 해소 기준 — **항목별 나중 갱신본** | `#110`은 이 PR이(대응 완료), `#111`은 `main`이(해결·4건 전수 검증) 최신이라 각각 그쪽을 택했다. `counterfactual_campaign.py`는 **양쪽을 합쳤다** — `wanted`·`on_drop`은 main(#108의 `only` 좁히기가 여기 걸려 있다), `oracle_gaps` 추출은 이 PR | 2026-08-24 |
 | mypy 수정은 **계약을 안 건드리는 쪽**으로 | `int(object)`를 `_gap_count` 헬퍼로 좁혔다. 「없는 키 = 0」이라는 원저자 계약(`test_옛_스냅샷의_meta에도_안_깨진다`)은 **그대로 뒀다** — 뒤집으면 갭 없는 정상 빌드까지 「못 잼」이 된다 | 2026-08-24 |
 | 그 계약이 깨지는 자리를 **#119로 분리 등재** | 캐시 키에 드라이버 프로토콜이 없어 갭 키 없는 payload가 적중한다(로컬 26건 전량). 단 **잠복이다** — `measures_all_damage` 소비처 0, 캠페인은 데몬 경로라 S20 코퍼스는 무오염. 그래서 이 PR을 막지 않고 별건으로 뺐다 | 2026-08-24 |
+| Integration branch override — 작업 브랜치 `docs/110-plan-sync` | 레인명과 다름. **계획 문서만** 고친다(#110 종결 반영) — 코드 변경 없음. 다른 PC의 S20 작업과 파일이 겹치는 곳은 `CURRENT-PLAN.md` 하나뿐이라 충돌 시 이 PR 쪽을 양보한다. 이 PR 한정, 머지 시 소멸 | 2026-08-24 |
+| #110 종결을 계획에 반영 — S22 신설 | PR #99가 Open Decisions만 채우고 **상태 그래프·Baseline·Canonical Next Step은 안 건드렸다**. 거버넌스가 「상태가 바뀌면 갱신」을 요구하는데 「남은 판정 하나: #110」이 이미 답이 나온 채로 남아 있었다 | 2026-08-24 |
+| ⚠ S22 번호는 **이 세션이 발급**했다 | 다른 PC에서 S20이 병행 중이라 그쪽이 같은 번호를 쓸 수 있다. BACKLOG의 선례대로(번호 충돌 2회) **머지 시점에 재발급**하는 것이 유일한 해소다 — 충돌하면 이 행을 근거로 뒤쪽을 옮길 것 | 2026-08-24 |
+| ⛔ **S20의 후속 범위가 미확정** — 재집계·재승격이 기술에 없다 | 같은 성격의 S10은 「재측정 → 재집계 → NodeValue 재승격」을 한 묶음으로 잡았는데 S20은 **측정까지만**이다. #108로 축 열거를 없앤 뒤 처음 도는 전량이라 관측 축이 바뀌었고, 정본 `NodeValue` **2,665종**은 옛 축으로 집계된 값이다 — 측정만 반영하면 정본과 관측이 어긋난다. **S20 PR을 받을 때 재집계 포함 여부를 확인할 것**(미포함이면 후속 단계로 잇는다) | 2026-08-24 |
+| S7의 `blocked`는 **그대로 둔다** | 결함 연쇄(#98~#101·#108~#111)는 #110으로 전부 닫혔지만, S7 재개는 S20 코퍼스 위에서 하는 것이 맞다 — 옛 축으로 잰 큐에 다시 판정하면 같은 자리를 두 번 돈다. 첫 미종결 항목이 S7이고 Canonical Next Step이 S20인 불일치는 기존 override 항목이 이미 근거를 적어 두었다(§13.1) | 2026-08-24 |
 | 냉기 주입 순환 컨셉 | **성립 가능 · 보류** — 수지·발동률 모두 흑자로 계산됨. 진행 전 해결 과제는 **쿨다운 병목 하나**(아래 §보류 컨셉 참조). 재개 조건: 쿨다운 회복 예산 100%+ 확보 경로 확인 | 2026-08-21 |
 | 자로크의 봉기 컨셉 | **보류** — 쿨다운 10초가 최대 병목. 회복 265%로 상쇄하려면 무기·목걸이까지 유니크 강제라 슬롯 손실이 큼. 재평가 조건: 쿨다운 회복이 **다른 축과 공유**되는 구성 발견 시(냉기 주입 순환이 그 사례) | 2026-08-20 |
 
