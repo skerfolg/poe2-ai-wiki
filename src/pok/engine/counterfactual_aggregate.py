@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from pok.common.paths import knowledge_dir
+from pok.engine import dps_axis
 from pok.engine.counterfactual_campaign import REMOVALS, build_id, campaign_dir
 from pok.engine.jewel_taint import classify
 from pok.engine.ladder_aggregate import _tree_index
@@ -124,6 +125,23 @@ class _Node:
             if lift >= 2.0:
                 out[name] = round(min(lift, 999.0), 2)
         return out
+
+
+def _swap_dps_axis(stats: dict[str, Any]) -> dict[str, Any]:
+    """`CombinedDPS` 자리에 `TotalDPS`를 넣은 사본 (#113).
+
+    ⛔ 합성하지 않는다 — `TotalDPS`로 바꾸면 DoT·상태이상·임페일 가산분이 빠지는데,
+    그것을 우리가 더해 `CombinedDPS`를 재구성하면 **PoB 재구현**이다(AD-1). 가산분은
+    `TotalDot` 등 **별도 축에 그대로 실려 있으니** 필요한 쪽이 더한다.
+
+    `TotalDPS`가 없는 행(옛 관측)은 **손대지 않는다** — 없는 키를 0으로 바꿔 넣으면
+    「재서 0」과 「안 잼」이 섞인다(#109).
+    """
+    if "TotalDPS" not in stats:
+        return stats
+    out = dict(stats)
+    out["CombinedDPS"] = stats["TotalDPS"]
+    return out
 
 
 def _spread(values: list[float]) -> dict[str, float]:
@@ -228,6 +246,20 @@ def collect(
         cov["builds_measured"] += 1
         # ⚠ fail-closed: 오염 범위를 모르는 빌드는 통째로 뺀다(반경을 못 읽은 주얼)
         usable = taint.usable
+        # ⛔ **딜 축을 여기서 갈아 끼운다** (#113). `showAverage` 주력기에서는 PoB가
+        #    `CombinedDPS`의 밑값을 `AverageDamage`로 잡아(`CalcOffence.lua:6136`)
+        #    **속도 배수가 빠진다** — 그대로 쌓으면 공격 속도 노드가 전부 「0을 준다」로
+        #    집계되고, 소비처(판정 큐·제안 다이제스트·최적화기)가 그걸 그대로 읽는다.
+        #    강제 지점을 여기 두는 이유: 소비처마다 축을 고르게 하면 **안 고른 곳이
+        #    뚫린다**(철칙 5, 형태 ⑦과 같은 자리). 원시 스탯이 있는 곳은 여기뿐이다.
+        #    ⚠ 이름은 `CombinedDPS`로 유지한다 — 키를 바꾸면 소비처 전부가 조용히
+        #    빈 축을 읽는다. 대신 몇 벌을 갈았는지 커버리지에 남긴다.
+        if dps_axis.classify(base_stats) == "speed_missing":
+            base_stats = _swap_dps_axis(base_stats)
+            cov["builds_speed_corrected"] = cov.get("builds_speed_corrected", 0) + 1
+            speed_corrected_build = True
+        else:
+            speed_corrected_build = False
 
         for row in result["removals"]:
             nid = int(row["node_id"])
@@ -247,7 +279,7 @@ def collect(
             #    보이지만 반대**다 — 저기선 키 없음이 「안 쟀다」였고, 여기선 순회
             #    대상이 이미 「잰 축」이라 키 없음이 **「재서 0이었다」**를 뜻한다.
             measured = _measured_axes(base_stats, row)
-            deltas = row["deltas"]
+            deltas = _swap_dps_axis(row["deltas"]) if speed_corrected_build else row["deltas"]
             if not usable or nid in taint.tainted_nodes:
                 here.tainted += 1
                 # 버리지 않는다 — 「오염 포함」 쪽에는 싣는다(#99)

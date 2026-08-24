@@ -52,3 +52,42 @@ def test_주력기_발동은_따로_센다() -> None:
 def test_옛_스냅샷의_meta에도_안_깨진다() -> None:
     """갭 키가 없던 시절의 결과를 읽어도 0으로 읽힌다 — 없는 것과 0은 같다."""
     assert _result(**{"class": "Warrior"}).measures_all_damage
+
+
+def test_주력기가_평균표시면_적중_딜_축으로_간다() -> None:
+    """`CombinedDPS`가 속도를 잃는 조건을 오라클이 스스로 신고한다 (#113).
+
+    `CalcOffence.lua:6136`이 `showAverage`일 때 밑값을 `AverageDamage`로 잡는다 —
+    1회 평균 피해라 공격·시전 속도가 안 곱해진다.
+    """
+    plain = _result(mainSkillShowsAverage=0)
+    avg = _result(mainSkillShowsAverage=1)
+    assert not plain.main_skill_shows_average and plain.dps_axis == "CombinedDPS"
+    assert avg.main_skill_shows_average and avg.dps_axis == "TotalDPS"
+
+
+def test_신고가_없던_시절의_meta는_기본_축을_쓴다() -> None:
+    """키가 없으면 0으로 읽힌다 — 기존 동작이 바뀌지 않는다.
+
+    ⛔ 그 등가가 참인 것은 **묵은 캐시가 안 읽히기 때문**이다(#119). `_META_PROTOCOL`이
+    캐시 키에 들어가 있어 신고 없는 payload는 애초에 적중하지 않는다.
+    """
+    assert _result(**{"class": "Warrior"}).dps_axis == "CombinedDPS"
+
+
+def test_드라이버를_고치면_캐시가_무효화된다() -> None:
+    """#119 — 판 번호가 키에 들어가야 옛 payload가 안 걸린다."""
+    from pok.pob.runner import _META_PROTOCOL, _cache_path
+
+    assert _META_PROTOCOL >= 2, "mainSkillShowsAverage(#113)를 실었으면 판이 2 이상이다"
+    here = _cache_path("<xml/>", "deadbeef")
+    import pok.pob.runner as runner
+
+    old = runner._META_PROTOCOL
+    try:
+        runner._META_PROTOCOL = old - 1
+        assert _cache_path("<xml/>", "deadbeef") != here, (
+            "판 번호가 캐시 키에 안 들어가 있다 — 드라이버 개정이 캐시를 무효화 못 한다"
+        )
+    finally:
+        runner._META_PROTOCOL = old

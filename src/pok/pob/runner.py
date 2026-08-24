@@ -19,6 +19,12 @@ from pok.pob.buildxml import BuildSpec, to_xml
 from pok.pob.versions import PobSnapshot, find_luajit, resolve_snapshot
 
 _DRIVER = "scripts/pob_driver.lua"
+#: `POK_META` 모양의 판 번호 (#119). **드라이버를 고치면 반드시 올린다.**
+#  캐시 키가 `(PoB 커밋, XML)`뿐이라 우리 드라이버만 바뀌면 PoB 커밋이 그대로여서
+#  **키가 안 움직인다** — 새 필드 없는 payload가 그대로 적중하고, 없는 키는 0으로
+#  읽혀 「갭 없음」·「속도 정상」이라는 **거짓 안심**을 준다(형태 ①의 캐시 재발).
+#  2 = mainSkillShowsAverage(#113) · 1 = gap*(#110) · 0 = 그 이전
+_META_PROTOCOL = 2
 _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
 
 
@@ -70,6 +76,31 @@ class PobResult:
         }
 
     @property
+    def main_skill_shows_average(self) -> bool:
+        """주력기의 `CombinedDPS`가 **속도 배수를 잃었는가** (#113).
+
+        `CalcOffence.lua:6136`이 `showAverage`일 때 `CombinedDPS`의 밑값을 `TotalDPS`가
+        아니라 `AverageDamage`로 잡는다 — 1회 평균 피해라 공격·시전 속도가 안 곱해진다.
+        참이면 **`CombinedDPS`로 속도를 판정하면 안 된다**(실측: 채택 35수 중 공격 속도
+        노터블 0건).
+
+        ⚠ 이 플래그는 스킬 **피해 모델**의 결함 표지가 아니다 — `TotalDPS`(:4447 =
+        Avg x (HitSpeed or Speed))는 정상이고, 망가지는 것은 축 선택 하나다.
+        BACKLOG §3이 그 오독을 한 번 뒤집었다.
+        """
+        return _gap_count(self.meta, "mainSkillShowsAverage") == 1
+
+    @property
+    def dps_axis(self) -> str:
+        """이 결과에서 **딜로 읽어야 할 축 이름** (#113).
+
+        ⚠ `TotalDPS`로 바뀌면 DoT·상태이상·임페일 가산분이 빠진다. 그건 `TotalDot` 등
+        **별도 축에 그대로 실려 있으니 필요한 쪽이 더한다** — 여기서 합성하면 PoB
+        재구현이 된다(AD-1).
+        """
+        return "TotalDPS" if self.main_skill_shows_average else "CombinedDPS"
+
+    @property
     def measures_all_damage(self) -> bool:
         """딜 수치를 **그대로 믿어도 되는가** — 발동·미라주가 없어야 참이다 (#110)."""
         return not any(self.oracle_gaps.values())
@@ -85,7 +116,10 @@ class PobRunError(RuntimeError):
 
 
 def _cache_path(xml_text: str, commit: str) -> Path:
-    digest = hashlib.sha256(f"{commit}\n{xml_text}".encode()).hexdigest()[:32]
+    # ⛔ 판 번호가 키에 **들어가야 한다**(#119) — 빼면 드라이버 개정이 캐시를
+    #    무효화하지 못해 옛 payload가 적중한다. 캐시는 `var/` 파생물이라
+    #    무효화 비용이 없다(재계산 ~2초/건).
+    digest = hashlib.sha256(f"{_META_PROTOCOL}\n{commit}\n{xml_text}".encode()).hexdigest()[:32]
     return var_dir() / "pob-cache" / f"{digest}.json"
 
 
