@@ -917,7 +917,12 @@ class ItemLegalityChecker:
                 # `50% increased Evasion Rating`(Sibilant 40)이 그렇게 ILLEGAL이 됐다.
                 scalar = catalyst_scalar(catalyst, catalyst_quality, d.get("mod_tags") or [])
                 if scalar > 1.0:
-                    ok, why = _values_in_range(line, d.get("texts", []), hi_scale=scalar)
+                    ok, why = _values_in_range(
+                        line,
+                        d.get("texts", []),
+                        hi_scale=scalar,
+                        scale_label=f"촉매 {catalyst} {catalyst_quality:g}%",
+                    )
                     if ok:
                         note = f"촉매 {catalyst} {catalyst_quality:g}% 반영 상한"
             if not ok:
@@ -1101,7 +1106,9 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
     return rarity, base_name, ilvl, mod_lines, sockets, rune_effect
 
 
-def _values_in_range(line: str, texts: list[str], *, hi_scale: float = 1.0) -> tuple[bool, str]:
+def _values_in_range(
+    line: str, texts: list[str], *, hi_scale: float = 1.0, scale_label: str = "접미어 효과"
+) -> tuple[bool, str]:
     """줄의 수치들이 어느 한 티어 텍스트의 범위 안에 있는지.
 
     hi_scale > 1 은 접미어 효과 선반영(주얼): 표시 수치가 롤 x 배율이므로 범위
@@ -1127,7 +1134,10 @@ def _values_in_range(line: str, texts: list[str], *, hi_scale: float = 1.0) -> t
                 break
         if fit:
             return True, ""
-    scaled = " (접미어 효과 확장 포함)" if hi_scale > 1 else ""
+    # ⚠ 라벨은 **호출자가 준다** — 상한을 넓히는 이유가 접미어 효과만이 아니다.
+    #    촉매로 넓힌 거부에 「접미어 효과」라고 적히면 사용자가 엉뚱한 곳을 본다
+    #    (거짓 거부 자체보다 **어디를 봐야 하는지 잘못 알려주는 것**이 더 비싸다).
+    scaled = f" ({scale_label} 확장 포함)" if hi_scale > 1 else ""
     return False, f"수치 {line_nums} 가 티어 범위 밖{scaled}"
 
 

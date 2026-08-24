@@ -759,3 +759,20 @@ def test_skill_level_suffixes_are_mutually_exclusive(checker: ItemLegalityChecke
     # 하나만이면 통과 · 무관한 접미와의 공존도 통과 (§0 ⑤)
     assert checker.check(head + "+3 to Level of all Spell Skills\n").is_legal
     assert checker.check(head + "+3 to Level of all Spell Skills\n+35 to Dexterity\n").is_legal
+
+
+def test_촉매로_넓힌_거부는_촉매라고_말한다(checker: ItemLegalityChecker) -> None:
+    """상한을 넓히는 이유가 접미어 효과만이 아니다 (#116 곁가지).
+
+    촉매로 상한을 넓혔는데 사유에 「접미어 효과 확장 포함」이라고 적히면 사용자가
+    엉뚱한 곳을 본다 — **거짓 거부보다 「어디를 봐야 하는지」를 잘못 알려주는 것이
+    더 비싸다**. 촉매 분기는 `#34` 때부터 실제로 발동하고 있었고, 틀린 것은 라벨이었다.
+    """
+    text = (
+        "Rarity: Rare\nTest Amulet\nStellar Amulet\nItem Level: 82\n"
+        "Catalyst: reaver\nCatalystQuality: 20\n"
+        "+4 to Level of all Melee Skills\n"
+    )
+    reason = checker.check(text).verdicts[0].reason
+    assert "촉매 reaver 20%" in reason, "상한을 넓힌 주체가 사유에 있어야 한다"
+    assert "접미어 효과 확장" not in reason, "촉매인데 접미어 효과라고 말하면 안 된다"
