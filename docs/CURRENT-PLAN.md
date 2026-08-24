@@ -44,12 +44,14 @@ flowchart TD
   FULL[S20 전량 재측정<br/>next]
   STEM[S21 #117 게이트 어간<br/>done]
   ORACLE[S22 #110 오라클 갭 신고<br/>done]
+  AXIS[S23 #113 딜 축 선택 + #119 캐시 판<br/>done]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN --> NARROW --> CPL --> FULL
   WIDEN --> CFG --> CPL
   WIDEN --> STEM
   DEF --> ORACLE
+  ORACLE --> AXIS --> FULL
 ```
 
 ## Baseline Structure
@@ -84,6 +86,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S20 | 전량 재측정 — 축 전량 + config 결합으로 2,689벌 | next |
 | S21 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) (PR #98) | done |
 | S22 | #110 대응 — 되살리기 불가 확정, 오라클이 `POK_META`로 자기 갭 신고 (PR #99) | done |
+| S23 | #113 — `CombinedDPS`가 속도를 잃는 조건을 신고·축 선택 (`engine/dps_axis.py`) + #119 캐시 판 번호 | done |
 
 ## Canonical Next Step
 
@@ -182,6 +185,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | ⛔ **#113을 S20 재집계 전에 고친다** | **원본에서 확정**(`CalcOffence.lua:6136` — `showAverage`면 `CombinedDPS`에 `AverageDamage`가 들어가 속도 배수가 빠진다). 집계는 잰 축 전부를 싣지만 **판정하는 쪽이 `CombinedDPS`에 하드코딩**돼 있다 — `node_necessity.py:291`(S7 판정 큐) · `proposal_round.py:229`(M5 다이제스트) · `items.py:493` · `leverage.py:100`. ✅ **재측정 불필요** — `TotalDPS`·`Speed`가 이미 관측에 있다(#108). 축만 바꾸면 된다 | 2026-08-24 |
 | §3과 #113은 **둘 다 맞다 — 다른 것을 말하고 있었다** | §3이 검사한 것은 「그 플래그가 스킬 피해 모델의 결함을 표시하는가」이고 답은 아니오다(`TotalDPS = Avg × (HitSpeed or Speed)`는 정상, `:4447`). #113이 짚은 것은 **`CombinedDPS` 하나**다. 증상만 보고 어느 한쪽을 기각했으면 틀렸을 자리 — 원본을 읽어 갈랐다 | 2026-08-24 |
 | 열린 백로그 10건의 우선순위를 **BACKLOG에 고정** | 세션마다 다시 고르면 급한 것이 밀린다. Tier 0~4로 §1 머리에 기록 — 판단 축은 조용한 오류·정본 오염·강제 지점·일정 결합 | 2026-08-24 |
+| Integration branch override — 작업 브랜치 `feat/113-dps-axis` | 레인명과 다름. #113 수정 + #119 동반 해소. 이 PR 한정 | 2026-08-24 |
+| #113 수정은 **합성이 아니라 축 선택**으로 | `TotalDPS`로 바꾸면 DoT·상태이상 가산분이 빠지는데, 그걸 우리가 더해 `CombinedDPS`를 재구성하면 **PoB 재구현**이다(AD-1). 가산분은 `TotalDot` 등 별도 축에 그대로 있으니 **필요한 쪽이 더한다** | 2026-08-24 |
+| 저장된 관측은 **수치로** 가른다 | S20이 신고 없는 드라이버로 돌고 있어 플래그만 보면 이번 재집계에 안 걸린다. #108로 전 축을 담게 되어 `CombinedDPS`·`TotalDPS`·`AverageDamage`가 이미 행에 있다 — 동일성으로 갈린다. ⛔ 가산분이 있어 못 가르면 **`unknown`을 내고 기본 축 유지**(형태 ①) | 2026-08-24 |
+| #119를 #113과 **같이** 닫는다 | #113이 드라이버에 신고를 붙이는 순간 #119가 잠복이 아니게 된다 — 캐시 키가 안 움직이면 신고 없는 payload가 그대로 적중한다. 따로 두면 새 결함을 만들면서 닫는 셈 | 2026-08-24 |
 | Integration branch override — 작업 브랜치 `docs/110-plan-sync` | 레인명과 다름. **계획 문서만** 고친다(#110 종결 반영) — 코드 변경 없음. 다른 PC의 S20 작업과 파일이 겹치는 곳은 `CURRENT-PLAN.md` 하나뿐이라 충돌 시 이 PR 쪽을 양보한다. 이 PR 한정, 머지 시 소멸 | 2026-08-24 |
 | #110 종결을 계획에 반영 — S22 신설 | PR #99가 Open Decisions만 채우고 **상태 그래프·Baseline·Canonical Next Step은 안 건드렸다**. 거버넌스가 「상태가 바뀌면 갱신」을 요구하는데 「남은 판정 하나: #110」이 이미 답이 나온 채로 남아 있었다 | 2026-08-24 |
 | ⚠ S22 번호는 **이 세션이 발급**했다 | 다른 PC에서 S20이 병행 중이라 그쪽이 같은 번호를 쓸 수 있다. BACKLOG의 선례대로(번호 충돌 2회) **머지 시점에 재발급**하는 것이 유일한 해소다 — 충돌하면 이 행을 근거로 뒤쪽을 옮길 것 | 2026-08-24 |

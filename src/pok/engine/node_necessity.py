@@ -288,6 +288,10 @@ def build_queue(
         if ci_low < min_adoption:
             continue
         axes = value.get("axes") or {}
+        # 축 선택(#113)은 **집계 시점**에 끝난다 — `axes`는 원시 스탯이 아니라
+        # 손실 백분율의 분포라, 여기서 `CombinedDPS`/`TotalDPS`를 비교해도 의미가
+        # 없다. `counterfactual_aggregate`가 속도 없는 빌드의 `CombinedDPS` 자리에
+        # `TotalDPS`를 넣어 쌓으므로, 이 키는 이미 **속도가 든 축**이다.
         dps = axes.get("CombinedDPS") or {}
         if int(dps.get("n") or 0) < min_n:
             continue
