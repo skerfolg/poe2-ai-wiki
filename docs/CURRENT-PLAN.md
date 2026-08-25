@@ -46,6 +46,7 @@ flowchart TD
   ORACLE[S22 #110 오라클 갭 신고<br/>done]
   AXIS[S23 #113 딜 축 선택 + #119 캐시 판<br/>done]
   SOCKET[S24 #120 룬 소켓 예산 신고<br/>done]
+  ATTR[S25 #121 여러 줄 config 개행<br/>done]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN --> NARROW --> CPL --> FULL
@@ -54,6 +55,7 @@ flowchart TD
   DEF --> ORACLE
   ORACLE --> AXIS --> FULL
   ORACLE -. 같은 원리를 아이템에 .-> SOCKET
+  SOCKET -. 우회로를 만들다 발견 .-> ATTR
 ```
 
 ## Baseline Structure
@@ -89,7 +91,8 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S21 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) (PR #98) | done |
 | S22 | #110 대응 — 되살리기 불가 확정, 오라클이 `POK_META`로 자기 갭 신고 (PR #99) | done |
 | S23 | #113 — `CombinedDPS`가 속도를 잃는 조건을 신고·축 선택 (`engine/dps_axis.py`) + #119 캐시 판 번호 | done |
-| S24 | #120 — 아이템 룬 소켓 **예산**을 오라클이 신고(베이스/유니크 + 트리 부여), 조립은 PoB가 못 여는 6칸 초과만 거부 (`pob/runner.py::socket_budget`) | done |
+| S24 | #120 — 아이템 룬 소켓 **예산**을 오라클이 신고(베이스/유니크 + 트리 부여), 조립은 PoB가 못 여는 6칸 초과만 거부하고 **우회로를 함께 낸다** (`pob/runner.py::socket_budget`) | done |
+| S25 | #121 — 여러 줄 config가 `&#10;`로 나가 PoB에서 조용히 사라지던 것 수정 (`pob/buildxml.py::_pob_attr`) | done |
 
 ## Canonical Next Step
 
@@ -204,6 +207,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | Integration branch override — 작업 브랜치 `skerfolg/item-rune-slot-validation` | 레인명(`M5-proposal-rounds`)과 다름. **사용자 신고 결함(#120)** 수정이라 레인 이름을 안 쓴다. `main`(eaefc4f)에서 분기했고 M5 측정 코드와 겹치는 파일이 없다(`pob/runner.py`의 `_META_PROTOCOL`만 공유). 이 PR 한정, 머지 시 소멸 | 2026-08-25 |
 | 룬 소켓 사실의 **관측 주체는 PoB 하나** | #120 — KB `socket_limit`(베이스)으로 재면 **정상 유니크 셋을 거부한다**(Atziri's Splendour 6>4 · Runeseeker's Call 5>3 · Darkness Enthroned 2>0). 그중 Runeseeker's Call은 정본에 소켓 문구조차 없다(수집 갭). 판정 주체가 둘이면 어긋난다(형태 ④) — 오라클이 `data.uniques`·`base.socketLimit`·**할당 노드 문구**를 보고 사실을 낸다 | 2026-08-25 |
 | ⛔ **막는 것은 「6칸 초과」 하나뿐** — 예산 초과는 보고만 한다 | 사용자 판정 2026-08-25: *"물리적으로 불가능한 수치의 소켓이 아니라면 허용하는 게 안전하다"*(갑옷 4칸이 타락하면 5칸). 넘기는 경로를 우리가 다 알지 못한다 — 유니크 정의 · 트리 부여 · 타락. 6칸 초과만이 **인게임 가부와 무관한 확정 사실**이다: PoB가 룬 드롭다운을 6개만 만들어 그 아이템을 클릭하면 죽는다(`ItemsTab.lua:696` vs `:2016`). 열어 볼 수 없는 빌드 코드는 산출물이 아니다 | 2026-08-25 |
+| 6칸을 넘는 칸은 **우회로와 함께** 거부한다 | 철칙 5 따름정리(금지하려면 대안 경로를 먼저 만든다). `Sockets:`를 6칸으로 줄이고 넘치는 칸의 값을 `ItemSpec.substitutes`(아이템별·추산 자동 기록) 또는 config `customMods`(전역)로 주입한다. 실측 2026-08-25(모리오르 7칸 → 6칸 + `customMods` 4줄): `Life`·`Spirit`·`TotalEHP`·`CombinedDPS` **소수점까지 동일**. ⚠ 보정 둘 — 룬 증폭 미적용 · `per Socket filled`은 실제 룬 수를 센다(`RunesSocketedIn`) | 2026-08-25 |
+| ⛔ 우회로를 만들다 **#121을 발견** — 여러 줄 config가 조용히 사라지고 있었다 | `quoteattr`이 개행을 `&#10;`으로 내보내는데 PoB의 XML 파서는 이름 있는 엔티티 5개만 알고 나머지를 **빈 문자열로 지운다**(`runtime/lua/xml.lua:11`). 오류도 경고도 없다(형태 ①). `_pob_attr`로 개행을 리터럴로 둔다 — PoB 자신의 인코더와 같은 규약이다(AD-1) | 2026-08-25 |
 | ⚠⚠ 첫 판이 **정상 3건을 거짓 거부**했다 — 사용자가 뒤집었다 | 마셜 아티스트 `Runic Meridians`(39552)가 투구+1·갑옷+2·장갑+1·장화+1을 준다. PoB는 이 노드를 **한 줄도 파싱하지 못해**(`pob_modeling.supported: false`) `base.socketLimit`에 절대 안 들어온다 — 그래서 「베이스 한도 초과」로 보였다. 실측: 신고 빌드 4건 중 3건이 이 노드 하나로 정확히 설명되고, 데몬에서 39552를 빼자 경고가 1→4로 늘어 인과가 확인됐다. 예산 = 베이스/유니크 + 트리 부여(`socket_budget`) | 2026-08-25 |
 | #120 신고를 **드라이버 메타에 얹는다**(별도 PoB 호출 아님) | 조립은 이미 PoB를 1회 부팅한다 — 아이템 검증만 따로 띄우면 출고마다 부팅이 하나 더 붙는다. `POK_META.items`에 얹으면 **비용 0**이고 `compute_pob`(설계 반복 경로)까지 같은 사실을 받는다(#27의 「매 반환에 싣는다」) | 2026-08-25 |
 | ⚠ `_META_PROTOCOL` 2 → 3 — **`var/pob-cache` 전량 무효화** | #119의 규약(드라이버를 고치면 판을 올린다)을 따른 것이다. 캠페인(S20)은 데몬 경로라 캐시를 안 쓰므로 코퍼스에 영향 없고, 단발 호출은 건당 ~2초 재계산이다. 안 올리면 옛 payload가 적중해 **소켓 신고가 조용히 사라진다** | 2026-08-25 |

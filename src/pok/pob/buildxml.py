@@ -603,7 +603,35 @@ def _config_value_attrs(value: str | int | bool) -> str:
         return f'boolean="{"true" if value else "false"}"'
     if isinstance(value, int):
         return f'number="{value}"'
-    return f"string={quoteattr(value)}"
+    return f"string={_pob_attr(value)}"
+
+
+def _pob_attr(value: str) -> str:
+    """속성값을 **PoB의 XML 파서가 읽는 대로** 이스케이프한다 (#120).
+
+    ⛔ `quoteattr`을 쓰면 안 된다 — 개행을 `&#10;`으로 바꾸는데 PoB의 파서는
+    **이름 있는 엔티티 다섯 개만** 안다(`runtime/lua/xml.lua:11`):
+
+        return (content:gsub("&(.-);", function (ent) return entTbl[ent] or "" end))
+
+    모르는 엔티티는 **빈 문자열로 지워진다**. 그래서 여러 줄짜리 config가 한 줄로
+    이어붙고, `modLib.parseMod`가 그 줄을 못 읽어 **조용히 통째로 사라진다**
+    (BACKLOG 형태 ①). 실측 2026-08-25 (`customMods` 두 줄):
+
+        리터럴 개행 → Life 3075 · Spirit 260   (둘 다 적용)
+        `&#10;`     → Life 2025 · Spirit 208   (**설정 없음과 동일**)
+
+    PoB 자신의 인코더도 `<>&'"`만 바꾸고 개행은 그대로 둔다(`xml.lua:19`) —
+    즉 리터럴 개행이 PoB 파일의 정본 표기다(AD-1).
+
+    ⚠ 대신 **표준 XML 리더는 속성 안 개행을 공백으로 정규화한다** — 우리
+    `restore.py`(ElementTree)가 그렇다. 여러 줄 config를 복원하면 한 줄로 합쳐진다.
+    이건 PoB 원본 코드를 읽을 때도 이미 그랬던 기존 갭이다.
+    """
+    body = (
+        value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+    )
+    return f'"{body}"'
 
 
 def _gem_xml(gem: GemSpec) -> str:

@@ -180,6 +180,13 @@ def socket_problems(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
     가부와 무관한 **도구 한계**다 — PoB가 룬 드롭다운을 6개만 만들어서, 그 아이템을
     클릭하는 순간 nil 인덱싱으로 죽는다. 계산 경로에서는 안 터지므로 여기서만 잡힌다.
     열어 볼 수 없는 빌드 코드를 출고하는 것은 산출물이 아니다.
+
+    ## 금지하려면 대안 경로를 먼저 만든다 (철칙 5 따름정리)
+
+    거부 사유에 **우회로를 함께 적는다** — 없으면 다음 세션은 게이트를 피하는 법을
+    배운다. 넘치는 칸은 그 값만 따로 주입해 재현한다. 실측 2026-08-25(모리오르 7칸 →
+    6칸 + `customMods` 4줄): `Life`·`Spirit`·`TotalEHP`·`CombinedDPS`가
+    **소수점까지 동일**했다.
     """
     out: list[str] = []
     for row in items:
@@ -191,7 +198,12 @@ def socket_problems(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
                 f"`ItemsTab.lua`가 룬 드롭다운을 {RUNE_CONTROL_SLOTS}개만 만드는데 "
                 f"`UpdateRuneControls`는 `itemSocketCount`까지 돌며 인덱싱해서, 이 "
                 f"아이템을 **클릭하는 순간 예외**가 난다(계산은 통과한다). "
-                f"{RUNE_CONTROL_SLOTS}칸 이하로 줄일 것"
+                f"→ `Sockets:`를 {RUNE_CONTROL_SLOTS}칸으로 줄이고 넘치는 칸의 값은 "
+                f"`ItemSpec.substitutes`(그 아이템에 붙는다·산출물에 추산으로 자동 기록) "
+                f"또는 config `customMods`(전역)로 주입한다. ⚠ 두 가지를 함께 보정할 것: "
+                f"①주입 줄에는 `increased effect of Socketed Runes` 증폭이 **안 곱해진다** "
+                f"②`per Socket filled` 모드는 실제 룬 수를 세므로(`RunesSocketedIn`) "
+                f"줄어든 칸만큼 **직접 더해 줘야** 한다"
             )
     return tuple(out)
 
