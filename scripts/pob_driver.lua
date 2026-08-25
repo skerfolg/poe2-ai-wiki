@@ -87,19 +87,25 @@ local function pokOracleGaps()
   return trig, mir, mainTrig
 end
 
--- ⛔ **아이템의 룬 소켓 수를 오라클이 신고한다** (#120).
+-- ⛔ **아이템의 룬 소켓 예산을 오라클이 신고한다** (#120).
 --    PoB는 아이템 텍스트의 `Sockets:` 줄을 **그대로 믿는다**(`Item.lua:577`
---    `self.itemSocketCount = #self.sockets`) — 베이스 한도와 대조하지 않는다.
---    한도를 넘겨 적으면 계산은 조용히 그 값으로 나오고 **UI에서만** 터진다:
+--    `self.itemSocketCount = #self.sockets`) — 어디와도 대조하지 않는다. 그래서
+--    칸 수가 틀려도 계산은 조용히 나오고 **UI에서만** 터진다:
 --    `ItemsTab.lua:696`이 룬 드롭다운을 **6개만** 만드는데
 --    `UpdateRuneControls`(:2016)는 `for i = 1, item.itemSocketCount`로 돌아
 --    7칸부터 `displayItemRune7`이 nil이다 — 아이템 상세보기에서 예외.
---    실측 2026-08-25(사용자 신고 빌드): 12개 중 4개가 한도 초과였고(3→4 셋 ·
---    4→7 하나) 7칸짜리에서 예외가 났다. 조립 게이트는 소켓 수를 아예 안 봤다.
--- ⚠ **베이스 한도로만 재면 정상 유니크를 거부한다** — 한도를 넘는 유니크가 실재한다
---    (실측: Atziri's Splendour 6>4 · Runeseeker's Call 5>3 · Darkness Enthroned 2>0).
---    유니크는 **자기 정의(`data.uniques`)가 정본**이고 베이스 한도는 그 다음이다.
---    거짓 거부는 게이트 우회를 학습시킨다(BACKLOG 형태 ⑪).
+--
+-- ⚠⚠ **예산은 베이스 한도가 아니다.** 넘기는 경로가 여럿 실재한다:
+--    ① 유니크 자기 정의 (Atziri's Splendour 6 > 베이스 4 · Runeseeker's Call 5 > 3)
+--    ② **트리 부여** — 마셜 아티스트 `Runic Meridians`(39552)가 투구+1·갑옷+2·
+--       장갑+1·장화+1을 준다. PoB는 이 노드를 **한 줄도 파싱하지 못하므로**
+--       (`pob_modeling.supported: false`) `base.socketLimit`에 절대 안 들어온다.
+--    ③ 타락 등 이 함수가 모르는 경로.
+--    실측 2026-08-25: 베이스 한도로만 쟀더니 사용자 신고 빌드 4건 중 **3건이
+--    거짓 거부**였다(전부 ②로 정확히 설명된다). 거짓 거부는 게이트 우회를
+--    학습시킨다(BACKLOG 형태 ⑪) — 그래서 여기서는 **사실만 낸다**:
+--    `limit`(베이스/유니크) · `grant`(트리 부여) · `slot` · `corrupted`.
+--    무엇을 막을지는 Python 쪽 `socket_problems`가 정한다.
 local pokUniqueSocketCache
 local function pokUniqueSockets()
   if pokUniqueSocketCache then return pokUniqueSocketCache end
@@ -122,10 +128,49 @@ local function pokUniqueSockets()
   return pokUniqueSocketCache
 end
 
+-- 트리가 부여하는 **부위별 추가 룬 칸** — `Runic Meridians`(39552) 계열.
+-- PoB 자신의 노드 문구를 읽는다(재구현 금지, AD-1). 문구 형태:
+--     additional Rune-only sockets:
+--     1 Helmet socket
+--     2 Body Armour sockets
+-- ⚠ 숫자 줄만 보면 안 된다 — "Rune-only sockets" 머리줄을 **먼저 만난 노드에서만**
+--    센다. 안 그러면 주얼 소켓·다른 문구의 숫자 줄까지 룬 칸으로 오인한다.
+local function pokRuneSocketGrants()
+  local grants = {}
+  if not (build and build.spec and build.spec.allocNodes) then return grants end
+  for _, node in pairs(build.spec.allocNodes) do
+    local armed = false
+    for _, line in ipairs(node.sd or {}) do
+      if line:lower():find("rune%-only sockets") then
+        armed = true
+      elseif armed then
+        local count, slot = line:match("^(%d+)%s+(.-)%s+sockets?$")
+        if count then
+          grants[slot] = (grants[slot] or 0) + tonumber(count)
+        else
+          armed = false  -- 열거가 끝났다
+        end
+      end
+    end
+  end
+  return grants
+end
+
+-- 아이템 id → 장착 슬롯 이름. 부위별 부여를 붙이려면 어느 칸에 꽂혔는지가 필요하다.
+local function pokItemSlots()
+  local out = {}
+  for name, slot in pairs((build and build.itemsTab and build.itemsTab.slots) or {}) do
+    if slot.selItemId and slot.selItemId ~= 0 then out[slot.selItemId] = name end
+  end
+  return out
+end
+
 local function pokItems()
   local tab = build and build.itemsTab
   if not tab or not tab.items then return "[]" end
   local uniques = pokUniqueSockets()
+  local grants = pokRuneSocketGrants()
+  local slotOf = pokItemSlots()
   local ids = {}
   for id in pairs(tab.items) do ids[#ids + 1] = id end
   table.sort(ids)
@@ -140,6 +185,8 @@ local function pokItems()
     elseif item.base and item.base.socketLimit then
       limit, source = item.base.socketLimit, "base"
     end
+    local slot = slotOf[id] or ""
+    local grant = grants[slot] or 0
     -- 이름을 못 찾는 룬이 하나라도 있으면 PoB는 `UpdateRunes()`를 **안 돌린다**
     -- (`Item.lua:1046~1058`) — 손기입 `{rune}` 줄이 그대로 남아 조용히 어긋난다.
     local unknown = {}
@@ -151,9 +198,11 @@ local function pokItems()
       end
     end
     rows[#rows + 1] = string.format(
-      '{"id":"%s","name":"%s","base":"%s","rarity":"%s","sockets":%d,"limit":%d,"limitSource":"%s","unknownRunes":[%s]}',
+      '{"id":"%s","name":"%s","base":"%s","rarity":"%s","slot":"%s","sockets":%d,'
+      .. '"limit":%d,"limitSource":"%s","grant":%d,"corrupted":%s,"unknownRunes":[%s]}',
       jesc(id), jesc(item.title or item.name or ""), jesc(item.baseName or ""),
-      jesc(item.rarity or ""), sockets, limit, source, table.concat(unknown, ","))
+      jesc(item.rarity or ""), jesc(slot), sockets, limit, source, grant,
+      item.corrupted and "true" or "false", table.concat(unknown, ","))
   end
   return "[" .. table.concat(rows, ",") .. "]"
 end

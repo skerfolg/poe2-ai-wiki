@@ -25,8 +25,9 @@ _DRIVER = "scripts/pob_driver.lua"
 #  캐시 키가 `(PoB 커밋, XML)`뿐이라 우리 드라이버만 바뀌면 PoB 커밋이 그대로여서
 #  **키가 안 움직인다** — 새 필드 없는 payload가 그대로 적중하고, 없는 키는 0으로
 #  읽혀 「갭 없음」·「속도 정상」이라는 **거짓 안심**을 준다(형태 ①의 캐시 재발).
-#  3 = items[](#120) · 2 = mainSkillShowsAverage(#113) · 1 = gap*(#110) · 0 = 그 이전
-_META_PROTOCOL = 3
+#  4 = items[].slot/grant/corrupted(#120) · 3 = items[](#120)
+#  2 = mainSkillShowsAverage(#113) · 1 = gap*(#110) · 0 = 그 이전
+_META_PROTOCOL = 4
 _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
 
 #: PoB **아이템 상세보기**가 만드는 룬 드롭다운 수 (`Classes/ItemsTab.lua:696` `for i = 1, 6`).
@@ -122,8 +123,9 @@ class PobResult:
     def items(self) -> tuple[dict[str, Any], ...]:
         """PoB가 **실제로 읽은** 아이템별 소켓 사실 (#120) — 판정이 아니라 관측.
 
-        각 행: `id`·`name`·`base`·`rarity`·`sockets`(PoB의 `itemSocketCount`)·
-        `limit`(허용 칸)·`limitSource`(`unique`/`base`/`none`)·`unknownRunes`.
+        각 행: `id`·`name`·`base`·`rarity`·`slot`·`sockets`(PoB의 `itemSocketCount`)·
+        `limit`(베이스/유니크 칸)·`limitSource`(`unique`/`base`/`none`)·
+        `grant`(그 부위에 트리가 더해 준 칸)·`corrupted`·`unknownRunes`.
         옛 캐시·옛 스냅샷에는 없을 수 있으므로 없으면 빈 튜플이다.
         """
         rows = self.meta.get("items")
@@ -133,68 +135,111 @@ class PobResult:
 
     @property
     def item_socket_problems(self) -> tuple[str, ...]:
-        """**존재할 수 없는 룬 소켓** — 사유 문자열 (#120). 비어 있으면 통과.
+        """**PoB가 표현하지 못하는** 룬 소켓 — 차단 사유 (#120). 비어 있으면 통과.
 
         `is_tree_legal`과 같은 계열이다: 오라클이 낸 사실을 적법성 신호로 읽는다.
+        인게임 성립 여부를 다투는 것은 여기가 아니라 `item_socket_warnings`다.
         """
         return socket_problems(self.items)
+
+    @property
+    def item_socket_warnings(self) -> tuple[str, ...]:
+        """예산을 넘겼지만 **막지는 않는 것** (#120) — 확인 요청."""
+        return socket_warnings(self.items)
 
     @property
     def is_item_sockets_legal(self) -> bool:
         return not self.item_socket_problems
 
 
+def socket_budget(row: dict[str, Any]) -> int:
+    """이 아이템이 가질 수 있는 룬 칸 = 베이스/유니크 한도 + **트리 부여**.
+
+    ⚠ 트리 부여를 빼면 안 된다 — 마셜 아티스트 `Runic Meridians`(39552)가
+    투구+1·갑옷+2·장갑+1·장화+1을 준다. PoB는 이 노드를 **한 줄도 파싱하지 못해**
+    (`pob_modeling.supported: false`) `base.socketLimit`에 절대 반영되지 않는다.
+    실측 2026-08-25: 이걸 빼고 쟀더니 사용자 신고 빌드 4건 중 **3건이 거짓 거부**였고
+    셋 다 이 노드 하나로 정확히 설명됐다.
+    """
+    return _as_int(row.get("limit")) + _as_int(row.get("grant"))
+
+
 def socket_problems(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
-    """아이템 소켓 관측 → 거부 사유 (#120).
+    """**차단**할 것만 — PoB가 그 아이템을 표현하지 못하는 경우 (#120).
 
-    ## 왜 여기가 강제 지점인가 (철칙 5)
+    ## 무엇을 막고 무엇을 막지 않나 (사용자 판정 2026-08-25)
 
-    소켓 한도는 **문서와 사유 문구에만** 있었다 — 적법성 검사기는 룬 줄을 볼 때마다
-    *"소켓 한도는 `check_constraints(exhaustion.sockets)`로 검사하라"*고 적어 보냈고,
-    그 도구는 **에이전트가 손으로 칸 수를 넣어야** 작동한다. 아무도 넣지 않으면 아무도
-    모른다. 실측 2026-08-25(사용자 신고 빌드): 12개 중 4개가 한도 초과였고
-    (사냥용 신발 3→4 · 룬벼림 장갑 3→4 · 검투사 투구 3→4 · 모리오르 4→**7**)
-    조립·계산·기록이 전부 통과했다. 사용자는 PoB에서 **아이템을 클릭했을 때** 알았다.
+    *"물리적으로 불가능한 수치의 소켓이 아니라면 허용하도록 하는 게 안전하다."*
 
-    ## 판정 근거는 PoB 하나다 (형태 ④ 회피)
+    「예산 초과」는 **막지 않는다**. 넘기는 경로가 여럿 실재하고 우리가 전부 알지
+    못하기 때문이다 — 유니크 자기 정의 · 트리 부여(`socket_budget`) · **타락**
+    (갑옷 4칸이 타락으로 5칸이 된다). 거짓 거부는 게이트 우회를 학습시킨다
+    (형태 ⑪) — 실제로 이 함수의 첫 판은 정상 3건을 거부했다.
 
-    한도를 KB `socket_limit`으로 재면 **정상 유니크를 거부한다** — 베이스 한도를 넘는
-    유니크가 실재하고(Atziri's Splendour 6>4 · Runeseeker's Call 5>3 ·
-    Darkness Enthroned 2>0), 그중 `Runeseeker's Call`은 정본에 소켓 문구조차 없다
-    (KB 수집 갭). 거짓 거부는 게이트 우회를 학습시키므로(형태 ⑪) 판정 주체를 하나로
-    둔다: 오라클이 `data.uniques`·`base.socketLimit`을 보고 `limit`을 정한다.
+    막는 것은 하나뿐이다: **`RUNE_CONTROL_SLOTS`(6)을 넘는 칸.** 이건 인게임
+    가부와 무관한 **도구 한계**다 — PoB가 룬 드롭다운을 6개만 만들어서, 그 아이템을
+    클릭하는 순간 nil 인덱싱으로 죽는다. 계산 경로에서는 안 터지므로 여기서만 잡힌다.
+    열어 볼 수 없는 빌드 코드를 출고하는 것은 산출물이 아니다.
     """
     out: list[str] = []
     for row in items:
         sockets = _as_int(row.get("sockets"))
-        limit = _as_int(row.get("limit"))
-        label = f"{row.get('name') or '?'}({row.get('base') or '?'})"
-        if sockets > limit:
+        if sockets > RUNE_CONTROL_SLOTS:
+            out.append(
+                f"{_label(row)}: 룬 소켓 {sockets}칸 > {RUNE_CONTROL_SLOTS}칸 — "
+                f"**PoB가 표현하지 못한다**. 인게임 가부와 무관한 도구 한계다: "
+                f"`ItemsTab.lua`가 룬 드롭다운을 {RUNE_CONTROL_SLOTS}개만 만드는데 "
+                f"`UpdateRuneControls`는 `itemSocketCount`까지 돌며 인덱싱해서, 이 "
+                f"아이템을 **클릭하는 순간 예외**가 난다(계산은 통과한다). "
+                f"{RUNE_CONTROL_SLOTS}칸 이하로 줄일 것"
+            )
+    return tuple(out)
+
+
+def socket_warnings(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
+    """**보고만** 하는 것 — 예산 초과와 미상 룬 이름 (#120).
+
+    차단하지 않는다(AD-3: 판단은 호출자). 다만 **매 반환에 싣는다** — 1회성 경고는
+    문서와 동급이라 사라진 전례가 있다(#29).
+    """
+    out: list[str] = []
+    for row in items:
+        sockets = _as_int(row.get("sockets"))
+        budget = socket_budget(row)
+        label = _label(row)
+        if sockets > budget:
             source = {
                 "unique": "유니크 정의",
                 "base": "베이스 socketLimit",
-                "none": "이 베이스는 룬 소켓을 못 가진다",
+                "none": "이 베이스는 룬 소켓을 안 가진다",
             }.get(str(row.get("limitSource")), str(row.get("limitSource")))
-            out.append(
-                f"{label}: 룬 소켓 {sockets}칸인데 한도는 {limit}칸 — 인게임에서 만들 수 "
-                f"없다 (한도 출처: {source}). `Sockets:` 줄을 {limit}칸으로 줄일 것"
+            grant = _as_int(row.get("grant"))
+            grant_note = f" + 트리 부여 {grant}" if grant else ""
+            corrupt_note = (
+                "이미 `Corrupted` 표기가 있으니 그 경로일 수 있다"
+                if row.get("corrupted")
+                else "타락으로 1칸 더 여는 구성이라면 `Corrupted` 줄을 적을 것"
             )
-        if sockets > RUNE_CONTROL_SLOTS:
             out.append(
-                f"{label}: 룬 소켓 {sockets}칸 > {RUNE_CONTROL_SLOTS}칸 — PoB **아이템 "
-                f"상세보기가 예외로 죽는다**(`ItemsTab.lua`가 룬 드롭다운을 "
-                f"{RUNE_CONTROL_SLOTS}개만 만드는데 `UpdateRuneControls`는 소켓 수까지 "
-                f"돌며 인덱싱한다). 계산 경로에서는 안 터지므로 여기서만 잡힌다"
+                f"⚠ {label}: 룬 소켓 {sockets}칸 — 아는 예산은 {budget}칸이다"
+                f"({source} {_as_int(row.get('limit'))}{grant_note}). 막지는 않는다"
+                f"(타락 등 모르는 경로가 있다) — {corrupt_note}"
             )
         unknown = row.get("unknownRunes")
         if isinstance(unknown, list) and unknown:
             names = " · ".join(str(u) for u in unknown)
             out.append(
-                f"{label}: PoB가 모르는 룬 이름 {len(unknown)}건({names}) — 하나라도 있으면 "
-                f"PoB가 `UpdateRunes()`를 **안 돌린다**(`Item.lua:1046~1058`). 손으로 쓴 "
-                f"`{{rune}}` 줄이 그대로 남아 값이 조용히 어긋난다"
+                f"⚠ {label}: PoB가 모르는 룬 이름 {len(unknown)}건({names}) — 하나라도 "
+                f"있으면 PoB가 `UpdateRunes()`를 **안 돌린다**(`Item.lua:1046~1058`). "
+                f"손으로 쓴 `{{rune}}` 줄이 그대로 남아 값이 조용히 어긋난다"
             )
     return tuple(out)
+
+
+def _label(row: dict[str, Any]) -> str:
+    slot = str(row.get("slot") or "")
+    where = f"{slot}/" if slot else ""
+    return f"{where}{row.get('name') or '?'}({row.get('base') or '?'})"
 
 
 def _as_int(value: object) -> int:

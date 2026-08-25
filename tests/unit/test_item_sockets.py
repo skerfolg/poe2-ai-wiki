@@ -1,19 +1,27 @@
-"""아이템 룬 소켓 한도를 **오라클이 신고**하는가 (#120).
+"""아이템 룬 소켓 **예산**을 오라클이 신고하는가 (#120).
 
 사용자 신고 2026-08-25: 우리가 낸 PoB 코드에서 아이템을 클릭하면 예외가 났다.
-원인은 `Sockets:` 줄에 **존재할 수 없는 칸 수**가 적힌 것이었고(12개 중 4개 초과),
-7칸짜리 하나가 PoB 상세보기를 죽였다 — 룬 드롭다운이 6개뿐인데
-`ItemsTab:UpdateRuneControls`가 `itemSocketCount`까지 돌며 인덱싱하기 때문이다.
+원인은 `Sockets:` 줄의 칸 수와 PoB의 표현 한계였다 — 룬 드롭다운이 6개뿐인데
+`ItemsTab:UpdateRuneControls`가 `itemSocketCount`까지 돌며 인덱싱한다.
 
-⛔ **계산 경로에서는 안 터진다.** PoB는 `Sockets:` 줄을 그대로 믿고
-(`Item.lua:577`) 베이스 한도와 대조하지 않는다 — 그래서 적법성 검사·조립·기록이
-전부 통과했다. 검사기는 룬 줄마다 "소켓 한도는 `check_constraints`로 검사하라"고
-적어 보냈지만 그 도구는 **에이전트가 칸 수를 손으로 넣어야** 돈다(철칙 5의 전형).
+⛔ **계산 경로에서는 안 터진다.** PoB는 `Sockets:` 줄을 그대로 믿고(`Item.lua:577`)
+어디와도 대조하지 않는다 — 적법성 검사·조립·기록이 전부 통과했다.
+
+⚠⚠ **첫 판은 베이스 한도로 쟀고, 그래서 정상 3건을 거부했다.** 마셜 아티스트
+`Runic Meridians`(39552)가 투구+1·갑옷+2·장갑+1·장화+1을 주는데 PoB는 그 노드를
+한 줄도 파싱하지 못한다. 그래서 이 시험의 절반은 **막지 않는 것**을 지킨다 —
+거짓 거부는 게이트 우회를 학습시킨다(BACKLOG 형태 ⑪).
 """
 
 from __future__ import annotations
 
-from pok.pob.runner import RUNE_CONTROL_SLOTS, PobResult, socket_problems
+from pok.pob.runner import (
+    RUNE_CONTROL_SLOTS,
+    PobResult,
+    socket_budget,
+    socket_problems,
+    socket_warnings,
+)
 
 
 def _row(**over: object) -> dict[str, object]:
@@ -22,9 +30,12 @@ def _row(**over: object) -> dict[str, object]:
         "name": "테스트",
         "base": "Fists of Stone",
         "rarity": "RARE",
+        "slot": "Gloves",
         "sockets": 3,
         "limit": 3,
         "limitSource": "base",
+        "grant": 0,
+        "corrupted": False,
         "unknownRunes": [],
     }
     base.update(over)
@@ -37,80 +48,102 @@ def _result(*rows: dict[str, object]) -> PobResult:
     )
 
 
-def test_한도_안이면_아무_말도_안_한다() -> None:
-    """게이트가 **정상을 막으면 신호가 죽는다**(BACKLOG 형태 ⑤)."""
-    assert socket_problems([_row(sockets=3, limit=3), _row(sockets=0, limit=0)]) == ()
+# ── 막는 것: PoB가 **표현하지 못하는** 칸 수 하나뿐 ────────────────────────
 
 
-def test_베이스_한도_초과를_잡는다() -> None:
-    problems = socket_problems([_row(name="Powertread", base="Hunting Shoes", sockets=4, limit=3)])
+def test_상세보기_컨트롤_수를_넘으면_막는다() -> None:
+    """유일한 차단 사유다 — 인게임 가부가 아니라 **도구 한계**로 막는다."""
+    problems = socket_problems([_row(name="Morior Invictus", slot="Body Armour", sockets=7)])
     assert len(problems) == 1
-    # 칸 수·한도·줄일 값이 다 나와야 고칠 수 있다 — "불법"만으로는 못 고친다
-    assert "4칸" in problems[0] and "3칸" in problems[0]
-    assert "베이스 socketLimit" in problems[0]
+    assert str(RUNE_CONTROL_SLOTS) in problems[0] and "표현하지 못한다" in problems[0]
 
 
-def test_유니크는_자기_정의가_한도다() -> None:
-    """베이스 한도를 넘는 유니크가 **실재한다** — 베이스로 재면 정상을 거부한다.
+def test_컨트롤_수까지는_막지_않는다() -> None:
+    """Atziri's Splendour가 정확히 6칸이다 — 6을 막으면 정상 유니크가 죽는다."""
+    assert socket_problems([_row(sockets=RUNE_CONTROL_SLOTS, limit=RUNE_CONTROL_SLOTS)]) == ()
 
-    실측(PoB `Data/Uniques`): Atziri's Splendour 6 > 4 · Runeseeker's Call 5 > 3 ·
-    Darkness Enthroned 2 > 0. 그중 Runeseeker's Call은 정본 KB에 소켓 문구조차 없어
-    (수집 갭) KB로 판정했으면 **거짓 거부**였다. 그래서 판정 주체는 PoB 하나다.
+
+def test_예산_초과만으로는_막지_않는다() -> None:
+    """사용자 판정 2026-08-25: *물리적으로 불가능한 게 아니면 허용한다.*
+
+    갑옷 4칸이 타락으로 5칸이 되고, 트리 부여가 거기에 2칸을 더한다 — 넘기는 경로를
+    우리가 다 알지 못한다. 막으면 정상 빌드가 게이트를 우회하는 법을 배운다(형태 ⑪).
     """
-    ok = _row(name="Atziri's Splendour", base="Sacrificial Regalia", rarity="UNIQUE")
-    assert socket_problems([{**ok, "sockets": 6, "limit": 6, "limitSource": "unique"}]) == ()
-    over = socket_problems([{**ok, "sockets": 7, "limit": 6, "limitSource": "unique"}])
-    assert len(over) >= 1 and "유니크 정의" in over[0]
+    over = [_row(name="Powertread", slot="Boots", base="Hunting Shoes", sockets=5, limit=3)]
+    assert socket_problems(over) == (), "예산 초과는 경고이지 차단이 아니다"
+    assert socket_warnings(over), "그래도 조용히 넘기지는 않는다"
 
 
-def test_소켓을_못_가지는_베이스도_사유를_말한다() -> None:
-    problems = socket_problems(
-        [_row(base="Stellar Amulet", sockets=1, limit=0, limitSource="none")]
+# ── 예산: 베이스/유니크 + 트리 부여 ────────────────────────────────────────
+
+
+def test_트리_부여가_예산에_들어간다() -> None:
+    """`Runic Meridians`(39552) — PoB는 이 노드를 한 줄도 파싱하지 못한다.
+
+    실측 2026-08-25: 이걸 빼고 쟀더니 신고 빌드 4건 중 **3건이 거짓 거부**였고
+    셋 다(투구 3+1 · 장갑 3+1 · 장화 3+1) 이 노드 하나로 정확히 설명됐다.
+    """
+    granted = _row(slot="Gloves", sockets=4, limit=3, grant=1)
+    assert socket_budget(granted) == 4
+    assert socket_warnings([granted]) == (), "부여를 세면 경고가 아니다"
+    assert socket_problems([granted]) == ()
+
+
+def test_갑옷_2칸_부여도_같은_경로다() -> None:
+    body = _row(name="Morior Invictus", base="Grand Regalia", slot="Body Armour")
+    ok = {**body, "sockets": 6, "limit": 4, "limitSource": "unique", "grant": 2}
+    assert socket_budget(ok) == 6 and socket_warnings([ok]) == ()
+    # 한 칸 더는 타락 경로 — 경고는 내되 막지는 않는다
+    corrupt_route = {**ok, "sockets": 7}
+    assert socket_warnings([corrupt_route])
+    assert socket_problems([corrupt_route]), "단 7칸은 PoB가 못 그린다"
+
+
+def test_예산_안이면_아무_말도_안_한다() -> None:
+    """게이트가 **정상을 막으면 신호가 죽는다**(BACKLOG 형태 ⑤)."""
+    rows = [_row(sockets=3, limit=3), _row(sockets=0, limit=0, limitSource="none")]
+    assert socket_problems(rows) == () and socket_warnings(rows) == ()
+
+
+# ── 경고 문구가 고칠 만큼 말하는가 ────────────────────────────────────────
+
+
+def test_경고가_예산의_출처를_밝힌다() -> None:
+    warned = socket_warnings(
+        [_row(name="Powertread", slot="Boots", base="Hunting Shoes", sockets=5, limit=3, grant=1)]
     )
-    assert len(problems) == 1
-    assert "룬 소켓을 못 가진다" in problems[0]
+    assert len(warned) == 1
+    assert "5칸" in warned[0] and "4칸" in warned[0]  # 기재 vs 예산
+    assert "트리 부여 1" in warned[0] and "베이스 socketLimit" in warned[0]
+    assert "Boots/" in warned[0], "어느 부위인지 없으면 못 고친다"
 
 
-def test_상세보기_컨트롤_수를_넘으면_따로_말한다() -> None:
-    """한도 초과와 **원인이 다르다** — 이쪽만이 PoB를 예외로 죽인다."""
-    problems = socket_problems(
-        [
-            _row(
-                name="Morior Invictus",
-                base="Grand Regalia",
-                sockets=7,
-                limit=4,
-                limitSource="unique",
-            )
-        ]
-    )
-    assert len(problems) == 2, "한도 초과 + 상세보기 크래시는 별개 사유다"
-    crash = next(p for p in problems if "상세보기" in p)
-    assert str(RUNE_CONTROL_SLOTS) in crash
+def test_이미_타락이면_그_경로를_짚어_준다() -> None:
+    warned = socket_warnings([_row(sockets=4, limit=3, corrupted=True)])
+    assert "`Corrupted` 표기가 있으니" in warned[0]
 
 
-def test_한도_안이어도_컨트롤_수를_넘으면_잡는다() -> None:
-    """한도가 7인 유니크가 생겨도 상세보기는 여전히 죽는다 — 축이 다르다."""
-    problems = socket_problems([_row(sockets=7, limit=7, limitSource="unique")])
-    assert len(problems) == 1 and "상세보기" in problems[0]
-
-
-def test_PoB가_모르는_룬_이름을_잡는다() -> None:
+def test_PoB가_모르는_룬_이름을_경고한다() -> None:
     """미상 룬이 하나라도 있으면 PoB는 `UpdateRunes()`를 **안 돌린다**.
 
-    `Item.lua:1046~1058` — 그러면 손으로 쓴 `{rune}` 줄이 그대로 남아 룬 문구가
-    PoB 정의와 어긋나도 아무 말이 없다(조용한 오차).
+    `Item.lua:1046~1058` — 손으로 쓴 `{rune}` 줄이 그대로 남아 값이 조용히 어긋난다.
+    막지는 않는다: 우리 KB가 못 따라간 이름일 수도 있다.
     """
-    problems = socket_problems([_row(unknownRunes=["Rune of Nowhere", "Legacy of Nothing"])])
-    assert len(problems) == 1
-    assert "Rune of Nowhere" in problems[0] and "2건" in problems[0]
+    rows = [_row(unknownRunes=["Rune of Nowhere", "Legacy of Nothing"])]
+    warned = socket_warnings(rows)
+    assert len(warned) == 1
+    assert "Rune of Nowhere" in warned[0] and "2건" in warned[0]
+    assert socket_problems(rows) == ()
+
+
+# ── 결과 객체 ─────────────────────────────────────────────────────────────
 
 
 def test_결과가_사실을_그대로_들고_있다() -> None:
-    got = _result(_row(sockets=4, limit=3))
-    assert len(got.items) == 1 and got.items[0]["sockets"] == 4
+    got = _result(_row(sockets=7, limit=4, grant=2))
+    assert len(got.items) == 1 and got.items[0]["sockets"] == 7
     assert not got.is_item_sockets_legal
-    assert got.item_socket_problems
+    assert got.item_socket_problems and got.item_socket_warnings
 
 
 def test_옛_결과에는_items가_없어도_안_깨진다() -> None:
@@ -120,4 +153,5 @@ def test_옛_결과에는_items가_없어도_안_깨진다() -> None:
     """
     old = PobResult(stats={}, meta={}, allocated_nodes=(), pruned_nodes=(), cached=True)
     assert old.items == ()
-    assert old.is_item_sockets_legal and old.item_socket_problems == ()
+    assert old.is_item_sockets_legal
+    assert old.item_socket_problems == () and old.item_socket_warnings == ()

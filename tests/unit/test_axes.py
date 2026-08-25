@@ -113,6 +113,8 @@ def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: igno
             meta={},
             is_item_sockets_legal=True,  # #120 — 출고 반환이 이 축도 싣는다
             item_socket_problems=(),
+            item_socket_warnings=(),
+            items=(),
         ),
     )
     monkeypatch.setattr(build_mod, "assemble", lambda *a, **k: fake)

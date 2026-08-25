@@ -116,6 +116,8 @@ def test_req_shortfall_rides_on_every_return() -> None:
         meta={},
         is_item_sockets_legal=True,
         item_socket_problems=(),
+        item_socket_warnings=(),
+        items=(),
     )
     out = _pick(result, ["CombinedDPS"])  # type: ignore[arg-type]
     assert out["req_shortfall"] == {"str": 100.0}

@@ -487,13 +487,18 @@ PoB는 값을 붙이기 전에 **선언**을 읽는다. 선언이 없으면 오�
 실측 2026-08-25(사용자 신고 빌드 12개): `check_item_legality`가 룬 줄마다
 *"소켓 한도는 `check_constraints(exhaustion.sockets)`로 검사하라"*를 달아 보냈다 —
 한 빌드에서 **37줄**. 그런데 그 도구는 에이전트가 칸 수를 **손으로 넣어야** 돌아간다.
-아무도 안 넣었고 **4개가 한도 초과**인 채 출고됐다(3→4 셋 · 4→**7** 하나).
-계산 경로에서는 안 터지므로 조립·기록도 통과했다 — 사용자가 PoB에서 **아이템을
-클릭했을 때** 예외로 알았다.
+아무도 안 넣었고, 아무 게이트도 칸 수를 보지 않은 채 출고됐다. 사용자는 PoB에서
+**아이템을 클릭했을 때** 예외로 알았다(계산 경로에서는 안 터진다).
 
 → **검사기가 다른 도구를 가리키면 그 줄은 규율이 아니라 안내문이다.** 그 자리에서
 판정하거나(값이 손에 있으면), 판정에 필요한 값을 **도구가 스스로 채워** 넣는다.
 "호출자가 확인할 것"은 호출자가 확인하지 않는다.
+
+⚠ **그리고 미룬 값을 채울 때는 「무엇의 한도인가」부터 재확인한다.** 이 항목의 첫
+수정은 베이스 `socketLimit`으로 쟀고, 그래서 **정상 3건을 거부했다** — 마셜
+아티스트 `Runic Meridians`(39552)가 투구+1·갑옷+2·장갑+1·장화+1을 주는데 PoB가
+그 노드를 한 줄도 파싱하지 못해 `base.socketLimit`에 안 들어온다. 사용자가
+지적해서 뒤집혔다(형태 ⑪이 될 뻔했다).
 
 **강제**: `src/pok/pob/runner.py::socket_problems`(오라클이 아이템별 소켓 사실을
 신고하고 `assemble`이 거부) · `tests/unit/test_item_sockets.py`.
@@ -3753,7 +3758,7 @@ Build가 쌓이면 「축별 점유·빈 자리」는 집계 쿼리다 → `desc
 
 | 결함 | 조치 | PR |
 |---|---|---|
-| 〔#120〕 ⛔ 아이템의 **룬 소켓 칸 수를 아무 게이트도 안 봤다** — 존재할 수 없는 칸 수가 그대로 출고돼 PoB **아이템 상세보기가 예외로 죽었다**(모리오르 인빅투스 **7칸**, 실제 4칸). 사용자 신고 빌드 12개 중 **4개**가 한도 초과(사냥용 신발·룬벼림 장갑·검투사 투구 3→4 · 모리오르 4→7). 계산 경로에서는 안 터져 조립·기록이 전부 통과했다 | 오라클이 신고한다 — `POK_META.items`에 아이템별 `sockets`·`limit`·`limitSource`·`unknownRunes`를 싣고(`pob_driver.lua`·`pob_daemon.lua`), `runner.socket_problems`가 사유를 만들고 `assemble`이 **거부**한다. `compute_pob`도 매 반환에 `item_sockets_legal`을 싣는다. ⚠ 한도는 **PoB가 정한다**: 베이스 `socketLimit`으로만 재면 정상 유니크 셋을 거부한다(Atziri's Splendour 6>4 · Runeseeker's Call 5>3 · Darkness Enthroned 2>0) — 그중 Runeseeker's Call은 정본 KB에 소켓 문구조차 없다(수집 갭). 상세보기 컨트롤 수(6)를 넘는 것은 **별개 사유**로 낸다 | 대기 |
+| 〔#120〕 ⛔ 아이템의 **룬 소켓 칸 수를 아무 게이트도 안 봤다** — PoB **아이템 상세보기가 예외로 죽었다**(모리오르 인빅투스 **7칸**). 원인은 `ItemsTab.lua:696`이 룬 드롭다운을 6개만 만드는데 `UpdateRuneControls`(:2016)가 `itemSocketCount`까지 돌며 인덱싱하는 것. 계산 경로에서는 안 터져 조립·기록이 전부 통과했다 | 오라클이 **예산을 신고**한다 — `POK_META.items`에 `slot`·`sockets`·`limit`·`limitSource`·**`grant`**(트리 부여)·`corrupted`·`unknownRunes`(`pob_driver.lua`·`pob_daemon.lua`). ⛔ **막는 것은 6칸 초과 하나뿐**이다(인게임 가부가 아니라 PoB 표현 한계) — 예산 초과는 `socket_warnings`로 보고만 한다(사용자 판정: *물리적으로 불가능한 게 아니면 허용*). ⚠⚠ **첫 판은 베이스 `socketLimit`으로 쟀고 정상 3건을 거부했다** — 마셜 아티스트 `Runic Meridians`(39552)가 투구+1·갑옷+2·장갑+1·장화+1을 주는데 PoB가 그 노드를 한 줄도 파싱하지 못한다(`pob_modeling.supported: false`). 유니크도 베이스를 넘긴다(Atziri's Splendour 6>4 · Runeseeker's Call 5>3, 후자는 정본 KB에 소켓 문구조차 없다) | 대기 |
 | 〔#64 = 이관 D1〕 `find_carriers`의 **거짓 차단 경고** — 「살아있는 폭탄은 젬으로 소켓 못 한다」고 단정해 컨셉이 폐기될 뻔했다. 게다가 같은 반환값의 `carriers`엔 주문 토템이 들어 있어 **자기모순** | 원인은 KB 모순이 아니라 **전사 오류**였다: PoB는 그 자리에서 `fromItem`이 아니라 `activeSkill.activeEffect.gemData`(젬이냐)를 본다. 소켓 가부를 `SkillGate.socketable`로 분리하고 **poe2db 획득 경로를 권위**로 삼았다(D8 — 카탈로그 사실은 poe2db). 경고는 단정에서 사실 기술로, `find_payloads`의 조용한 제외는 `excluded_item_granted`로 노출 | 대기 |
 | 〔이관 D5〕 **베리시움 각인 32건**이 담체 없이 뜬다 — 0.5 제작이 특정 유니크에 붙이는 전용 암시인데 부여 경로 레코드가 없다 | D2와 동계열이지만 **더 강하게 고칠 수 있었다**: 담체 이름이 키에 박혀 있다(`BloodThornVerisiumImplicit…`). 키 접두를 유니크 이름과 맞춰 `carrier_item`으로 **이름까지** 낸다 — **31/32 해석**(나머지 1건 `SentryFaster`는 접두가 모호해 미확인 유지). 이름 접기 필수(`Mjölner` 발음 구별 기호·`The Sentry` 관사) | 대기 |
 | 〔#65 = 이관 D2〕 바알 함양 변이 접사 **101건이 구조적 `carrier_unknown`** — 정적 유니크 대조 방식으로는 영영 못 찾아 설계 근거로 쓰이지 못했다 | `carrier_kind`에 `vaal-mutated` 갈래 신설(태그·접두 양쪽으로 판정) + `carrier_route: vaal-orb-mutated-unique` 기록. PoB 데이터가 실재를 뒷받침한다(`affix=""`·`weightKey={}`인데 `tradeHashes` 보유=거래되는 모드) | 대기 |

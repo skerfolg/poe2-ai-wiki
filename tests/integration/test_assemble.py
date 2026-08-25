@@ -88,24 +88,42 @@ def _sockets_spec(sockets: int) -> BuildSpec:
     )
 
 
-def test_한도를_넘는_룬_소켓은_거부된다() -> None:
+def test_PoB가_못_여는_소켓_수는_거부된다() -> None:
     """#120 — 사용자 신고 빌드의 결함. 계산은 통과하고 **상세보기에서만** 터졌다.
 
-    적법성 검사기(KB)는 소켓 수를 아예 안 본다 — 룬 줄마다
-    "소켓 한도는 `check_constraints(exhaustion.sockets)`로 검사하라"고 미뤘고 그건
-    에이전트가 칸 수를 손으로 넣어야 도는 도구다. 판정 주체를 PoB로 옮겨 여기서 막는다.
+    막는 근거는 인게임 가부가 아니라 **PoB의 표현 한계**다(룬 드롭다운 6개). 열어 볼
+    수 없는 빌드 코드를 출고하는 것은 산출물이 아니다.
     """
-    with pytest.raises(IllegalBuildError, match="룬 소켓"):
-        assemble(_sockets_spec(4), "socket-over")
+    with pytest.raises(IllegalBuildError, match="표현하지 못한다"):
+        assemble(_sockets_spec(7), "socket-unrenderable")
 
 
-def test_한도_안이면_통과한다() -> None:
+def test_예산을_넘겨도_막지_않는다() -> None:
+    """사용자 판정 2026-08-25: *물리적으로 불가능한 게 아니면 허용한다.*
+
+    `Fists of Stone`은 베이스 3칸인데 4칸을 적었다 — 마셜 아티스트 `Runic
+    Meridians`나 타락이면 정상이다. 실측 2026-08-25: 베이스 한도로 막았더니 신고
+    빌드 4건 중 **3건이 거짓 거부**였다. 막지 않되 **기록에는 남긴다**.
+    """
+    built = assemble(_sockets_spec(4), "socket-over-budget")
+    try:
+        assert built.result.is_item_sockets_legal, "예산 초과는 차단 사유가 아니다"
+        validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
+        assert validation["item_sockets"]["warnings"], "조용히 넘기지도 않는다"
+    finally:
+        for f in built.path.iterdir():
+            f.unlink()
+        built.path.rmdir()
+
+
+def test_예산_안이면_아무_말도_안_한다() -> None:
     """게이트가 **정상을 막으면** 신호가 죽는다(BACKLOG 형태 ⑤ · ⑪)."""
     built = assemble(_sockets_spec(3), "socket-ok")
     try:
         assert built.result.is_item_sockets_legal
         validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
         assert validation["item_sockets"]["legal"] is True
+        assert not validation["item_sockets"]["warnings"]
         # 관측을 **기록에 남긴다** — 나중에 보는 쪽이 몇 칸으로 쟀는지 알아야 한다
         observed = validation["item_sockets"]["observed"]
         assert observed and observed[0]["sockets"] == 3 and observed[0]["limit"] == 3

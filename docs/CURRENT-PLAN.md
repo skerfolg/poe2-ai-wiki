@@ -45,7 +45,7 @@ flowchart TD
   STEM[S21 #117 게이트 어간<br/>done]
   ORACLE[S22 #110 오라클 갭 신고<br/>done]
   AXIS[S23 #113 딜 축 선택 + #119 캐시 판<br/>done]
-  SOCKET[S24 #120 룬 소켓 한도 게이트<br/>done]
+  SOCKET[S24 #120 룬 소켓 예산 신고<br/>done]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN --> NARROW --> CPL --> FULL
@@ -89,7 +89,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S21 | #117 수정 — 가정 게이트 어간 처리(과거분사 config vs 명사형 공급 문구) (PR #98) | done |
 | S22 | #110 대응 — 되살리기 불가 확정, 오라클이 `POK_META`로 자기 갭 신고 (PR #99) | done |
 | S23 | #113 — `CombinedDPS`가 속도를 잃는 조건을 신고·축 선택 (`engine/dps_axis.py`) + #119 캐시 판 번호 | done |
-| S24 | #120 — 아이템 룬 소켓 한도를 오라클이 신고하고 조립이 거부 (`pob/runner.py::socket_problems`) | done |
+| S24 | #120 — 아이템 룬 소켓 **예산**을 오라클이 신고(베이스/유니크 + 트리 부여), 조립은 PoB가 못 여는 6칸 초과만 거부 (`pob/runner.py::socket_budget`) | done |
 
 ## Canonical Next Step
 
@@ -202,7 +202,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | S7의 `blocked`는 **그대로 둔다** | 결함 연쇄(#98~#101·#108~#111)는 #110으로 전부 닫혔지만, S7 재개는 S20 코퍼스 위에서 하는 것이 맞다 — 옛 축으로 잰 큐에 다시 판정하면 같은 자리를 두 번 돈다. 첫 미종결 항목이 S7이고 Canonical Next Step이 S20인 불일치는 기존 override 항목이 이미 근거를 적어 두었다(§13.1) | 2026-08-24 |
 | 정본에 **움직인 축만** 싣고 조용한 축은 개수로 | 전량 집계가 414MB로 터졌다 — 잰 축의 90.7%가 한 번도 안 움직였다. 정본은 큐레이션이고 전량은 데이터 repo에 있다 | 2026-08-24 |
 | Integration branch override — 작업 브랜치 `skerfolg/item-rune-slot-validation` | 레인명(`M5-proposal-rounds`)과 다름. **사용자 신고 결함(#120)** 수정이라 레인 이름을 안 쓴다. `main`(eaefc4f)에서 분기했고 M5 측정 코드와 겹치는 파일이 없다(`pob/runner.py`의 `_META_PROTOCOL`만 공유). 이 PR 한정, 머지 시 소멸 | 2026-08-25 |
-| 룬 소켓 한도의 **판정 주체는 PoB 하나** | #120 — KB `socket_limit`(베이스)으로 재면 **정상 유니크 셋을 거부한다**(Atziri's Splendour 6>4 · Runeseeker's Call 5>3 · Darkness Enthroned 2>0). 그중 Runeseeker's Call은 정본에 소켓 문구조차 없다(수집 갭). 판정 주체가 둘이면 어긋나고(형태 ④) 거짓 거부는 게이트 우회를 학습시킨다(형태 ⑪) — 오라클이 `data.uniques`·`base.socketLimit`을 보고 한도를 정한다 | 2026-08-25 |
+| 룬 소켓 사실의 **관측 주체는 PoB 하나** | #120 — KB `socket_limit`(베이스)으로 재면 **정상 유니크 셋을 거부한다**(Atziri's Splendour 6>4 · Runeseeker's Call 5>3 · Darkness Enthroned 2>0). 그중 Runeseeker's Call은 정본에 소켓 문구조차 없다(수집 갭). 판정 주체가 둘이면 어긋난다(형태 ④) — 오라클이 `data.uniques`·`base.socketLimit`·**할당 노드 문구**를 보고 사실을 낸다 | 2026-08-25 |
+| ⛔ **막는 것은 「6칸 초과」 하나뿐** — 예산 초과는 보고만 한다 | 사용자 판정 2026-08-25: *"물리적으로 불가능한 수치의 소켓이 아니라면 허용하는 게 안전하다"*(갑옷 4칸이 타락하면 5칸). 넘기는 경로를 우리가 다 알지 못한다 — 유니크 정의 · 트리 부여 · 타락. 6칸 초과만이 **인게임 가부와 무관한 확정 사실**이다: PoB가 룬 드롭다운을 6개만 만들어 그 아이템을 클릭하면 죽는다(`ItemsTab.lua:696` vs `:2016`). 열어 볼 수 없는 빌드 코드는 산출물이 아니다 | 2026-08-25 |
+| ⚠⚠ 첫 판이 **정상 3건을 거짓 거부**했다 — 사용자가 뒤집었다 | 마셜 아티스트 `Runic Meridians`(39552)가 투구+1·갑옷+2·장갑+1·장화+1을 준다. PoB는 이 노드를 **한 줄도 파싱하지 못해**(`pob_modeling.supported: false`) `base.socketLimit`에 절대 안 들어온다 — 그래서 「베이스 한도 초과」로 보였다. 실측: 신고 빌드 4건 중 3건이 이 노드 하나로 정확히 설명되고, 데몬에서 39552를 빼자 경고가 1→4로 늘어 인과가 확인됐다. 예산 = 베이스/유니크 + 트리 부여(`socket_budget`) | 2026-08-25 |
 | #120 신고를 **드라이버 메타에 얹는다**(별도 PoB 호출 아님) | 조립은 이미 PoB를 1회 부팅한다 — 아이템 검증만 따로 띄우면 출고마다 부팅이 하나 더 붙는다. `POK_META.items`에 얹으면 **비용 0**이고 `compute_pob`(설계 반복 경로)까지 같은 사실을 받는다(#27의 「매 반환에 싣는다」) | 2026-08-25 |
 | ⚠ `_META_PROTOCOL` 2 → 3 — **`var/pob-cache` 전량 무효화** | #119의 규약(드라이버를 고치면 판을 올린다)을 따른 것이다. 캠페인(S20)은 데몬 경로라 캐시를 안 쓰므로 코퍼스에 영향 없고, 단발 호출은 건당 ~2초 재계산이다. 안 올리면 옛 payload가 적중해 **소켓 신고가 조용히 사라진다** | 2026-08-25 |
 | 단, **핵심 축은 0이어도 싣는다** | 빼 봤더니 판정 큐가 통째로 비었다 — 「재서 0」과 「안 쟀다」의 구별이 정본에서 사라진다 | 2026-08-24 |

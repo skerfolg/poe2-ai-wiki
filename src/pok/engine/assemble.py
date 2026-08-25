@@ -94,11 +94,11 @@ def assemble(
     result = run_build(spec, use_cache=use_cache)
     if strict and not result.is_tree_legal:
         raise IllegalBuildError(_pruned_reason(result.pruned_nodes))
-    # **룬 소켓 한도는 PoB가 판정한다** (#120). KB 검사기는 룬 줄을 볼 때마다
-    # "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라"고 적어 보냈는데
-    # 그 도구는 **에이전트가 칸 수를 손으로 넣어야** 돌아간다 — 안 넣으면 아무도 모른다.
-    # 실측 2026-08-25: 출고된 빌드 12개 중 4개가 한도 초과였고 7칸짜리에서 사용자가
-    # PoB 예외를 만났다. 계산 경로에서는 안 터지므로 여기가 유일한 관문이다(철칙 5).
+    # **PoB가 못 여는 아이템은 출고하지 않는다** (#120). 룬 칸이 6개를 넘으면 그
+    # 아이템을 클릭하는 순간 PoB가 예외로 죽는다 — 계산은 통과하므로 여기가 유일한
+    # 관문이다(철칙 5). ⛔ 「예산 초과」는 **막지 않는다**(사용자 판정 2026-08-25):
+    # 트리 부여·타락 등 넘기는 경로가 실재하고, 거짓 거부는 게이트 우회를 학습시킨다.
+    # 그쪽은 `item_socket_warnings`로 기록·보고만 한다.
     if strict and not result.is_item_sockets_legal:
         raise IllegalBuildError(" / ".join(result.item_socket_problems))
 
@@ -124,9 +124,11 @@ def assemble(
         },
         # PoB가 읽은 소켓 사실 + 판정 (#120). `strict=False`로 진단만 할 때도 남는다 —
         # 「비합법을 알면서 스탯을 봤다」가 기록에 있어야 다음 세션이 안 속는다.
+        # `warnings`는 막지 않은 것이다 — 그래서 더더욱 기록이 유일한 흔적이다.
         "item_sockets": {
             "observed": [dict(row) for row in result.items],
             "problems": list(result.item_socket_problems),
+            "warnings": list(result.item_socket_warnings),
             "legal": result.is_item_sockets_legal,
         },
     }
