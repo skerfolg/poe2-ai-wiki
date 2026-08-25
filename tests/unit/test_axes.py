@@ -106,7 +106,16 @@ def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: igno
         path="/tmp/t",
         build_code="X",
         duplicates=(),
-        result=SimpleNamespace(stats={}, is_tree_legal=True, pruned_nodes=(), meta={}),
+        result=SimpleNamespace(
+            stats={},
+            is_tree_legal=True,
+            pruned_nodes=(),
+            meta={},
+            is_item_sockets_legal=True,  # #120 — 출고 반환이 이 축도 싣는다
+            item_socket_problems=(),
+            item_socket_warnings=(),
+            items=(),
+        ),
     )
     monkeypatch.setattr(build_mod, "assemble", lambda *a, **k: fake)
     out = build_mod.assemble_pob(

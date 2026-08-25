@@ -65,6 +65,29 @@ class TestBuildXml:
         assert inputs["enemyLevel"].get("number") == "84"
         assert inputs["customMods"].get("string") == "fire resistance is 75"
 
+    def test_여러_줄_config는_개행을_엔티티로_바꾸지_않는다(self) -> None:
+        """`&#10;`으로 나가면 PoB가 **조용히 통째로 버린다** (#120).
+
+        PoB의 XML 파서는 이름 있는 엔티티 5개만 안다(`runtime/lua/xml.lua:11`) —
+        모르는 엔티티는 **빈 문자열로 지워진다**. 그러면 여러 줄이 한 줄로 이어붙고
+        `modLib.parseMod`가 못 읽어 설정이 없는 것과 같아진다(BACKLOG 형태 ①).
+        실측 2026-08-25(`customMods` 두 줄): 리터럴 개행 → Life 3075 · Spirit 260 /
+        `&#10;` → **2025 · 208(설정 없음과 동일)**.
+        """
+        body = "+75 to maximum Life\n+14 to Spirit"
+        xml = to_xml(_spec(config=(("customMods", body),)))
+        assert "&#10;" not in xml, "PoB는 이 엔티티를 지운다"
+        # 리터럴 개행이 그대로 실려 나간다 — PoB 자신의 인코더와 같은 규약(`xml.lua:19`)
+        assert f'<Input name="customMods" string="{body}"/>' in xml
+
+    def test_config_문자열의_XML_특수문자는_계속_이스케이프한다(self) -> None:
+        """개행만 예외다 — `<`·`&`·`"`를 날것으로 내보내면 XML이 깨진다."""
+        xml = to_xml(_spec(config=(("customMods", '5 < 6 & "x"'),)))
+        assert 'string="5 &lt; 6 &amp; &quot;x&quot;"' in xml
+        root = ET.fromstring(xml)
+        got = {i.get("name"): i.get("string") for i in root.findall("Config/Input")}
+        assert got["customMods"] == '5 < 6 & "x"'
+
     def test_모르는_클래스는_거부(self) -> None:
         with pytest.raises(ValueError, match="클래스"):
             to_xml(_spec(class_name="Scion"))  # PoE1 클래스

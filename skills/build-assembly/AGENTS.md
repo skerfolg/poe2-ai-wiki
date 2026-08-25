@@ -54,11 +54,24 @@ assemble_pob(build_spec=..., slug="<빌드 이름>")
 - `티어 범위 밖` → 그 부위에 안 붙는 접사다(`spawn_weights` 확인)
 - `어센던시 노드 …가 시작 노드에서 닿지 않는다` → 경로를 이어야 한다(#26)
 - `어센던시 **시작 노드** …는 PoB가 자동 배정한다` → `tree_nodes`에서 뺄 것
+- `룬 소켓 N칸 > 6칸 — PoB가 표현하지 못한다` → `Sockets:` 줄을 6칸으로 줄이고
+  **넘치는 칸의 값은 따로 주입한다**(#120). 인게임 가부가 아니라 **PoB 한계**다:
+  룬 드롭다운이 6개뿐이라 그 아이템을 클릭하는 순간 예외로 죽는다(계산 경로에서는
+  안 터져 여기서만 잡힌다). 주입 경로는 둘 —
+  `ItemSpec.substitutes`(그 아이템에 붙고 **산출물에 추산으로 자동 기록**) 또는
+  config `customMods`(전역). 실측 2026-08-25: 7칸을 6칸+`customMods` 4줄로 옮기니
+  `Life`·`Spirit`·`TotalEHP`·`CombinedDPS`가 **소수점까지 같았다**.
+  ⚠ 두 가지를 함께 보정할 것 — ①주입 줄에는 `increased effect of Socketed Runes`
+  증폭이 **안 곱해진다** ②`per Socket filled` 모드는 **실제 룬 수**를 세므로
+  (`RunesSocketedIn`) 줄어든 칸만큼 그 값을 직접 더해 줘야 한다
 
 ### 3. `validation.json`을 읽는다 — 이것이 정본이다
 
 `artifacts/builds/<id>/validation.json`에 실측 스탯·적법성·트리 판정이 남는다.
 **보고에 인용하는 수치는 여기서 가져온다.** 세션 기억이나 탐색 단계 출력이 아니다.
+`item_sockets`에는 PoB가 아이템별로 읽은 칸 수·예산(베이스/유니크 + **트리 부여**)이
+그대로 남고, 막지 않은 `warnings`도 함께 남는다(#120) — `strict=False`로 진단만 했을
+때도 남으므로 "알고도 넘겼다"가 기록에 보인다.
 
 ### 4. 고칠 것을 반영하고 **2로 돌아간다**
 

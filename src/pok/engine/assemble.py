@@ -47,7 +47,11 @@ class AssembledBuild:
 
     @property
     def is_legal(self) -> bool:
-        return self.result.is_tree_legal and all(r.is_legal for r in self.item_reports.values())
+        return (
+            self.result.is_tree_legal
+            and self.result.is_item_sockets_legal  # #120 — 룬 소켓 한도(PoB 판정)
+            and all(r.is_legal for r in self.item_reports.values())
+        )
 
 
 class IllegalBuildError(ValueError):
@@ -90,6 +94,13 @@ def assemble(
     result = run_build(spec, use_cache=use_cache)
     if strict and not result.is_tree_legal:
         raise IllegalBuildError(_pruned_reason(result.pruned_nodes))
+    # **PoB가 못 여는 아이템은 출고하지 않는다** (#120). 룬 칸이 6개를 넘으면 그
+    # 아이템을 클릭하는 순간 PoB가 예외로 죽는다 — 계산은 통과하므로 여기가 유일한
+    # 관문이다(철칙 5). ⛔ 「예산 초과」는 **막지 않는다**(사용자 판정 2026-08-25):
+    # 트리 부여·타락 등 넘기는 경로가 실재하고, 거짓 거부는 게이트 우회를 학습시킨다.
+    # 그쪽은 `item_socket_warnings`로 기록·보고만 한다.
+    if strict and not result.is_item_sockets_legal:
+        raise IllegalBuildError(" / ".join(result.item_socket_problems))
 
     xml = to_xml(spec)
     build_code = codec.encode(xml)
@@ -111,6 +122,15 @@ def assemble(
             }
             for slot, r in item_reports.items()
         },
+        # PoB가 읽은 소켓 사실 + 판정 (#120). `strict=False`로 진단만 할 때도 남는다 —
+        # 「비합법을 알면서 스탯을 봤다」가 기록에 있어야 다음 세션이 안 속는다.
+        # `warnings`는 막지 않은 것이다 — 그래서 더더욱 기록이 유일한 흔적이다.
+        "item_sockets": {
+            "observed": [dict(row) for row in result.items],
+            "problems": list(result.item_socket_problems),
+            "warnings": list(result.item_socket_warnings),
+            "legal": result.is_item_sockets_legal,
+        },
     }
     files = {
         "build.xml": xml,
@@ -123,7 +143,11 @@ def assemble(
         "class": spec.class_name,
         "ascendancy": spec.ascendancy,
         "level": spec.level,
-        "legal": bool(result.is_tree_legal and all(r.is_legal for r in item_reports.values())),
+        "legal": bool(
+            result.is_tree_legal
+            and result.is_item_sockets_legal
+            and all(r.is_legal for r in item_reports.values())
+        ),
     }
     # 설계 무결성 경고는 **산출물에 각인한다** (#58 ①, 보고자 요청 2026-08-11).
     # 반환값에만 실으면 그 자리에서만 보이고 사라진다 — 다음 세션은 `build.pob`만

@@ -50,7 +50,7 @@ from pok.engine.items import req_shortfall
 from pok.engine.legality import ItemLegalityChecker
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob.buildxml import spec_from_dict
-from pok.pob.runner import PobResult
+from pok.pob.runner import PobResult, socket_budget
 
 # 기본 반환 스탯 — 다차원 목적 프로파일의 축(RC3). 전체는 stats=["*"]로.
 # 기본 반환 스탯. **곱연산 인자를 반드시 포함한다** — 이게 빠져 있으면 세션은
@@ -123,7 +123,29 @@ def _pick(
         "tree_connected": result.is_tree_legal,
         "pruned_nodes": list(result.pruned_nodes),
         "meta": result.meta,
+        # **룬 소켓**도 별개 축이다 (#120). `items_legal`(KB 모드풀)은 소켓 수를 아예
+        # 안 본다. `False`면 그 빌드 코드는 **PoB에서 열리지 않는다**(6칸 초과 —
+        # 아이템을 클릭하는 순간 예외). 예산 초과는 막지 않고 `item_socket_warnings`로
+        # 낸다 — 트리 부여·타락이 실제로 넘긴다.
+        "item_sockets_legal": result.is_item_sockets_legal,
+        # PoB가 읽은 부위별 칸 수·예산 — **설계 중에 이걸 보고 칸을 채우라고** 싣는다.
+        # 「몇 칸이 맞나」를 도구가 안 알려 줘서 세션이 지어냈다(#120 근본 원인).
+        "item_sockets": [
+            {
+                "slot": r.get("slot"),
+                "name": r.get("name"),
+                "sockets": int(r.get("sockets") or 0),
+                "budget": socket_budget(r),
+                "grant": int(r.get("grant") or 0),
+            }
+            for r in result.items
+            if int(r.get("sockets") or 0) or socket_budget(r)
+        ],
     }
+    if not result.is_item_sockets_legal:
+        out["item_socket_problems"] = list(result.item_socket_problems)
+    if result.item_socket_warnings:
+        out["item_socket_warnings"] = list(result.item_socket_warnings)
     # 요구 속성 미달은 **매번** 싣는다 — 1회성 경고는 문서와 동급이다(#29).
     shortfall = req_shortfall(result.stats)
     if shortfall:

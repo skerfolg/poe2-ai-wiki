@@ -207,6 +207,12 @@ def optimize_runes(
 
     `exclude_legacy`는 **다른 슬롯이 이미 유산을 썼을 때** 준다(유산은 전 장비 1개).
     호출자가 슬롯을 돌며 관리한다 — 엔진은 한 슬롯만 본다(AD-3: 판단은 호출자).
+
+    ⚠ **`sockets`는 지어내지 말 것** — 베이스의 `data.socket_limit`, 또는 유니크면
+    그 유니크의 정의가 정한 칸 수다. 여기서 상한을 깎지 않는 이유는 유니크가 베이스
+    한도를 넘는 경우가 실재하기 때문이다(Atziri's Splendour 6 > 4) — 깎으면 정상
+    구성에서 칸을 **조용히 잃는다**. 초과는 `compute_pob`·`assemble_pob`이 PoB
+    관측으로 잡아 거부한다(`item_sockets_legal`, #120).
     """
     from pok.engine.items import _default_compute, _replace_slot
 
