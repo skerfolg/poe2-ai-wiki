@@ -68,3 +68,48 @@ def test_비합법_아이템은_거부된다() -> None:
     )
     with pytest.raises(IllegalBuildError, match="Ring 1"):
         assemble(spec, "illegal")
+
+
+def _sockets_spec(sockets: int) -> BuildSpec:
+    """`Fists of Stone`(베이스 한도 3)에 소켓을 원하는 만큼 박은 장갑 한 짝."""
+    runes = "\n".join(["Rune: Perfect Iron Rune"] * sockets)
+    return BuildSpec(
+        class_name="Sorceress",
+        ascendancy="Sorceress1",
+        items=(
+            ItemSpec(
+                slot="Gloves",
+                text=(
+                    "Rarity: RARE\nPok Gloves\nFists of Stone\nItem Level: 80\n"
+                    f"Sockets: {' '.join('S' for _ in range(sockets))}\n{runes}"
+                ),
+            ),
+        ),
+    )
+
+
+def test_한도를_넘는_룬_소켓은_거부된다() -> None:
+    """#120 — 사용자 신고 빌드의 결함. 계산은 통과하고 **상세보기에서만** 터졌다.
+
+    적법성 검사기(KB)는 소켓 수를 아예 안 본다 — 룬 줄마다
+    "소켓 한도는 `check_constraints(exhaustion.sockets)`로 검사하라"고 미뤘고 그건
+    에이전트가 칸 수를 손으로 넣어야 도는 도구다. 판정 주체를 PoB로 옮겨 여기서 막는다.
+    """
+    with pytest.raises(IllegalBuildError, match="룬 소켓"):
+        assemble(_sockets_spec(4), "socket-over")
+
+
+def test_한도_안이면_통과한다() -> None:
+    """게이트가 **정상을 막으면** 신호가 죽는다(BACKLOG 형태 ⑤ · ⑪)."""
+    built = assemble(_sockets_spec(3), "socket-ok")
+    try:
+        assert built.result.is_item_sockets_legal
+        validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
+        assert validation["item_sockets"]["legal"] is True
+        # 관측을 **기록에 남긴다** — 나중에 보는 쪽이 몇 칸으로 쟀는지 알아야 한다
+        observed = validation["item_sockets"]["observed"]
+        assert observed and observed[0]["sockets"] == 3 and observed[0]["limit"] == 3
+    finally:
+        for f in built.path.iterdir():
+            f.unlink()
+        built.path.rmdir()

@@ -87,13 +87,88 @@ local function pokOracleGaps()
   return trig, mir, mainTrig
 end
 
+-- ⛔ **아이템의 룬 소켓 수를 오라클이 신고한다** (#120).
+--    PoB는 아이템 텍스트의 `Sockets:` 줄을 **그대로 믿는다**(`Item.lua:577`
+--    `self.itemSocketCount = #self.sockets`) — 베이스 한도와 대조하지 않는다.
+--    한도를 넘겨 적으면 계산은 조용히 그 값으로 나오고 **UI에서만** 터진다:
+--    `ItemsTab.lua:696`이 룬 드롭다운을 **6개만** 만드는데
+--    `UpdateRuneControls`(:2016)는 `for i = 1, item.itemSocketCount`로 돌아
+--    7칸부터 `displayItemRune7`이 nil이다 — 아이템 상세보기에서 예외.
+--    실측 2026-08-25(사용자 신고 빌드): 12개 중 4개가 한도 초과였고(3→4 셋 ·
+--    4→7 하나) 7칸짜리에서 예외가 났다. 조립 게이트는 소켓 수를 아예 안 봤다.
+-- ⚠ **베이스 한도로만 재면 정상 유니크를 거부한다** — 한도를 넘는 유니크가 실재한다
+--    (실측: Atziri's Splendour 6>4 · Runeseeker's Call 5>3 · Darkness Enthroned 2>0).
+--    유니크는 **자기 정의(`data.uniques`)가 정본**이고 베이스 한도는 그 다음이다.
+--    거짓 거부는 게이트 우회를 학습시킨다(BACKLOG 형태 ⑪).
+local pokUniqueSocketCache
+local function pokUniqueSockets()
+  if pokUniqueSocketCache then return pokUniqueSocketCache end
+  pokUniqueSocketCache = {}
+  for _, list in pairs(data.uniques or {}) do
+    for _, raw in ipairs(list) do
+      local name = raw:match("^%s*([^\n]+)")
+      if name then
+        local most = 0
+        -- `Sockets: J J J`(주얼)는 세지 않는다 — 룬 칸만이 상세보기 컨트롤을 쓴다
+        for spec in raw:gmatch("\nSockets:([^\n]*)") do
+          local count = 0
+          for _ in spec:gmatch("S") do count = count + 1 end
+          if count > most then most = count end
+        end
+        if most > 0 then pokUniqueSocketCache[name] = most end
+      end
+    end
+  end
+  return pokUniqueSocketCache
+end
+
+local function pokItems()
+  local tab = build and build.itemsTab
+  if not tab or not tab.items then return "[]" end
+  local uniques = pokUniqueSockets()
+  local ids = {}
+  for id in pairs(tab.items) do ids[#ids + 1] = id end
+  table.sort(ids)
+  local rows = {}
+  for _, id in ipairs(ids) do
+    local item = tab.items[id]
+    local sockets = item.itemSocketCount or 0
+    local limit, source = 0, "none"
+    local declared = (item.rarity == "UNIQUE") and uniques[item.title or ""] or nil
+    if declared then
+      limit, source = declared, "unique"
+    elseif item.base and item.base.socketLimit then
+      limit, source = item.base.socketLimit, "base"
+    end
+    -- 이름을 못 찾는 룬이 하나라도 있으면 PoB는 `UpdateRunes()`를 **안 돌린다**
+    -- (`Item.lua:1046~1058`) — 손기입 `{rune}` 줄이 그대로 남아 조용히 어긋난다.
+    local unknown = {}
+    for i = 1, sockets do
+      local name = item.runes and item.runes[i]
+      if name and name ~= "None"
+          and not (data.itemMods and data.itemMods.Runes and data.itemMods.Runes[name]) then
+        unknown[#unknown + 1] = '"' .. jesc(name) .. '"'
+      end
+    end
+    rows[#rows + 1] = string.format(
+      '{"id":"%s","name":"%s","base":"%s","rarity":"%s","sockets":%d,"limit":%d,"limitSource":"%s","unknownRunes":[%s]}',
+      jesc(id), jesc(item.title or item.name or ""), jesc(item.baseName or ""),
+      jesc(item.rarity or ""), sockets, limit, source, table.concat(unknown, ","))
+  end
+  return "[" .. table.concat(rows, ",") .. "]"
+end
+
 -- 메타: 적법성 신호 (연결 안 된 노드는 PoB가 소리 없이 해제하므로 여기서 노출)
 local points, asc, secAsc = build.spec:CountAllocNodes()
+-- ⚠ 다중 반환은 **인자 목록 끝에서만** 펼쳐진다 — 뒤에 인자를 더하면 조용히 1개로
+--    잘린다. 그래서 먼저 받아 둔다(`gapMirageSkills`가 0으로 굳는 자리였다).
+local gapTrig, gapMirage, gapMainTrig = pokOracleGaps()
 print(string.format(
-  'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"mainSkillShowsAverage":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d}',
+  'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"mainSkillShowsAverage":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d,"items":%s}',
   jesc(build.spec.curClassName or ""),
   jesc(build.spec.curAscendClassName or ""),
-  build.characterLevel or 0, points or 0, asc or 0, secAsc or 0, pokShowsAverage(), pokOracleGaps()))
+  build.characterLevel or 0, points or 0, asc or 0, secAsc or 0, pokShowsAverage(),
+  gapTrig, gapMirage, gapMainTrig, pokItems()))
 
 local ids = {}
 for id, node in pairs(build.spec.allocNodes) do

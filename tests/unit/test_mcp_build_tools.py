@@ -114,8 +114,13 @@ def test_req_shortfall_rides_on_every_return() -> None:
         is_tree_legal=True,
         pruned_nodes=(),
         meta={},
+        is_item_sockets_legal=True,
+        item_socket_problems=(),
     )
     out = _pick(result, ["CombinedDPS"])  # type: ignore[arg-type]
     assert out["req_shortfall"] == {"str": 100.0}
     # 이름이 축을 정직하게 말해야 한다 — 옛 `tree_legal`은 장비 실격을 가렸다
     assert "tree_connected" in out and "tree_legal" not in out
+    # 룬 소켓 한도도 **매 반환에** 실린다 (#120) — `items_legal`은 소켓 수를 안 본다
+    assert out["item_sockets_legal"] is True
+    assert "item_socket_problems" not in out, "정상일 땐 안 싣는다(소음 방지)"

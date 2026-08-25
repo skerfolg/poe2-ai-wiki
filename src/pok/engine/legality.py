@@ -484,7 +484,8 @@ class ItemLegalityChecker:
             f"↳ 위 줄 중 {len(runic)}건은 **룬으로도 붙는다**({sample}"
             f"{'…' if len(runic) > 2 else ''}) — 룬으로 쓸 것이면 줄 앞에 `{{rune}}`를 "
             f"붙여라. 접사 칸에서 빠져 이 초과가 해소된다 "
-            f"(소켓 여유는 check_constraints(exhaustion.sockets)로 확인)"
+            f"(남는 칸은 check_constraints(exhaustion.sockets)로 확인 — 칸 수 초과는 "
+            f"조립·계산이 자동으로 막는다)"
         ]
 
     def _affix_limits(self, rarity: str, category: str | None) -> tuple[dict[str, int], int, str]:
@@ -609,8 +610,8 @@ class ItemLegalityChecker:
                     "CONDITIONAL",
                     str(cand["id"]),
                     "고정 모드는 아니지만 **룬으로는 가능** — 유니크에도 룬 소켓이 있다. "
-                    "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라"
-                    + _rune_value_note(line, cand),
+                    "칸 수 자체는 조립·계산이 **자동으로** 검사한다(#120) — 남는 칸은 "
+                    "check_constraints(exhaustion.sockets)로 본다" + _rune_value_note(line, cand),
                 )
         return None
 
@@ -819,7 +820,7 @@ class ItemLegalityChecker:
             line,
             "LEGAL",
             modifier_id=str(runes[0]["id"]),
-            reason="룬 부여 — 소켓 한도는 check_constraints(sockets)로 검사",
+            reason="룬 부여 — 칸 수는 조립·계산이 자동 검사한다(#120)",
         )
         if not written or not pool or sockets <= 0:
             return base_verdict
@@ -990,8 +991,8 @@ class ItemLegalityChecker:
                 "CONDITIONAL",
                 str(runes[0]["id"]),
                 "접사로는 불가하나 **룬으로는 가능** — PoB 표기는 `{rune}` 접두다. "
-                "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라"
-                + _rune_value_note(line, runes[0]),
+                "칸 수 자체는 조립·계산이 **자동으로** 검사한다(#120) — 남는 칸은 "
+                "check_constraints(exhaustion.sockets)로 본다" + _rune_value_note(line, runes[0]),
             )
         return LineVerdict(line, "ILLEGAL", reason=" / ".join(reasons))
 

@@ -123,7 +123,14 @@ def _pick(
         "tree_connected": result.is_tree_legal,
         "pruned_nodes": list(result.pruned_nodes),
         "meta": result.meta,
+        # **룬 소켓 한도**도 별개 축이다 (#120). `items_legal`(KB 모드풀)은 소켓 수를
+        # 아예 안 본다 — 검사기가 "소켓 한도는 check_constraints로"라고 미뤘고 그건
+        # 손으로 칸 수를 넣어야 도는 도구다. 실측 2026-08-25: 4개 초과가 조립까지
+        # 통과했고 PoB **아이템 상세보기**에서 예외로 드러났다.
+        "item_sockets_legal": result.is_item_sockets_legal,
     }
+    if not result.is_item_sockets_legal:
+        out["item_socket_problems"] = list(result.item_socket_problems)
     # 요구 속성 미달은 **매번** 싣는다 — 1회성 경고는 문서와 동급이다(#29).
     shortfall = req_shortfall(result.stats)
     if shortfall:

@@ -47,7 +47,11 @@ class AssembledBuild:
 
     @property
     def is_legal(self) -> bool:
-        return self.result.is_tree_legal and all(r.is_legal for r in self.item_reports.values())
+        return (
+            self.result.is_tree_legal
+            and self.result.is_item_sockets_legal  # #120 — 룬 소켓 한도(PoB 판정)
+            and all(r.is_legal for r in self.item_reports.values())
+        )
 
 
 class IllegalBuildError(ValueError):
@@ -90,6 +94,13 @@ def assemble(
     result = run_build(spec, use_cache=use_cache)
     if strict and not result.is_tree_legal:
         raise IllegalBuildError(_pruned_reason(result.pruned_nodes))
+    # **룬 소켓 한도는 PoB가 판정한다** (#120). KB 검사기는 룬 줄을 볼 때마다
+    # "소켓 한도는 check_constraints(exhaustion.sockets)로 검사하라"고 적어 보냈는데
+    # 그 도구는 **에이전트가 칸 수를 손으로 넣어야** 돌아간다 — 안 넣으면 아무도 모른다.
+    # 실측 2026-08-25: 출고된 빌드 12개 중 4개가 한도 초과였고 7칸짜리에서 사용자가
+    # PoB 예외를 만났다. 계산 경로에서는 안 터지므로 여기가 유일한 관문이다(철칙 5).
+    if strict and not result.is_item_sockets_legal:
+        raise IllegalBuildError(" / ".join(result.item_socket_problems))
 
     xml = to_xml(spec)
     build_code = codec.encode(xml)
@@ -111,6 +122,13 @@ def assemble(
             }
             for slot, r in item_reports.items()
         },
+        # PoB가 읽은 소켓 사실 + 판정 (#120). `strict=False`로 진단만 할 때도 남는다 —
+        # 「비합법을 알면서 스탯을 봤다」가 기록에 있어야 다음 세션이 안 속는다.
+        "item_sockets": {
+            "observed": [dict(row) for row in result.items],
+            "problems": list(result.item_socket_problems),
+            "legal": result.is_item_sockets_legal,
+        },
     }
     files = {
         "build.xml": xml,
@@ -123,7 +141,11 @@ def assemble(
         "class": spec.class_name,
         "ascendancy": spec.ascendancy,
         "level": spec.level,
-        "legal": bool(result.is_tree_legal and all(r.is_legal for r in item_reports.values())),
+        "legal": bool(
+            result.is_tree_legal
+            and result.is_item_sockets_legal
+            and all(r.is_legal for r in item_reports.values())
+        ),
     }
     # 설계 무결성 경고는 **산출물에 각인한다** (#58 ①, 보고자 요청 2026-08-11).
     # 반환값에만 실으면 그 자리에서만 보이고 사라진다 — 다음 세션은 `build.pob`만

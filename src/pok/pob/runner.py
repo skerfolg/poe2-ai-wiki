@@ -11,8 +11,10 @@ import hashlib
 import json
 import os
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from pok.common.paths import project_root, var_dir
 from pok.pob.buildxml import BuildSpec, to_xml
@@ -23,9 +25,15 @@ _DRIVER = "scripts/pob_driver.lua"
 #  캐시 키가 `(PoB 커밋, XML)`뿐이라 우리 드라이버만 바뀌면 PoB 커밋이 그대로여서
 #  **키가 안 움직인다** — 새 필드 없는 payload가 그대로 적중하고, 없는 키는 0으로
 #  읽혀 「갭 없음」·「속도 정상」이라는 **거짓 안심**을 준다(형태 ①의 캐시 재발).
-#  2 = mainSkillShowsAverage(#113) · 1 = gap*(#110) · 0 = 그 이전
-_META_PROTOCOL = 2
+#  3 = items[](#120) · 2 = mainSkillShowsAverage(#113) · 1 = gap*(#110) · 0 = 그 이전
+_META_PROTOCOL = 3
 _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
+
+#: PoB **아이템 상세보기**가 만드는 룬 드롭다운 수 (`Classes/ItemsTab.lua:696` `for i = 1, 6`).
+#  `UpdateRuneControls`(:2016)는 `for i = 1, item.itemSocketCount`로 돌며
+#  `self.controls["displayItemRune"..i].list = ...`를 쓴다 — 이 수를 넘기면 nil 인덱싱이라
+#  **아이템을 클릭하는 순간 예외**다. 계산 경로에서는 안 터져서 조립이 그냥 통과시켰다.
+RUNE_CONTROL_SLOTS = 6
 
 
 def _gap_count(meta: dict[str, object], key: str) -> int:
@@ -109,6 +117,90 @@ class PobResult:
     def is_tree_legal(self) -> bool:
         """요청한 노드가 전부 반영됐는가 — 비연결 노드는 PoB가 소리 없이 잘라낸다."""
         return not self.pruned_nodes
+
+    @property
+    def items(self) -> tuple[dict[str, Any], ...]:
+        """PoB가 **실제로 읽은** 아이템별 소켓 사실 (#120) — 판정이 아니라 관측.
+
+        각 행: `id`·`name`·`base`·`rarity`·`sockets`(PoB의 `itemSocketCount`)·
+        `limit`(허용 칸)·`limitSource`(`unique`/`base`/`none`)·`unknownRunes`.
+        옛 캐시·옛 스냅샷에는 없을 수 있으므로 없으면 빈 튜플이다.
+        """
+        rows = self.meta.get("items")
+        if not isinstance(rows, list):
+            return ()
+        return tuple(r for r in rows if isinstance(r, dict))
+
+    @property
+    def item_socket_problems(self) -> tuple[str, ...]:
+        """**존재할 수 없는 룬 소켓** — 사유 문자열 (#120). 비어 있으면 통과.
+
+        `is_tree_legal`과 같은 계열이다: 오라클이 낸 사실을 적법성 신호로 읽는다.
+        """
+        return socket_problems(self.items)
+
+    @property
+    def is_item_sockets_legal(self) -> bool:
+        return not self.item_socket_problems
+
+
+def socket_problems(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
+    """아이템 소켓 관측 → 거부 사유 (#120).
+
+    ## 왜 여기가 강제 지점인가 (철칙 5)
+
+    소켓 한도는 **문서와 사유 문구에만** 있었다 — 적법성 검사기는 룬 줄을 볼 때마다
+    *"소켓 한도는 `check_constraints(exhaustion.sockets)`로 검사하라"*고 적어 보냈고,
+    그 도구는 **에이전트가 손으로 칸 수를 넣어야** 작동한다. 아무도 넣지 않으면 아무도
+    모른다. 실측 2026-08-25(사용자 신고 빌드): 12개 중 4개가 한도 초과였고
+    (사냥용 신발 3→4 · 룬벼림 장갑 3→4 · 검투사 투구 3→4 · 모리오르 4→**7**)
+    조립·계산·기록이 전부 통과했다. 사용자는 PoB에서 **아이템을 클릭했을 때** 알았다.
+
+    ## 판정 근거는 PoB 하나다 (형태 ④ 회피)
+
+    한도를 KB `socket_limit`으로 재면 **정상 유니크를 거부한다** — 베이스 한도를 넘는
+    유니크가 실재하고(Atziri's Splendour 6>4 · Runeseeker's Call 5>3 ·
+    Darkness Enthroned 2>0), 그중 `Runeseeker's Call`은 정본에 소켓 문구조차 없다
+    (KB 수집 갭). 거짓 거부는 게이트 우회를 학습시키므로(형태 ⑪) 판정 주체를 하나로
+    둔다: 오라클이 `data.uniques`·`base.socketLimit`을 보고 `limit`을 정한다.
+    """
+    out: list[str] = []
+    for row in items:
+        sockets = _as_int(row.get("sockets"))
+        limit = _as_int(row.get("limit"))
+        label = f"{row.get('name') or '?'}({row.get('base') or '?'})"
+        if sockets > limit:
+            source = {
+                "unique": "유니크 정의",
+                "base": "베이스 socketLimit",
+                "none": "이 베이스는 룬 소켓을 못 가진다",
+            }.get(str(row.get("limitSource")), str(row.get("limitSource")))
+            out.append(
+                f"{label}: 룬 소켓 {sockets}칸인데 한도는 {limit}칸 — 인게임에서 만들 수 "
+                f"없다 (한도 출처: {source}). `Sockets:` 줄을 {limit}칸으로 줄일 것"
+            )
+        if sockets > RUNE_CONTROL_SLOTS:
+            out.append(
+                f"{label}: 룬 소켓 {sockets}칸 > {RUNE_CONTROL_SLOTS}칸 — PoB **아이템 "
+                f"상세보기가 예외로 죽는다**(`ItemsTab.lua`가 룬 드롭다운을 "
+                f"{RUNE_CONTROL_SLOTS}개만 만드는데 `UpdateRuneControls`는 소켓 수까지 "
+                f"돌며 인덱싱한다). 계산 경로에서는 안 터지므로 여기서만 잡힌다"
+            )
+        unknown = row.get("unknownRunes")
+        if isinstance(unknown, list) and unknown:
+            names = " · ".join(str(u) for u in unknown)
+            out.append(
+                f"{label}: PoB가 모르는 룬 이름 {len(unknown)}건({names}) — 하나라도 있으면 "
+                f"PoB가 `UpdateRunes()`를 **안 돌린다**(`Item.lua:1046~1058`). 손으로 쓴 "
+                f"`{{rune}}` 줄이 그대로 남아 값이 조용히 어긋난다"
+            )
+    return tuple(out)
+
+
+def _as_int(value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    return int(value)
 
 
 class PobRunError(RuntimeError):
@@ -207,6 +299,16 @@ def _run_driver(xml_text: str, snap: PobSnapshot, timeout: float) -> dict[str, o
             input="",  # PoB가 stdin을 읽는 경로 차단 (스파이크에서 echo "" 파이프와 동일)
             capture_output=True,
             text=True,
+            # ⛔ **인코딩을 코드에서 고정한다** — `text=True`만 쓰면 Windows에서
+            #    로케일 코드페이지(한국어면 cp949)로 디코딩한다. 예전엔 드라이버
+            #    출력이 전부 ASCII라 안 드러났는데, `POK_META.items`가 **아이템
+            #    이름**을 싣는 순간(#120) 한글 이름이 깨지거나 `json.loads`가 죽는다.
+            #    환경변수(`PYTHONUTF8`)로는 못 막는다 — `common/stdio.py`가 같은
+            #    이유로 진입점 코드에 강제 지점을 둔다(철칙 5).
+            #    `errors="replace"`인 이유: 이름 한 글자 때문에 **측정 전체**를
+            #    죽이지 않는다. 이름은 거부 사유의 라벨일 뿐 판정은 숫자로 한다.
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
     finally:
