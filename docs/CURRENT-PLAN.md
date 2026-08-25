@@ -101,7 +101,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S24 | #113 반영 재집계 — 속도 노드 **5종 부활** · 73노드 손실률 교정(양방향). 재측정 없이 정본만 갱신 | done |
 | S25 | #120 — 아이템 룬 소켓 **예산**을 오라클이 신고(베이스/유니크 + 트리 부여), 조립은 PoB가 못 여는 6칸 초과만 거부하고 **우회로를 함께 낸다** (`pob/runner.py::socket_budget`) | done |
 | S26 | #121 — 여러 줄 config가 `&#10;`로 나가 PoB에서 조용히 사라지던 것 수정 (`pob/buildxml.py::_pob_attr`) | done |
-| S27 | 외부 영상 4편 전사 → 도구 갭 **#122~#126** 등재 · 인사이트 **4건** 승격(`label: UNVERIFIED`, 사용자 판정 대기) | done |
+| S27 | 외부 영상 4편 전사 → 도구 갭 **#122~#126** 등재 · 인사이트 **4건** 승격. 사용자 판정 반영: `as-though-damage-scales-narrowly` → **SUPPORTED_INFERENCE**, 나머지 3건 UNVERIFIED 유지. **#123은 착수 전 코드 대조로 좁혔다** — 「전 경로」가 아니라 `optimize_items` 하나였다 | done |
 
 ## Canonical Next Step
 

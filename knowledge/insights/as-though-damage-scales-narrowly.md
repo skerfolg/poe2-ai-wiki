@@ -1,8 +1,8 @@
 ---
 id: insight.as-though-damage-scales-narrowly
-label: UNVERIFIED
+label: SUPPORTED_INFERENCE
 scope: season
-verified_by: 미검증 — 3자(유튜브) 주장 전사, [엔진] 세션 2026-08-25. 사용자 판정 대기
+verified_by: 사용자 판정 2026-08-25 — 근거 문구는 GAME_DATA(`item.beiras-anguish`), 「적중이 아니므로 스케일링 축이 좁다」는 구조 추론
 lang: ko
 source: feedback
 source_title: [유튜브] POE2 버리던 아이템이 전설급이던 건에 대하여 — 춘삼_CHOONSAM
