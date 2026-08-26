@@ -51,7 +51,14 @@ class RuneOption:
 
     label: str  # KB modifier id
     name: str  # PoB `Rune:` 선언에 쓰는 이름
-    lines: tuple[str, ...]  # 이 부위에서 부여되는 문구 (Bonded 제외)
+    lines: tuple[str, ...]  # 이 부위에서 조건 없이 부여되는 문구
+    # ⛔ **조건부 줄을 빼지 말고 라벨을 붙여 노출한다** (#112 · AD-8). 조용히 빼면
+    #    호출자가 「없다」와 「조건부다」를 구별하지 못한다 — 실측 2026-08-25:
+    #    룬 287건 중 **227건 · 487줄**이 그렇게 사라지고 있었다.
+    #    ⚠ 조건은 **샤먼 전용이 아니다** — `Fox Idol`이 그 조건을 해제한다
+    #    ("Idols socketed in this item gain the benefits of their Bonded modifiers").
+    #    그래서 「쓸 수 있나」는 여기서 못 정한다. **판정은 호출자 몫**(AD-3).
+    bonded_lines: tuple[str, ...] = ()
 
     @property
     def is_legacy(self) -> bool:
@@ -76,10 +83,19 @@ def slot_keys(base_record: Mapping[str, Any]) -> frozenset[str]:
 
 
 def enumerate_slot_runes(base_type: str, root: Path | None = None) -> list[RuneOption]:
-    """이 베이스에 장착 가능한 룬 전량 — `Bonded:` 줄은 뺀다.
+    """이 베이스에 장착 가능한 룬 전량. `Bonded:` 줄은 **버리지 않고 갈라서 낸다** (#112).
 
-    `Bonded:`는 샤먼 전직군 전용 조건부라 PoB가 조건을 검사하지 않고 그대로 더한다
-    (KB `bonded_condition`이 그 사실을 적어 둔다). 조건 없는 줄만 시드로 쓴다.
+    `lines`는 조건 없이 붙는 줄, `bonded_lines`는 **조건부** 줄이다. PoB는 이 조건을
+    검사하지 않고 그대로 더하므로(KB `bonded_condition`) 시드에는 `lines`만 쓴다 —
+    그건 그대로다. 바뀐 것은 **조건부 줄을 조용히 버리지 않는다**는 것이다(AD-8).
+
+    ⚠ **조건이 「샤먼 전용」으로 고정이 아니다.** `Fox Idol`이 그것을 해제한다:
+    *"Idols socketed in this item gain the benefits of their Bonded modifiers"*.
+    엔진이 항상 빼면 Fox Idol 구성에서 **과소 계상**한다 — 실측 사례(사용자 실물
+    `Morior Invictus`, 우상 5종)에서 냉기 저항 +12%·카오스 +8%·정신력 5%·
+    **모든 스킬 퀄리티 +5%**가 통째로 누락됐다.
+
+    ⛔ 「쓸 수 있나」는 여기서 못 정한다 — 판정은 호출자 몫이다(AD-3).
     """
     from pok.engine.rares import base_record as _base_record
     from pok.kb.store import load as store_load
@@ -94,19 +110,21 @@ def enumerate_slot_runes(base_type: str, root: Path | None = None) -> list[RuneO
         if data.get("affix_type") != "rune":
             continue
         per_slot = data.get("per_slot") or {}
-        lines = [
+        applicable = [
             str(line)
             for key, texts in per_slot.items()
             if str(key).lower() in wanted
             for line in texts
-            if not str(line).startswith("Bonded:")
         ]
-        if lines:
+        lines = [ln for ln in applicable if not ln.startswith("Bonded:")]
+        bonded = [ln for ln in applicable if ln.startswith("Bonded:")]
+        if lines or bonded:
             out.append(
                 RuneOption(
                     label=entry.id,
                     name=str((entry.raw.get("name") or {}).get("en") or entry.id),
                     lines=tuple(dict.fromkeys(lines)),
+                    bonded_lines=tuple(dict.fromkeys(bonded)),
                 )
             )
     return sorted(out, key=lambda r: r.label)

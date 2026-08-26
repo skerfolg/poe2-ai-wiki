@@ -652,3 +652,27 @@ def test_poe1_remnant_mods_stay_out_of_the_kb() -> None:
         if (rec.raw.get("data") or {}).get("pob_key") in remnants
     ]
     assert not present, f"정본에 남아 있다: {present}"
+
+
+def test_결속을_해제하는_우상에는_조건_주석을_안_단다() -> None:
+    """⛔ **우회 수단이 우회 대상으로 표기되면 읽는 쪽이 정반대로 판단한다** (#112).
+
+    `Fox Idol`은 *"Idols socketed in this item gain the benefits of their Bonded
+    modifiers"* 라 결속을 **켜는** 쪽인데, 정본이 그 자신에게 「샤먼 전용」 주석을
+    달고 있었다. 엔진이 그걸 읽고 항상 빼면 Fox Idol 구성에서 **과소 계상**한다.
+    """
+    from pok.kb.ingest.mods import parse_rune
+
+    raw = {"body armour": {"1": "X", "2": "Bonded: Y", "rank": [1]}}
+    fox = parse_rune("Fox Idol", raw)
+    other = parse_rune("Hawk Idol", raw)
+    assert fox["bonded_lines"], "조건부 줄 자체는 그대로 보존한다"
+    assert "bonded_condition" not in fox, "해제하는 쪽에는 조건 주석을 달지 않는다"
+    assert "bonded_condition" in other, "다른 우상은 그대로 조건부다"
+
+
+def test_조건_문구가_해제_경로를_알린다() -> None:
+    """조건이 「샤먼 전용」으로 고정이 아니라는 사실이 문구에 있어야 한다 (#112)."""
+    from pok.kb.ingest.mods import BONDED_CONDITION
+
+    assert "Fox Idol" in BONDED_CONDITION

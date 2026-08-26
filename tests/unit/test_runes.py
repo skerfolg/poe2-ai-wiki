@@ -113,3 +113,24 @@ def test_greedy_respects_sockets_and_rules() -> None:
 def test_no_sockets_means_no_fill() -> None:
     """칸이 없으면 아무것도 만들지 않는다 — 없는 것을 채웠다고 말하지 않는다."""
     assert optimize_runes(SPEC, "Weapon 1", {"CombinedDPS": 1.0}, sockets=0) is None
+
+
+def test_조건부_줄을_버리지_않고_갈라서_낸다() -> None:
+    """`Bonded:`를 조용히 버리면 「없다」와 「조건부다」가 구별되지 않는다 (#112 · AD-8).
+
+    실측 2026-08-25: 룬 287건 중 **227건 · 487줄**이 그렇게 사라지고 있었다.
+    시드에는 여전히 `lines`만 쓴다 — 바뀐 것은 **조건부 줄을 노출한다**는 것이다.
+    """
+    opts = enumerate_slot_runes("Felled Greatclub")
+    assert opts, "철퇴 룬 후보가 있어야 한다"
+    with_bonded = [o for o in opts if o.bonded_lines]
+    assert with_bonded, "조건부 줄을 가진 룬이 실재한다"
+    for o in with_bonded:
+        assert all(ln.startswith("Bonded:") for ln in o.bonded_lines)
+        assert not any(ln.startswith("Bonded:") for ln in o.lines), "시드에는 안 섞인다"
+
+
+def test_조건이_없는_줄은_그대로_시드다() -> None:
+    """⛔ 반대 방향 — 조건부를 노출한다고 무조건부까지 흔들리면 안 된다."""
+    opts = enumerate_slot_runes("Felled Greatclub")
+    assert any(o.lines for o in opts), "조건 없는 줄이 그대로 있어야 한다"
