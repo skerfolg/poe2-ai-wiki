@@ -2366,9 +2366,36 @@ KB 충전율에서 이미 드러나 있던 얇은 곳: Skill `category` **12.5%*
 - **임시 대응**: 조립 시 `bonded_lines`를 손으로 되살려 `RuneOption`에 합친다
   (이번 회차에 그렇게 했다).
 
-### #105 〔신규 · 열림〕 **정본 `spawn_weights`가 인게임과 어긋난다 — 크래프팅 계획의 전제가 틀어진다**
+### #105 〔신규 · 기각〕 **정본 `spawn_weights`가 인게임과 어긋난다 — 크래프팅 계획의 전제가 틀어진다**
 
-- **상태**: **열림** · 발견 2026-08-22 (사용자 인게임 지적)
+- **상태**: ⛔ **기각**(2026-08-25) — **정본도 도구도 옳다. 도구를 안 쓴 것이 원인이다.**
+- **접수 진단(「1/0 정규화로 가중치를 잃었다」)이 틀렸다.** 정본이 이미 구분하고 있다:
+
+  ```
+  modifier.corruptionupgradelocalstundamageincrease1   ← 문제의 그 접두
+    origins     : ['item-exclusive']
+    acquisition : ['crafting-currency', 'poe2db:corruption_upgrade']
+  ```
+
+  `spawn_weights`의 `mace: 1`은 **틀린 값이 아니다** — 「부패 업그레이드로는 철퇴에
+  붙는다」가 맞다. 일반 크래프팅으로 안 붙는다는 사실은 `acquisition`이 들고 있다.
+- **도구는 이미 정확하다** (실측 2026-08-25, `enumerate_base_affixes("Felled Greatclub")`):
+
+  | 결과 | |
+  |---|---|
+  | 풀 64건 중 `LocalStunDamageIncrease` | **2건** |
+  | `stundamageincrease6` (접미·item) | ✅ 포함 — 크래프팅 가능한 것 |
+  | `corruptionlocalstundamageincrease1` (corrupted) | ✅ 포함 + **「바알 오브는 도박」 고지** |
+  | `corruptionupgrade…` (접두·item-exclusive) | ⛔ **배제됨** |
+
+  같은 `group`이라 **한 아이템에 하나만** 붙는 것도 그대로 나온다 —
+  즉 접수의 **「접두+접미 150%」 계획은 도구를 썼으면 애초에 안 나온다.**
+- **진짜 원인**: `spawn_weights`를 **파일에서 직접 읽고** 결론을 냈다. AGENTS.md의
+  「KB 질의는 MCP 도구로 (파일 탐색 금지)」가 정확히 이 자리다.
+- ⛔ **접수의 「임시 대응」 전제가 틀렸다** — *「도구가 못 내므로 문서 규율」*이라고
+  적혀 있는데 **도구가 낸다**. 그 문장을 남겨 두면 다음 세션도 손으로 읽는다.
+- **남는 것**: 데이터·도구 수정 없음. 이 항목은 **도구를 우회하면 무슨 일이 나는가**의
+  실측 사례로만 값어치가 있다.
 - **증상**: 기절 축적 **접두**(`Causes (50-75)% increased Stun Buildup`)가 정본에는
   `spawn_weights: {"mace": 1, "sword": 1, "axe": 1, …}`로 **철퇴에 붙는 것으로** 기록돼 있는데,
   **인게임에는 없다**(사용자 확인). 그 값을 근거로 "희귀 철퇴에 접두+접미 150%"라는
