@@ -212,6 +212,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | Integration branch override — 작업 브랜치 `feat/103-weapon-types` | 레인명과 다름. #103 해결(백로그 Tier 2). 이 PR 한정 | 2026-08-25 |
 | #103이 빠져 있던 이유는 **형태 차이**였다 | 수집기가 **이미 같은 Lua 블록**을 읽고 있었는데 `weaponTypes`만 놓쳤다 — `["Staff"] = true` 형태라 `SkillType.X`를 찾는 `_TYPE_REF`에 안 걸린다. 「같은 곳을 읽고 있으니 다 읽고 있다」는 가정이 틀리는 자리 | 2026-08-25 |
 | ⭑ **스키마가 먼저 거부했다** | 수집을 돌리자 `Additional properties are not allowed ('weapon_types')`로 막혔다 — 정본이 임의 필드를 안 받는다는 규율이 실제 강제 지점으로 작동했다(철칙 5의 성공 사례) | 2026-08-25 |
+| Integration branch override — 작업 브랜치 `feat/123-unique-parse-gap` | 레인명과 다름. #123 해결(백로그 Tier 1). 이 PR 한정 | 2026-08-25 |
+| #123 규모가 **후보 풀의 절반**이었다 | 열거 대상 유니크 468종 중 **214종(45.7%)**이 파싱 갭. 「아무도 안 쓴다」의 원인이 약해서가 아니라 **계산기가 못 읽어서**인 경우가 조용히 섞여 있었다 — 남들도 같은 계산기를 보므로 갭 유니크에는 저평가가 **구조적으로** 쌓인다 | 2026-08-25 |
+| Integration branch override — 작업 브랜치 `fix/118-hybrid-affix` | 레인명과 다름. #118 해결(백로그 Tier 1). 이 PR 한정 | 2026-08-25 |
+| #118은 **세는 쪽을 안 고쳤다** | 매칭 단계에서 두 줄이 같은 모드 id로 잡히게 하니 `matched`가 dict라 접사 수·group이 자동으로 접혔다. 카운터를 손대는 쪽으로 갔으면 group 검사·총한도·접두한도 **세 곳을 각각** 고쳐야 했고 그중 하나를 빠뜨렸을 것이다(형태 ⑦) | 2026-08-25 |
 | Integration branch override — 작업 브랜치 `docs/s20-close` | 레인명과 다름. **문서만** — S20 종결 반영 + S24 신설. 이 PR 한정 | 2026-08-25 |
 | S20을 `done`으로, 지시문을 S24로 옮긴다 | PR #104가 **산문은 갱신했는데 상태 행과 지시문은 안 건드렸다** — 머지된 일이 `next`로 남아 다음 세션이 끝난 일을 다음 할 일로 읽는다(§13.1은 지시문·Baseline·Open Decisions를 **같은 커밋에서** 갱신하도록 요구한다) | 2026-08-25 |
 | ⛔ **S20 재승격이 #113 수정보다 먼저 돌았다** — 재집계를 다시 돌린다(S24) | 정본 `NodeValue` 2,665종이 속도 빠진 `CombinedDPS`로 집계돼 있다. 판정 큐(`node_necessity`)·제안 다이제스트(`proposal_round`)가 그 축을 읽으므로 **그 위에서 판정하면 판정도 같이 틀린다**. ✅ 재측정 불요 — `collect()`는 PoB를 안 쓰고 `TotalDPS`가 이미 행에 있다 | 2026-08-25 |

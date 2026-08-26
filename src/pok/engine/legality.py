@@ -122,6 +122,15 @@ _SPEC_MARKERS = frozenset({"corrupted", "mirrored", "split", "unidentified"})
 _RUNE_EFFECT = re.compile(r"(\d+(?:\.\d+)?)%\s+increased effect of Socketed Runes", re.I)
 
 
+def _multi_key(texts: Sequence[str]) -> str:
+    """연속 줄 묶음의 색인 키 — 정규화 텍스트를 순서대로 이은 것 (#118).
+
+    순서를 지키는 이유: 하이브리드는 인게임 표기 순서가 고정이고, 순서를 무시하면
+    서로 다른 모드가 같은 키로 뭉친다.
+    """
+    return "\n".join(_norm(t) for t in texts)
+
+
 def _mod_texts(data: dict[str, Any]) -> list[str]:
     """모드의 효과 문구 — `texts` 우선, 없으면 슬롯별 `per_slot` 전량.
 
@@ -324,6 +333,8 @@ class ItemLegalityChecker:
         # PoB 모드 키 → 레코드. **선언형 아이템 텍스트**(`Prefix: <key>`)를 되짚는다 —
         # 그 형식이 검사에서 통째로 빠져 있었다(백로그 #60).
         self._by_pob_key: dict[str, dict[str, Any]] = {}
+        #: 연속 줄 묶음 → 모드 (하이브리드 접사, #118). 키는 정규화 텍스트를 개행으로 이은 것.
+        self._multi: dict[str, list[dict[str, Any]]] = {}
         # 고유 주얼 전략 모듈용 색인 (2026-07-31, 사용자 확립 "주얼별 전략 모듈")
         self._heart: dict[str, list[dict[str, Any]]] = {}  # Heart of the Well 훼손 풀
         self._notables: dict[str, dict[str, Any]] = {}  # 본 트리+어센 노터블 (Megalomaniac)
@@ -340,8 +351,16 @@ class ItemLegalityChecker:
                 # spawn_weights가 없어 _route_base_fit의 pages/scope 신호로 판정된다.
                 # rune은 `texts`가 없고 슬롯별 `per_slot`을 쓴다 — 그래서 origin만
                 # 넣으면 색인이 비고, 실제로 룬 16줄이 전부 UNKNOWN이었다(2026-08-05).
-                for text in _mod_texts(r.raw["data"]):
+                texts = _mod_texts(r.raw["data"])
+                for text in texts:
                     self._mods.setdefault(_norm(text), []).append(r.raw)
+                # ⛔ **두 줄짜리 한 모드**(하이브리드)를 묶음으로도 색인한다 (#118).
+                #    위의 줄 단위 색인만 있으면 하이브리드의 첫 줄이 **동명 단독 접사와
+                #    같은 키**에 들어가, 검사기가 단독 쪽을 집어 ①없는 group 충돌을
+                #    만들고 ②접사 수를 하나 더 센다. 정본은 맞다 — 두 모드의 group이
+                #    서로 달라 인게임에서 공존한다. 틀린 것은 매칭기였다.
+                if len(texts) > 1:
+                    self._multi.setdefault(_multi_key(texts), []).append(r.raw)
                 key = str(r.raw["data"].get("pob_key") or "")
                 if key:
                     self._by_pob_key.setdefault(key.lower(), r.raw)
@@ -354,6 +373,39 @@ class ItemLegalityChecker:
                 self._notables[r.name_en.lower()] = r.raw
             elif r.type == "Skill":
                 self._skills.add(r.name_en.lower())
+
+    def _claim_multi_lines(self, mod_lines: list[str]) -> dict[int, frozenset[str]]:
+        """연속 줄 묶음이 잡은 줄 → 그 모드 id (#118). **긴 묶음이 먼저 이긴다.**
+
+        되돌려주는 것은 「이 줄은 이 묶음의 모드들로만 봐라」는 지정이다. 두 줄이
+        **같은 모드 id**로 매칭되면 `matched`가 dict라 접사 수·group이 **자동으로 하나로
+        접힌다** — 세는 쪽을 따로 고칠 필요가 없다.
+
+        ⚠ 티어를 **하나로 못 박지 않는다.** 하이브리드도 티어가 여러 개다(실측:
+        `LocalIncreasedPhysicalDamagePercentAndAccuracyRating`은 8종). 첫 티어만 넘기면
+        수치가 범위 밖으로 찍혀 **거짓 거부를 고치려다 다른 거짓 거부를 만든다**.
+
+        ⚠ 겹치는 묶음은 만들지 않는다. 이미 잡힌 줄은 건너뛰므로 한 줄이 두 모드에
+        속하는 일이 없다.
+        """
+        if not self._multi:
+            return {}
+        longest = max(len(k.split("\n")) for k in self._multi)
+        claims: dict[int, frozenset[str]] = {}
+        i = 0
+        while i < len(mod_lines):
+            for size in range(min(longest, len(mod_lines) - i), 1, -1):
+                recs = self._multi.get(_multi_key(mod_lines[i : i + size]))
+                if not recs:
+                    continue
+                ids = frozenset(str(r["id"]) for r in recs)
+                for off in range(size):
+                    claims[i + off] = ids
+                i += size
+                break
+            else:
+                i += 1
+        return claims
 
     def check(self, item_text: str) -> LegalityReport:
         rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(item_text)
@@ -398,7 +450,13 @@ class ItemLegalityChecker:
                 LineVerdict(f"{kind}: {key}", "LEGAL", str(record["id"]), reason="선언형 접사")
             )
             matched[str(record["id"])] = record
-        for line in mod_lines:
+        # ⛔ **연속 줄 묶음을 먼저, 긴 것부터 소비한다** (#118). 하이브리드(두 줄짜리 한
+        #    모드)의 첫 줄은 동명 단독 접사와 텍스트가 같아, 줄 단위로만 매칭하면
+        #    단독 쪽이 잡혀 ①없는 group 충돌 ②접사 수 +1이 생긴다. 실측 2026-08-23:
+        #    인게임 기준 「양손 철퇴의 정답」이 그렇게 거부돼 `assemble_pob`을 통째로
+        #    막았고, 세션이 게이트를 우회하는 경로를 학습했다(철칙 5 따름정리).
+        claims = self._claim_multi_lines(mod_lines)
+        for idx, line in enumerate(mod_lines):
             if (found := _match_implicit(line, implicits)) is not None:
                 verdicts.append(found)
                 continue
@@ -406,6 +464,7 @@ class ItemLegalityChecker:
                 line,
                 base,
                 ilvl,
+                only_ids=claims.get(idx),
                 suffix_effect=suffix_effect,
                 sockets=sockets,
                 rune_effect=rune_effect,
@@ -849,6 +908,7 @@ class ItemLegalityChecker:
         rune_effect: float = 0.0,
         catalyst: str = "",
         catalyst_quality: float = 0.0,
+        only_ids: frozenset[str] | None = None,
     ) -> LineVerdict:
         # `{custom}`은 사용자가 **규격 밖인 걸 알고** 넣은 줄이다(PoB `Craft()`도 이것만
         # 보존한다, L1698). "KB에 없다"와 섞으면 진짜 미수록 신호가 묽어진다.
@@ -873,6 +933,13 @@ class ItemLegalityChecker:
         if rune_line:
             line = _RUNE_PREFIX.sub("", line, count=1).strip()
         candidates = self._mods.get(_norm(line), [])
+        if only_ids is not None:
+            # 연속 줄 묶음이 이 줄을 선점했다 (#118) — **그 묶음의 모드들로만** 본다.
+            # 좁히지 않으면 동명 단독 접사가 잡혀 묶음 선점이 무의미해진다.
+            # ⚠ `or candidates` 폴백은 두지 않는다 — 두면 선점이 조용히 무효가 되어
+            #    「고쳤는데 그대로」가 된다. 묶음이 잡혔는데 후보가 없으면 그건 정본 쪽
+            #    문제이므로 UNKNOWN으로 드러나야 한다.
+            candidates = [c for c in candidates if str(c["id"]) in only_ids]
         if rune_line:
             # 룬 줄은 룬 풀에서만 찾는다 — 티어 범위는 룬에 적용되지 않는다(고정값)
             runes = [c for c in candidates if "rune" in (c.get("data") or {}).get("origins", [])]
