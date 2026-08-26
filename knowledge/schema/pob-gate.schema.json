@@ -68,6 +68,14 @@
       "items": {
        "type": "string"
       }
+     },
+     "weapon_types": {
+      "type": "array",
+      "items": {
+       "type": "string",
+       "minLength": 1
+      },
+      "description": "무기 계열 제약 (#103) — PoB `Data/Skills/*.lua`의 `weaponTypes`. 빌드의 첫 전제라 여기서 틀리면 스킬·전직·아이템이 전부 무효가 된다. `None`은 「무기 없이도 된다」는 의미 있는 값이므로 거르지 않는다. 비어 있음 = 제약 없음이 아니라 **PoB가 안 적었다** — 없는 것과 제약 없음을 구별하려면 키 자체의 유무를 볼 것."
      }
     },
     "required": [

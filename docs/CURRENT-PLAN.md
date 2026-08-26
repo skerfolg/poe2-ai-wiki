@@ -209,6 +209,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | S24 실측 — #113 교정이 **양방향**으로 나왔다 | 속도 노드 5종이 작동률 0 → 100%로 부활(`Initiative` 중앙손실 5.82% 등)했고, 반대로 `Instability`·`Savouring`은 100% → 41.35%로 **과대평가가 걷혔다**. 한쪽으로만 움직였으면 축을 잘못 바꾼 것을 의심했을 자리 | 2026-08-25 |
 | ⚠ **데이터 repo도 뒤처진다** — 협업 규율 2의 사각지대 | 재집계를 시작조차 못 했다. `artifacts/ingest-raw`(별도 repo `poe2-ai-wiki-data`)가 **112커밋 뒤**였고 최신이 바로 S20 관측이었다. 규율 2는 정본 repo만 말하는데 **데이터 repo에도 그대로 적용된다** | 2026-08-25 |
 | 지시문을 M6로 옮긴다 (S24 종료) | 정본이 이제 옳은 축으로 서 있으므로 정본 진입 게이트를 열 순서가 됐다. ⚠ 게이트의 범위·판정 기준은 **사용자 합의 필요**(철칙 1) | 2026-08-25 |
+| Integration branch override — 작업 브랜치 `feat/103-weapon-types` | 레인명과 다름. #103 해결(백로그 Tier 2). 이 PR 한정 | 2026-08-25 |
+| #103이 빠져 있던 이유는 **형태 차이**였다 | 수집기가 **이미 같은 Lua 블록**을 읽고 있었는데 `weaponTypes`만 놓쳤다 — `["Staff"] = true` 형태라 `SkillType.X`를 찾는 `_TYPE_REF`에 안 걸린다. 「같은 곳을 읽고 있으니 다 읽고 있다」는 가정이 틀리는 자리 | 2026-08-25 |
+| ⭑ **스키마가 먼저 거부했다** | 수집을 돌리자 `Additional properties are not allowed ('weapon_types')`로 막혔다 — 정본이 임의 필드를 안 받는다는 규율이 실제 강제 지점으로 작동했다(철칙 5의 성공 사례) | 2026-08-25 |
 | Integration branch override — 작업 브랜치 `docs/s20-close` | 레인명과 다름. **문서만** — S20 종결 반영 + S24 신설. 이 PR 한정 | 2026-08-25 |
 | S20을 `done`으로, 지시문을 S24로 옮긴다 | PR #104가 **산문은 갱신했는데 상태 행과 지시문은 안 건드렸다** — 머지된 일이 `next`로 남아 다음 세션이 끝난 일을 다음 할 일로 읽는다(§13.1은 지시문·Baseline·Open Decisions를 **같은 커밋에서** 갱신하도록 요구한다) | 2026-08-25 |
 | ⛔ **S20 재승격이 #113 수정보다 먼저 돌았다** — 재집계를 다시 돌린다(S24) | 정본 `NodeValue` 2,665종이 속도 빠진 `CombinedDPS`로 집계돼 있다. 판정 큐(`node_necessity`)·제안 다이제스트(`proposal_round`)가 그 축을 읽으므로 **그 위에서 판정하면 판정도 같이 틀린다**. ✅ 재측정 불요 — `collect()`는 PoB를 안 쓰고 `TotalDPS`가 이미 행에 있다 | 2026-08-25 |

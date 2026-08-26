@@ -19,6 +19,8 @@ KB Skill·Support 레코드의 `data.pob`에 넣는다:
   `{Spell, Totemable}`는 "둘 중 하나". 정렬하지 말 것.
 - `statSets` 라벨 — 모드가 2개 이상이면 지정 없이 PoB가 조용히 1번을 쓴다(#52)
 - `fromItem`/`cannotBeSupported`/`supportGemsOnly`/`ignoreMinionTypes` 플래그
+- `weaponTypes` — **무기 계열 제약**(#103). 빌드의 첫 전제라 여기서 틀리면
+  스킬·전직·아이템이 전부 무효가 된다
 
 메타 젬은 **반쪽이 둘**이다(주문 토템: 소환 스킬 + 보조 판정 스킬) — `effects`
 배열이 그 구조를 그대로 담는다(첫 항목 = `grantedEffectId`, 이후 = additional).
@@ -45,7 +47,7 @@ from pok.kb.pob_pin import POB_COMMIT, pob_src_dir
 from pok.kb.store import load as store_load
 from pok.kb.store import write_record, write_shard
 
-_SOURCE_REF = "Data/Skills (skillTypes·statSets·require/exclude·fromItem)"
+_SOURCE_REF = "Data/Skills (skillTypes·statSets·require/exclude·fromItem·weaponTypes)"
 
 # ── Lua 파싱 (pob/catalog.py에서 이관 — #63 P2로 그쪽은 계산기 계약만 남는다) ──
 _SKILL_BLOCK = re.compile(r'^skills\["([^"]+)"\]\s*=\s*\{', re.M)
@@ -61,6 +63,10 @@ _EXCLUDE_TYPES = re.compile(r"\bexcludeSkillTypes\s*=\s*\{")
 _ADD_TYPES = re.compile(r"\baddSkillTypes\s*=\s*\{")
 _TYPE_REF = re.compile(r"SkillType\.(\w+)")
 _STAT_SETS = re.compile(r"\bstatSets\s*=\s*\{")
+# ⛔ **무기 계열 제약** (#103). `["One Hand Mace"] = true` 형태라 `SkillType.X`가
+#    아니어서 `_TYPE_REF`로는 안 잡힌다 — 따로 뽑는다.
+_WEAPON_TYPES = re.compile(r"\bweaponTypes\s*=\s*\{")
+_WEAPON_KEY = re.compile(r'\["([^"]+)"\]\s*=\s*true')
 _LABEL = re.compile(r'label\s*=\s*"([^"]*)"')
 _FLAGS = {
     "ignore_minion_types": re.compile(r"\bignoreMinionTypes\s*=\s*true"),
@@ -115,6 +121,26 @@ def _block_types(text: str, pattern: re.Pattern[str], start: int, end: int) -> l
     if close < 0:
         return []
     return [m.group(1) for m in _TYPE_REF.finditer(text, found.end(), close)]
+
+
+def _weapon_types(text: str, start: int, end: int) -> list[str]:
+    """`weaponTypes = { ["One Hand Mace"] = true, ... }` → 정렬된 계열 목록 (#103).
+
+    ⛔ **무기 제약은 빌드의 첫 전제다.** 여기서 틀리면 스킬·전직·아이템이 전부 무효가
+    된다 — 실측 2026-08-22: `Crushing Fear`를 철퇴 빌드의 핵심으로 설계했는데 육척봉
+    전용이었고 컨셉을 두 번 다시 짰다. `pob_gap`처럼 **조용한 0**이 아니라 **조용한
+    거짓 성립**이라 더 나쁘다(§0 ⑩).
+
+    ⚠ `"None"`도 그대로 싣는다 — 「무기 없이도 된다」는 **의미 있는 값**이라 거르면
+    맨손 성립 여부를 표현할 수 없다. 집합 의미라 정렬한다(안정 diff).
+    """
+    found = _WEAPON_TYPES.search(text, start, end)
+    if found is None:
+        return []
+    close = _match_brace(text, found.end() - 1)
+    if close < 0:
+        return []
+    return sorted({m.group(1) for m in _WEAPON_KEY.finditer(text, found.end(), close)})
 
 
 def _stat_set_labels(text: str, start: int, end: int) -> list[str]:
@@ -180,6 +206,8 @@ def parse_skill_effects(src: Path) -> dict[str, dict[str, Any]]:
                 entry["adds"] = adds
             if labels := _stat_set_labels(text, head, end):
                 entry["stat_sets"] = labels
+            if weapons := _weapon_types(text, head, end):
+                entry["weapon_types"] = weapons
             out[match.group(1)] = entry
     return out
 

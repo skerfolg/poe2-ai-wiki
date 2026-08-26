@@ -43,6 +43,19 @@ skills["GrantedPlayer"] = {
 	cannotBeSupported = true,
 	skillTypes = { [SkillType.Attack] = true, },
 }
+skills["StaffOnlyPlayer"] = {
+	name = "Staff Only",
+	weaponTypes = { ["Staff"] = true, },
+	skillTypes = { [SkillType.Attack] = true, },
+}
+skills["UnarmedOkPlayer"] = {
+	name = "Unarmed Ok",
+	weaponTypes = { ["None"] = true, ["One Hand Mace"] = true, },
+}
+skills["NoWeaponRulePlayer"] = {
+	name = "No Weapon Rule",
+	skillTypes = { [SkillType.Spell] = true, },
+}
 """
 
 _GEMS_LUA = """\
@@ -111,3 +124,34 @@ def test_fold_bridges_diacritics() -> None:
     """poe2db는 `Mórrigan's`, PoB는 `Morrigan's` — 뭉개지 않으면 실존 젬이 고아가 된다."""
     assert _fold("Mórrigan's Insight") == _fold("Morrigan's Insight")
     assert _fold("Oisín’s Oath") == _fold("Oisin's Oath")  # noqa: RUF001
+
+
+def test_무기_계열_제약을_수집한다(tmp_path: Path) -> None:
+    """`weaponTypes`는 `SkillType.X`가 아니라 `["Staff"] = true` 형태다 (#103).
+
+    ⛔ **무기 제약은 빌드의 첫 전제다.** 여기서 틀리면 스킬·전직·아이템이 전부 무효가
+    된다 — 실측 2026-08-22: `Crushing Fear`(실제로는 `['Staff']`)를 철퇴 빌드의 핵심으로
+    설계했다가 컨셉을 두 번 다시 짰다. `pob_gap`처럼 **조용한 0**이 아니라 **조용한
+    거짓 성립**이라 더 나쁘다(§0 ⑩).
+    """
+    skills = parse_skill_effects(_src(tmp_path))
+    assert skills["StaffOnlyPlayer"]["weapon_types"] == ["Staff"]
+
+
+def test_맨손_허용도_값으로_싣는다(tmp_path: Path) -> None:
+    """⚠ `"None"`을 거르면 **맨손 성립 여부를 표현할 수 없다** — 의미 있는 값이다.
+
+    집합 의미라 정렬한다(안정 diff).
+    """
+    skills = parse_skill_effects(_src(tmp_path))
+    assert skills["UnarmedOkPlayer"]["weapon_types"] == ["None", "One Hand Mace"]
+
+
+def test_제약_없는_스킬은_키를_안_만든다(tmp_path: Path) -> None:
+    """⛔ 빈 배열을 넣으면 「제약 없음」과 「PoB가 안 적음」이 섞인다.
+
+    키 자체의 유무로 구별되게 둔다 — 없는 것을 0으로 읽지 않는다는 이 저장소의
+    반복 규율과 같은 자리다(#109 계열).
+    """
+    skills = parse_skill_effects(_src(tmp_path))
+    assert "weapon_types" not in skills["NoWeaponRulePlayer"]
