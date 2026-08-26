@@ -395,3 +395,42 @@ def test_defensive_axes_are_measured_even_when_not_weighted() -> None:
     )
     assert out.defensive_only, "가중치에 없어도 방어 축이 측정돼 있어야 한다"
     assert "TotalEHP" in out.defensive_only[0].delta_now
+
+
+def test_유니크_후보가_파싱_갭을_싣는다() -> None:
+    """PoB가 문구를 못 읽는 유니크를 후보가 **스스로 신고한다** (#123).
+
+    `optimize_rare`는 접사 풀에 대해 이걸 이미 낸다(`rares.py:530` — 건수·전량 목록·
+    「이 조립은 바닥값이지 고점이 아니다」). **유니크 경로만 안 하고 있었다** —
+    `items.py`의 `pob_modeling` 참조가 0건이었다.
+
+    ⛔ 규모가 코너 케이스가 아니다. 실측 2026-08-25: 열거 대상 유니크 **468종 중 214종
+    (45.7%)**이 파싱 갭을 갖는다. 그 델타 0이 실측인지 미측정인지 호출자가 알 방법이
+    없으면, 「아무도 안 쓴다」의 원인이 **약해서가 아니라 계산기가 못 읽어서**인 경우가
+    조용히 섞인다 — 그 목록은 배제 목록이 아니라 **미탐색 목록**이다.
+    """
+    pool = enumerate_slot_uniques("Body Armour")
+    assert pool, "갑옷 유니크 후보가 있어야 한다"
+    gapped = [c for c in pool if c.pob_unmeasurable]
+    assert gapped, "갑옷 풀에 파싱 갭 유니크가 실재한다(실측 43%)"
+    assert all(c.unparsed for c in gapped), "갭이면 못 읽은 줄을 함께 실어야 한다"
+
+
+def test_읽히는_유니크는_갭으로_찍히지_않는다() -> None:
+    """⛔ 반대 방향 — 전부 갭으로 찍으면 신고가 잡음이 되어 아무도 안 읽는다.
+
+    `pob_computable is False`(계산 자체가 안 되는 것)는 열거에서 이미 빠지므로,
+    남은 후보 중 상당수는 **정상적으로 읽힌다**.
+    """
+    pool = enumerate_slot_uniques("Body Armour")
+    clean = [c for c in pool if not c.pob_unmeasurable]
+    assert clean, "읽히는 후보도 있어야 한다 — 전부 갭이면 판정이 틀린 것이다"
+    assert all(c.unparsed == () for c in clean), "갭이 아니면 못 읽은 줄도 없어야 한다"
+
+
+def test_호출자_라벨_후보는_갭_표식이_기본값이다() -> None:
+    """`rare-template` 등 KB 밖에서 온 후보는 판정 근거가 없다 — **모른다를 0으로 읽지 않게**
+    기본값이 「갭 아님」이고 못 읽은 줄도 비어 있다.
+    """
+    c = ItemCandidate(label="x", slot="Amulet", text="", source="rare-template")
+    assert c.pob_unmeasurable is False and c.unparsed == ()
