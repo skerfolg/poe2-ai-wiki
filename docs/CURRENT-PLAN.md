@@ -49,6 +49,7 @@ flowchart TD
   SOCKET[S25 #120 룬 소켓 예산 신고<br/>done]
   ATTR[S26 #121 여러 줄 config 개행<br/>done]
   EXT[S27 외부 영상 수집 — 도구 갭 5건·인사이트 4건<br/>done]
+  CI[S28 #127 KB 로드 캐시 — CI 12분의 원인<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -63,6 +64,7 @@ flowchart TD
   ORACLE -. 같은 원리를 아이템에 .-> SOCKET
   SOCKET -. 우회로를 만들다 발견 .-> ATTR
   EXT -. 외부 관측이 갭을 드러낸다 .-> M6
+  CI -. 레인 밖 · 시험 비용만 .-> M6
 ```
 
 ## Baseline Structure
@@ -102,6 +104,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S25 | #120 — 아이템 룬 소켓 **예산**을 오라클이 신고(베이스/유니크 + 트리 부여), 조립은 PoB가 못 여는 6칸 초과만 거부하고 **우회로를 함께 낸다** (`pob/runner.py::socket_budget`) | done |
 | S26 | #121 — 여러 줄 config가 `&#10;`로 나가 PoB에서 조용히 사라지던 것 수정 (`pob/buildxml.py::_pob_attr`) | done |
 | S27 | 외부 영상 4편 전사 → 도구 갭 **#122~#126** 등재 · 인사이트 **4건** 승격. 사용자 판정 반영: `as-though-damage-scales-narrowly` → **SUPPORTED_INFERENCE**, 나머지 3건 UNVERIFIED 유지. **#123은 착수 전 코드 대조로 좁혔다** — 「전 경로」가 아니라 `optimize_items` 하나였다 | done |
+| S28 | #127 — KB 로드 캐시가 두 겹 다 빗나가 CI pytest가 벽시계의 87~91%(윈도우 11분 58초)를 먹던 것. 키 정규화 + 레코드 단위 검증 메모 + 지문에 `schema/` 포함 + 스냅샷 상한. 회귀는 시간이 아니라 **재검증 횟수**로 잠갔다 (`kb/store.py::_VALIDATION_MEMO`) | done |
 
 ## Canonical Next Step
 
@@ -158,6 +161,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| Integration branch override — 작업 브랜치 `skerfolg/ci-test-duration` (CI 시간 수정을 **#106과 분리**) | 이 세션은 다른 세션보다 한참 뒤에 있다(머지분 #103·#109·#118·#122~#126). 옛 브랜치에 얹으면 CI 수정만 따로 머지할 수 없어, #106 머지 확인 후 `origin/main`에서 새로 땄다 (사용자 지시: *CI 부분만 머지될 수 있도록*) | 2026-08-26 |
+| 성능 회귀를 **시간이 아니라 「횟수」로** 잠근다 | 초는 기계마다 달라 임계값을 못 정한다 — 느슨하면 안 걸리고 빡빡하면 다른 기계에서 깜빡인다. `test_unchanged_records_are_not_revalidated`가 **재검증 호출 수**를 센다 | 2026-08-26 |
+| 거부 시험의 정본 사본을 **최소 정본**(스키마 전량 + 레코드 1건)으로 바꾼다 | 레포의 **기존 관례**다 — `test_mods`·`test_tree`·`test_uniques` 등 12곳이 이미 `knowledge/schema`만 복사한다. 정본 **전량**의 정합은 `test_seed_kb_loads_and_validates`·`test_all_relation_targets_resolve`·`test_translation_pairs_line_up_across_the_whole_kb`가 그대로 본다 — 줄인 것은 사본 비용이지 검사 범위가 아니다 | 2026-08-26 |
+| `_LOAD_CACHE`에 상한(LRU 4)을 둔다 | 캐시가 속도를 사면서 메모리를 무한정 쓰면 GC·스왑으로 되갚는다 — 실측 2.1GB. 실사용은 정본 하나라 4면 남는다 | 2026-08-26 |
 | M5를 사람 트리거가 아니라 무인 라운드 배치로 | 배치 확정 — 사람은 판정자로만 | 2026-08-20 |
 | 제안 3필드(메커니즘·전제·검증 경로)를 문서가 아니라 검증기로 강제 | `engine/proposal.py` | 2026-08-20 |
 | 검증 경로 없는 제안을 배제하지 않고 **갭 라벨**로 보존 | 라벨 누적 = 다음 측정기 우선순위 | 2026-08-20 |
