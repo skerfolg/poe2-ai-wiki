@@ -115,7 +115,7 @@ type="Skill", maximum=40)`
 ## 시험은 두 단계 — 평소엔 단위만
 
 ```bash
-pytest                      # 기본 = tests/unit 만. 약 1분 30초
+pytest                      # 기본 = tests/unit 만. 약 4분 (윈도우 실측 2026-08-26)
 pytest tests/integration    # PoB 부팅 — 파일당 수 분, 전량 30분~1시간
 ```
 

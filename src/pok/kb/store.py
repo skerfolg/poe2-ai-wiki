@@ -224,11 +224,22 @@ class Store:
         )
 
 
-def _load_json(path: Path) -> Any:
+def _load_json_text(path: Path) -> tuple[Any, str]:
+    """파싱 결과 + **원문**. 원문은 검증 메모의 키라 두 번 읽지 않으려고 함께 낸다."""
+    text = path.read_text(encoding="utf-8")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(text), text
     except json.JSONDecodeError as e:  # 파일과 위치를 명시해 재수정 가능하게
         raise KBValidationError([f"{path}: JSON 파싱 실패 — {e}"]) from e
+
+
+def _load_json(path: Path) -> Any:
+    return _load_json_text(path)[0]
+
+
+def _digest(text: str) -> bytes:
+    """원문 → 16바이트 지문. 메모 키를 원문 그대로 들면 정본 81MB가 메모리에 남는다."""
+    return hashlib.blake2b(text.encode("utf-8"), digest_size=16).digest()
 
 
 def _build_registry(schemas: dict[str, Any]) -> Registry:
@@ -296,42 +307,115 @@ def _translation_pair_errors(record: Record) -> list[str]:
 def _fingerprint(kdir: Path) -> tuple[int, int, int]:
     """정본 디렉터리의 **싼 지문** — (파일 수, 최대 mtime_ns, 총 바이트).
 
+    `game-data`뿐 아니라 **`schema`도 본다.** 검증은 둘의 함수인데 지문이 데이터만
+    보면, 스키마를 엄격하게 고쳐도 캐시가 옛 통과를 돌려준다 — 아래 문장이 약속하는
+    "한 바이트라도 바뀌면 다시 검증한다"가 스키마 쪽에서만 거짓이었다.
+
     로드 캐시의 키다. `stat`만 보므로 17,000건을 훑어도 밀리초대이고, 한 바이트라도
     바뀌면 지문이 달라져 **반드시 다시 검증한다** — 캐시가 안전장치를 무력화하지
     않는 것이 조건이다(`write_shard(validate=True)`가 이 `load`로 재검증한다).
     mtime은 **나노초**를 쓴다: 초 단위면 같은 초 안의 연속 쓰기를 놓친다.
     """
     count = latest = total = 0
-    for path in (kdir / "game-data").rglob("*"):
-        if path.suffix not in (".json", ".ndjson"):
-            continue
-        st = path.stat()
-        count += 1
-        latest = max(latest, st.st_mtime_ns)
-        total += st.st_size
+    for base in ("game-data", "schema"):
+        for path in (kdir / base).rglob("*"):
+            if path.suffix not in (".json", ".ndjson"):
+                continue
+            st = path.stat()
+            count += 1
+            latest = max(latest, st.st_mtime_ns)
+            total += st.st_size
     return count, latest, total
 
 
 _LOAD_CACHE: dict[Path, tuple[tuple[int, int, int], Store]] = {}
 
+#: 캐시 상한 — **레코드 수**로 잰다(LRU 축출). 실사용은 정본 하나지만 시험이 임시
+#: 디렉터리마다 사본 정본을 만들어 키가 계속 늘었고, 스냅샷 하나가 19,758 레코드의 파싱된
+#: dict라 무시 못 할 크기다 — 실측 2026-08-26: `pytest tests/unit/test_index.py …`가
+#: **2.1GB**를 물고 돌았다. 캐시가 속도를 사면서 메모리를 무한정 쓰면 GC·스왑으로 되갚는다.
+#:
+#: ⚠ **개수로 재면 안 된다.** 시험이 쓰는 최소 정본은 레코드 1건짜리라, 개수 상한이면
+#: 그 몇 개가 **진짜 정본을 밀어낸다** — 그러면 다음 정본 로드가 다시 콜드다. 크기로
+#: 재면 작은 것은 아무도 안 밀어낸다.
+_LOAD_CACHE_MAX_RECORDS = 60_000  # 정본 세 벌쯤
+_LOAD_CACHE_MAX_ENTRIES = 32  # 작은 스냅샷만 쌓여도 무한정 늘지는 않게
+
+#: 레코드 **원문 지문 → 스키마 검증 결과**. 같은 바이트를 같은 스키마로 재면 jsonschema는
+#: 반드시 같은 답을 낸다(순수 함수) — 그래서 이 캐시는 안전장치를 무력화하지 않는다.
+#: 키에 **스키마 지문**이 함께 들어가는 것이 그 조건이다: 스키마가 엄격해졌는데 옛 통과를
+#: 돌려주면 그게 곧 조용한 통과다(형태 ①).
+#:
+#: 왜 필요한가 — `_LOAD_CACHE`는 **디렉터리 단위**라 한 레코드만 달라도 전량(19,758건)을
+#: 다시 검증한다. 정본 사본을 떠 한 줄만 고치는 시험이 11개 있고 그 하나하나가 33초였다
+#: (실측 2026-08-26: 로드 33.10초 중 jsonschema가 94%). 메모는 **바뀐 레코드만** 다시 본다.
+_VALIDATION_MEMO: dict[tuple[bytes, bytes], tuple[bool, tuple[str, ...]]] = {}
+
+#: 메모 상한 — 넘으면 통째로 버린다. 접근 편중이 LRU를 둘 만큼 크지 않고, 정본 한 벌이
+#: 2만 건이라 이 값이면 서로 다른 KB 열 벌을 들고도 남는다.
+_MEMO_MAX = 200_000
+
+
+def _validate_record(
+    raw: Any,
+    envelope: Draft202012Validator,
+    type_validators: Mapping[str, Draft202012Validator],
+) -> tuple[bool, tuple[str, ...]]:
+    """①envelope ②타입별 data 스키마 → (envelope 불합격 여부, 메시지들).
+
+    메시지에 **파일 경로를 넣지 않는다** — 같은 바이트가 어느 경로에 있든 판정은 같아야
+    캐시할 수 있다. 경로는 부르는 쪽이 붙인다.
+    """
+    env_errors = list(envelope.iter_errors(raw))
+    if env_errors:
+        return True, tuple(
+            f"envelope — {e.message} (at {'/'.join(map(str, e.path))})" for e in env_errors
+        )
+    rtype = str(raw["type"])
+    tv = type_validators.get(rtype)
+    if tv is None:
+        return False, ()
+    return False, tuple(
+        f"data[{rtype}] — {err.message}" for err in tv.iter_errors(raw.get("data", {}))
+    )
+
 
 def load(root: Path | None = None) -> Store:
     """knowledge/ 전체를 로드하고 5층 검증을 수행한다. 위반 시 KBValidationError.
 
-    ⚡ 같은 내용이면 **캐시된 스냅샷**을 돌려준다. 로드 1회가 ~2초(스키마 검증이
-    대부분)라 한 프로세스에서 수십 번 부르면 그게 곧 체감 속도다 — 실측 2026-08-09:
-    `pytest`가 6분 42초였다. 지문이 다르면 캐시를 버리고 **전 검증을 다시 한다**.
+    ⚡ 같은 내용이면 **캐시된 스냅샷**을 돌려준다. 로드 1회가 ~33초(스키마 검증이 94%)라
+    한 프로세스에서 수십 번 부르면 그게 곧 체감 속도다 — 실측 2026-08-09: `pytest`가
+    6분 42초였다. 지문이 다르면 캐시를 버리고 **전 검증을 다시 한다**(그 재검증 자체는
+    `_VALIDATION_MEMO`가 바뀐 레코드로 좁힌다).
     """
-    kdir_key = root if root is not None and root.name == "knowledge" else knowledge_dir(root)
+    kdir = root if root is not None and root.name == "knowledge" else knowledge_dir(root)
+    # 키는 **절대 경로**로 정규화한다. `Path("knowledge")`와 `knowledge_dir()`는 같은
+    # 디렉터리인데 키가 달라 캐시가 빗나갔고, 그 한 번이 전 검증을 통째로 다시 돌렸다 —
+    # 실측 2026-08-26: `test_point_split` 픽스처 setup만 61.47초.
+    try:
+        kdir_key = kdir.resolve()
+    except OSError:  # 판정 못 하면 원문 그대로 — 캐시를 놓칠 뿐 틀리지는 않는다
+        kdir_key = kdir
     if (kdir_key / "game-data").is_dir():
         mark = _fingerprint(kdir_key)
         hit = _LOAD_CACHE.get(kdir_key)
         if hit is not None and hit[0] == mark:
+            _LOAD_CACHE[kdir_key] = _LOAD_CACHE.pop(kdir_key)  # 최근 쓴 것을 뒤로 (LRU)
             return hit[1]
         store = _load_uncached(root)
         _LOAD_CACHE[kdir_key] = (mark, store)
+        _evict_load_cache()
         return store
     return _load_uncached(root)
+
+
+def _evict_load_cache() -> None:
+    """상한을 넘는 동안 **가장 오래 안 쓴 것부터** 버린다. 방금 넣은 것은 남긴다."""
+    while len(_LOAD_CACHE) > 1 and (
+        len(_LOAD_CACHE) > _LOAD_CACHE_MAX_ENTRIES
+        or sum(len(s.records) for _, s in _LOAD_CACHE.values()) > _LOAD_CACHE_MAX_RECORDS
+    ):
+        _LOAD_CACHE.pop(next(iter(_LOAD_CACHE)))
 
 
 def _load_uncached(root: Path | None = None) -> Store:
@@ -341,8 +425,13 @@ def _load_uncached(root: Path | None = None) -> Store:
         raise FileNotFoundError(f"스키마 디렉터리 없음: {sdir}")
 
     schemas: dict[str, Any] = {}
+    schema_mark = hashlib.blake2b(digest_size=16)
     for p in sorted(sdir.rglob("*.json")):
-        schemas[str(p.relative_to(sdir)).replace("\\", "/")] = _load_json(p)
+        name = str(p.relative_to(sdir)).replace("\\", "/")
+        schemas[name], text = _load_json_text(p)
+        schema_mark.update(name.encode("utf-8"))
+        schema_mark.update(text.encode("utf-8"))
+    schema_key = schema_mark.digest()  # 검증 메모 키의 절반 — 스키마가 바뀌면 전부 다시 잰다
     registry = _build_registry(schemas)
     envelope = Draft202012Validator(schemas["record.schema.json"], registry=registry)
     type_validators = {
@@ -359,36 +448,36 @@ def _load_uncached(root: Path | None = None) -> Store:
     # **미추적 + 바이트 동일** 사본은 로드에서 뺀다 — 안 그러면 사본 하나가 조회 전체를
     # 막고 무인 세션이 그대로 멈춘다(#21). 내용이 다르면 여전히 검증 실패로 남는다.
     copies = _redundant_copies(kdir, files)
-    sources: list[tuple[Path, Any]] = []
+    sources: list[tuple[Path, Any, bytes]] = []
     for p in (f for f in files if f.suffix == ".json" and f not in copies):
-        sources.append((p, _load_json(p)))
+        raw, text = _load_json_text(p)
+        sources.append((p, raw, _digest(text)))
     for p in (f for f in files if f.suffix == ".ndjson" and f not in copies):
         for line_no, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             if not line.strip():
                 continue
             try:
-                sources.append((p, json.loads(line)))
+                sources.append((p, json.loads(line), _digest(line)))
             except json.JSONDecodeError as e:
                 raise KBValidationError([f"{p}:{line_no}: NDJSON 파싱 실패 — {e}"]) from e
 
     errors: list[str] = []
     records: dict[str, Record] = {}
-    for p, raw in sources:
+    for p, raw, digest in sources:
         rel = p.relative_to(kdir)
 
-        env_errors = list(envelope.iter_errors(raw))
-        if env_errors:
-            errors.extend(
-                f"{rel}: envelope — {e.message} (at {'/'.join(map(str, e.path))})"
-                for e in env_errors
-            )
+        memo_key = (schema_key, digest)
+        verdict = _VALIDATION_MEMO.get(memo_key)
+        if verdict is None:
+            verdict = _validate_record(raw, envelope, type_validators)
+            if len(_VALIDATION_MEMO) >= _MEMO_MAX:
+                _VALIDATION_MEMO.clear()
+            _VALIDATION_MEMO[memo_key] = verdict
+        envelope_failed, messages = verdict
+        errors.extend(f"{rel}: {m}" for m in messages)
+        if envelope_failed:
             continue  # envelope 불합격 레코드는 이후 단계 제외
         rid, rtype = str(raw["id"]), str(raw["type"])
-
-        tv = type_validators.get(rtype)
-        if tv is not None:
-            for err in tv.iter_errors(raw.get("data", {})):
-                errors.append(f"{rel}: data[{rtype}] — {err.message}")
 
         if rid in records:
             errors.append(_duplicate_id_error(rel, rid, p, records[rid].path, kdir))
