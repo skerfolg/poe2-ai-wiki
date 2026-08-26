@@ -104,8 +104,14 @@ def parse_mod(
 _BONDED = re.compile(r"^\s*Bonded\s*:", re.I)
 BONDED_CONDITION = (
     "샤먼(Shaman) 전직군 전용 — 다른 직업에서는 적용되지 않는다. "
-    "PoB는 이 조건을 검사하지 않으므로 계산에 그대로 들어간다(과대 계상 주의)."
+    "PoB는 이 조건을 검사하지 않으므로 계산에 그대로 들어간다(과대 계상 주의). "
+    "⚠ 단 `Fox Idol`이 이 조건을 해제한다 — 그 우상을 낀 구성에서는 적용된다(#112)."
 )
+# ⛔ **조건을 해제하는 우상 자신에게는 이 주석을 달지 않는다** (#112).
+# 우회 수단이 우회 대상으로 표기되면, 그걸 읽는 쪽이 정반대로 판단한다 —
+# `Fox Idol`은 *"Idols socketed in this item gain the benefits of their Bonded
+# modifiers"* 라 결속을 **켜는** 쪽이다.
+_BONDED_EXEMPT = frozenset({"fox idol"})
 
 
 def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
@@ -137,7 +143,8 @@ def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
     }
     if bonded:
         out["bonded_lines"] = bonded
-        out["bonded_condition"] = BONDED_CONDITION
+        if name.strip().lower() not in _BONDED_EXEMPT:
+            out["bonded_condition"] = BONDED_CONDITION
     return out
 
 
