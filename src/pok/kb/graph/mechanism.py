@@ -182,6 +182,15 @@ class StateEdge:
     #    ⚠ `None`은 「제약 없음」이 아니라 **모른다**다. 0으로 읽지 말 것(#109 계열).
     cooldown_s: float | None = None
     duration_s: float | None = None
+    # ⛔ **동시 보유 한도** (#124). 「연결된다」가 「쓸 수 있다」가 아니다 — 와류는 원소
+    #    지면을 **하나만** 흡수하므로(사용자 인게임 판정 2026-08-25,
+    #    `insight.whirlwind-absorbs-one-ground-only`) 지면 축 둘을 잇는 사슬은
+    #    「둘 다 켜진다」가 아니라 **「둘 중 하나」**다. 먼저 붙은 것이 자리를 차지하고,
+    #    맵의 잡 지면이 선점하면 강한 지면으로 **덮어쓰지 못한다**.
+    #    ⚠ 정본 문구는 이걸 **명시하지 않는다**("takes on **that** element"가 단수를
+    #    함의할 뿐) — 그래서 사용자 판정이 근거다(AD-3).
+    #    `None`은 「한도 없음」이 아니라 **모른다**다(#109 계열).
+    concurrent_cap: int | None = None
 
 
 @dataclass(frozen=True)
@@ -324,6 +333,19 @@ def _carrier_types(record: Record) -> set[str]:
     return out
 
 
+#: 축별 **동시 보유 한도** (#124). 문구에 없어 **사용자 인게임 판정**이 근거다(AD-3) —
+#: `insight.whirlwind-absorbs-one-ground-only`. 없는 축은 `None`(모름)이지 「무제한」이 아니다.
+#:
+#: ⚠ **와류끼리의 규칙과 헷갈리지 말 것**: 같은 레코드가 *"…grants it a stage, making it
+#: larger and more damaging"* 라고도 적는데 그건 **와류 간 병합·강화**이고, 여기 한도는
+#: **지면 흡수**의 것이다. 정반대 성질이라 한 문단으로 읽으면 오판한다.
+_CONCURRENT_CAP: dict[str, int] = {
+    "ground_effect": 1,
+    "ground_chilled": 1,
+    "ground_ignited": 1,
+    "ground_shocked": 1,
+}
+
 _DURATION = re.compile(r"(?:for|lasts?)\s+(\d+(?:\.\d+)?)\s+second", re.I)
 
 
@@ -347,6 +369,7 @@ def _with_rate_limits(edge: StateEdge, store: Store) -> StateEdge:
         edge,
         cooldown_s=float(cooldown) if isinstance(cooldown, int | float) else None,
         duration_s=float(found.group(1)) if found else None,
+        concurrent_cap=_CONCURRENT_CAP.get(edge.axis),
     )
 
 
