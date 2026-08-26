@@ -813,3 +813,59 @@ def test_끝수를_넘어서면_여전히_거부한다(checker: ItemLegalityChec
     """반올림으로도 안 되는 값(+5)은 촉매를 선언해도 막힌다 — **한 칸만** 연 것이다."""
     text = _MELEE_LV4.format(extra=_REAVER).replace("+4 to Level", "+5 to Level")
     assert checker.check(text).verdicts[0].status == "ILLEGAL"
+
+
+_HYBRID_MACE = """Rarity: Rare
+Test Mace
+Felled Greatclub
+Item Level: 82
+Adds 55 to 94 Physical Damage
+179% increased Physical Damage
+79% increased Physical Damage
++200 to Accuracy Rating
++5 to Level of all Melee Skills
++5% to Critical Hit Chance
+28% increased Attack Speed
+"""
+
+
+def test_하이브리드_접사를_접사_2개로_세지_않는다(checker: ItemLegalityChecker) -> None:
+    """두 줄짜리 한 모드를 줄 단위로 매칭하면 정상 무기가 거부된다 (#118).
+
+    `79% increased Physical Damage` + `+200 to Accuracy Rating`은
+    `LocalIncreasedPhysicalDamagePercentAndAccuracyRating` **한 모드**다. 그런데 첫 줄이
+    동명 단독 접사(`LocalPhysicalDamagePercent`)와 텍스트가 같아, 줄 단위로만 매칭하면
+    단독 쪽이 잡혀 ①없는 group 충돌 ②접사 수 +1이 생긴다.
+
+    **정본은 맞다** — 두 모드의 group이 서로 달라 인게임에서 공존한다. 틀린 것은 매칭기다.
+    실측 2026-08-23: 이 구성이 거부돼 `assemble_pob`이 통째로 막혔고, 세션이 게이트를
+    우회하는 경로를 학습했다(철칙 5 따름정리 — 금지하려면 대안 경로를 먼저 만든다).
+    """
+    rep = checker.check(_HYBRID_MACE)
+    assert rep.errors == (), f"구조 위반이 없어야 한다: {rep.errors}"
+    assert rep.is_legal
+
+
+def test_하이브리드_두_줄이_같은_모드로_접힌다(checker: ItemLegalityChecker) -> None:
+    """접사 수·group이 자동으로 하나가 되는 근거 — 두 줄의 `modifier_id`가 같다.
+
+    세는 쪽(`matched`)이 dict라, 같은 id로 매칭되기만 하면 카운트가 접힌다.
+    """
+    by_line = {v.line: v for v in checker.check(_HYBRID_MACE).verdicts}
+    a = by_line["79% increased Physical Damage"]
+    b = by_line["+200 to Accuracy Rating"]
+    assert a.modifier_id == b.modifier_id, "두 줄은 한 모드다"
+    assert a.modifier_id is not None
+    assert "andaccuracyrating" in a.modifier_id, "하이브리드 쪽이 잡혀야 한다"
+
+
+def test_단독_접사는_그대로_단독으로_잡힌다(checker: ItemLegalityChecker) -> None:
+    """⛔ 묶음 선점이 **단독 줄을 삼키면 안 된다** — 반대 방향 거짓 성립이 된다.
+
+    `179% increased Physical Damage`는 뒤에 정확도 줄이 붙어 있지 않으므로 단독
+    `LocalPhysicalDamagePercent`로 잡혀야 한다.
+    """
+    by_line = {v.line: v for v in checker.check(_HYBRID_MACE).verdicts}
+    solo = by_line["179% increased Physical Damage"]
+    assert solo.modifier_id is not None
+    assert "andaccuracyrating" not in solo.modifier_id, "단독 줄까지 묶음이 삼키면 안 된다"
