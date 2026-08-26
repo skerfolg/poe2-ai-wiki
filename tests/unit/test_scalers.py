@@ -174,3 +174,55 @@ def test_신념_충전은_몬스터_Power가_아니다(store: Store) -> None:
     """
     power = scan_scalers(store, input_axis="Power")
     assert not any("Power Charge" in s.evidence for s in power.scalers)
+
+
+def test_per_말고도_같은_뜻의_도입부를_잡는다() -> None:
+    """입력을 놓치면 분류기가 무의미하다 (#106 — 재현율이 정밀도보다 먼저다).
+
+    #102가 「per Power 곱연산은 5건뿐」이라고 결론냈는데, 문구가 `per X`가 아니라
+    **`equal to X`**인 것이 통째로 빠져 있었다. 실측 2026-08-25 정본:
+    `equal to` 265 · `for each` 114 · `based on` 79 · `for every` 15 · `scales with` 6.
+    """
+    from pok.kb.graph.scalers import _PER
+
+    for text in (
+        "gains maximum added Cold damage equal to the enemy's Power",
+        "2% increased Damage for each Power on the enemy",
+        "1% more Damage for every 10 Rage",
+        "Damage based on your Spirit",
+    ):
+        assert _PER.search(text), f"도입부를 놓쳤다: {text!r}"
+
+
+def test_룬의_per_slot_문구를_읽는다() -> None:
+    """⛔ **룬은 `texts`가 없고 슬롯별 `per_slot`을 쓴다** (#106).
+
+    실측 2026-08-25: `per_slot` 보유 **287 레코드 · 1,116줄**. 안 읽으면 룬 문구가
+    통째로 스캔 밖이다. ⚠ 표현형만 넓히고 여기를 안 고치면 **여전히 안 잡힌다** —
+    #116에서 범위 분기만 고쳐 무변화였던 것과 같은 함정이다.
+    """
+    from pok.kb.graph.scalers import scan_scalers
+    from pok.kb.store import load
+
+    hits = [
+        s for s in scan_scalers(load()).scalers if s.carrier_id == "modifier.rune-of-accumulation"
+    ]
+    assert hits, "룬 문구(per_slot)가 스캔에 들어와야 한다"
+    assert any(s.input_axis == "Power" and s.payoff_kind == "added" for s in hits), (
+        "보고된 그 줄 — 게이지가 아니라 added 피해다"
+    )
+
+
+def test_축_추출_실패를_세어서_보고한다() -> None:
+    """⛔ 조용한 절단 금지 (#106·#21).
+
+    도입부는 걸렸는데 축을 못 뽑은 것은 「없다」가 아니라 **「못 읽었다」**다.
+    안 세면 표현형을 넓혀도 얼마나 남았는지 알 방법이 없다.
+    """
+    from pok.kb.graph.scalers import scan_scalers
+    from pok.kb.store import load
+
+    reasons = dict(scan_scalers(load()).excluded)
+    assert reasons, "배제 사유가 보고돼야 한다"
+    # 계수 자체가 있는 것이 계약 — 값은 정본에 따라 변한다
+    assert all(isinstance(v, int) and v >= 0 for v in reasons.values())

@@ -49,9 +49,15 @@ from pok.kb.store import Record, Store
 # ── 입력 축 추출 ────────────────────────────────────────────────────────
 # "per Power" · "per enemy Power" · "per Power of target" · "for every 5 Rage"
 # ⚠ `Power Charge`는 플레이어 자원이지 몬스터 Power가 아니다 — 섞으면 판정이 무너진다.
+# ⛔ **입력을 놓치면 분류기가 무의미하다** (#106 — 재현율이 정밀도보다 먼저다).
+#    `per X` 말고도 같은 「X당 Y」를 뜻하는 도입부가 여럿이다. 실측 2026-08-25:
+#    `equal to` 265 · `for each` 114 · `based on` 79 · `for every` 15 · `scales with` 6.
+#    보고된 누락(`equal to the enemy's Power`)이 이 중 첫째다.
+#    ⚠ 축 추출 문법은 **`per`와 동일하게 재사용**한다 — 도입부만 다르고 뒤는 같다.
+_LEAD = r"(?:per|equal to|for each|for every|based on|scales? with)"
 _PER = re.compile(
-    r"\bper\s+(?:(?P<num>\d+(?:\.\d+)?)\s+)?"
-    r"(?:enemy\s+|the\s+target'?s?\s+|total\s+)?"
+    r"\b" + _LEAD + r"\s+(?:(?P<num>\d+(?:\.\d+)?)\s+)?"
+    r"(?:enemy\s+|the\s+enemy'?s?\s+|the\s+target'?s?\s+|your\s+|total\s+)?"
     r"(?P<axis>[A-Z][A-Za-z]*(?:\s+[A-Z][A-Za-z]*)?|[a-z]+)",
 )
 
@@ -241,6 +247,20 @@ def _texts(record: Record) -> list[str]:
         out.extend(_join_continuations([str(x) for x in (data.get(field_name) or ())]))
     if data.get("description"):
         out.append(str(data["description"]))
+    # ⛔ **룬은 `texts`가 없고 슬롯별 `per_slot`을 쓴다** (#106). 안 읽으면 룬 문구가
+    #    통째로 스캔 밖이다 — 실측 2026-08-25: `per_slot` 보유 **287 레코드 · 1,116줄**.
+    #    보고된 누락(`modifier.rune-of-accumulation`의 「equal to the enemy's Power」)이
+    #    바로 이 경우다. 표현형만 넓히고 여기를 안 고치면 **여전히 안 잡힌다** —
+    #    #116에서 범위 분기만 고쳐 무변화였던 것과 같은 함정이다.
+    #    ⚠ 같은 문구가 슬롯마다 반복되므로 **중복을 접는다**(순서는 보존).
+    per_slot = data.get("per_slot")
+    if isinstance(per_slot, dict):
+        seen_lines: set[str] = set()
+        for lines in per_slot.values():
+            for raw in _join_continuations([str(x) for x in (lines or ())]):
+                if raw not in seen_lines:
+                    seen_lines.add(raw)
+                    out.append(raw)
     return out
 
 
@@ -283,6 +303,11 @@ def scan_scalers(store: Store, input_axis: str | None = None) -> ScalerScan:
     `input_axis`를 주면 그 축만("Power", "Rage"…, 대소문자 무시).
     획득 불가(`unused`·`carrier_unknown`)는 **세어서 배제 사유로 보고**한다 — 조용히
     빼면 "없다"와 구분되지 않는다.
+
+    ⚠ 「X당 Y」 도입부는 `per`만이 아니다(#106) — `equal to`·`for each`·`for every`·
+    `based on`·`scales with`를 함께 본다. **입력을 놓치면 분류기가 무의미하다**
+    (재현율이 정밀도보다 먼저다). 도입부는 걸렸는데 축을 못 뽑은 것도 `excluded`에
+    센다 — 넓힌 뒤에도 얼마나 남았는지 보이게.
     """
     scalers: list[Scaler] = []
     excluded: Counter[str] = Counter()
@@ -296,6 +321,10 @@ def scan_scalers(store: Store, input_axis: str | None = None) -> ScalerScan:
             for match in _PER.finditer(text):
                 axis = match.group("axis")
                 if not axis:
+                    # ⛔ **조용한 절단 금지** (#106·#21). 도입부(`per`/`equal to`…)는
+                    #    걸렸는데 축을 못 뽑은 것은 「없다」가 아니라 **「못 읽었다」**다.
+                    #    안 세면 표현형을 넓혀도 얼마나 남았는지 알 방법이 없다.
+                    excluded["축 추출 실패(도입부는 걸림)"] += 1
                     continue
                 # Power Charge는 플레이어 자원이다 — 몬스터 Power와 섞지 않는다.
                 tail = text[match.end() : match.end() + 8]
