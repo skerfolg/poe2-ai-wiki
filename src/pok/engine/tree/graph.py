@@ -297,6 +297,7 @@ class TreeGraph:
         targets: collections.abc.Iterable[int],
         *,
         ascendancy: str | None = None,
+        extra_starts: collections.abc.Iterable[int] = (),
     ) -> tuple[list[int], dict[int, list[int]]]:
         """그리디 슈타이너: 시작점에서 타깃들을 최소 포인트로 연결.
 
@@ -316,6 +317,19 @@ class TreeGraph:
 
         기본 할당 노드(블러드 메이지의 혈액술)는 **출발 시점에 이미 켜져 있는 것**으로
         놓는다 — 포인트를 안 쓰므로 경로 비용에서 빠진다.
+
+        `extra_starts`는 **대체 시작점**이다 (#114). 유니크 주얼 `Split Personality`가
+        *"Can Allocate Passive Skills from the Warrior's starting point"* 처럼 다른 클래스의
+        시작점을 연다(정본에 **6종** 수록 — Warrior·Ranger·Sorceress·Mercenary·Templar·Shadow).
+        PoB도 지원한다(`ModParser.lua` → `AlternateClassStart`).
+
+        ⛔ **안 주면 그 권역이 안 보인다.** 씨앗이 하나면 후보가 본 시작점 반경으로만
+        퍼져서, 주얼을 아직 안 꽂은 상태에서는 그쪽 앵커를 **아예 연결하지 못한다**.
+        실측(#114): 몽크 시작 → 거인의 피가 **33포인트**인데 이중인격 경유는 **26포인트**다 —
+        이 주얼은 스탯 문제가 아니라 **포인트 예산 문제**라 최적화기가 다뤄야 한다.
+
+        ⚠ 대체 시작점도 **산출물에서 뺀다** — 본 시작점과 같이 포인트를 안 쓴다.
+        넣으면 PoB가 `pruned_nodes`로 잘라내 그 트리를 쓰는 측정이 전부 무효가 된다.
         """
         want = self.resolve_ascendancy(ascendancy) if ascendancy else None
         remaining = set(targets)
@@ -346,7 +360,8 @@ class TreeGraph:
                     f"이 빌드는 {want!r}다. 인게임에서 할당 불가한 트리가 된다"
                 )
         # 공짜로 켜져 있는 노드는 **이미 트리에 있는 것**으로 출발한다.
-        tree: set[int] = {self.start_of(class_name), *self.granted_nodes(ascendancy)}
+        starts = {self.start_of(class_name), *(int(n) for n in extra_starts)}
+        tree: set[int] = {*starts, *self.granted_nodes(ascendancy)}
         paths: dict[int, list[int]] = {}
         while remaining:
             best_t, best_p = None, None
@@ -367,7 +382,7 @@ class TreeGraph:
         # 원인은 노드 하나였다(11495). 통행은 시켜도 산출물에는 싣지 않는다.
         allocated = sorted(
             n
-            for n in tree - {self.start_of(class_name)} - self.granted_nodes(ascendancy)
+            for n in tree - starts - self.granted_nodes(ascendancy)
             if not (self.nodes.get(n) is not None and self.nodes[n].kind == "ascendancy-start")
         )
         return allocated, paths

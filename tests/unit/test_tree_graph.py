@@ -232,3 +232,44 @@ def test_포인트를_안_쓰는_노드_세_형태를_가려낸다(graph: TreeGr
     prereq = {41401, 46070, 62743}
     assert graph.free_nodes("Spirit Walker", {28254, *prereq}) == {28254}
     assert graph.free_nodes("Spirit Walker", {28254, 41401}) == set(), "선행이 덜 찼다"
+
+
+def test_대체_시작점이_포인트를_줄인다(graph: TreeGraph) -> None:
+    """`Split Personality`가 여는 다른 클래스 시작점을 씨앗에 넣는다 (#114).
+
+    씨앗이 하나면 후보가 본 시작점 반경으로만 퍼져, 주얼을 아직 안 꽂은 상태에서는
+    **그쪽 앵커를 아예 연결하지 못한다.** 이 주얼은 스탯이 아니라 **포인트 예산** 문제다.
+
+    실측 2026-08-25 (거인의 피 32349까지):
+        몽크 시작만          33포인트
+        + 워리어 대체 시작점  16포인트
+    """
+    from pok.engine.tree.graph import CLASS_START
+
+    target = 32349
+    base, _ = graph.connect_anchors("Monk", [target])
+    alt, _ = graph.connect_anchors("Monk", [target], extra_starts=[CLASS_START["Warrior"]])
+    assert len(alt) < len(base), "대체 시작점을 열면 더 싸야 한다"
+
+
+def test_대체_시작점은_산출물에서_빠진다(graph: TreeGraph) -> None:
+    """⚠ 시작점은 포인트를 안 쓴다 — 스펙에 실으면 PoB가 `pruned_nodes`로 잘라내고,
+    그러면 그 트리를 쓰는 **측정이 전부 무효**가 된다(본 시작점과 같은 이유).
+    """
+    from pok.engine.tree.graph import CLASS_START
+
+    warrior = CLASS_START["Warrior"]
+    alloc, _ = graph.connect_anchors("Monk", [32349], extra_starts=[warrior])
+    assert warrior not in alloc
+    assert graph.start_of("Monk") not in alloc
+
+
+def test_대체_시작점을_안_주면_종전대로다(graph: TreeGraph) -> None:
+    """⛔ 반대 방향 — 기본 호출의 결과가 바뀌면 안 된다.
+
+    `extra_starts`는 **선택**이고, 안 주면 「그 시작점은 안 열려 있다」가 맞는 답이다
+    (AD-8: 「가질 수 있다」가 아니라 「지금 열려 있다」).
+    """
+    a, _ = graph.connect_anchors("Monk", [32349])
+    b, _ = graph.connect_anchors("Monk", [32349], extra_starts=[])
+    assert a == b
