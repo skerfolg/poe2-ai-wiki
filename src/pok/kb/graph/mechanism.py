@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from pok.kb.graph.predicates import canon_status, extract_predicates, record_texts
 from pok.kb.store import Record, Store
@@ -174,6 +174,14 @@ class StateEdge:
     # 전파) — 신뢰도 구분. `umbrella`는 **유도된** 엣지라 근거가 두 줄로 붙는다.
     source: str
     evidence: str
+    # ⛔ **회전수 제약** (#124). 전이의 *유무*만 내면 「8초마다 다시 깔아야 하는 사슬」과
+    #    「상시 사슬」이 **같아 보인다** — 「연결된다」가 「쓸 수 있다」가 아니다.
+    #    실측 2026-08-25: 상태 엣지 1,208건 중 담체가 `cooldown_s`를 가진 것이 **207건**,
+    #    근거 문구에 지속이 명시된 것이 **11건**이다. 둘은 다른 것을 뜻한다 —
+    #    쿨다운은 **얼마나 자주 걸 수 있나**, 지속은 **한 번 걸면 얼마나 가나**.
+    #    ⚠ `None`은 「제약 없음」이 아니라 **모른다**다. 0으로 읽지 말 것(#109 계열).
+    cooldown_s: float | None = None
+    duration_s: float | None = None
 
 
 @dataclass(frozen=True)
@@ -316,6 +324,32 @@ def _carrier_types(record: Record) -> set[str]:
     return out
 
 
+_DURATION = re.compile(r"(?:for|lasts?)\s+(\d+(?:\.\d+)?)\s+second", re.I)
+
+
+def _with_rate_limits(edge: StateEdge, store: Store) -> StateEdge:
+    """엣지에 **회전수 제약**을 붙인다 (#124).
+
+    - `cooldown_s` — 담체 레코드의 구조화 필드(실측 207건). **얼마나 자주 걸 수 있나.**
+    - `duration_s` — 근거 문구의 `for N seconds`/`lasts N seconds`(실측 11건).
+      **한 번 걸면 얼마나 가나.**
+
+    ⚠ 둘은 다른 것이다. 쿨다운 4초·지속 8초면 상시 유지되지만, 쿨다운 8초·지속 4초면
+    절반은 꺼져 있다. 하나로 뭉치면 그 구분이 사라진다.
+
+    ⛔ **`None`은 「제약 없음」이 아니라 「모른다」다** — 0으로 읽으면 「상시」로 오독된다
+    (#109 계열: 없는 것을 0으로 읽지 않는다).
+    """
+    record = store.records.get(edge.carrier_id)
+    cooldown = (record.raw.get("data") or {}).get("cooldown_s") if record else None
+    found = _DURATION.search(edge.evidence or "")
+    return replace(
+        edge,
+        cooldown_s=float(cooldown) if isinstance(cooldown, int | float) else None,
+        duration_s=float(found.group(1)) if found else None,
+    )
+
+
 def scan_state_edges(store: Store) -> StateScan:
     """정본 전수에서 상태 생산·소비·페이오프 엣지를 뽑는다 (구조화 타입 + 텍스트 융합)."""
     edges: list[StateEdge] = []
@@ -425,6 +459,10 @@ def scan_state_edges(store: Store) -> StateScan:
                 )
             )
     edges.extend(derived)
+
+    # ⛔ **회전수는 여기 한 곳에서 붙인다** (#124). 엣지 생성부가 5곳이라 생성부마다
+    #    달면 **안 단 곳이 뚫린다**(§0 ⑦ — 관문을 패턴마다 달면 안 단 패턴이 뚫린다).
+    edges = [_with_rate_limits(e, store) for e in edges]
 
     by_axis: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])
     for edge in edges:
