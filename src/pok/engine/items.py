@@ -114,6 +114,14 @@ class ItemCandidate:
     slot: str
     text: str  # PoB 파스 가능한 아이템 텍스트
     source: str  # "unique-kb" | "rare-template"
+    # ⛔ PoB가 이 아이템의 **문구를 못 읽는다**(`pob_modeling.supported is False`, #123).
+    #    델타가 0으로 나오는데 그 0이 실측인지 미측정인지 호출자가 알 방법이 없다 —
+    #    `optimize_rare`는 접사 풀에 대해 이걸 이미 신고하는데(`rares.py:530`) 유니크
+    #    경로만 안 했다. 「아무도 안 쓴다」의 원인이 약해서가 아니라 계산기가 못 읽어서일
+    #    수 있고, 남들도 같은 계산기를 보므로 갭 유니크에는 저평가가 구조적으로 쌓인다.
+    #    그 목록은 배제 목록이 아니라 **미탐색 목록**이다.
+    pob_unmeasurable: bool = False
+    unparsed: tuple[str, ...] = ()  # 못 읽은 줄 전량 — 등가 문구 대체(substitutes)의 입력
 
 
 @dataclass(frozen=True)
@@ -359,12 +367,17 @@ def enumerate_slot_uniques(
             continue
         if record_id.endswith("-cultivated"):
             continue  # 같은 이름의 재배판 — 원판만 열거 (중복 측정 방지)
+        modeling = data.get("pob_modeling") or {}
         out.append(
             ItemCandidate(
                 label=record_id,
                 slot=slot,
                 text=render_unique(record.raw),
                 source="unique-kb",
+                # `pob_computable is False`(위)는 **계산 자체가 안 되는 것**이라 뺐고,
+                # 이건 계산은 되지만 **일부 줄을 못 읽는 것**이라 후보로 남기고 신고한다.
+                pob_unmeasurable=modeling.get("supported") is False,
+                unparsed=tuple(str(x) for x in (modeling.get("unparsed") or [])),
             )
         )
         if limit is not None and len(out) >= limit:
@@ -684,6 +697,22 @@ def optimize_items(
                     f"절단됨. 전수 측정은 max_candidates_per_slot을 빼면 된다"
                 )
                 candidates = candidates[:max_candidates_per_slot]
+            # ⛔ **PoB가 못 읽는 후보를 신고한다** (#123). 델타가 0으로 나오는데 그 0이
+            #    실측인지 미측정인지 호출자가 알 방법이 없다 — `optimize_rare`는 접사
+            #    풀에 대해 이걸 이미 낸다(`rares.py:530`). 유니크 경로만 안 하고 있었다.
+            #    ⚠ 절단(`max_candidates_per_slot`) **뒤에** 센다 — 실제로 잰 풀 기준이라야
+            #    「이 결과의 바닥값」이라는 말이 성립한다.
+            unreadable = [c for c in candidates if c.pob_unmeasurable]
+            if unreadable:
+                sample = ", ".join(c.label for c in unreadable[:3])
+                note(
+                    f"⚠ {slot}: 후보 {len(candidates)}건 중 **{len(unreadable)}건은 PoB가 "
+                    f"문구를 못 읽는다** — 단독 델타가 0이라 그리디가 절대 고르지 않는다. "
+                    f"이 슬롯 결과는 그 축을 뺀 **바닥값**이지 고점이 아니다 "
+                    f"(예: {sample}). 「아무도 안 쓴다」의 원인이 약해서가 아니라 계산기가 "
+                    f"못 읽어서일 수 있다 — 배제 목록이 아니라 **미탐색 목록**이다. "
+                    f"등가 문구로 바꿔 `ItemSpec.substitutes`에 넣으면 추산으로는 잴 수 있다"
+                )
             for i, text in enumerate((rare_templates or {}).get(slot, [])):
                 candidates.append(
                     ItemCandidate(f"rare:{slot}#{i}", eval_slot, text, "rare-template")
