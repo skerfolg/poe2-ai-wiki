@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import re
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,7 @@ from pok.kb.ingest.verify import (
     substance_floor,
     verification_block,
 )
+from pok.kb.store import KBWriteError
 
 # PoB type → affix_type
 _AFFIX_TYPE = {"Prefix": "prefix", "Suffix": "suffix", "Corrupted": "corrupted", "Rune": "rune"}
@@ -388,6 +390,83 @@ def is_included(mod: dict[str, Any], *, remnants: frozenset[str] | None = None) 
     return bool(mod.get("acquisition"))
 
 
+def _pob_commit() -> str:
+    from pok.kb.ingest.merge import POB_COMMIT
+
+    return str(POB_COMMIT)
+
+
+def _planned_base_records(
+    bases: list[dict[str, Any]], patch: str, names_ko: dict[str, str]
+) -> list[dict[str, Any]]:
+    """이번 실행이 낼 베이스 레코드 전량 (#127 사전 검사용).
+
+    ⚠ **쓰기 전에** 무엇이 나올지 알아야 감소를 판정할 수 있다 — 쓰고 나서 세면
+    이미 훼손된 뒤다.
+    """
+    from pok.kb.ingest.merge import POB_COMMIT
+
+    out: list[dict[str, Any]] = []
+    for b in bases:
+        rec = base_to_record(b, patch, POB_COMMIT)
+        ko = names_ko.get(b["name"])
+        if ko:
+            rec["name"]["ko"] = ko
+        out.append(rec)
+    return out
+
+
+def _shard_ids_of(path: Path) -> set[str]:
+    """샤드 파일 하나의 레코드 id (#127). 없으면 빈 집합."""
+    out: set[str] = set()
+    if not path.exists():
+        return out
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            with suppress(json.JSONDecodeError, KeyError):
+                out.add(str(json.loads(line)["id"]))
+    return out
+
+
+def _shard_ids(*dirs: Path) -> set[str]:
+    """샤드 디렉터리들의 레코드 id 전량 (#127 불변식용)."""
+    out: set[str] = set()
+    for d in dirs:
+        for f in d.glob("*.ndjson"):
+            for line in f.read_text(encoding="utf-8").splitlines():
+                if line.strip():
+                    with suppress(json.JSONDecodeError, KeyError):
+                        out.add(str(json.loads(line)["id"]))
+    return out
+
+
+def _reject_unexplained_loss(
+    before: set[str], after: set[str], held: list[dict[str, Any]], patch: str
+) -> None:
+    """정본이 근거 없이 줄면 예외 (#127).
+
+    ⛔ 이 검사가 없어 `mods merge`가 **435건을 조용히 지웠다**. 삭제는 무조건인데
+    재작성은 상류 산출물(`desecrated.json` 등)이 있을 때만이라, 없으면 그 풀이 통째로
+    사라진다. `optimize_rare`의 `desecrated` 출처가 그 풀이다.
+
+    원장 기록 제외(`held`)는 **정당한 감소**라 통과시킨다 — 그것까지 막으면 제외 자체가
+    불가능해진다. 구별의 근거는 원장이지 개수가 아니다.
+    """
+    lost = before - after
+    if not lost:
+        return
+    # 원장 기록 제외분(`held`)은 정당한 감소다. ⚠ 매칭은 **레코드 id로** 한다 —
+    # `pob_key` 부분문자열로 맞추면 무관한 id까지 사면되어 **검사가 조용히 헐거워진다**.
+    excused = {str(r["id"]) for r in (mod_to_record(m, patch, _pob_commit()) for m in held)}
+    unexplained = sorted(lost - excused)
+    if unexplained:
+        raise KBWriteError(
+            f"mods merge({patch}): 근거 없는 레코드 감소 {len(unexplained)}건 — 쓰기 거부. "
+            f"상류 산출물이 빠졌을 수 있다(예: `desecrated.json` 미생성 → 그 풀이 통째로 "
+            f"사라진다). 예: {unexplained[:3]}"
+        )
+
+
 def _write_shards(
     out_dir: Path, prefix: str, records: list[dict[str, Any]], max_bytes: int = 1_500_000
 ) -> list[str]:
@@ -568,10 +647,15 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
 
     mod_dir = knowledge / "game-data" / "modifiers"
     base_dir = knowledge / "game-data" / "base-items"
-    for stale in list(mod_dir.glob("*.ndjson")) + list(base_dir.glob("*.ndjson")):
-        if stale.name == HEART_SHARD:
-            continue  # 다른 단계(heart_mods)가 소유하는 샤드 — 여기서 지우면 재실행이 KB를 깎는다
-        stale.unlink()  # 샤드 경계가 바뀌어도 잔재가 남지 않게 (멱등)
+    # ⛔ **지우기 전에 무엇이 있었는지 센다** (#127). 삭제는 무조건인데 재작성은
+    #    **조건부**다(`desecrated.json`이 있을 때만) — 상류 산출물이 없으면 레코드가
+    #    조용히 사라진다. 실측 2026-08-25: `modifiers`+`base-items`가 10,343 → 9,908,
+    #    유실 **435건**(desecrated 249 · item 105 · essence 1)에 신규 0. 옮겨간 곳이 없었다.
+    #    `store.write_shard`의 안전장치는 **샤드 단위**라 파일을 통째로 지우는 이 경로를
+    #    못 본다 — 그래서 여기에 따로 둔다.
+    # ⚠ **보존되는 샤드는 계산에서 뺀다.** `heart-01`은 다른 단계가 소유해 지우지 않으므로
+    #    「낼 목록」에도 없다 — 빼지 않으면 정상 실행이 거짓 거부된다(#117·#118의 형태).
+    before_ids = _shard_ids(mod_dir, base_dir) - _shard_ids_of(mod_dir / HEART_SHARD)
 
     by_pool: dict[str, list[dict[str, Any]]] = {}
     ko_attached = 0
@@ -621,19 +705,24 @@ def merge_mods(out_dir: Path, knowledge: Path, patch: str) -> dict[str, Any]:
     if desecrated_path.exists():
         tables = json.loads(desecrated_path.read_text(encoding="utf-8"))
         by_pool["desecrated"] = desecrated_to_records(tables, catalog, patch)
+    # ⛔ **지우기 전에 검사한다** (#127). 예외가 쓰기 뒤에 나면 정본이 이미 훼손된 채
+    #    남아 「거부했다」가 무의미해진다 — 실측으로 확인했다. 낼 레코드를 먼저 모아
+    #    감소를 판정하고, **통과한 뒤에만** 기존 샤드를 지운다.
+    planned = {str(r["id"]) for recs in by_pool.values() for r in recs}
+    planned |= {str(r["id"]) for r in _planned_base_records(bases, patch, base_names_ko)}
+    _reject_unexplained_loss(before_ids, planned, held, patch)
+
+    for stale in list(mod_dir.glob("*.ndjson")) + list(base_dir.glob("*.ndjson")):
+        if stale.name == HEART_SHARD:
+            continue  # 다른 단계(heart_mods)가 소유하는 샤드 — 여기서 지우면 재실행이 KB를 깎는다
+        stale.unlink()  # 샤드 경계가 바뀌어도 잔재가 남지 않게 (멱등)
+
     mod_files: list[str] = []
     for pool, recs in sorted(by_pool.items()):
         mod_files += _write_shards(mod_dir, pool, recs)
 
-    base_records = []
-    base_ko_attached = 0
-    for b in bases:
-        rec = base_to_record(b, patch, POB_COMMIT)
-        ko = base_names_ko.get(b["name"])
-        if ko:
-            rec["name"]["ko"] = ko
-            base_ko_attached += 1
-        base_records.append(rec)
+    base_records = _planned_base_records(bases, patch, base_names_ko)
+    base_ko_attached = sum(1 for b in bases if base_names_ko.get(b["name"]))
     base_files = _write_shards(base_dir, "bases", base_records)
 
     after = store_load(knowledge.parent)  # 스키마·중복·참조 무결성 전량 재검증
