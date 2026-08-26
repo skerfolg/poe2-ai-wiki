@@ -122,6 +122,22 @@ _SPEC_MARKERS = frozenset({"corrupted", "mirrored", "split", "unidentified"})
 _RUNE_EFFECT = re.compile(r"(\d+(?:\.\d+)?)%\s+increased effect of Socketed Runes", re.I)
 
 
+def _is_unique_only_base(base: dict[str, Any]) -> bool:
+    """이 베이스가 **고유 아이템 전용**인가 (#115).
+
+    판별은 PoB `Data/Bases/*.lua`의 `tags`에 있는 `runeforged`다 — 정본이 `spawn_tags`로
+    **이미 싣고 있었다**(730건). 수집 갭이 아니라 **읽는 쪽이 없던 것**이다.
+
+    ⚠ 이름 접두로 판별하지 않는다. `Runeforged`와 `Runemastered` **둘 다** 같은
+    `runeforged` 태그를 달아서(실측: PoB 778건 전량) 태그 하나가 접두 둘을 덮는다 —
+    이름 규칙은 시즌마다 바뀔 수 있지만 태그는 데이터다.
+
+    ⛔ `hidden`은 근거가 **아니다**(#115 접수 시 확인). 그건 「UI 목록에서 숨김」이지
+    「고유 전용」이 아니고, `Runeforged Felled Greatclub`은 `hidden`이 아예 없다.
+    """
+    return bool((base.get("data", {}).get("spawn_tags") or {}).get("runeforged"))
+
+
 def _multi_key(texts: Sequence[str]) -> str:
     """연속 줄 묶음의 색인 키 — 정규화 텍스트를 순서대로 이은 것 (#118).
 
@@ -415,6 +431,16 @@ class ItemLegalityChecker:
         errors: list[str] = []
         if base is None:
             errors.append(f"베이스 미확인: {base_name!r}")
+        elif _is_unique_only_base(base):
+            # ⛔ **고유 전용 베이스는 희귀로 만들 수 없다** (#115). 정본에 `rarity: normal`로
+            #    실려 있어 희귀 베이스와 **똑같이 보이고**, 검사기가 통과시켰다.
+            #    실측 2026-08-23: `Runemastered Felled Greatclub`(물리 217~293 · 기본 크리 10%)을
+            #    `거대한 대망치`(119~161 · 5%) 대비 **DPS +61%**로 재고 설계 근거로 쓸 뻔했다.
+            #    사용자가 안 봤으면 트리·룬·접사 계획 전체가 그 위에 얹혔다 — §0 ⑩ 조용한 거짓 성립.
+            errors.append(
+                f"고유 전용 베이스: {base_name!r} — `runeforged` 태그가 붙은 베이스는 "
+                f"**고유 아이템 전용**이라 희귀로 만들 수 없다. 같은 계열의 일반 베이스를 쓸 것"
+            )
         verdicts: list[LineVerdict] = []
         matched: dict[str, dict[str, Any]] = {}  # modifier id → record (하이브리드 중복 제거)
         # 접미어 효과 접두가 있으면(그 줄 자체는 접두로 정상 검사) 접미 상한을 확장한다

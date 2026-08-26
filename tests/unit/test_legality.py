@@ -869,3 +869,42 @@ def test_단독_접사는_그대로_단독으로_잡힌다(checker: ItemLegality
     solo = by_line["179% increased Physical Damage"]
     assert solo.modifier_id is not None
     assert "andaccuracyrating" not in solo.modifier_id, "단독 줄까지 묶음이 삼키면 안 된다"
+
+
+def _rare_with_base(base: str) -> str:
+    return f"Rarity: Rare\nTest\n{base}\nItem Level: 82\n179% increased Physical Damage\n"
+
+
+def test_고유_전용_베이스는_희귀로_못_만든다(checker: ItemLegalityChecker) -> None:
+    """`runeforged` 태그가 붙은 베이스는 **고유 아이템 전용**이다 (#115).
+
+    정본에 `rarity: normal`로 실려 있어 희귀 베이스와 **똑같이 보이고**, 검사기가
+    통과시켰다. 실측 2026-08-23: `Runemastered Felled Greatclub`(물리 217~293 ·
+    기본 크리 10%)을 `거대한 대망치`(119~161 · 5%) 대비 **DPS +61%**로 재고 설계
+    근거로 쓸 뻔했다 — 사용자가 안 봤으면 트리·룬·접사 계획 전체가 그 위에 얹혔다.
+    §0 ⑩ 조용한 거짓 성립이다.
+    """
+    rep = checker.check(_rare_with_base("Runemastered Felled Greatclub"))
+    assert not rep.is_legal
+    assert any("고유 전용 베이스" in e for e in rep.errors)
+
+
+def test_이름_접두_둘을_태그_하나가_덮는다(checker: ItemLegalityChecker) -> None:
+    """⚠ 이름으로 판별하지 않는다 — `Runeforged`와 `Runemastered`가 **같은 태그**를 단다.
+
+    실측: PoB `Data/Bases/*.lua`의 `runeforged = true` **778건**이 두 접두를 모두 덮는다.
+    이름 규칙은 시즌마다 바뀔 수 있지만 태그는 데이터다.
+    """
+    rep = checker.check(_rare_with_base("Runeforged Rusted Cuirass"))
+    assert not rep.is_legal
+    assert any("고유 전용 베이스" in e for e in rep.errors)
+
+
+def test_일반_베이스는_그대로_통과한다(checker: ItemLegalityChecker) -> None:
+    """⛔ 반대 방향 — 게이트가 정상 베이스를 막으면 **거짓 거부**가 된다.
+
+    #117·#118이 정확히 그 형태였고, 그때 세션이 게이트를 우회하는 경로를 학습했다.
+    같은 계열의 일반 베이스(`Felled Greatclub`)는 통과해야 한다.
+    """
+    assert checker.check(_rare_with_base("Felled Greatclub")).is_legal
+    assert checker.check(_rare_with_base("Rusted Cuirass")).is_legal
