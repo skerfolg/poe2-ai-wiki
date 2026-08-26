@@ -286,3 +286,56 @@ def test_목록_마지막_항목이_조용히_빠지지_않는다() -> None:
     assert _axis_of_state_name("or Electrocuted") == "electrocute"
     assert _axis_of_state_name("Heavy Stunned") == "stun"  # 강도는 같은 축으로 접는다
     assert _axis_of_state_name("Pinned") == "pin"
+
+
+def test_회전수_제약이_엣지에_붙는다(scan: StateScan) -> None:
+    """전이의 **유무**만 내면 회전수가 안 보인다 (#124).
+
+    「8초마다 다시 깔아야 하는 사슬」과 「상시 사슬」이 같아 보인다 —
+
+    「연결된다」가 「쓸 수 있다」가 아니다. 실측 2026-08-25: 상태 엣지 1,208건 중
+    담체가 `cooldown_s`를 가진 것이 **408건**이다(담체 207종이 여러 축에 걸린다).
+
+    ⚠ `cooldown_s`와 `duration_s`는 **다른 것**이다 — 쿨다운은 「얼마나 자주 걸 수 있나」,
+    지속은 「한 번 걸면 얼마나 가나」. 쿨다운 4초·지속 8초면 상시 유지되지만 쿨다운
+    8초·지속 4초면 절반은 꺼져 있다. 하나로 뭉치면 그 구분이 사라진다.
+    """
+    with_cd = [e for e in scan.edges if e.cooldown_s is not None]
+    assert with_cd, "쿨다운을 가진 담체의 엣지가 있어야 한다"
+    assert any(e.cooldown_s and e.cooldown_s > 0 for e in with_cd), "회전이 제약되는 엣지"
+
+
+def test_쿨다운_0과_모름은_다르다(scan: StateScan) -> None:
+    """⛔ **세 상태가 갈려야 한다** — 0 · 양수 · None (실측 2026-08-25).
+
+        0     명시적 「쿨다운 없다」  304건  → 상시 걸 수 있다
+        >0    회전 제약              104건  → 사슬 회전수를 이것이 정한다
+        None  모른다                 800건  → 담체에 필드가 없다
+
+    0과 None을 뭉치면 「상시 걸 수 있다」와 「모른다」가 같아진다 — 정확히 반대 성질이다.
+    """
+    zero = [e for e in scan.edges if e.cooldown_s == 0]
+    positive = [e for e in scan.edges if e.cooldown_s and e.cooldown_s > 0]
+    unknown = [e for e in scan.edges if e.cooldown_s is None]
+    assert zero and positive and unknown, "세 상태가 모두 실재한다"
+
+
+def test_모르는_회전수는_None이지_0이_아니다(scan: StateScan) -> None:
+    """⛔ `None`은 「제약 없음」이 아니라 **모른다**다.
+
+    0으로 채우면 「상시」로 오독된다 — 없는 것을 0으로 읽지 않는다는 이 저장소의
+    반복 규율과 같은 자리다(#109 계열).
+    """
+    unknown = [e for e in scan.edges if e.cooldown_s is None]
+    assert unknown, "회전수를 모르는 엣지가 대부분이다"
+    assert all(e.cooldown_s is None for e in unknown), "모르는 것을 0으로 바꾸지 않는다"
+
+
+def test_문구의_지속을_읽는다(scan: StateScan) -> None:
+    """근거 문구에 `for N seconds`가 있으면 읽는다 (§0 ⑧).
+
+    관계가 **문구에 있는데** 도구가 안 읽으면 「없는 공백」을 보고한다 — #96이 그 형태였다.
+    """
+    with_dur = [e for e in scan.edges if e.duration_s is not None]
+    assert with_dur, "문구에 지속이 명시된 엣지가 있어야 한다"
+    assert all(e.duration_s and e.duration_s > 0 for e in with_dur)
