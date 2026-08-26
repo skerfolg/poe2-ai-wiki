@@ -339,3 +339,30 @@ def test_문구의_지속을_읽는다(scan: StateScan) -> None:
     with_dur = [e for e in scan.edges if e.duration_s is not None]
     assert with_dur, "문구에 지속이 명시된 엣지가 있어야 한다"
     assert all(e.duration_s and e.duration_s > 0 for e in with_dur)
+
+
+def test_지면_축은_동시_보유_한도가_1이다(scan: StateScan) -> None:
+    """와류는 원소 지면을 **하나만** 흡수한다 (#124 · 사용자 인게임 판정 2026-08-25).
+
+    「연결된다」가 「쓸 수 있다」가 아니다 — 먼저 붙은 지면이 자리를 차지하고, 맵의 잡
+    지면이 선점하면 강한 지면으로 **덮어쓰지 못한다**. 지면 축 둘을 잇는 사슬은
+    「둘 다 켜진다」가 아니라 **「둘 중 하나」**다.
+
+    ⚠ 정본 문구는 이걸 **명시하지 않는다**(`"takes on that element"`가 단수를 함의할 뿐).
+    근거는 사용자 판정이다(AD-3) — `insight.whirlwind-absorbs-one-ground-only`.
+    """
+    ground = [e for e in scan.edges if e.axis.startswith("ground")]
+    assert ground, "지면 축 엣지가 있어야 한다"
+    assert all(e.concurrent_cap == 1 for e in ground), "지면은 동시에 하나만 붙는다"
+
+
+def test_한도를_모르는_축은_None이지_무제한이_아니다(scan: StateScan) -> None:
+    """⛔ `None`은 「한도 없음」이 아니라 **모른다**다 (#109 계열).
+
+    무제한으로 읽으면 「얼마든지 쌓인다」가 되어 정반대 결론이 나온다.
+    """
+    unknown = [e for e in scan.edges if e.concurrent_cap is None]
+    assert unknown, "한도를 모르는 축이 대부분이다"
+    assert not any(e.axis.startswith("ground") for e in unknown), (
+        "지면 축은 판정이 있으므로 None이면 안 된다"
+    )
