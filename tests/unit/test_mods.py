@@ -676,3 +676,46 @@ def test_조건_문구가_해제_경로를_알린다() -> None:
     from pok.kb.ingest.mods import BONDED_CONDITION
 
     assert "Fox Idol" in BONDED_CONDITION
+
+
+def test_근거_없는_레코드_감소를_거부한다() -> None:
+    """⛔⛔ 정본 유실을 **쓰기 전에** 막는다 (#127).
+
+    `mods merge`는 샤드를 **무조건 지우고** 조건부로 다시 쓴다(`desecrated.json`이
+    있을 때만). 상류 산출물이 빠지면 그 풀이 통째로 사라진다 — 실측 2026-08-25:
+    `modifiers`+`base-items` **10,343 → 9,908**, 유실 435건에 **신규 0**(옮겨간 곳이 없다).
+
+    `store.write_shard`의 안전장치는 **샤드 단위**라 파일을 통째로 지우는 이 경로를
+    못 본다. 그래서 여기 따로 둔다.
+    """
+    import pytest
+
+    from pok.kb.ingest.mods import _reject_unexplained_loss
+    from pok.kb.store import KBWriteError
+
+    before = {"modifier.a", "modifier.b", "modifier.c"}
+    with pytest.raises(KBWriteError, match="근거 없는 레코드 감소"):
+        _reject_unexplained_loss(before, {"modifier.a"}, [], "0.5.4b")
+
+
+def test_감소가_없으면_통과한다() -> None:
+    """⛔ 반대 방향 — 게이트가 정상 실행을 막으면 거짓 거부가 된다(#117·#118의 형태)."""
+    from pok.kb.ingest.mods import _reject_unexplained_loss
+
+    ids = {"modifier.a", "modifier.b"}
+    _reject_unexplained_loss(ids, ids | {"modifier.c"}, [], "0.5.4b")  # 증가는 정상
+
+
+def test_검사는_쓰기_전에_돈다() -> None:
+    """⚠ 예외가 **쓰기 뒤**에 나면 정본이 이미 훼손된 채 남아 「거부했다」가 무의미해진다.
+
+    실측으로 확인했다 — 사후 검사판은 435건을 잡고도 샤드 3개가 지워진 상태로 끝났다.
+    """
+    import inspect
+
+    from pok.kb.ingest import mods
+
+    src = inspect.getsource(mods.merge_mods)
+    check_at = src.index("_reject_unexplained_loss(")
+    unlink_at = src.index("stale.unlink()")
+    assert check_at < unlink_at, "검사가 삭제보다 앞서야 한다"
