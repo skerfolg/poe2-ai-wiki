@@ -14,8 +14,10 @@ from __future__ import annotations
 import dataclasses
 import functools
 import math
+import re
 import time
 from collections.abc import Callable, Iterable, Mapping
+from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple, Protocol
 
@@ -246,6 +248,33 @@ def _with_free_zones(
     return [(nid, meta, cost(nid, dist)) for nid, meta, dist in candidates]
 
 
+_ALT_START = re.compile(r"from the (\w+)'s starting point", re.I)
+
+
+def start_nodes(graph: TreeGraph, spec: BuildSpec) -> set[int]:
+    """이 빌드가 **출발할 수 있는 노드 전량** — 본 시작점 + 대체 시작점 (#114).
+
+    유니크 주얼 `Split Personality`가 *"Can Allocate Passive Skills from the Warrior's
+    starting point"* 처럼 다른 클래스의 시작점을 연다(정본 6종). PoB도 지원한다
+    (`ModParser.lua` → `AlternateClassStart`).
+
+    ⛔ **씨앗을 한 곳에서 유도한다.** `optimize_tree`는 시작점을 6곳에서 씨앗으로 쓰는데,
+    거기마다 대체 시작점을 더하면 **안 더한 곳이 뚫린다**(§0 ⑦ — 관문을 패턴마다 달면
+    안 단 패턴이 뚫린다). 실측(#114): 몽크 시작만으로 거인의 피까지 **33포인트**인데
+    워리어 시작을 열면 **16포인트**다 — 씨앗 하나를 빠뜨리면 그 권역이 통째로 안 보인다.
+
+    ⚠ 꽂힌 주얼의 **문구에서** 읽는다 — 주얼을 아직 안 꽂았으면 그 시작점은 안 열린다.
+    「가질 수 있다」가 아니라 「지금 열려 있다」를 낸다(AD-8: 가정을 숨기지 않는다).
+    """
+    out = {graph.start_of(spec.class_name)}
+    for jewel in spec.jewels:
+        for found in _ALT_START.finditer(str(getattr(jewel, "text", "") or "")):
+            name = found.group(1)
+            with suppress(ValueError):
+                out.add(graph.start_of(name))
+    return out
+
+
 def optimize_tree(
     spec: BuildSpec,
     graph: TreeGraph,
@@ -373,7 +402,7 @@ def optimize_tree(
             while budget > 0:
                 if out_of_time():
                     break
-                tree_now = set(current.tree_nodes) | {graph.start_of(current.class_name)}
+                tree_now = set(current.tree_nodes) | start_nodes(graph, current)
                 if power_candidates:
                     # ⚠ 반경을 **안 본다.** 그리디의 구조적 한계가 「반경 안만 본다」였고
                     #   (#77 실측: 폭의 0.4%만 그리디가 더했다), PoB의 `POWER`는 트리
@@ -656,11 +685,7 @@ def _seed_anchors(
     if not anchors:
         return spec, (), AnchorCost(0, 0)
     # 공짜로 켜져 있는 노드(블러드 메이지의 혈액술)는 출발 시점에 이미 트리에 있다.
-    tree = (
-        set(spec.tree_nodes)
-        | {graph.start_of(spec.class_name)}
-        | graph.granted_nodes(spec.ascendancy)
-    )
+    tree = set(spec.tree_nodes) | start_nodes(graph, spec) | graph.granted_nodes(spec.ascendancy)
     granted = graph.granted_nodes(spec.ascendancy)
     foreign = [
         n
@@ -805,7 +830,7 @@ def _far_destination_bundles(
     1포인트짜리 목적지를 반경 때문에 잘라 내고 있었다. 중복은 해롭지 않다 —
     같은 값이면 같이 지거나 같이 이긴다.
     """
-    tree = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
+    tree = set(spec.tree_nodes) | start_nodes(graph, spec)
     far = graph.distances_from(tree, _MAX_REACH * 8)  # 거리 순서를 얻으려는 1회 BFS
     per_axis: list[list[dict[str, Any]]] = []
     for word, weight in include:
@@ -925,7 +950,7 @@ def _scan_far_clusters(
             "구조적으로 못 본다(실측: 예산 87에 43포인트 조기 종료, 병목을 푸는 노터블이 "
             "전부 반경 밖이었다)",
         )
-    tree_now = set(spec.tree_nodes) | {graph.start_of(spec.class_name)}
+    tree_now = set(spec.tree_nodes) | start_nodes(graph, spec)
     near = {nid for nid, _, _ in graph.candidates(tree_now, max_dist=candidate_radius)}
     clusters = find_clusters(
         graph,
@@ -986,7 +1011,9 @@ def _prune_dead_branches(
     재투자한다. 원래 스펙의 노드·분기점(다른 가지가 걸린 노드)은 보존.
     """
     protected = set(original.tree_nodes) | {s.node_delta.node_id for s in steps}
-    start = graph.start_of(current.class_name)
+    # ⚠ 대체 시작점도 **끝단이 아니다** (#114) — 하나만 보면 워리어 권역 진입 노드가
+    #    「이웃이 하나뿐인 끝단」으로 잡혀 잘려 나간다.
+    starts = start_nodes(graph, current)
     removed: list[Pruned] = []
     candidates: list[_Solution] = []  # "끝단만 뺀" 중간 해 — 무료 개선이므로 후보 등록
     eo_current = current  # 누적 "끝단만 제거" 해 (스텁 유지 + 죽은 끝단 전부 제외)
@@ -996,7 +1023,7 @@ def _prune_dead_branches(
         if endpoint not in current.tree_nodes:
             continue  # 이전 라운드에서 이미 제거됨
         alloc = set(current.tree_nodes)
-        if len([n for n in graph.adj[endpoint] if n in alloc or n == start]) > 1:
+        if len([n for n in graph.adj[endpoint] if n in alloc or n in starts]) > 1:
             continue  # 분기점이 된 끝단은 다른 가지의 통로 — 건드리지 않는다
         # ① 끝단 단독 제거로 죽음 판정
         probe = _with_tree(current, tuple(n for n in current.tree_nodes if n != endpoint))
@@ -1015,12 +1042,12 @@ def _prune_dead_branches(
         cursor: int | None = endpoint
         alloc = set(current.tree_nodes)
         while cursor is not None:
-            neighbors = [n for n in graph.adj[cursor] if n in alloc or n == start]
+            neighbors = [n for n in graph.adj[cursor] if n in alloc or n in starts]
             if len(neighbors) > 1 or (cursor != endpoint and cursor in protected):
                 break
             chain.append(cursor)
             alloc.discard(cursor)
-            cursor = neighbors[0] if neighbors and neighbors[0] != start else None
+            cursor = neighbors[0] if neighbors and neighbors[0] not in starts else None
 
         # ③ **연쇄를 한 노드씩 검증하며 제거한다.** 끝단이 죽었다고 그 안쪽까지
         # 죽었다는 보장이 없다 — 막다른 길에도 생명력·피해 소노드가 앉아 있다.
