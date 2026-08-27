@@ -458,3 +458,56 @@ def scan_antagonists(
         "total_matched": len(pairs),
         "truncated": len(pairs) > limit,
     }
+
+
+def scan_enablers(
+    axis: str | None = None, subject: str | None = None, limit: int = 60
+) -> dict[str, Any]:
+    """**이 조건부 노드를 살리려면 무엇이 필요한가** — 조건 ↔ 성립기 (#125).
+
+    `scan_state_edges`(#92)의 54축은 전부 **가하거나 생성하는** 상태다(동결·점화·충전).
+    조건부 노드가 요구하는 것은 **자신이 처한 상태**(낮은 생명력·포위·이동 중)로 축이
+    다르다 — 실측 2026-08-27: `low_life`·`surrounded`·`moving` 중 어느 것도 그 54축에 없다.
+
+    ⭑ **주체가 축에 있다.** 「Low Life」는 자신과 적 **양쪽**에 쓰이고, 한 레코드가
+    둘을 함께 갖는다 — `support.execute-iii`는 *"while **you** are on Low Life"*와
+    *"against **Enemies** that are on Low Life"*를 둘 다 갖는다(실측: 혼재 담체 4종).
+    레코드 단위로 분류하면 낮은 생명력 빌드가 **자기한테 맞는 젬을 후보에서 잃는다**.
+
+    ⛔ **`satisfy_by`를 먼저 볼 것 — 「무엇을 사야 하나」의 답이 범주마다 다르다.**
+
+    | satisfy_by | 뜻 | 성립기 0건이면 |
+    |---|---|---|
+    | `resource`·`situation` | 아이템·모드로 만든다 | **진짜 갭 후보**(`gap_candidate`) |
+    | `equipment` | 슬롯을 채우면 된다 | 정상 — 링크가 필요 없다 |
+    | `behaviour` | 그렇게 움직이면 된다 | 정상 — **살 것이 없다** |
+    | (기본 상태) | 아무것도 안 해도 그 상태 | 정상 — `full_life`·`full_mana` |
+
+    성립기는 세 부류다: `redefine`(무엇이 그 상태로 치나를 바꾼다) · `force`(그 상태에
+    두어 버린다) · `relax`(문턱을 낮춘다). 예: `item.serpents-lesson`은 *"You count as
+    on Low Life while at 35% of maximum Mana or below"*로 **마나로 낮은 생명력을 만든다**.
+
+    ⛔ **거부가 아니라 신고다** — 전제 없이 찍는 것도 (그 아이템을 살 계획이라면) 선택일
+    수 있다. 판정은 호출자 몫(AD-3).
+    """
+    from pok.kb.graph.enablers import axis_report as _report
+    from pok.kb.graph.enablers import mixed_subject_carriers as _mixed
+    from pok.kb.graph.enablers import scan_condition_uses as _uses
+    from pok.kb.graph.enablers import scan_enablers as _scan
+
+    store = kb_store.load()
+    made = _scan(store, axis=axis)
+    uses = _uses(store, axis=axis)
+    if subject:
+        made = [e for e in made if e.subject == subject]
+        uses = [u for u in uses if u.subject == subject]
+    return {
+        "axes": _report(store),
+        "enablers": [dataclasses.asdict(e) for e in made[:limit]],
+        "uses": [dataclasses.asdict(u) for u in uses[:limit]],
+        # 한 레코드가 자신용·적용을 함께 갖는 것 — 레코드 단위 분류가 깨지는 자리
+        "mixed_subject_carriers": _mixed(store),
+        "total_enablers": len(made),
+        "total_uses": len(uses),
+        "truncated": len(uses) > limit or len(made) > limit,
+    }

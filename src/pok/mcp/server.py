@@ -498,6 +498,9 @@ scan_scalers = tool(_explore.scan_scalers)
 # 적대 조합 (#131) — 위 그래프들이 못 보는 축: A가 만드는 것을 B가 **금지**한다.
 # 「없는 공백」이 아니라 **「있는 충돌」** — 담체 한 칸이 통째로 죽는데 신호가 없었다.
 scan_antagonists = tool(_explore.scan_antagonists)
+# 조건 성립기 (#125) — 「이 노드를 살리려면 무엇이 필요한가」. 상태 그래프(#92)가
+# 다루는 **가하는 상태**가 아니라 **자신이 처한 상태**다. 주체(자신/적)가 축에 있다.
+scan_enablers = tool(_explore.scan_enablers)
 
 
 def main() -> None:
