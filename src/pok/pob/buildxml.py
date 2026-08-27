@@ -537,7 +537,11 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
 # 스펙 파일에는 있지만 **PoB에는 안 가는** 키 (백로그 #58 ③). 계산에 쓰지 않으므로
 # `BuildSpec` 필드가 아니지만, 스펙 파일을 그대로 넘기는 것이 정상 사용이라 거부하면
 # 안 된다 — 산출 출처 표기는 세션을 건너가는 것이 목적이고, 그러려면 파일에 남아야 한다.
-_SPEC_ONLY_KEYS = frozenset({"derived_from"})
+# `restored_from`도 같은 성격이다 (#129) — 복원기가 남기는 표식으로, 조립 게이트가
+# **읽기(복원)와 쓰기(조립)를 가르는 근거**다. 복원본에는 `derived_from`도, PoB 코드에
+# 없는 능력치 택1 선택도 있을 수 없어 게이트가 그대로 막아 버린다 — 실측 2026-08-27에
+# 복원한 실물 빌드가 막혔다. 계산엔 안 가지만 스펙에 남아야 그 판별이 선다.
+_SPEC_ONLY_KEYS = frozenset({"derived_from", "restored_from"})
 
 
 def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> BuildSpec:

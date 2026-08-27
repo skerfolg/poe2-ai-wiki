@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
 import { listStagedFiles, evaluateStagedPlan } from './lib/staged-plan-rule.mjs';
+import { attributeChoiceNodes, evaluateAssemblySpec } from './lib/assembly-gate-rule.mjs';
 
 // Workflow Governance Kit — Claude PreToolUse hook handler.
 //
@@ -52,12 +53,28 @@ function evaluateBash(toolInput) {
   emitDeny(result.message);
 }
 
+// #129 — 조립·계산 도구는 **필수 절차를 건너뛰면 거부**한다.
+//
+// ⚠ `compute_pob`도 포함한다. 안 그러면 조립을 피하고 계산 수치만 보고하는 경로로
+// 샌다 — 2026-08-27 사고가 정확히 그 경로였다(수치 먼저 보고, 조립은 마지막).
+const ASSEMBLY_TOOLS = /(^|__)(assemble_pob|compute_pob)$/;
+
+function evaluateAssembly(toolInput) {
+  const spec = toolInput && toolInput.build_spec;
+  if (!spec) return;
+  const result = evaluateAssemblySpec(spec, attributeChoiceNodes());
+  if (result.ok) return;
+  emitDeny(result.message);
+}
+
 const payload = readPayload();
 const toolName = payload && payload.tool_name;
 const toolInput = (payload && payload.tool_input) || {};
 
 if (toolName === 'Bash') {
   evaluateBash(toolInput);
+} else if (typeof toolName === 'string' && ASSEMBLY_TOOLS.test(toolName)) {
+  evaluateAssembly(toolInput);
 }
 
 // Default decision: allow.
