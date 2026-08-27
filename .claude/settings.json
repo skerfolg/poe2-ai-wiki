@@ -23,6 +23,15 @@
             "command": "node scripts/workflow-pretooluse.mjs"
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*__(assemble_pob|compute_pob)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/workflow-pretooluse.mjs"
+          }
+        ]
       }
     ]
   }

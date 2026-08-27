@@ -329,6 +329,10 @@ def spec_from_pob_xml(
             f"모드로 계산했는지 남기지 않는다. 모드가 둘 이상인 젬이면 수치가 크게 "
             f"달라진다(실측 20배). 대상: {assumed[:6]}{' …' if len(assumed) > 6 else ''}"
         )
+    # ⛔ **복원본이라는 표식을 남긴다** (#129). 조립 게이트는 「손으로 지은 희귀 접사」를
+    #    거부하는데, 복원본에는 `derived_from`이 있을 수 없다 — 표식이 없으면 **남의 빌드를
+    #    읽는 것 자체가 막힌다**(§0 ⑪ 거짓 거부). 실측 2026-08-27에 그렇게 막혔다.
+    spec["restored_from"] = "pob-code"
     return RestoredBuild(
         spec=spec,
         notes=tuple(notes),
