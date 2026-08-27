@@ -51,6 +51,7 @@ flowchart TD
   EXT[S27 외부 영상 수집 — 도구 갭 5건·인사이트 4건<br/>done]
   CI[S28 #127 KB 로드 캐시 — CI 12분의 원인<br/>done]
   ANTAG[S29 #131 적대 조합 신고<br/>done]
+  FILL[S30 #129 조립 자동 실행<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -68,6 +69,7 @@ flowchart TD
   CI -. 레인 밖 · 시험 비용만 .-> M6
   EXT -. 인게임 관측이 「있는 충돌」을 드러낸다 .-> ANTAG
   ANTAG -. 레인 밖 · 정본 문구만으로 판정 .-> M6
+  FILL -. 거부가 아니라 실행 · 레인 밖 .-> M6
 ```
 
 ## Baseline Structure
@@ -109,6 +111,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S27 | 외부 영상 4편 전사 → 도구 갭 **#122~#126** 등재 · 인사이트 **4건** 승격. 사용자 판정 반영: `as-though-damage-scales-narrowly` → **SUPPORTED_INFERENCE**, 나머지 3건 UNVERIFIED 유지. **#123은 착수 전 코드 대조로 좁혔다** — 「전 경로」가 아니라 `optimize_items` 하나였다 | done |
 | S28 | #127 — KB 로드 캐시가 두 겹 다 빗나가 CI pytest가 벽시계의 87~91%(윈도우 11분 58초)를 먹던 것. 키 정규화 + 레코드 단위 검증 메모 + 지문에 `schema/` 포함 + 스냅샷 상한. 회귀는 시간이 아니라 **재검증 횟수**로 잠갔다 (`kb/store.py::_VALIDATION_MEMO`) | done |
 | S29 | #131 — **적대 조합**(A가 만드는 것을 B가 금지)을 낸다. 생산·소비 그래프의 역방향이라 어느 도구도 안 보던 축. 금지 담체 14종뿐인데 Brutality가 각 **233종**·불의 화신이 **188종**을 죽인다 — 조립 출고에 **신고**로 부착(거부 아님, AD-3) (`kb/graph/antagonists.py`) | done |
+| S30 | #129 2차 — 조립 게이트를 **거부에서 자동 실행으로**. 도장 없는 희귀 슬롯을 `optimize_rare`로 그 자리에서 채운다(가중치는 빌드가 선언한 것을 재사용 — 엔진은 판단을 지어내지 않는다). 훅은 비켜 주고 조립이 못 채우면 거부해 인계 구멍을 막았다 (`engine/autofill.py`) | done |
 
 ## Canonical Next Step
 
@@ -165,6 +168,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| Integration branch override — 작업 브랜치 `feat/129-autofill-rares` | 레인명(`M5-proposal-rounds`)과 다름. `main`에서 분기 — #129 2차(자동 실행)는 조립 파이프라인이라 레인 파일과 겹치지 않는다. 이 PR 한정, 머지 시 소멸 | 2026-08-27 |
+| 자동 실행의 가중치는 **지어내지 않고 재사용한다** | `optimize_rare`의 `weights`는 빌드 판단이라 엔진이 정하면 철칙 3 위반이다. 이 빌드가 다른 슬롯에서 이미 선언한 것을 쓰면 *판단*이 아니라 **선언된 판단의 적용**이다. 선언이 없으면 안 돌리고 훅이 거부한다 | 2026-08-27 |
+| 훅 게이트를 **좁히고** 인계 지점을 잠근다 | 가중치 선언이 있으면 훅이 비켜 준다 — 막으면 자동 실행에 도달조차 못 한다. 대신 조립이 **못 채우면 거부**한다: 안 그러면 훅은 조립을 믿고 조립은 침묵해 두 겹이 다 있는데 구멍이 남는다(형태 ⑭) | 2026-08-27 |
+| 주얼은 자동 실행에서 **뺀다** | `optimize_rare`는 `slot="Jewel@<node_id>"`를 받는데 스펙의 슬롯 이름을 그대로 넘기면 델타가 전부 0이 되고 그리디가 아무거나 고른다(실측 2026-08-06 저스펙 출고). 채우는 것보다 **안 채우고 말하는 것**이 낫다 | 2026-08-27 |
 | Integration branch override — 작업 브랜치 `feat/131-antagonist-pairs` | 레인명(`M5-proposal-rounds`)과 다름. `main`에서 분기 — #131은 KB 그래프 층 신규 모듈이라 레인 파일과 겹치지 않는다. 이 PR 한정, 머지 시 소멸 | 2026-08-27 |
 | 적대 짝은 **거부가 아니라 신고**로 낸다 | 적대라도 **대가를 알고 쓰는 선택**일 수 있다 — 거부하면 #117·#118과 같은 거짓 거부가 된다. 반환에 사실만 싣고 판정은 호출자 몫(AD-3) | 2026-08-27 |
 | 금지 축을 **피해 타입으로 정규화**하고 그 밖(`Deal no Spell Damage` 등)은 뺀다 | 타입이 아닌 금지를 섞으면 어휘가 흐려져 「무엇이 죽는가」를 못 낸다. 축을 좁히는 대신 **무엇을 뺐는지 회귀가 잠근다** | 2026-08-27 |

@@ -47,6 +47,19 @@ export function attributeChoiceNodes(knowledgeDir = 'knowledge') {
 }
 
 /**
+ * 이 빌드가 **가중치를 선언한 적이 있나**. `src/pok/engine/autofill.py::declared_weights`의
+ * 짝이다 — 둘이 어긋나면 훅이 막은 것을 조립이 채우거나(무해) **훅이 통과시킨 것을
+ * 조립이 못 채운다**(유해: 손으로 지은 아이템이 그대로 나간다).
+ */
+export function hasDeclaredWeights(spec) {
+  const stamps = spec?.derived_from;
+  if (!stamps || typeof stamps !== 'object') return false;
+  return Object.values(stamps).some(
+    (e) => e && typeof e === 'object' && e.weights && Object.keys(e.weights).length > 0,
+  );
+}
+
+/**
  * 조립 전 필수 절차가 빠졌는지 판정한다.
  *
  * 반환 `{ ok, message }`. `ok:false`면 호출자가 거부한다.
@@ -83,21 +96,27 @@ export function evaluateAssemblySpec(spec, attrNodes) {
 
   // ② 희귀 슬롯의 출처 — 손으로 지은 것과 도구 산출물을 구별할 수단이 `derived_from`뿐이다.
   //
+  // ⚠ **2차(#129 자동 실행) 이후 이 검사는 좁아졌다.** `assemble_pob`이 도장 없는 희귀를
+  //    **그 자리에서 `optimize_rare`로 채운다** — 채울 수 있으면 막을 이유가 없다(막으면
+  //    자동 실행에 도달조차 못 한다). 채울 수 **없는** 경우에만 거부한다:
+  //    빌드가 `weights`를 한 번도 선언하지 않아 **재사용할 판단이 없을 때**다
+  //    (엔진은 빌드 판단을 지어내지 않는다 — 철칙 3).
+  //
   // ⛔ **복원본은 검사하지 않는다.** `restore_pob_spec`으로 남의 빌드를 읽어 오면
   //    `derived_from`이 있을 수 없다 — 그때 막으면 **읽기 자체가 불가능해진다**
   //    (§0 ⑪ 거짓 거부: 통과 불가능한 게이트는 우회 경로를 학습시킨다).
   //    실측 2026-08-27: 이 검사를 무조건 걸었더니 복원한 실물 빌드가 그대로 막혔다.
-  //    판별은 `spec.restored_from`(복원기가 남기는 표식) — 없을 때만 「손으로 지었다」로 본다.
   if (!spec.restored_from) {
     const handmade = (spec.items || [])
       .filter((it) => /Rarity:\s*Rare/i.test(String(it?.text || '')) && !it?.derived_from)
       .map((it) => it?.slot)
       .filter(Boolean);
-    if (handmade.length) {
+    if (handmade.length && !hasDeclaredWeights(spec)) {
       problems.push(
         `희귀 슬롯 ${handmade.length}개에 derived_from이 없다 (${handmade.slice(0, 3).join(', ')}) — ` +
-          `손으로 지은 접사는 실재 검증을 안 거쳤다. → optimize_rare로 조립하거나, ` +
-          `의도한 것이면 그 슬롯에 derived_from을 명시할 것`,
+          `손으로 지은 접사는 실재 검증을 안 거쳤다. 이 빌드는 weights를 한 번도 선언하지 ` +
+          `않아 자동 실행도 못 한다(엔진은 빌드 판단을 지어내지 않는다). ` +
+          `→ optimize_rare를 한 번 돌려 판단을 밝히면, 나머지 슬롯은 조립이 알아서 채운다`,
       );
     }
   }

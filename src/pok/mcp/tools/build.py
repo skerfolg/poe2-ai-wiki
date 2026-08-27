@@ -613,6 +613,42 @@ def assemble_pob(
     # (출혈 지속시간 1.50→1.90), 공급원 없는 config가 출혈 강도를 x2.76 부풀렸다.
     # 측정이 빌드를 왜곡하면 그 수치는 산출물이 아니라 거짓이다 — 탐침 게이트와 같은
     # 이유로 여기서 막는다. 빌드 품질 판정이 아니라(AD-3) 거짓 측정치의 출고 거부다.
+    # **빠진 절차를 그 자리에서 돌린다** — 거부 대신 실행 (#129 2차).
+    #
+    # 거부는 구멍이 난다(사용자 지적 2026-08-27: *"감지를 해서 리젝하는 방식은 지금까지도
+    # 계속 시도했는데 매번 구멍이 발생한다"*). 이유가 있다 — 거부는 할 일을 호출자에게
+    # **되돌려주고**, 되돌려받은 쪽이 안 하면 그대로다. 여기서 채우면 건너뛸 것 자체가 없다.
+    #
+    # ⛔ 가중치는 **이 빌드가 이미 선언한 것**만 재사용한다(철칙 3 — 엔진은 빌드 판단을
+    #    지어내지 않는다). 선언이 없으면 안 돌리고, 그때는 훅 게이트가 거부한다.
+    # ⚠ 비용은 슬롯당 1~2분이다. 정상 절차를 밟은 조립은 도장이 있어 **0초**다.
+    from pok.engine.autofill import autofill_rares
+
+    def _run_rare(
+        spec: dict[str, Any], slot: str, base_type: str, weights: dict[str, float]
+    ) -> Any:
+        from pok.engine.rares import optimize_rare as _opt
+
+        return _opt(spec, slot, base_type, weights)
+
+    build_spec, autofill = autofill_rares(build_spec, _run_rare)
+
+    # ⛔ **훅이 넘긴 것을 조립이 못 채웠으면 거부한다.** 훅 게이트는 자동 실행을 믿고
+    # 비켜 준다(가중치 선언이 있으면 통과) — 그런데 실제로 못 채우면 손으로 지은
+    # 아이템이 **그대로 나간다**. 게이트가 검사기에게, 검사기가 게이트에게 미루는 꼴이라
+    # 두 겹 다 있는데 구멍이 남는다(형태 ⑭ — 침묵은 통과와 구별되지 않는다).
+    if autofill.weights is not None and autofill.skipped:
+        return {
+            "ok": False,
+            "reason": (
+                "도장 없는 희귀 슬롯을 자동으로 채우지 못했다 — 손으로 지은 접사가 "
+                "그대로 나가는 것을 막는다. 아래 슬롯을 직접 optimize_rare로 돌리거나, "
+                "의도한 것이면 그 슬롯에 derived_from을 명시할 것"
+            ),
+            "autofill_failed": autofill.skipped,
+            **({"autofilled": autofill.replaced} if autofill.replaced else {}),
+        }
+
     from pok.engine.constraints.assumptions import check_assumptions
 
     assumptions = check_assumptions(build_spec)
@@ -688,6 +724,20 @@ def assemble_pob(
             else {}
         ),
         **({"antagonists": antagonists} if antagonists else {}),
+        # 자동 실행 보고 (#129). **조용히 갈아 끼우면 안 된다** — 무엇을 무엇으로
+        # 바꿨는지 남기고, 원치 않으면 그 슬롯에 derived_from을 명시해 의도를 밝히면 된다.
+        **(
+            {
+                "autofilled": {
+                    "replaced": autofill.replaced,
+                    "skipped": autofill.skipped,
+                    "weights": autofill.weights,
+                    "notes": autofill.notes,
+                }
+            }
+            if (autofill.replaced or autofill.skipped)
+            else {}
+        ),
         "assumptions": {
             "always_on_config": [
                 {"var": v.var, "value": v.value, "source": v.matched_in}
