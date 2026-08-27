@@ -654,6 +654,17 @@ def assemble_pob(
     # 차단하지 않는다 — 표본과 다르다는 것이 곧 결함은 아니다(AD-3, 보고).
     from pok.engine.tree.corpus import compare_build_spec
 
+    # 같은 원리로 **적대 짝**도 여기 얹는다 (#131). 생산·소비 그래프의 **역방향** —
+    # A가 만드는 것을 B가 금지해 담체 한 칸이 통째로 죽는데, 그걸 볼 도구가 없었다.
+    # 실측 2026-08-27: `Xoph's Pyre`(Fire→Extra Chaos)와 불의 화신이 정면 적대해 두
+    # 구성의 최종 DPS가 1,556,109로 **동일**했고, 사용자가 인게임에서 발견했다.
+    # ⛔ **거부가 아니라 신고다** — 적대라도 대가를 알고 쓰는 선택일 수 있다. 거부하면
+    # #117·#118과 같은 거짓 거부가 된다(판정은 호출자 몫, AD-3).
+    from pok.kb import store as kb_store
+    from pok.kb.graph.antagonists import report_for_spec
+
+    antagonists = report_for_spec(kb_store.load(), build_spec)
+
     return {
         "ok": True,
         "build_id": built.build_id,
@@ -676,6 +687,7 @@ def assemble_pob(
             if missing_procedures(build_spec)
             else {}
         ),
+        **({"antagonists": antagonists} if antagonists else {}),
         "assumptions": {
             "always_on_config": [
                 {"var": v.var, "value": v.value, "source": v.matched_in}
