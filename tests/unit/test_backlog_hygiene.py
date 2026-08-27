@@ -203,3 +203,58 @@ def test_뒤집힌_보고_절이_범위_규율을_들고_있다(text: str) -> No
     section = _section(text, "## 3. 검증으로 뒤집힌 보고", "## 4. ")
     assert "범위" in section, "범위 규율이 사라졌다"
     assert "§2-9" in section, "유형 구분으로 가는 길이 끊겼다"
+
+
+def test_queue_row_status_matches_the_entry_body(text: str) -> None:
+    """큐 표의 상태와 본문 `- **상태**:`가 **같은 말을 하는지** 잠근다.
+
+    ⚠ 손으로 맞추면 어긋난다 — 실측 2026-08-27: **6건이 어긋나 있었고 양방향이었다.**
+    #123·#124는 본문이 해결인데 큐가 「원인규명」이었고, #87·#90·#98·#99는 큐가 완결인데
+    본문이 「미수정」이었다(수정은 코드에 있었다). 어느 쪽을 읽느냐로 판단이 갈린다.
+
+    가장 나빴던 것은 **#130**이다 — 기각된 뒤에도 큐 표가 옛 진단(`CalcOffence.lua`가
+    `=`라 전환표를 덮어쓴다 · 「최대 40% 낮게」)을 **사실로** 싣고 있었고, 우선순위 표는
+    그것을 **Tier 1**으로 세워 뒀다. 다음 세션이 그대로 착수할 자리다.
+
+    ⛔ 이건 문서가 아니라 **여기서 막는다**(철칙 5 — 감지되면 도구에).
+    """
+    mismatched = []
+    for m in re.finditer(r"^\|\s*\*\*#(\d+)\*\*(.*)$", text, re.M):
+        rid, cells = m.group(1), m.group(2).split("|")
+        if len(cells) < 2:
+            continue
+        entry = re.search(rf"^### #{rid} .*$", text, re.M)
+        if entry is None:
+            continue
+        status = re.search(r"^- \*\*상태\*\*: (.+)$", text[entry.end() : entry.end() + 300], re.M)
+        body = status.group(1) if status else ""
+        closed_body = "✅" in body or "기각" in body
+        closed_row = "✅" in cells[1] or "기각" in cells[1]
+        if closed_body != closed_row:
+            mismatched.append(f"#{rid}: 큐={cells[1].strip()[:40]!r} 본문={body[:40]!r}")
+    assert not mismatched, "큐 표와 본문 상태가 어긋난다:\n  " + "\n  ".join(mismatched)
+
+
+def test_priority_table_lists_only_open_items(text: str) -> None:
+    """우선순위 표에 **닫힌 항목이 남아 있지 않은지** 잠근다.
+
+    ⚠ 실측 2026-08-27: 11건 중 **8건이 이미 해결·기각**이었다(#123·#103·#115·#105·
+    #112·#114·#106·#124). 세션이 우선순위를 읽고 **끝난 일을 다음 할 일로 집는다** —
+    「무엇부터 하나」에 답하는 표가 틀리면 그 답이 통째로 틀린다.
+    """
+    section = _section(text, "### 우선순위 (", "\n## ")
+    stale = []
+    for line in section.splitlines():
+        if not line.startswith("| **") or "Tier" in line:
+            continue
+        for rid in re.findall(r"\*\*#(\d+)\*\*", line):
+            entry = re.search(rf"^### #{rid} .*$", text, re.M)
+            if entry is None:
+                continue
+            status = re.search(
+                r"^- \*\*상태\*\*: (.+)$", text[entry.end() : entry.end() + 300], re.M
+            )
+            body = status.group(1) if status else ""
+            if "✅" in body or "기각" in body:
+                stale.append(f"#{rid} ({body[:40]})")
+    assert not stale, "우선순위 표에 닫힌 항목이 남아 있다:\n  " + "\n  ".join(stale)
