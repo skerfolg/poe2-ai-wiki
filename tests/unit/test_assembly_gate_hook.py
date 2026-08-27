@@ -79,3 +79,32 @@ def test_빌드_스펙이_아니면_안_건드린다() -> None:
     """
     assert _run({"tool_name": "mcp__pok__compute_pob", "tool_input": {}}) == 0
     assert _run({"tool_name": "Read", "tool_input": {"file_path": "x"}}) == 0
+
+
+def test_가중치를_선언하면_훅이_비켜_준다() -> None:
+    """#129 2차 — 조립이 **자동으로 채우므로** 막을 이유가 없다.
+
+    ⚠ 막으면 자동 실행에 **도달조차 못 한다**. 훅과 조립이 서로 미루면 두 겹이 다 있는데
+    구멍이 남으므로, 인계 지점을 여기서 잠근다:
+    훅이 비켜 준 경우 → `assemble_pob`이 채우거나 **거부한다**(`test_autofill.py` 참조).
+    """
+    spec = _spec(
+        attribute_choices=[],
+        items=[{"slot": "Ring 1", "text": "Rarity: RARE\nX\nGold Ring"}],
+        derived_from={"items": {"weights": {"TotalDPS": 1.0}}},
+        tree_nodes=[],
+    )
+    assert _run({"tool_name": "mcp__pok__assemble_pob", "tool_input": {"build_spec": spec}}) == 0
+
+
+def test_가중치_선언이_없으면_여전히_거부한다() -> None:
+    """⛔ 재사용할 판단이 없으면 조립도 못 채운다 — 그때는 훅이 막아야 한다.
+
+    엔진이 기본 가중치를 지어내면 「무엇이 좋은 빌드인가」를 엔진이 정하는 것이다(철칙 3).
+    """
+    spec = _spec(
+        attribute_choices=[],
+        items=[{"slot": "Ring 1", "text": "Rarity: RARE\nX\nGold Ring"}],
+        tree_nodes=[],
+    )
+    assert _run({"tool_name": "mcp__pok__assemble_pob", "tool_input": {"build_spec": spec}}) == 2
