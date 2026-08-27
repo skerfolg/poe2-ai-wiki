@@ -398,3 +398,63 @@ def scan_scalers(
         "scalers": [dataclasses.asdict(s) for s in rows[:limit]],
         "truncated": len(rows) > limit,
     }
+
+
+def scan_antagonists(
+    carrier_ids: list[str] | None = None, damage_type: str | None = None, limit: int = 60
+) -> dict[str, Any]:
+    """**A가 만드는 것을 B가 금지하는** 짝을 낸다 — 「있는 충돌」 (#131).
+
+    `scan_supply_edges`·`scan_state_edges`·`scan_synergies`는 전부 **생산·소비**를 본다
+    (A가 X를 만들고 B가 X를 쓴다). 여기는 축이 다르다 — A가 X를 만드는데 B가 **X 자체를
+    금지**해 담체 한 칸이 **통째로 죽는다**.
+
+    실측 2026-08-27: `Xoph's Pyre`(Fire→Extra Chaos)와 불의 화신(Deal no Non-Fire)이
+    정면 적대해 두 구성의 최종 DPS가 **1,556,109로 동일**했다 — 젬 한 칸이 완전히 무효인데
+    아무 신호가 없어 사용자가 인게임에서 발견했다.
+
+    carrier_ids: 주면 **그것들만** 본다. 전수는 「무엇이 적대할 수 있나」이고, 좁히면
+    「지금 이 조합에서 무엇이 죽나」다 — **키스톤을 찍기 전에 물어라**.
+    damage_type: `Physical`·`Fire`·`Cold`·`Lightning`·`Chaos` 중 하나로 거른다.
+
+    ⛔ **거부가 아니라 신고다** — 적대라도 대가를 알고 쓰는 선택일 수 있다. 판정은
+    호출자 몫(AD-3).
+    ⚠ 범위는 **「추가 피해」 문구**다. 무기 기본 물리처럼 문구 없이 존재하는 피해는 안
+    잡는다 — 그건 정본 문구가 아니라 수치라 오라클 몫이다.
+    """
+    from pok.kb.graph.antagonists import scan_antagonists as _scan_ant
+    from pok.kb.graph.antagonists import scan_prohibitions as _scan_ban
+
+    store = kb_store.load()
+    pairs = _scan_ant(store, carrier_ids=set(carrier_ids) if carrier_ids else None)
+    if damage_type:
+        pairs = [p for p in pairs if p.damage_type.lower() == damage_type.lower()]
+    bans = _scan_ban(store)
+    return {
+        "pairs": [
+            {
+                "prohibition_id": p.prohibition.carrier_id,
+                "prohibition_name": p.prohibition.carrier_name,
+                "prohibition_text": p.prohibition.evidence,
+                "producer_id": p.producer_id,
+                "producer_name": p.producer_name,
+                "producer_type": p.producer_type,
+                "kills": p.damage_type,
+                "producer_text": p.evidence,
+            }
+            for p in pairs[:limit]
+        ],
+        # 담체는 적은데 파급이 크다 — 「몇 건인가」가 아니라 「무엇을 죽이는가」로 잰다
+        "prohibitions": [
+            {
+                "id": b.carrier_id,
+                "name": b.carrier_name,
+                "type": b.carrier_type,
+                "text": b.evidence,
+                "kills": list(b.killed_types),
+            }
+            for b in bans
+        ],
+        "total_matched": len(pairs),
+        "truncated": len(pairs) > limit,
+    }

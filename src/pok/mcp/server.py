@@ -495,6 +495,9 @@ trace_mechanism_chains = tool(_explore.trace_mechanism_chains)
 trace_cross_chains = tool(_explore.trace_cross_chains)
 # 스케일러 크기 판정 (#102) — 「담체가 많다」를 「배율이 크다」로 오독하지 않도록
 scan_scalers = tool(_explore.scan_scalers)
+# 적대 조합 (#131) — 위 그래프들이 못 보는 축: A가 만드는 것을 B가 **금지**한다.
+# 「없는 공백」이 아니라 **「있는 충돌」** — 담체 한 칸이 통째로 죽는데 신호가 없었다.
+scan_antagonists = tool(_explore.scan_antagonists)
 
 
 def main() -> None:

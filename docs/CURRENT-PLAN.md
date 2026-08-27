@@ -50,6 +50,7 @@ flowchart TD
   ATTR[S26 #121 여러 줄 config 개행<br/>done]
   EXT[S27 외부 영상 수집 — 도구 갭 5건·인사이트 4건<br/>done]
   CI[S28 #127 KB 로드 캐시 — CI 12분의 원인<br/>done]
+  ANTAG[S29 #131 적대 조합 신고<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -65,6 +66,8 @@ flowchart TD
   SOCKET -. 우회로를 만들다 발견 .-> ATTR
   EXT -. 외부 관측이 갭을 드러낸다 .-> M6
   CI -. 레인 밖 · 시험 비용만 .-> M6
+  EXT -. 인게임 관측이 「있는 충돌」을 드러낸다 .-> ANTAG
+  ANTAG -. 레인 밖 · 정본 문구만으로 판정 .-> M6
 ```
 
 ## Baseline Structure
@@ -105,6 +108,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S26 | #121 — 여러 줄 config가 `&#10;`로 나가 PoB에서 조용히 사라지던 것 수정 (`pob/buildxml.py::_pob_attr`) | done |
 | S27 | 외부 영상 4편 전사 → 도구 갭 **#122~#126** 등재 · 인사이트 **4건** 승격. 사용자 판정 반영: `as-though-damage-scales-narrowly` → **SUPPORTED_INFERENCE**, 나머지 3건 UNVERIFIED 유지. **#123은 착수 전 코드 대조로 좁혔다** — 「전 경로」가 아니라 `optimize_items` 하나였다 | done |
 | S28 | #127 — KB 로드 캐시가 두 겹 다 빗나가 CI pytest가 벽시계의 87~91%(윈도우 11분 58초)를 먹던 것. 키 정규화 + 레코드 단위 검증 메모 + 지문에 `schema/` 포함 + 스냅샷 상한. 회귀는 시간이 아니라 **재검증 횟수**로 잠갔다 (`kb/store.py::_VALIDATION_MEMO`) | done |
+| S29 | #131 — **적대 조합**(A가 만드는 것을 B가 금지)을 낸다. 생산·소비 그래프의 역방향이라 어느 도구도 안 보던 축. 금지 담체 14종뿐인데 Brutality가 각 **233종**·불의 화신이 **188종**을 죽인다 — 조립 출고에 **신고**로 부착(거부 아님, AD-3) (`kb/graph/antagonists.py`) | done |
 
 ## Canonical Next Step
 
@@ -161,6 +165,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| Integration branch override — 작업 브랜치 `feat/131-antagonist-pairs` | 레인명(`M5-proposal-rounds`)과 다름. `main`에서 분기 — #131은 KB 그래프 층 신규 모듈이라 레인 파일과 겹치지 않는다. 이 PR 한정, 머지 시 소멸 | 2026-08-27 |
+| 적대 짝은 **거부가 아니라 신고**로 낸다 | 적대라도 **대가를 알고 쓰는 선택**일 수 있다 — 거부하면 #117·#118과 같은 거짓 거부가 된다. 반환에 사실만 싣고 판정은 호출자 몫(AD-3) | 2026-08-27 |
+| 금지 축을 **피해 타입으로 정규화**하고 그 밖(`Deal no Spell Damage` 등)은 뺀다 | 타입이 아닌 금지를 섞으면 어휘가 흐려져 「무엇이 죽는가」를 못 낸다. 축을 좁히는 대신 **무엇을 뺐는지 회귀가 잠근다** | 2026-08-27 |
+| 게이트는 「안 울리는가」뿐 아니라 **「실제 계기에 울리는가」**를 같은 커밋에서 잰다 | #131에서 증명 — `passive.{nid}`로 조회하도록 짜 실제 빌드 노드 **131개 중 0개**가 맞았는데, 오탐 시험만 돌렸으면 전부 통과한다. 계기가 트리 키스톤이라 신고기가 정작 그 사고에 침묵했을 것이다 | 2026-08-27 |
 | Integration branch override — 작업 브랜치 `skerfolg/ci-test-duration` (CI 시간 수정을 **#106과 분리**) | 이 세션은 다른 세션보다 한참 뒤에 있다(머지분 #103·#109·#118·#122~#126). 옛 브랜치에 얹으면 CI 수정만 따로 머지할 수 없어, #106 머지 확인 후 `origin/main`에서 새로 땄다 (사용자 지시: *CI 부분만 머지될 수 있도록*) | 2026-08-26 |
 | 성능 회귀를 **시간이 아니라 「횟수」로** 잠근다 | 초는 기계마다 달라 임계값을 못 정한다 — 느슨하면 안 걸리고 빡빡하면 다른 기계에서 깜빡인다. `test_unchanged_records_are_not_revalidated`가 **재검증 호출 수**를 센다 | 2026-08-26 |
 | 거부 시험의 정본 사본을 **최소 정본**(스키마 전량 + 레코드 1건)으로 바꾼다 | 레포의 **기존 관례**다 — `test_mods`·`test_tree`·`test_uniques` 등 12곳이 이미 `knowledge/schema`만 복사한다. 정본 **전량**의 정합은 `test_seed_kb_loads_and_validates`·`test_all_relation_targets_resolve`·`test_translation_pairs_line_up_across_the_whole_kb`가 그대로 본다 — 줄인 것은 사본 비용이지 검사 범위가 아니다 | 2026-08-26 |
