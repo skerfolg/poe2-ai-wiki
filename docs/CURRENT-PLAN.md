@@ -52,6 +52,7 @@ flowchart TD
   CI[S28 #127 KB 로드 캐시 — CI 12분의 원인<br/>done]
   ANTAG[S29 #131 적대 조합 신고<br/>done]
   FILL[S30 #129 조립 자동 실행<br/>done]
+  ENAB[S31 #125 조건 성립기<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -70,6 +71,8 @@ flowchart TD
   EXT -. 인게임 관측이 「있는 충돌」을 드러낸다 .-> ANTAG
   ANTAG -. 레인 밖 · 정본 문구만으로 판정 .-> M6
   FILL -. 거부가 아니라 실행 · 레인 밖 .-> M6
+  ANTAG -. 같은 축 · 상태 쪽으로 .-> ENAB
+  ENAB -. 레인 밖 · 조건을 성립시키는 것 .-> M6
 ```
 
 ## Baseline Structure
@@ -112,6 +115,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S28 | #127 — KB 로드 캐시가 두 겹 다 빗나가 CI pytest가 벽시계의 87~91%(윈도우 11분 58초)를 먹던 것. 키 정규화 + 레코드 단위 검증 메모 + 지문에 `schema/` 포함 + 스냅샷 상한. 회귀는 시간이 아니라 **재검증 횟수**로 잠갔다 (`kb/store.py::_VALIDATION_MEMO`) | done |
 | S29 | #131 — **적대 조합**(A가 만드는 것을 B가 금지)을 낸다. 생산·소비 그래프의 역방향이라 어느 도구도 안 보던 축. 금지 담체 14종뿐인데 Brutality가 각 **233종**·불의 화신이 **188종**을 죽인다 — 조립 출고에 **신고**로 부착(거부 아님, AD-3) (`kb/graph/antagonists.py`) | done |
 | S30 | #129 2차 — 조립 게이트를 **거부에서 자동 실행으로**. 도장 없는 희귀 슬롯을 `optimize_rare`로 그 자리에서 채운다(가중치는 빌드가 선언한 것을 재사용 — 엔진은 판단을 지어내지 않는다). 훅은 비켜 주고 조립이 못 채우면 거부해 인계 구멍을 막았다 (`engine/autofill.py`) | done |
+| S31 | #125 — **조건 성립기**(`scan_enablers`). 「이 노드를 살리려면 무엇이 필요한가」를 낸다. 상태 그래프(#92)의 54축은 **가하는 상태**라 자신이 처한 상태를 못 다뤘다. ⭑ 주체가 **줄 단위**다(사용자 인게임 지적 — Execute III는 자신용·적용을 함께 갖는다). 「살 것이 없는 축」을 갭으로 안 찍는다 (`kb/graph/enablers.py`) | done |
 
 ## Canonical Next Step
 
@@ -168,6 +172,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| Integration branch override — 작업 브랜치 `feat/125-enablers` | 레인명(`M5-proposal-rounds`)과 다름. `main`에서 분기 — #125는 KB 그래프 층 신규 모듈이라 레인 파일과 겹치지 않는다. 이 PR 한정, 머지 시 소멸 | 2026-08-27 |
+| 조건의 주체를 **줄 단위**로 잡는다 | 한 레코드가 자신용·적용을 함께 갖는다 — `support.execute-iii`가 *"while **you** are on Low Life"*와 *"against **Enemies** that are on Low Life"*를 둘 다 갖는다(혼재 4종). 레코드로 뭉개면 낮은 생명력 빌드가 **자기한테 맞는 젬을 후보에서 잃는다**(사용자 인게임 지적) | 2026-08-27 |
+| 주체 판정 규칙을 **페이오프/성립기로 나눈다** | 창(window) 방식이 양방향으로 틀렸다 — `Require (2-4) fewer enemies to be Surrounded`는 창에 `enemies`가 있지만 포위되는 것은 **나**고, `Enemies in your Presence count as being on Low Life`는 `Enemies`가 창 **밖**으로 밀리지만 대상은 **적**이다. 페이오프는 조건 문구 앞 창(가까운 쪽 우선), 성립기는 **문장 주어** | 2026-08-27 |
+| 「살 것이 없다」와 「못 찾았다」를 **축에 선언**한다 | `behaviour`(조작)·`equipment`(슬롯)·기본 상태(`full_life`)는 성립기 0건이 **답**이지 갭이 아니다. 섞으면 **없는 갭을 쫓는다** — `satisfy_by`와 `DEFAULT_STATES`가 갈라 `gap_candidate`를 켠다 | 2026-08-27 |
 | Integration branch override — 작업 브랜치 `docs/backlog-status-drift` | 레인명(`M5-proposal-rounds`)과 다름. **문서 정합 + 강제 지점**만 — #129·#131 머지 후 큐/우선순위 표를 본문과 대조하다 발견한 표류를 고친다. 이 PR 한정, 머지 시 소멸 | 2026-08-27 |
 | 큐·우선순위 표의 상태 정합을 **시험으로 강제한다** | 손으로 맞추면 어긋난다 — 실측 2026-08-27: 큐↔본문 **6건이 양방향으로** 어긋났고, 우선순위 표는 **11건 중 8건이 이미 닫힌** 항목이었다. 「무엇부터 하나」에 답하는 표라 그 답이 통째로 틀린다(철칙 5 — 감지되면 도구에) | 2026-08-27 |
 | 기각된 항목의 **옛 진단은 §3에 남기고 큐에서는 지운다** | #130이 기각된 뒤에도 큐가 옛 진단(`CalcOffence.lua` `=` 덮어쓰기 · 「최대 40% 낮게」)을 **사실로** 싣고 Tier 1에 세워 뒀다 — 다음 세션이 그대로 착수할 자리다. 지우되 §3(뒤집힌 보고)에 등재해 **왜 틀렸나**를 보존한다 | 2026-08-27 |
