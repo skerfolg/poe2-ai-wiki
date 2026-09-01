@@ -21,7 +21,7 @@ from typing import Any
 
 from pok.common.paths import project_root, var_dir
 from pok.pob.buildxml import BuildSpec, to_xml
-from pok.pob.runner import PobResult, PobRunError, parse_lines
+from pok.pob.runner import PobResult, PobRunError, find_dropped_items, parse_lines
 from pok.pob.versions import PobSnapshot, find_luajit, resolve_snapshot
 
 _DAEMON = "scripts/pob_daemon.lua"
@@ -36,6 +36,9 @@ class PobDaemon:
         self._proc: subprocess.Popen[str] | None = None
         self._seq = 0
         self._loaded_spec: BuildSpec | None = None
+        # 마지막으로 계산한 XML — `compute_tree`는 트리만 갈아 끼우므로 **아이템은
+        # 그때 올린 것 그대로**다. 버려진 아이템 신고(#135)를 트리 왕복에서도 유지한다.
+        self._last_xml = ""
 
     def start(self) -> None:
         if self._proc is not None:
@@ -78,8 +81,14 @@ class PobDaemon:
             xml_file.unlink(missing_ok=True)
         stats, meta, alloc = parse_lines(lines)
         pruned = tuple(sorted(set(requested_nodes) - set(alloc)))
+        self._last_xml = xml_text
         return PobResult(
-            stats=stats, meta=meta, allocated_nodes=alloc, pruned_nodes=pruned, cached=False
+            stats=stats,
+            meta=meta,
+            allocated_nodes=alloc,
+            pruned_nodes=pruned,
+            cached=False,
+            dropped_items=find_dropped_items(xml_text, meta),
         )
 
     def compute_tree(self, nodes: tuple[int, ...]) -> PobResult:
@@ -113,6 +122,9 @@ class PobDaemon:
             allocated_nodes=alloc,
             pruned_nodes=tuple(sorted(set(nodes) - set(alloc))),
             cached=False,
+            # 트리만 갈아 끼워도 **아이템은 그대로** 올라가 있다 — 신고가 여기서
+            # 끊기면 최적화 루프 전체가 버려진 장비를 못 보고 돈다.
+            dropped_items=find_dropped_items(self._last_xml, meta),
         )
 
     def node_power(

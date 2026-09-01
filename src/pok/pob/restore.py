@@ -25,6 +25,53 @@ from pok.pob.codec import decode
 # PoB 슬롯명 그대로 쓴다. 주얼은 슬롯이 아니라 `Spec/Sockets`에 있어 따로 처리한다.
 _SKIP_SLOTS = frozenset({"Weapon 1 Swap", "Weapon 2 Swap"})
 
+# 속성값 안의 공백문자 → 문자 참조. **표준 XML 리더는 속성 안 개행·탭을 공백 하나로
+# 정규화한다**(XML 1.0 §3.3.3 attribute-value normalization). 문자 참조는 그 정규화를
+# 받지 않으므로, 파싱 **전에** 바꿔 두면 ElementTree가 원래 문자를 그대로 돌려준다.
+_ATTR_WS = {"\n": "&#10;", "\r": "&#13;", "\t": "&#9;"}
+
+
+def _keep_attr_whitespace(xml_text: str) -> str:
+    """속성값의 개행을 살려서 돌려준다 (#134).
+
+    PoB는 여러 줄 config(`customMods`)를 **리터럴 개행이 든 속성값**으로 적는다 —
+    자기 파서가 `&#10;` 같은 수치 참조를 모르기 때문이다(`runtime/lua/xml.lua:11`,
+    `buildxml._pob_attr` 참조). 그 표기를 표준 리더로 읽으면 개행이 공백이 되어
+    두 줄이 한 줄로 붙고, PoB의 `modLib.parseMod`는 줄 단위로 돌므로
+    **전부 파싱 실패한다 — 결과는 델타 0이라 「효과 없음」과 구별되지 않는다**
+    (실측 2026-08-28: 두 줄짜리 customMods가 원시 XML 직접 계산에서는 DPS +14.8% ·
+    EHP +65.5%인데 복원 왕복 뒤엔 ±0).
+
+    태그 **안**에서만 바꾼다 — 아이템 raw 텍스트는 원소 text라 정규화 대상이 아니고,
+    거기 든 따옴표·개행을 건드리면 안 된다.
+    """
+    if not any(ch in xml_text for ch in _ATTR_WS):
+        return xml_text
+    out: list[str] = []
+    i, n = 0, len(xml_text)
+    while True:
+        start = xml_text.find("<", i)
+        if start < 0:
+            out.append(xml_text[i:])
+            return "".join(out)
+        out.append(xml_text[i:start])  # 태그 밖은 통째로 (아이템 텍스트가 여기다)
+        j, quote = start, ""
+        while j < n:
+            ch = xml_text[j]
+            if quote:
+                out.append(ch if ch == quote else _ATTR_WS.get(ch, ch))
+                if ch == quote:
+                    quote = ""
+            else:
+                out.append(ch)
+                if ch in "\"'":
+                    quote = ch
+                elif ch == ">":
+                    j += 1
+                    break
+            j += 1
+        i = j
+
 
 @dataclass(frozen=True)
 class RestoredBuild:
@@ -106,6 +153,46 @@ def _items_by_id(items_el: ET.Element) -> dict[str, str]:
     return {it.get("id", ""): "".join(it.itertext()).strip() for it in items_el.findall("Item")}
 
 
+def _stat_set_index(gem: ET.Element, gem_id: str) -> int | None:
+    """이 젬이 **어느 모드(statSet)로 계산됐는지** — 코드에 있으면 그 값, 없으면 None.
+
+    ⛔ 예전 주석은 "PoB 코드는 어느 모드로 계산했는지 남기지 않는다"였고, 그래서
+    **있는 값을 버리고 무조건 1번을 가정**했다 (#134). 원본을 읽으면 틀렸다 —
+    `SkillsTab.lua:508`이 `statSet`을 grantedEffect별 `<StatSetIndex>` 자식 원소로
+    저장한다(속성 `statSetIndex`도 쓰지만 로드 쪽 370행이 즉시 `{}`로 덮어써 **자식이
+    정본**이다. 그래서 자식을 먼저 보고 속성은 뒤로 둔다).
+
+    버리면 복원본이 **원본과 다른 모드로 계산된다** — 실측 2026-08-10: 구형 번개의
+    파트 1/2/3이 2,387 / 32,231 / 47,329로 20배 갈렸다. 오류도 경고도 없다.
+    """
+    by_effect: dict[str, int] = {}
+    for child in gem.findall("StatSetIndex"):
+        effect = child.get("grantedEffect") or ""
+        index = (child.get("index") or "").strip()
+        if effect and index.isdigit():
+            by_effect[effect] = int(index)
+    if not by_effect:
+        attr = (gem.get("statSetIndex") or "").strip()
+        return int(attr) if attr.isdigit() else None
+    if len(by_effect) == 1:
+        return next(iter(by_effect.values()))
+    # 젬 하나가 부여 효과를 여럿 가지면(녹아내린 폭발 = 주 + 파편) **주 효과** 것을 쓴다.
+    # 못 짚으면 가정으로 떨어뜨린다 — 아무 값이나 고르면 조용히 틀린 모드가 된다.
+    from pok.kb.skill_facts import primary_effect
+
+    candidates = [primary_effect(gem_id)]
+    try:  # 래더 코드는 **게임 id**로 적혀 있다. 별칭표는 PoB 스냅샷을 읽으므로 없으면 건너뛴다
+        from pok.pob.catalog import canonical_gem_id
+
+        candidates.append(primary_effect(canonical_gem_id(gem_id)))
+    except (OSError, RuntimeError):
+        pass
+    for candidate in candidates:
+        if candidate in by_effect:
+            return by_effect[candidate]
+    return None
+
+
 def _skills(
     root: ET.Element, assume_first_stat_set: bool, assume_stages: int | None
 ) -> tuple[list[dict[str, Any]], list[str], int, list[tuple[str, int]]]:
@@ -148,10 +235,13 @@ def _skills(
                 "corrupted": (gem.get("corrupted") or "nil") == "true",
                 "corrupt_level": _int(gem.get("corruptLevel"), 0),
             }
-            # PoB XML은 **어느 모드(statSet)로 계산했는지를 남기지 않는다.** 그래서
-            # 복원본은 원본과 다른 모드로 계산될 수 있다 — 조용히 1번을 쓰면 실측
-            # 2026-08-10처럼 20배 차이가 난다. 가정했다는 사실을 반드시 남긴다.
-            if assume_first_stat_set:
+            # 모드(statSet)는 **코드에 적혀 있으면 그것을 쓴다** (#134). 없을 때만
+            # 1번을 가정하고, 가정했다는 사실을 반드시 남긴다 — 조용히 1번을 쓰면
+            # 실측 2026-08-10처럼 20배 차이가 난다.
+            found = _stat_set_index(gem, gem_id)
+            if found is not None:
+                entry["stat_set_index"] = found
+            elif assume_first_stat_set:
                 entry["stat_set_index"] = 1
                 assumed.append(entry["name"] or gem_id)
             # 단계 수는 **어느 코드에도 없다**(실측: 코퍼스 300벌 전부 skillStageCount
@@ -220,7 +310,7 @@ def spec_from_pob_xml(
     xml_text: str, *, assume_first_stat_set: bool = True, assume_stages: int | None = None
 ) -> RestoredBuild:
     """PoB XML → `spec_from_dict`가 받는 사전. 못 되돌린 것은 notes에."""
-    root = ET.fromstring(xml_text)
+    root = ET.fromstring(_keep_attr_whitespace(xml_text))
     build = root.find("Build")
     tree_el = root.find("Tree")
     if build is None or tree_el is None:

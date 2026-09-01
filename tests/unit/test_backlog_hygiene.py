@@ -258,3 +258,23 @@ def test_priority_table_lists_only_open_items(text: str) -> None:
             if "✅" in body or "기각" in body:
                 stale.append(f"#{rid} ({body[:40]})")
     assert not stale, "우선순위 표에 닫힌 항목이 남아 있다:\n  " + "\n  ".join(stale)
+
+
+def test_priority_table_count_matches_rows(text: str) -> None:
+    """머리에 적은 「열린 N건」과 **표의 행 수**가 같은지 잠근다.
+
+    ⚠ 옆 시험(`test_priority_table_lists_only_open_items`)은 **닫힌 항목이 남은 것**만
+    잡는다 — **열린 항목이 빠진 것**은 못 잡았다. 실측 2026-09-01: 신규 5건(#132~#135와
+    기각된 1건)이 등재된 뒤에도 표는 「열린 **2건** 전수」라고 적고 있었고, 그 5건 중
+    둘이 ⛔⛔ 이상이었다. 「무엇부터 하나」에 답하는 표라 그 답이 통째로 틀린다.
+
+    머릿수 하나로 전수성을 보증하지는 못한다 — 다만 **표를 고칠 때 머리도 고치게** 만들어
+    「전수」라는 주장이 표보다 오래 살아남는 것을 막는다.
+    """
+    section = _section(text, "### 우선순위 (", "\n## ")
+    claimed = re.search(r"열린 \*\*(\d+)건\*\*", section)
+    assert claimed, "머리에 「열린 **N건**」이 없다 — 표가 무엇을 세는지 밝힐 것"
+    rows = [ln for ln in section.splitlines() if ln.startswith("| **") and "Tier" not in ln]
+    assert int(claimed.group(1)) == len(rows), (
+        f"머리는 {claimed.group(1)}건인데 표는 {len(rows)}행이다"
+    )

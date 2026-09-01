@@ -115,6 +115,7 @@ def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: igno
             item_socket_problems=(),
             item_socket_warnings=(),
             items=(),
+            dropped_items=(),  # #135
         ),
     )
     monkeypatch.setattr(build_mod, "assemble", lambda *a, **k: fake)

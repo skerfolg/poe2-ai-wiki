@@ -46,7 +46,7 @@ from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.integrity import spec_integrity
-from pok.engine.items import req_shortfall
+from pok.engine.items import req_shortfall, unread_item_lines
 from pok.engine.legality import ItemLegalityChecker
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob.buildxml import spec_from_dict
@@ -150,6 +150,11 @@ def _pick(
     shortfall = req_shortfall(result.stats)
     if shortfall:
         out["req_shortfall"] = shortfall
+    # 베이스명을 PoB가 못 맞춘 아이템 (#135). **이 수치는 그 장비를 안 낀 것**이다 —
+    # 조립은 통과하고 값만 틀리므로 신고가 없으면 원인이 아닌 곳을 뒤진다(실측:
+    # 저항 붕괴를 「장비 선택 실수」로 오진했다).
+    if result.dropped_items:
+        out["dropped_items"] = [dict(row) for row in result.dropped_items]
     if build_spec is not None:
         out.update(_items_legal(build_spec))
         # 설계 무결성은 **적법성과 별개 축**이다 (#58 ①). 적법한데 애초에 빌드가
@@ -169,6 +174,13 @@ def _pick(
         reading = _uptime_of(result)
         if reading:
             out["uptime"] = reading
+        # PoB가 **문구를 못 읽는 장비** (#133). 표시는 KB 레코드에 이미 있었는데 판단은
+        # 측정값을 보고 내린다 — 조회 시점에만 있는 신호는 그 자리에 없는 것과 같다.
+        # 실측 사고: `The Vertex` 변형 2를 못 읽어 `req_shortfall`이 떴고 세션이
+        # **사용자에게 「힘 380 부족」 경보를 냈다가 철회**했다. **매번** 싣는다(#29).
+        gaps = unread_item_lines(build_spec)
+        if gaps:
+            out["items_pob_gaps"] = gaps
     return out
 
 
@@ -799,6 +811,39 @@ def measure_leverage(
     }
 
 
+def check_pob_stability(
+    build_spec: dict[str, Any], samples: int = 5, axis: str = "CombinedDPS"
+) -> dict[str, Any]:
+    """같은 빌드를 **새 프로세스로 N회** 재서 값이 갈리는지 본다 (#132).
+
+    PoB가 같은 XML에 두 값을 낸다. 원인은 **상류**다(2026-09-01 규명) — LuaJIT의
+    `pairs()` 순회 순서가 프로세스마다 다른데 `CalcOffence.lua`의 전환표 적용이 같은
+    키에 `=`와 `+=`를 섞어 그 순서에 의존한다. **전역 전환이 사슬로 겹치는 빌드**
+    (물리→화염 + 화염→번개 등)에서 서고, 그때 피해 계열 전부가 균일하게 갈린다
+    (`Speed`·치확·저항은 불변). 스냅샷은 손대지 않으므로 대응은 **재서 아는 것**이다.
+
+    ⚠ **이것은 「빌드 검사」가 아니라 「측정 신뢰 검사」다.** `stable: false`면 그
+    빌드의 **절대값을 인용하면 안 된다** — 같은 회차 안의 비율(A/B)만 유효하다.
+    반대로 `stable: true`는 「이 표본에서는 안 갈렸다」이지 안전 보증이 아니다
+    (3/10짜리 모드는 표본 6회로 놓칠 수 있다). 판정은 호출자 몫(AD-3).
+
+    비용은 **`samples`회의 완전한 PoB 계산**이다(캐시를 끄고 매번 새 프로세스 —
+    같은 프로세스·캐시로는 갈림을 못 본다). 윈도우 실측 0.4초/회 + 기동.
+    의심스러운 수치를 인용하기 **전에** 한 번 돌리는 용도다.
+    """
+    from pok.pob.runner import measure_stability
+
+    reading = measure_stability(spec_from_dict(build_spec), samples=samples, axis=axis)
+    return {
+        "axis": reading.axis,
+        "samples": list(reading.values),
+        "distribution": [{"value": v, "count": n} for v, n in reading.counts],
+        "stable": reading.stable,
+        "mode": reading.mode,
+        "ratio": round(reading.ratio, 4),
+    }
+
+
 def restore_pob_spec(build_code: str, assume_first_stat_set: bool = True) -> dict[str, Any]:
     """PoB 공유 코드 → **우리 `build_spec`** (#67 6차). 남의 빌드를 우리 도구에 태운다.
 
@@ -808,8 +853,9 @@ def restore_pob_spec(build_code: str, assume_first_stat_set: bool = True) -> dic
 
     ⚠ **`notes`·`needs_decision`을 반드시 읽을 것.** 코드에 없어서 못 되돌린 것과
     우리가 가정한 것이 거기 있다. 특히:
-    - `stat_set_index` — PoB 코드는 **어느 모드로 계산했는지 안 남긴다**. 기본은 1번
-      가정이고, 모드가 둘 이상인 젬이면 수치가 크게 달라진다(실측 20배).
+    - `stat_set_index` — 코드에 `<StatSetIndex>`가 있으면 **그 값을 되돌린다** (#134).
+      없는 젬만 1번을 가정하고 그 사실을 `needs_decision`에 싣는다 — 모드가 둘 이상인
+      젬을 잘못 잡으면 수치가 크게 달라진다(실측 20배).
     - 단계형 스킬의 `stages`도 코드에 없다(코퍼스 300벌 전부). 필요하면 직접 채울 것.
     - 교체 무기 슬롯·무기 세트 전용 할당은 우리 스펙에 자리가 없어 빠진다.
 
