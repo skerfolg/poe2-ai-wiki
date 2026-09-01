@@ -10,11 +10,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from xml.sax.saxutils import unescape
 
 from pok.common.paths import project_root, var_dir
 from pok.pob.buildxml import BuildSpec, to_xml
@@ -35,6 +37,63 @@ _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
 #  `self.controls["displayItemRune"..i].list = ...`를 쓴다 — 이 수를 넘기면 nil 인덱싱이라
 #  **아이템을 클릭하는 순간 예외**다. 계산 경로에서는 안 터져서 조립이 그냥 통과시켰다.
 RUNE_CONTROL_SLOTS = 6
+
+
+# ⚠ 속성 **순서를 가정하지 않는다** — PoB의 XML 기록기는 `pairs(attrib)`로 도는지라
+#    같은 요소라도 순서가 프로세스마다 다를 수 있다. `id`가 첫 속성이라고 보면
+#    남의 코드에서만 조용히 못 찾고, 그러면 멀쩡한 아이템이 「버려졌다」로 신고된다.
+_ITEM_EL = re.compile(r'<Item\s(?:[^>]*?\s)?id="(\d+)"[^>]*>(.*?)</Item>', re.DOTALL)
+_SLOT_EL = re.compile(r"<Slot\s[^>]*>")
+_ATTR = re.compile(r'([\w:.-]+)="([^"]*)"')
+
+
+def find_dropped_items(xml_text: str, meta: dict[str, object]) -> tuple[dict[str, str], ...]:
+    """보냈는데 **PoB가 들고 있지 않은** 아이템 — 통째로 버려진 것 (#135).
+
+    ⚠ 신고하는 것은 **사실(PoB의 아이템 목록에 없다)**이지 원인이 아니다. 알려진 원인은
+    베이스명 미매칭이고, 다른 이유로 버려진 것도 같은 자리로 나온다 — 어느 쪽이든
+    「이 수치는 그 장비를 안 낀 것」이라는 결론은 같다(AD-3: 판정은 호출자 몫).
+
+    베이스명이 `Data/Bases/*.lua`에 없으면 PoB는 그 아이템을 **오류 없이 버린다** —
+    암시도 접사도 하나도 안 붙고 계산은 그대로 끝난다. 실측 2026-08-28(희귀 갑옷):
+
+        Conjurer Mantle              → Spirit 130 · 저항 -10/-10/-10
+        Runemastered Conjurer Mantle → Spirit 100 · 저항 -50/-50/-50  (**착용 안 한 것과 동일**)
+
+    조립이 통과하고 수치만 틀리므로 사고는 **원인이 아닌 곳**에서 찾게 된다 —
+    실측: 저항 붕괴를 「장비 선택 실수」로 오진했다(형태 ⑩ 조용한 거짓 성립).
+
+    ⛔ 이름 대조를 우리가 다시 구현하지 않는다(AD-1) — **PoB에게 무엇을 들고 있는지
+    묻는다.** 드라이버가 `POK_META.items`에 남은 아이템을 id째 실어 주므로, 보낸 id와
+    맞춰 보면 버려진 것이 그대로 드러난다. 주얼도 그 목록에 들어오므로 오탐이 없다
+    (실측: 주얼은 `slot="Jewel 61419"`로 실린다).
+    """
+    kept = meta.get("items")
+    if not isinstance(kept, list):
+        return ()  # `items` 이전 프로토콜의 결과 — 모르는 것을 신고하지 않는다
+    if xml_text.count("</Item>") == len(kept):
+        return ()  # 빠른 경로: 개수가 맞으면 파싱하지 않는다 (계산 대부분이 여기서 끝난다)
+    kept_ids = {str(row.get("id")) for row in kept if isinstance(row, dict)}
+    slots: dict[str, str] = {}
+    for tag in _SLOT_EL.findall(xml_text):
+        attrs = dict(_ATTR.findall(tag))
+        if "itemId" in attrs:
+            slots[attrs["itemId"]] = attrs.get("name", "")
+    out: list[dict[str, str]] = []
+    for item_id, body in _ITEM_EL.findall(xml_text):
+        if item_id in kept_ids:
+            continue
+        lines = [ln.strip() for ln in unescape(body).splitlines() if ln.strip()]
+        out.append(
+            {
+                "id": item_id,
+                "slot": slots.get(item_id, ""),
+                "name": lines[1] if len(lines) > 1 else "",
+                # PoB 아이템 텍스트는 `Rarity` / 이름 / **베이스** 순서다
+                "base": lines[2] if len(lines) > 2 else "",
+            }
+        )
+    return tuple(out)
 
 
 def _gap_count(meta: dict[str, object], key: str) -> int:
@@ -64,6 +123,9 @@ class PobResult:
     allocated_nodes: tuple[int, ...]  # 실제 할당된 트리 노드 (시작점 제외)
     pruned_nodes: tuple[int, ...]  # 요청했지만 PoB가 해제한 노드 (비연결 등)
     cached: bool
+    # 보냈는데 PoB가 **베이스명을 못 맞춰 버린** 아이템 (#135). 비어 있지 않으면
+    # 이 결과는 그 장비를 **안 낀 채** 계산된 것이다 — `find_dropped_items` 참조.
+    dropped_items: tuple[dict[str, str], ...] = ()
 
     @property
     def oracle_gaps(self) -> dict[str, int]:
@@ -327,13 +389,85 @@ def run_xml(
             )
     allocated = tuple(int(n) for n in payload["alloc"])
     pruned = tuple(sorted(set(requested_nodes) - set(allocated)))
+    meta = dict(payload["meta"])
     return PobResult(
         stats=dict(payload["stats"]),
-        meta=dict(payload["meta"]),
+        meta=meta,
         allocated_nodes=allocated,
         pruned_nodes=pruned,
         cached=hit,
+        # ⚠ **캐시 적중에서도 판정한다** — 옛 결과를 그대로 돌려주면 신고가 캐시에서
+        #   조용히 사라진다(#119가 같은 자리에서 걸린 적이 있다). meta는 캐시에
+        #   실려 있으므로 다시 계산할 필요는 없다.
+        dropped_items=find_dropped_items(xml_text, meta),
     )
+
+
+@dataclass(frozen=True)
+class StabilityReading:
+    """같은 입력을 **새 프로세스로 N회** 계산한 결과의 분포 (#132)."""
+
+    axis: str
+    values: tuple[float, ...]  # 회차 순서 그대로
+    counts: tuple[tuple[float, int], ...]  # (값, 횟수) — 많은 순
+
+    @property
+    def stable(self) -> bool:
+        """한 값으로만 나왔나. 거짓이면 이 빌드의 **절대값은 인용할 수 없다**."""
+        return len(self.counts) <= 1
+
+    @property
+    def mode(self) -> float:
+        """최빈값 — 회피책이 쓰라고 한 대표값(BACKLOG #132)."""
+        return self.counts[0][0] if self.counts else 0.0
+
+    @property
+    def ratio(self) -> float:
+        """최대/최소. 1.0이면 완전 동일 (실측된 갈림은 1.481·1.501이었다)."""
+        lo = min(self.values, default=0.0)
+        return max(self.values, default=0.0) / lo if lo else 0.0
+
+
+def measure_stability(
+    spec: BuildSpec, *, samples: int = 5, axis: str = "CombinedDPS", **kwargs: Any
+) -> StabilityReading:
+    """같은 빌드를 새 프로세스로 여러 번 재서 **값이 갈리는지** 본다 (#132).
+
+    PoB가 같은 XML에 두 값을 내는 것이 실측됐다(2026-08-28, Mac · 녹아내린 폭발):
+
+        pob-S 10회 : 251030 x7 / 169413 x3   비율 1.481
+        pob-Q  6회 : 122617 x4 / 184055 x2   비율 1.501
+
+    원인은 **상류에 있다**(2026-09-01 규명): LuaJIT의 `pairs()` 문자열 키 순회 순서가
+    프로세스마다 다른데, `CalcOffence.lua:2364-2372`의 전환표 적용이 같은 키에
+    `=`(덮어쓰기)와 `+=`(누적)를 섞어 **그 순서에 의존한다**. 항목이 둘이면 결과도
+    정확히 둘이다. 조건은 「A의 `conv`가 쓰는 타입을 B가 `fromType`으로 갖는 것」이라
+    **전역 전환 두 개가 사슬로 겹칠 때** 선다(예: 물리→화염 + 화염→번개). 스냅샷은
+    손대지 않으므로(AD-2) 우리가 할 수 있는 것은 **재서 아는 것**이다.
+
+    회피책("N회 재서 최빈값을 쓰고 절대값 대신 같은 회차 안의 비율로 판단하라")이
+    문서에만 있어 지켜지지 않았다 — 한 세션이 같은 파일을 184,055 → 122,617로 두 번
+    보고하고 「데몬 상태 누적」이라는 **틀린 진단**까지 냈다(철칙 5).
+
+    ⚠ **캐시를 끄고 매번 새 프로세스로 돈다** — 같은 프로세스 안에서는 값이 안 갈리고,
+    캐시를 켜면 첫 값을 그대로 돌려주므로 둘 다 갈림을 **못 본다**.
+
+    ⛔ 안정으로 나왔다고 「이 빌드는 안전」이 아니다 — 표본이 적으면 3/10짜리 모드를
+    놓친다(위 실측에서 6회 표본이면 놓칠 수 있다). 판정은 호출자 몫이다(AD-3).
+
+    실측(2026-09-01, 윈도우·5d173cb · 몽크 90 · 녹아내린 폭발 · 반지 접사만 다르게):
+
+        전역 P→Fire + 전역 Fire→Lightning  308.92 x5 / 252.70 x5   ← 충돌
+        전역 P→Cold 만                     309.32 x10              ← 안정
+    """
+    from collections import Counter
+
+    values = [
+        float(run_xml(to_xml(spec), use_cache=False, **kwargs).stats.get(axis, 0.0))
+        for _ in range(max(1, samples))
+    ]
+    tally = Counter(values).most_common()
+    return StabilityReading(axis=axis, values=tuple(values), counts=tuple(tally))
 
 
 def run_build(spec: BuildSpec, **kwargs: object) -> PobResult:

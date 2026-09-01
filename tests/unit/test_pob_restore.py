@@ -199,3 +199,55 @@ def test_부패_정보가_XML로_되나간다() -> None:
         )
     )
     assert 'corrupted="true"' in xml and 'corruptLevel="2"' in xml
+
+
+def test_customMods의_줄바꿈이_살아남는다() -> None:
+    """여러 줄 config가 한 줄로 붙으면 PoB가 **전부 파싱 실패**한다 (#134).
+
+    PoB는 여러 줄을 리터럴 개행이 든 속성값으로 적는데(자기 파서가 `&#10;`를 모른다),
+    표준 XML 리더는 속성 안 개행을 공백으로 정규화한다. `modLib.parseMod`는 줄 단위로
+    돌기 때문에 한 줄이 되면 전부 못 읽고, 결과는 **델타 0**이라 「효과 없음」과
+    구별되지 않는다(실측 2026-08-28: 원시 XML은 DPS +14.8%·EHP +65.5%, 왕복 뒤 ±0).
+    """
+    body = "15% more Attack Damage\n40% less Damage taken"
+    xml = _XML.replace(
+        '<Input name="enemyLevel" number="83"/>',
+        f'<Input name="enemyLevel" number="83"/><Input name="customMods" string="{body}"/>',
+    )
+    config = dict((k, v) for k, v in spec_from_pob_xml(xml).spec["config"])
+    assert config["customMods"] == body
+
+
+def test_속성_보존이_아이템_raw_텍스트를_안_건드린다() -> None:
+    """치환은 **태그 안에서만** 한다 — 아이템 텍스트는 원소 text라 정규화 대상이 아니다."""
+    item = next(i for i in spec_from_pob_xml(_XML).spec["items"] if i["slot"] == "Amulet")
+    assert item["text"].splitlines()[0] == "Rarity: RARE"
+    assert "+10 to Spirit" in item["text"]
+
+
+def test_모드_색인을_코드에서_되돌린다() -> None:
+    """`<StatSetIndex>`가 있으면 **그 값**을 쓴다 — 있는 값을 버리고 1번을 가정했었다.
+
+    `SkillsTab.lua:508`이 grantedEffect별 자식 원소로 저장한다. 버리면 복원본이 원본과
+    다른 모드로 계산된다(실측 2026-08-10: 파트 1/2/3이 2,387 / 32,231 / 47,329).
+    """
+    xml = _XML.replace(
+        '<Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Spark" level="20" quality="0"/>',
+        '<Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Spark" level="20" quality="0">'
+        '<StatSetIndex grantedEffect="SparkPlayer" index="3"/>'
+        '<StatSetCalcsIndex grantedEffect="SparkPlayer" index="3"/></Gem>',
+    ).replace('source="Item" ', "")
+    gem = next(
+        g
+        for grp in spec_from_pob_xml(xml).spec["skills"]
+        for g in grp["gems"]
+        if g["name"] == "Spark"
+    )
+    assert gem["stat_set_index"] == 3
+
+
+def test_색인이_없을_때만_1번을_가정한다() -> None:
+    """가정은 남기되, **코드에 있는 것을 가정으로 덮지 않는다**."""
+    r = spec_from_pob_xml(_XML)  # 픽스처엔 StatSetIndex가 없다
+    assert r.spec["skills"][0]["gems"][0]["stat_set_index"] == 1
+    assert any("stat_set_index" in n for n in r.needs_decision)

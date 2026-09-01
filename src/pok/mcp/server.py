@@ -456,6 +456,7 @@ assemble_pob = tool(_build.assemble_pob)
 parse_pob = tool(_build.parse_pob)
 restore_pob_spec = tool(_build.restore_pob_spec)
 measure_leverage = tool(_build.measure_leverage)
+check_pob_stability = tool(_build.check_pob_stability)
 
 # 설계 루프 (P4.5, D26~D28)
 check_constraints = tool(_constraints.check_constraints)

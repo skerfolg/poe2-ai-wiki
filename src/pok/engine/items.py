@@ -328,6 +328,88 @@ def _kb_records(root: Path | None) -> dict[str, Any]:
     return dict(store_load(root).records)
 
 
+# PoB 원문의 변형 접두 — `{variant:2}` · `{variant:1,3}`
+_VARIANT_TAG = re.compile(r"^\{variant:([\d,]+)\}")
+_SELECTED_VARIANT = re.compile(r"^Selected Variant:\s*(\d+)\s*$", re.M)
+
+
+@functools.lru_cache(maxsize=4)
+def _unread_lines_by_item(root: Path | None) -> dict[str, tuple[str, ...]]:
+    """아이템 이름(영문) → PoB가 **못 읽는 문구**들 (KB `pob_modeling.unparsed`)."""
+    out: dict[str, tuple[str, ...]] = {}
+    for record in _kb_records(root).values():
+        if record.type != "Item":
+            continue
+        model = (record.raw.get("data") or {}).get("pob_modeling") or {}
+        lines = tuple(
+            text
+            for row in (model.get("unparsed") or [])
+            if isinstance(row, dict) and (text := str(row.get("text", "")).strip())
+        )
+        name = str((record.raw.get("name") or {}).get("en") or "")
+        if name and lines:
+            out[name] = lines
+    return out
+
+
+def _active_lines(text: str) -> list[str]:
+    """이 아이템 텍스트에서 **지금 켜져 있는** 모드 줄 (변형 선택을 반영).
+
+    유니크 raw에는 변형 줄이 전부 들어 있다 — `Selected Variant`를 안 보면 안 고른
+    변형의 문구까지 「이 빌드에 있다」로 읽는다. 그러면 정상 구성에 경보가 붙고,
+    거짓 경보는 게이트 우회를 학습시킨다(BACKLOG 형태 ⑪).
+    """
+    chosen = _SELECTED_VARIANT.search(text)
+    selected = chosen.group(1) if chosen else ""
+    out: list[str] = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        tag = _VARIANT_TAG.match(stripped)
+        if tag is None:
+            out.append(stripped)
+        elif not selected or selected in tag.group(1).split(","):
+            out.append(stripped[tag.end() :].strip())
+    return [line for line in out if line]
+
+
+def unread_item_lines(spec: Mapping[str, Any], root: Path | None = None) -> list[dict[str, Any]]:
+    """이 빌드가 낀 장비 중 **PoB가 문구를 못 읽는** 것 (#133).
+
+    `pob_modeling`은 KB 레코드에 이미 붙어 있는데 **측정 반환에는 안 실렸다.** 판단은
+    측정값을 보고 내리므로, 조회 시점에만 있는 신호는 그 자리에 없는 것과 같다 —
+    실측 사고 2026-08-28: `The Vertex` 변형 2(「Equipment has no Attribute
+    Requirements」)를 PoB가 못 읽어 `req_shortfall`이 「힘 380 부족」으로 떴고,
+    세션이 **사용자에게 경보를 냈다가 철회했다**.
+
+    실측(스냅샷 5d173cb · Glorious Plate 착용):
+
+        투구 없음                       ReqStr 121
+        변형 1 (50% reduced)            ReqStr  60   ← 읽힌다
+        변형 2 (Equipment has no …)     ReqStr 121   ← **안 낀 것과 동일**
+
+    ⛔ 판정하지 않는다(AD-3) — 사실만 낸다. 못 읽는 문구가 있다고 그 빌드가 틀린 것도,
+    수치가 무효인 것도 아니다. 그 문구에 기댄 결론만 근거가 없다.
+    """
+    table = _unread_lines_by_item(root)
+    out: list[dict[str, Any]] = []
+    entries = [(str(i.get("slot", "")), str(i.get("text", ""))) for i in spec.get("items") or ()]
+    entries += [
+        (f"Jewel@{j.get('socket_node_id')}", str(j.get("text", "")))
+        for j in spec.get("jewels") or ()
+    ]
+    for slot, text in entries:
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+        name = lines[1] if len(lines) > 1 else ""
+        known = table.get(name)
+        if not known:
+            continue
+        active = _active_lines(text)
+        unread = [line for line in known if line in active]
+        if unread:
+            out.append({"slot": slot, "item": name, "unread": unread})
+    return out
+
+
 def _slot_filter(slot: str) -> tuple[frozenset[str], re.Pattern[str] | None] | None:
     """슬롯 → (category 집합, base_type 추가 필터). 매핑 밖이면 None."""
     if slot.startswith("Charm"):
