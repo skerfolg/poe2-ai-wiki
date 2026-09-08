@@ -54,6 +54,7 @@ flowchart TD
   FILL[S30 #129 조립 자동 실행<br/>done]
   ENAB[S31 #125 조건 성립기<br/>done]
   SILENT[S32 #133~#135 조용한 오라클 갭 3건<br/>done]
+  MCPFIX[S34 pok MCP 실행 경로 + 가드 강제 지점<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -74,6 +75,8 @@ flowchart TD
   FILL -. 거부가 아니라 실행 · 레인 밖 .-> M6
   ANTAG -. 같은 축 · 상태 쪽으로 .-> ENAB
   ENAB -. 레인 밖 · 조건을 성립시키는 것 .-> M6
+  SILENT -. 레인 밖 · 도구가 아예 안 붙던 자리 .-> MCPFIX
+  MCPFIX -. 레인 밖 · 강제 지점을 만든다 .-> M6
   SILENT -. 레인 밖 · 오라클이 조용히 틀리는 자리 .-> M6
 ```
 
@@ -305,6 +308,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | ⚠ S22 번호는 **이 세션이 발급**했다 | 다른 PC에서 S20이 병행 중이라 그쪽이 같은 번호를 쓸 수 있다. BACKLOG의 선례대로(번호 충돌 2회) **머지 시점에 재발급**하는 것이 유일한 해소다 — 충돌하면 이 행을 근거로 뒤쪽을 옮길 것 | 2026-08-24 |
 | ⛔ **S20의 후속 범위가 미확정** — 재집계·재승격이 기술에 없다 | 같은 성격의 S10은 「재측정 → 재집계 → NodeValue 재승격」을 한 묶음으로 잡았는데 S20은 **측정까지만**이다. #108로 축 열거를 없앤 뒤 처음 도는 전량이라 관측 축이 바뀌었고, 정본 `NodeValue` **2,665종**은 옛 축으로 집계된 값이다 — 측정만 반영하면 정본과 관측이 어긋난다. **S20 PR을 받을 때 재집계 포함 여부를 확인할 것**(미포함이면 후속 단계로 잇는다) | 2026-08-24 |
 | S7의 `blocked`는 **그대로 둔다** | 결함 연쇄(#98~#101·#108~#111)는 #110으로 전부 닫혔지만, S7 재개는 S20 코퍼스 위에서 하는 것이 맞다 — 옛 축으로 잰 큐에 다시 판정하면 같은 자리를 두 번 돈다. 첫 미종결 항목이 S7이고 Canonical Next Step이 S20인 불일치는 기존 override 항목이 이미 근거를 적어 두었다(§13.1) | 2026-08-24 |
+| S34 | **pok MCP가 Windows에서 조용히 죽던 자리**. `.mcp.json`이 첫 커밋 이래 `.venv/bin/python`(POSIX)이라 Windows에선 경로가 없고, 호스트는 `CONNECTION_CLOSED` 한 줄만 낸다 — 서버 코드는 멀쩡해서 원인이 안 보인다. 세션 4개(09-03·09-03·09-04·09-08)가 전부 같은 진단을 처음부터 다시 하고 매번 스크래치패드 우회 호출기를 새로 만들었다. `${POK_PYTHON:-.venv/bin/python}`로 바꿔 macOS 무변경·Windows는 `settings.local.json`이 덮게 하고(호스트의 `${VAR:-default}` 확장은 구현에서 확인), `checkMcpLaunchPath()`로 실행 경로 실재를 검사한다. ⚠ 곁다리로 **경고가 브리핑에 안 실리던 버그**를 고쳤다 — 가드는 경고를 stderr로 내는데 `execFileSync`는 stdout만 잡아 경고 4건이 매 세션 조용히 버려지고 있었다. 이걸 고치지 않으면 어떤 체크를 넣어도 무용지물이다 (철칙 5) | done |
 | 정본에 **움직인 축만** 싣고 조용한 축은 개수로 | 전량 집계가 414MB로 터졌다 — 잰 축의 90.7%가 한 번도 안 움직였다. 정본은 큐레이션이고 전량은 데이터 repo에 있다 | 2026-08-24 |
 | ⚠ 하위 단계 번호를 **머지 시점에 재발급**했다 (S24·S25 → S25·S26) | 이 브랜치가 `eaefc4f`에서 갈라진 뒤 `origin/main`이 **S24를 먼저 썼다**(#113 반영 재집계, PR #105). 병렬 브랜치는 서로의 발급을 못 보므로 BACKLOG의 선례대로 **나중에 도착한 쪽**(이 PR)을 뒤로 옮겼다. 지시문은 main의 것(M6 큐레이션 게이트)을 그대로 따른다 — 이 PR은 레인 진행이 아니라 사용자 신고 결함 수정이다 | 2026-08-25 |
 | Integration branch override — 작업 브랜치 `skerfolg/item-rune-slot-validation` | 레인명(`M5-proposal-rounds`)과 다름. **사용자 신고 결함(#120)** 수정이라 레인 이름을 안 쓴다. `main`(eaefc4f)에서 분기했고 M5 측정 코드와 겹치는 파일이 없다(`pob/runner.py`의 `_META_PROTOCOL`만 공유). 이 PR 한정, 머지 시 소멸 | 2026-08-25 |

@@ -309,6 +309,50 @@ function checkTaskGraphRender() {
   }
 }
 
+function checkMcpLaunchPath() {
+  // A stdio MCP server whose `command` is a repo-relative path fails to launch
+  // with an opaque "Connection closed", and the host reports nothing else. The
+  // venv layout differs per platform (POSIX `bin/` vs Windows `Scripts/`), so a
+  // config that is correct on one machine is silently dead on the other.
+  //
+  // Four consecutive sessions (2026-09-03 .. 2026-09-08) hit this, re-derived
+  // the same diagnosis from scratch, and each worked around it in throwaway
+  // scratchpad code. Nothing detected it, so nothing accumulated. 철칙 5 —
+  // 감지되면 문서가 아니라 도구에 넣는다.
+  const mcpPath = path.join(root, '.mcp.json');
+  if (!existsSync(mcpPath)) return;
+  let servers;
+  try {
+    servers = JSON.parse(readFileSync(mcpPath, 'utf8')).mcpServers ?? {};
+  } catch (err) {
+    result.errors.push(`.mcp.json: ${err.message}`);
+    return;
+  }
+  for (const [name, cfg] of Object.entries(servers)) {
+    if (cfg?.type !== undefined && cfg.type !== 'stdio') continue;
+    const raw = cfg?.command;
+    if (typeof raw !== 'string' || raw === '') continue;
+    // Mirror the host's own expansion so we judge the command it will actually
+    // spawn: `${VAR}` and `${VAR:-default}`, unset falling through to default.
+    const command = raw.replace(
+      /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g,
+      (whole, varName, fallback) => process.env[varName] ?? fallback ?? whole,
+    );
+    // A bare name (no separator) is resolved through PATH; we cannot judge it.
+    if (!/[\\/]/.test(command)) continue;
+    const found = [command, `${command}.exe`, `${command}.cmd`].some((candidate) =>
+      existsSync(path.isAbsolute(candidate) ? candidate : path.join(root, candidate)),
+    );
+    if (found) continue;
+    result.warnings.push(
+      `MCP server "${name}" cannot launch: command "${command}" does not exist, ` +
+        `so its tools are unavailable this session (the host reports only "Connection closed"). ` +
+        `Point the referenced variable at this machine's interpreter in .claude/settings.local.json ` +
+        `(e.g. "POK_PYTHON": ".venv/Scripts/python.exe" on Windows), or create the missing path.`,
+    );
+  }
+}
+
 function checkConfigPresence() {
   // E4 signposting. Absent config is informational (the v0.1.0 fallback path
   // keeps Node consumers working without setup); invalid config is an error
@@ -414,6 +458,7 @@ if (mode === 'status' || mode === 'mermaid' || mode === 'precommit') {
   checkComposedMilestones();
   checkTaskGraphRender();
   checkConfigPresence();
+  checkMcpLaunchPath();
   checkLiveDocSchema();
   // §13 Canonical Next Step diagnostics are routed through checkLiveDocSchema()
   // because the library's validateCurrentPlan() invokes the §13 sub-routine
