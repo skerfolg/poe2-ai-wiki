@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -46,11 +46,20 @@ function gitOneliner(args) {
 function runGuardSummary() {
   if (!existsSync(guardPath)) return '(guard script not installed)';
   try {
-    const raw = execFileSync(process.execPath, [guardPath, 'status'], {
+    // The guard prints info to stdout but warnings and errors to stderr
+    // (console.warn / console.error). execFileSync returns stdout only, so
+    // every warning was dropped here and this briefing showed a bare summary
+    // count with nothing to act on; worse, any error made the guard exit
+    // non-zero, which threw into the catch below and reported "guard execution
+    // failed" instead of the errors themselves. spawnSync exposes both streams
+    // and does not throw on a non-zero exit.
+    const proc = spawnSync(process.execPath, [guardPath, 'status'], {
       cwd: root,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     });
+    if (proc.error) throw proc.error;
+    const raw = `${proc.stdout ?? ''}\n${proc.stderr ?? ''}`;
     const lines = raw.split(/\r?\n/);
     const summary = lines.find((line) => line.startsWith('summary:')) || '(no guard summary line)';
     const warnings = lines.filter((line) => line.startsWith('warning:'));
