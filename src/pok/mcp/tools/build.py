@@ -46,7 +46,7 @@ from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.integrity import spec_integrity
-from pok.engine.items import req_shortfall, unread_item_lines
+from pok.engine.items import req_shortfall, unbuilt_declarations, unread_item_lines
 from pok.engine.legality import ItemLegalityChecker
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob.buildxml import spec_from_dict
@@ -181,6 +181,14 @@ def _pick(
         gaps = unread_item_lines(build_spec)
         if gaps:
             out["items_pob_gaps"] = gaps
+        # 선언만 있고 문구가 없는 아이템 (#148 ③). PoB 아이템 파서는 `Prefix:`를
+        # **스탯으로 적용하지 않는다** — 소켓·룬은 먹으므로 조립은 정상으로 보이고
+        # 수치만 낮다. 실측: 접두를 바꿔 두 번 돌렸는데 DPS가 **소수점까지 동일**했다.
+        # `check_item_legality`는 같은 텍스트를 전부 LEGAL로 통과시킨다 —
+        # **게이트는 예라고 하고 오라클은 조용히 틀린다.** 매번 싣는다(#29).
+        unbuilt = unbuilt_declarations(build_spec)
+        if unbuilt:
+            out["unbuilt_declarations"] = unbuilt
     return out
 
 
@@ -530,7 +538,15 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     `config_upkeep`은 그 **거울**이다(#145) — 켜 둔 조건의 **유지 비용**. 이 수치가
     「팩마다 6종을 다 걸고 반경 안에 서 있을 때」의 값인지 알려 준다. 실측
     2026-09-04(레퍼런스 힘스태킹 젬링): 세팅 없이 팩에 들어가면 표기의 **52.6%**.
-    딜을 인용하기 전에 볼 것 — 역시 거부가 아니라 신고다."""
+    딜을 인용하기 전에 볼 것 — 역시 거부가 아니라 신고다.
+
+    ⛔ **`unbuilt_declarations`가 있으면 그 아이템의 접사는 하나도 안 들어갔다** (#148).
+    PoB 아이템 파서는 `Prefix:`/`Suffix:` 선언을 **스탯으로 적용하지 않는다** —
+    선언을 문구로 바꾸는 것은 `Craft()`(`pob.roundtrip.build_items`)이다. 소켓·룬은
+    먹으므로 **잘 조립된 것처럼 보이고 수치만 낮다**. 실측 2026-09-09: 접두 구성을
+    바꿔 두 번 돌렸는데 `CombinedDPS`가 소수점까지 동일했다(`790958.0612`).
+    ⚠ `check_item_legality`는 같은 텍스트를 **줄별 전부 LEGAL**로 통과시킨다 —
+    적법성과 계산 가능성은 다른 축이다."""
     out = _pick(_compute(spec_from_dict(build_spec)), stats, build_spec)
     out["points"] = _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy"))
     scalers = _stat_scalers(build_spec)
@@ -573,13 +589,24 @@ def evaluate_delta(
 
 def check_item_legality(item_text: str) -> dict[str, Any]:
     """합성 아이템 텍스트를 KB 모드풀로 검증(RC4). LEGAL/CONDITIONAL(경로
-    한정—사유 확인)/ILLEGAL/UNKNOWN 판정과 접사 수·group 배타 오류를 반환."""
+    한정—사유 확인)/ILLEGAL/UNKNOWN 판정과 접사 수·group 배타 오류를 반환.
+
+    ⛔ **`legal: True`가 「계산된다」는 뜻은 아니다** (#148). 선언형(`Prefix:` 줄만
+    있고 문구가 없는 형식)은 줄별로 전부 LEGAL인데 `compute_pob`에서는 **접사가
+    하나도 안 들어간다** — 게이트는 예라고 하고 오라클은 조용히 틀린다. 그 경우
+    `not_computable`이 함께 온다. 적법성과 계산 가능성은 **다른 축**이다."""
     report = _get_checker().check(item_text)
-    return {
+    out: dict[str, Any] = {
         "legal": report.is_legal,
         "errors": list(report.errors),
         "lines": [dataclasses.asdict(v) for v in report.verdicts],
     }
+    # 적법한데 **계산은 안 되는** 형식을 여기서도 말한다 — 한쪽에서만 신고하면
+    # 세션은 통과한 쪽만 보고 넘어간다(§0 ④ 판정 주체가 둘이면 어긋난다).
+    blocked = unbuilt_declarations({"items": [{"slot": "", "text": item_text}]})
+    if blocked:
+        out["not_computable"] = [{k: v for k, v in blocked[0].items() if k != "slot"}]
+    return out
 
 
 def parse_pob(

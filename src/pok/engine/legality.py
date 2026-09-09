@@ -390,6 +390,62 @@ class ItemLegalityChecker:
             elif r.type == "Skill":
                 self._skills.add(r.name_en.lower())
 
+    def _claim_declared(
+        self, mod_lines: list[str], declared: Sequence[dict[str, Any]]
+    ) -> dict[int, frozenset[str]]:
+        """선언된 모드가 **자기 문구 줄을 먼저 집는다** (#148 얼굴 ①·②).
+
+        ⛔ **선언(`Prefix:`/`Suffix:`)이 있으면 그것이 권위다 — 문구는 표시용이다.**
+        PoB 아이템 텍스트는 선언과 렌더 문구를 **함께** 담는데, 검사기가 문구를
+        **다시 파싱**하면서 두 가지가 깨졌다:
+
+        ① 렌더 문구 한 줄이 후보 **55건**에 걸린다(`+# to evasion rating`). 어느 것이
+           잡히느냐가 **이웃 줄에 따라 달라진다** — `_claim_multi_lines`가 인접 두 줄을
+           하이브리드로 탐욕 매칭하기 때문이다. 실측 2026-09-09:
+           `+162 to Evasion Rating`+`96% increased Evasion Rating` →
+           `localincreasedevasionandbase1`(티어 밖 ILLEGAL), 이웃을 바꾸면
+           `localincreasedevasionandlife1`. **판정이 줄 순서에 의존했다.**
+        ② 문구가 선언과 **다른 id**로 잡히면 접사가 이중 계수된다 — 선언 접두 3개가
+           `prefix 4개 — 한도 3 초과`가 됐다(`…rating7_` → `-alt1`인데 문구는 다른
+           티어·심지어 **룬**(`modifier.rune-of-foundations`)으로 잡혔다).
+
+        선언이 곧 모드 id이므로 후보를 **그 하나로 좁힌다** — 티어·수치 검사는
+        그대로 돈다(좁히는 것이지 건너뛰는 것이 아니다). 같은 id로 접히므로
+        접사 수·group 배타도 자동으로 하나가 된다.
+        """
+        if not declared:
+            return {}
+        # 선언된 모드의 문구 → id. 하이브리드는 줄 수만큼 연속으로 집는다.
+        by_line: dict[str, set[str]] = {}
+        by_multi: dict[str, set[str]] = {}
+        for rec in declared:
+            texts = _mod_texts(rec["data"])
+            rid = str(rec["id"])
+            for text in texts:
+                for variant in _expand_enum(text):
+                    for part in variant.splitlines():
+                        if part.strip():
+                            by_line.setdefault(_norm(part), set()).add(rid)
+            if len(texts) > 1:
+                by_multi.setdefault(_multi_key(texts), set()).add(rid)
+        claims: dict[int, frozenset[str]] = {}
+        i = 0
+        while i < len(mod_lines):
+            # 여러 줄 선언이 먼저 — 긴 것이 이긴다(`_claim_multi_lines`와 같은 규칙)
+            for size in range(min(4, len(mod_lines) - i), 1, -1):
+                ids = by_multi.get(_multi_key(mod_lines[i : i + size]))
+                if ids:
+                    for off in range(size):
+                        claims[i + off] = frozenset(ids)
+                    i += size
+                    break
+            else:
+                ids = by_line.get(_norm(_MOD_DECORATION.sub("", mod_lines[i]).strip()))
+                if ids:
+                    claims[i] = frozenset(ids)
+                i += 1
+        return claims
+
     def _claim_multi_lines(self, mod_lines: list[str]) -> dict[int, frozenset[str]]:
         """연속 줄 묶음이 잡은 줄 → 그 모드 id (#118). **긴 묶음이 먼저 이긴다.**
 
@@ -461,6 +517,7 @@ class ItemLegalityChecker:
         # 공회전**한다 — 실측: 같은 목걸이가 평문형에선 `접사 총 7개 — 총한도 6 초과`로
         # 걸리고 선언형에선 판정 0건에 `legal: True`였다. #34 이후 `optimize_rare`가
         # 내는 것이 바로 이 형식이라, 아이템 게이트가 자기 도구 출력에 대해 무력했다.
+        declared_records: list[dict[str, Any]] = []
         for kind, key in _declared_affixes(item_text):
             record = self._by_pob_key.get(key.lower())
             if record is None:
@@ -476,12 +533,16 @@ class ItemLegalityChecker:
                 LineVerdict(f"{kind}: {key}", "LEGAL", str(record["id"]), reason="선언형 접사")
             )
             matched[str(record["id"])] = record
+            declared_records.append(record)
         # ⛔ **연속 줄 묶음을 먼저, 긴 것부터 소비한다** (#118). 하이브리드(두 줄짜리 한
         #    모드)의 첫 줄은 동명 단독 접사와 텍스트가 같아, 줄 단위로만 매칭하면
         #    단독 쪽이 잡혀 ①없는 group 충돌 ②접사 수 +1이 생긴다. 실측 2026-08-23:
         #    인게임 기준 「양손 철퇴의 정답」이 그렇게 거부돼 `assemble_pob`을 통째로
         #    막았고, 세션이 게이트를 우회하는 경로를 학습했다(철칙 5 따름정리).
         claims = self._claim_multi_lines(mod_lines)
+        # ⛔ **선언이 이긴다** (#148). 선언된 모드가 자기 문구 줄을 집으면 그 줄은
+        #    후보가 하나로 좁혀져, 탐욕 하이브리드 매칭도 이중 계수도 일어나지 않는다.
+        claims |= self._claim_declared(mod_lines, declared_records)
         for idx, line in enumerate(mod_lines):
             if (found := _match_implicit(line, implicits)) is not None:
                 verdicts.append(found)

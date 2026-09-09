@@ -57,6 +57,7 @@ flowchart TD
   UPKEEP[S33 #145 config 유지 비용 신고<br/>done]
   MCPFIX[S34 pok MCP 실행 경로 + 가드 강제 지점<br/>done]
   ITEMQ[S35 #146·#147 아이템 조회 축<br/>done]
+  RARERT[S36 #148 희귀 왕복<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -84,6 +85,8 @@ flowchart TD
   UPKEEP -. 레인 밖 · 거부가 아니라 신고 .-> M6
   UPKEEP -. 같은 세션이 아이템을 못 찾았다 .-> ITEMQ
   ITEMQ -. 레인 밖 · 조회 축을 넓힌다 .-> M6
+  ITEMQ -. 같은 세션이 신발을 확정 못 했다 .-> RARERT
+  RARERT -. 레인 밖 · 두 도구가 같은 텍스트를 다르게 읽었다 .-> M6
 ```
 
 ## Baseline Structure
@@ -130,6 +133,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S31 | #125 — **조건 성립기**(`scan_enablers`). 「이 노드를 살리려면 무엇이 필요한가」를 낸다. 상태 그래프(#92)의 54축은 **가하는 상태**라 자신이 처한 상태를 못 다뤘다. ⭑ 주체가 **줄 단위**다(사용자 인게임 지적 — Execute III는 자신용·적용을 함께 갖는다). 「살 것이 없는 축」을 갭으로 안 찍는다 (`kb/graph/enablers.py`) | done |
 | S33 | #145 — 켠 config의 **유지 비용**을 아무도 묻지 않던 자리. `compute_pob` 반환에 `config_upkeep`이 자동으로 붙고(자원 관문·대상 한계·횟수·반경·쿨다운, 근거는 문구 원문), `audit_config_upkeep(measure=True)`가 조건별 실제 기여까지 잰다. 사용자 신고(레퍼런스 힘스태킹 젬링)를 실측: 조건 13종 전부 참인 빌드가 세팅 없이 팩에 들어가면 표기의 **52.6%**이고, 6종은 Δ0 · 원소 노출 3종은 **끄는 쪽이 높았다**(역저항 축이라 저항을 깎으면 손해). ⛔ 초판의 `unsupplied`(공급원 없음)는 **11건 중 6건 오탐이라 폐기**했다 — 「없다」는 실측이 답한다. ⚠ `bannerPlanted`는 PoB에 관련성 조건이 없어 config를 축으로 삼는 매처로는 누락되는데 **딜의 20.3%가 거기 걸려 있었다**. 곁다리: 아포스트로피 이름이 id화에서 조용히 빠지던 것 수정(`Sniper's Mark`) | done |
 | S35 | #146·#147 — Item에 닿는 축이 **이름 하나뿐**이라 세션이 이름 토큰으로 훑었고, 갭이 **0건이 아니라 그럴듯한 부분집합**으로 나와 안 보였다. #146 유니크의 `explicits`·`implicits`가 색인 밖(영어 원문조차 안 걸렸다) → FTS body에 실었다(+`grants`·젬 `quality_stats`) · #147 `category`·`sub_type` 필터 신설(소문자로 접어 대조 — 두 필드의 표기 규약이 다르다). ⭐ 실측 교정: 「신발에는 회피/ES 듀얼 베이스가 없다」던 보고가 틀렸다 — `category="boots"` **217건**, 그 조합 **27종**. 강제 지점은 `test_index_covers_prose_fields` — 정본의 **모든 문장 필드**가 색인되었거나 사유와 함께 제외되었거나 둘 중 하나임을 강제한다(#146은 그 결정을 **아무도 내리지 않아** 생긴 갭이었다) (`index/build.py` SCHEMA_VERSION 10) | done |
+| S36 | #148 — **희귀 아이템 왕복이 막혀 있던 자리.** 세 얼굴이 한 뿌리다: PoB 아이템 텍스트는 선언(`Prefix:`)과 렌더 문구를 **함께** 담는데 두 도구가 그것을 다르게 읽었다(§0 ④). ①문구를 재파싱하며 인접 두 줄을 하이브리드로 **탐욕 매칭**해 **판정이 줄 순서에 의존**했고(`+162 to Evasion Rating` 한 줄이 후보 **55건**에 걸린다) ②선언과 다른 id로 잡혀 접두 3개가 **4개로 계수**됐다(문구가 심지어 **룬**으로 잡혔다). 선언이 **자기 문구 줄을 먼저 집게** 해 둘을 함께 닫았다 — 좁히는 것이지 건너뛰는 것이 아니라 티어·스폰 검사는 그대로 돈다(`legality.py::_claim_declared`). ③`compute_pob`이 선언형을 **조용히 버리던 것**은 `unbuilt_declarations`로 매 반환에 신고하고 `check_item_legality`도 `not_computable`을 낸다 — ⚠ **거부가 아니라 신고로 했다**(접수 제안과 다름): 같은 형태의 #135가 신고이고, 거짓 거부는 우회를 학습시키며(§0 ⑪), 대안 경로(`build_items`)가 이미 있어 신고문이 그것을 가리킨다. ⭑ 재현은 `Drakeskin Boots`로만 성립한다 — `Stone Greaves`의 ILLEGAL은 **정상 판정**이다 | done |
 
 ## Canonical Next Step
 
