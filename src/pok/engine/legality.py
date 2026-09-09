@@ -46,6 +46,32 @@ _CRAFT_EQUIVALENT = ("crafting-currency", "poe2db:normal")
 # 51,792.2 vs 수동 1.6배 반영 59,000.7) 접미 수치를 최종 표시값으로 합성하는 것이
 # 정직한 모델링이고, 적법성은 접미 티어 범위 상한을 x(1+효과/100)로 확장해 판정한다.
 _SUFFIX_EFFECT = re.compile(r"^(\d+(?:\.\d+)?)% increased Effect of Suffixes$", re.IGNORECASE)
+# 접두어 효과(주얼 접미, `LocalPrefixEffect`)도 같은 꼴이다 — 접미 쪽만 있던 확장의 대칭
+# (#156 곁가지). 대칭이 빠져 있어 접두 수치가 배율만큼 표시된 주얼은 같은 이유로 거짓
+# 거부됐을 것이다. 두 효과 줄이 서로를 배율하는지는 미확정이라 따로 다루지 않는다.
+_PREFIX_EFFECT = re.compile(r"^(\d+(?:\.\d+)?)% increased Effect of Prefixes$", re.IGNORECASE)
+
+
+def _is_jewel_mod(d: dict[str, Any]) -> bool:
+    """주얼 풀의 모드인가 — `origins`("jewel")**와** `scope`("jewel") 어느 쪽이든 (#156).
+
+    KB의 주얼 접사는 두 형태다(실측 전수 2026-09-09): 일반 주얼 접사는 `origins`에
+    "jewel"이 있고, 신성모독 주얼 접사 32건(접미 3건 — `of the Abyss`)은
+    `origins=["desecrated"]`·`scope="jewel"`이다. origins만 보면 뒤쪽이 통째로 빠진다.
+    """
+    return "jewel" in (d.get("origins") or []) or d.get("scope") == "jewel"
+
+
+def _affix_effect(
+    d: dict[str, Any], suffix_effect: float, prefix_effect: float
+) -> tuple[float, str]:
+    """이 모드의 접사 종류에 걸리는 효과 배율(%)과 라벨 — 접미엔 접미어, 접두엔 접두어 효과."""
+    kind = d.get("affix_type")
+    if kind == "suffix":
+        return suffix_effect, "접미어 효과"
+    if kind == "prefix":
+        return prefix_effect, "접두어 효과"
+    return 0.0, ""
 
 
 _RUNE_PREFIX = re.compile(r"^\s*\{rune\}\s*", re.I)
@@ -503,6 +529,9 @@ class ItemLegalityChecker:
         suffix_effect = next(
             (float(m.group(1)) for ln in mod_lines if (m := _SUFFIX_EFFECT.match(ln))), 0.0
         )
+        prefix_effect = next(
+            (float(m.group(1)) for ln in mod_lines if (m := _PREFIX_EFFECT.match(ln))), 0.0
+        )
         catalyst, catalyst_quality = parse_catalyst(item_text)
         # **베이스 임플리싯은 접사가 아니다** (백로그 #57, 2026-08-10). 고르는 것이
         # 아니라 베이스가 달고 나오는 줄이라 접사 풀에서 찾으면 안 나온다 — 실측:
@@ -553,6 +582,7 @@ class ItemLegalityChecker:
                 ilvl,
                 only_ids=claims.get(idx),
                 suffix_effect=suffix_effect,
+                prefix_effect=prefix_effect,
                 sockets=sockets,
                 rune_effect=rune_effect,
                 catalyst=catalyst,
@@ -991,6 +1021,7 @@ class ItemLegalityChecker:
         ilvl: int,
         *,
         suffix_effect: float = 0.0,
+        prefix_effect: float = 0.0,
         sockets: int = 0,
         rune_effect: float = 0.0,
         catalyst: str = "",
@@ -1051,20 +1082,23 @@ class ItemLegalityChecker:
             d = rec["data"]
             ok, why = _values_in_range(line, d.get("texts", []))
             note = ""
-            if (
-                not ok
-                and suffix_effect > 0
-                and d.get("affix_type") == "suffix"
-                and "jewel" in d.get("origins", [])
-            ):
-                # 접미어 효과 선반영: 표시 수치 = 롤 x (1+효과/100) — 상한 확장 재검사.
-                # 효과 접두는 주얼 풀의 Local 모드(LocalSuffixEffect)이므로 같은 아이템
-                # (주얼) 풀의 접미에만 적용한다 — 동일 텍스트의 장비 티어는 확장 금지.
+            # 접사 효과 선반영: 표시 수치 = 롤 x (1+효과/100) — 상한 확장 재검사. 효과 줄은
+            # 주얼 풀의 Local 모드(LocalSuffixEffect·LocalPrefixEffect)라 **같은 아이템(주얼)
+            # 풀의 접사**에만 적용한다 — 동일 텍스트의 장비 티어는 확장 금지.
+            # ⛔ 주얼 여부는 `origins`만이 아니다(#156). 신성모독 주얼 접미 `of the Abyss`
+            #    ((1-2)% increased Strength, `scope="jewel"`)가 54% 효과 아래 3%로 표시된 것을
+            #    「수치 [3.0]가 티어 범위 밖」으로 거짓 거부했다(실측 2026-09-09 — 사용자가
+            #    원인을 짚었다). 일반 접미 209건이 통과하니 「지원된다」로 읽혀 안 드러나던 갭.
+            effect, effect_label = _affix_effect(d, suffix_effect, prefix_effect)
+            if not ok and effect > 0 and _is_jewel_mod(d):
                 ok, why = _values_in_range(
-                    line, d.get("texts", []), hi_scale=1.0 + suffix_effect / 100.0
+                    line,
+                    d.get("texts", []),
+                    hi_scale=1.0 + effect / 100.0,
+                    scale_label=effect_label,
                 )
                 if ok:
-                    note = f"접미어 효과 {suffix_effect:g}% 반영 상한"
+                    note = f"{effect_label} {effect:g}% 반영 상한"
             rounding_assumed = False
             if not ok and catalyst:
                 # 촉매는 접사 수치를 **실제로** 올린다 — `Craft()`가 `getCatalystScalar`를
@@ -1179,6 +1213,18 @@ def _route_base_fit(d: dict[str, Any], base: dict[str, Any]) -> tuple[bool, str]
             from pok.kb.item_classes import page_matches_class
 
             if any(page_matches_class(str(p), item_class) for p in pages):
+                return True, ""
+            # ⛔ 조인 실패를 **즉시 거부로 만들지 않는다** (#157). `applicable_pages`는 축이
+            #    둘이다 — 장비는 클래스 페이지(`Bows`·`Staves`)라 조인이 맞지만, 주얼은
+            #    **베이스명**(`Diamond`·`Emerald`·`Ruby`·`Sapphire`)이고 주얼 베이스는 전부
+            #    `item_class: "Jewel"`이라 조인이 구조적으로 항상 실패한다. 단락시키니 아래
+            #    이름 대조에 영영 못 갔고, 「목록에 Emerald가 있는데 밖」이라는 거부가 주얼
+            #    대상 접사 전량에 났다(실측 2026-09-09, 신성모독 `of the Abyss`).
+            #    ⚠ 느슨한 부분 문자열 대조(`p in name`)로 넘기지 않는다 — 조인이 옳게 거부한
+            #    장비(예: `Rings` 페이지 vs 이름에 ring이 든 방어구)를 다시 통과시킨다.
+            #    **정확 일치**만 본다: 주얼의 페이지는 베이스명 그대로다.
+            exact = {str(p).lower().replace("_", " ") for p in pages}
+            if name in exact or (category and category in exact):
                 return True, ""
             pages_s = ", ".join(map(str, pages))
             return False, f"applicable_pages({pages_s}) 밖 베이스({item_class})"

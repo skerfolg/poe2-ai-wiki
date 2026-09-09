@@ -60,6 +60,7 @@ flowchart TD
   RARERT[S36 #148 희귀 왕복<br/>done]
   STAMP[S37 #152 자동 채움 도장 스키마<br/>done]
   GRANT[S38 #154·#155 부여 스킬 공급원 + 자동 채움 예산<br/>done]
+  JEWEL[S39 #156·#157 주얼 접사 검사 두 자리<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -93,6 +94,8 @@ flowchart TD
   STAMP -. 레인 밖 · 거부문의 탈출구를 스키마와 맞춘다 .-> M6
   STAMP -. 같은 세션 · 도장을 찍고 나니 다음 벽 .-> GRANT
   GRANT -. 레인 밖 · 거짓 차단과 조용한 30분 .-> M6
+  GRANT -. 같은 세션 · 같은 주얼에서 연달아 .-> JEWEL
+  JEWEL -. 레인 밖 · 거짓 거부 둘을 함께 .-> M6
 ```
 
 ## Baseline Structure
@@ -142,6 +145,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S36 | #148 — **희귀 아이템 왕복이 막혀 있던 자리.** 세 얼굴이 한 뿌리다: PoB 아이템 텍스트는 선언(`Prefix:`)과 렌더 문구를 **함께** 담는데 두 도구가 그것을 다르게 읽었다(§0 ④). ①문구를 재파싱하며 인접 두 줄을 하이브리드로 **탐욕 매칭**해 **판정이 줄 순서에 의존**했고(`+162 to Evasion Rating` 한 줄이 후보 **55건**에 걸린다) ②선언과 다른 id로 잡혀 접두 3개가 **4개로 계수**됐다(문구가 심지어 **룬**으로 잡혔다). 선언이 **자기 문구 줄을 먼저 집게** 해 둘을 함께 닫았다 — 좁히는 것이지 건너뛰는 것이 아니라 티어·스폰 검사는 그대로 돈다(`legality.py::_claim_declared`). ③`compute_pob`이 선언형을 **조용히 버리던 것**은 `unbuilt_declarations`로 매 반환에 신고하고 `check_item_legality`도 `not_computable`을 낸다 — ⚠ **거부가 아니라 신고로 했다**(접수 제안과 다름): 같은 형태의 #135가 신고이고, 거짓 거부는 우회를 학습시키며(§0 ⑪), 대안 경로(`build_items`)가 이미 있어 신고문이 그것을 가리킨다. ⭑ 재현은 `Drakeskin Boots`로만 성립한다 — `Stone Greaves`의 ILLEGAL은 **정상 판정**이다 | done |
 | S37 | #152 — **자동 채움이 자기 스펙을 오염시키던 자리.** 희귀 슬롯의 출처 도장(`items[i].derived_from`)을 훅 게이트·`unstamped_rares`·거부문 세 곳이 아이템 단위로 읽는데 `spec_from_dict`만 거부했다 — 첫 칸에 찍은 도장이 둘째 칸의 `optimize_rare`에서 `모르는 키`로 죽었고, 거부문이 안내한 탈출구(「그 슬롯에 derived_from을 명시할 것」)도 같은 자리에서 막혔다(철칙 5 따름정리 — 금지하려면 대안 경로부터). ⭑ 보고보다 넓었다: 채운 스펙은 그대로 조립의 `spec_from_dict`로 가므로 **1칸짜리도 조립 직전에 죽었다.** 최상위 `_SPEC_ONLY_KEYS`와 같은 규약을 아이템에 뒀다(받되 벗겨 낸다, `_make(spec_only=)`) — `ItemSpec`·manifest 해시는 그대로. 강제 지점: **2칸** + 받은 스펙을 스키마에 태우는 엄격한 가짜 최적화기, 거부문을 실제 경로에서 받아 탈출구를 밟는 시험. 둘째 절반(의도한 부품을 지운다)은 **#153으로 분리**하고 빠진 대리 줄만 신고한다 (`pob/buildxml.py`·`engine/autofill.py`) | done |
 | S38 | #154·#155 — **같은 세션이 도장을 찍고 나니 다음 벽에 부딪힌 자리.** #154 `check_assumptions`가 아이템이 부여한 스킬을 공급원으로 못 봐 **거짓 차단**했다 — 두 겹이었다: `Grants Skill:` 줄이 스킬 stats로 안 풀렸고, 풀려도 `CanGainRage`→`Gain + Rage`라 「Regenerate … Rage」(영원한 격노)는 못 넘었다. 부여 스킬을 젬과 같은 사전으로 풀고, 능력 동사(`Gain`·`Apply`)를 떼 대상만 키워드로 삼는다(유니크 104종이 `Grants Skill:`을 갖는다). #155 「1800초 무응답」은 ⚠ **진단 정정** — 멈춘 게 아니라 **32분 일하고 반환**했다(텔레메트리 `failed` 행 08:07:52, 발신 07:35:55): 차단될 스펙에 자동 채움(슬롯당 133~156초 실측, 큰 빌드 4칸 32분)을 **먼저** 돌린 뒤 거부했고 클라이언트가 1800초에 포기해 결과를 버렸다. 정적 검사 선행 · 벽시계 예산(`POK_AUTOFILL_BUDGET_S`, 기본 1200초, 다음 칸이 넘칠지 시작 전에 예측) · FastMCP `Context` 진행 알림 · 소요 시간 반환. #150(루프 교착)과 형태가 다르다 — 그대로 미수정. 강제 지점은 인메모리 FastMCP 클라이언트로 서버 래퍼를 실제로 지난다 (`engine/constraints/assumptions.py`·`pob/catalog.py`·`engine/autofill.py`·`mcp/tools/build.py`) | done |
+| S39 | #156·#157 — **같은 신성모독 주얼에서 연달아 난 거짓 거부 둘.** #156 접미어 효과 확장이 `origins`만 보고 `scope`를 안 봐 `of the Abyss`((1-2)%, `scope="jewel"`)가 54% 효과 아래 3%로 표시된 것을 「티어 범위 밖」으로 거부했다(사용자가 원인을 짚었다) — `_is_jewel_mod`가 두 형태를 다 본다. 곁가지로 `Effect of Prefixes`의 대칭 확장이 아예 없던 것을 같은 꼴로 닫았다. #157 `applicable_pages` 대조가 클래스 조인 실패에서 **단락**해 주얼(pages가 베이스명, `item_class`는 전부 Jewel) 대상 접사 전량이 「목록에 Emerald가 있는데 밖」으로 거부됐다 — 조인 실패 뒤 **정확 일치**로 한 번 더 본다(제안의 느슨한 부분 문자열 대조는 장비 오통과를 부르므로 택하지 않았다). 요청은 #156이었지만 #156만 고친 시험이 #157에서 막혀 함께 닫았다(보고자 예측 그대로) (`engine/legality.py`) | done |
 
 ## Canonical Next Step
 
@@ -191,6 +195,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | worktree `.claude/worktrees/*` (arc-measure·ecstatic-benz·zealous-dewdney) | **소멸** | 2026-08-24 확인: `.claude/worktrees` **디렉터리 자체가 없다**. 표만 남아 있었다 |
 | worktree `.worktrees/ci-fix` (실제 경로는 다른 세션 scratchpad) | prunable | 실재하는 유일한 외부 워크트리 — 다른 세션(`3dee16c4`) scratchpad, detached `9eeb97e`(2026-08-13 「CI 복구 — mypy strict 17건」). **커밋은 main에 흡수 완료**(ancestor 확인)라 잃을 것이 없다. 가드가 「Current Plan에 없는 워크트리」로 경고하는 대상. **미커밋 변경 0건**(2026-08-24 확인)이라 지워도 잃을 것이 없다. ⛔ 그래도 소유 세션 확인 후 `git worktree remove` — 이 표에 적힌 것은 삭제 근거이지 삭제 승인이 아니다 |
 | branch `feat/145-dps-inflation-warnings` | merged · 삭제 후보 | PR #134가 스쿼시 머지(`26588a3`, 2026-09-09) — S33·S35·S36을 담았다. **로컬·원격 모두 잔존**. 커밋은 main에 흡수 완료라 잃을 것이 없다. ⛔ 삭제는 사용자 승인 후(아래 「원격 브랜치」 항과 같은 이유) |
+| branch `fix/154-155-granted-skill-mcp-hang` | merged · 삭제 후보 | PR #137이 스쿼시 머지(`a21a4f2`, 2026-09-09) — S38. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
 | branch `fix/152-autofill-item-stamp` | merged · 삭제 후보 | PR #136이 스쿼시 머지(`5cde403`, 2026-09-09) — S37. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
 | branch `chore/M5-proposal-rounds-close-s33-s36` | merged · 삭제 후보 | PR #135가 스쿼시 머지(`de40859`, 2026-09-09) — S33·S35·S36 종결 기록. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
 | branch `feat/m5-proposal-contract` | **소멸** | 머지 후 삭제됨 — 로컬·원격 모두 없다 |
@@ -201,6 +206,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| #157을 **#156과 함께** 고친다(요청은 #156) | 보고자가 「#156을 고쳐도 #157이 남아 막으므로 함께 고쳐야 주얼이 통과한다」고 적었고, #156만 고친 시험이 실제로 #157에서 막혔다. 한 분기 변경이라 분리 PR의 이득이 없고, 요청 범위 밖임은 PR·백로그에 명시했다 — **세션 판단** | 2026-09-09 |
+| #156·#157 등재문(다른 세션의 미커밋 워킹 트리)을 **수정 PR의 첫 두 커밋으로 싣는다** | #149~#155와 같은 형태(세·네 번째). #157은 이 작업 **중에** 이어 써졌다 — 저장 시점 diff를 각각 떠서 분리 커밋했다. 내용은 손대지 않았다 | 2026-09-09 |
+| Integration branch override — 작업 브랜치 `fix/156-jewel-suffix-scope` | 레인명과 다름. `main`(`a21a4f2`)에서 분기 — 레인 밖 결함 수정. 이 PR 한정, 머지 시 소멸 — This lane targets `fix/156-jewel-suffix-scope` instead of `main` for this PR only | 2026-09-09 |
 | #154·#155 등재문(다른 세션의 미커밋 워킹 트리)을 **#154·#155 수정 PR의 첫 커밋으로 싣는다** | 아래 #149~#152와 같은 형태·같은 이유(두 번째). 등재문은 손대지 않았고, #155의 진단(「#150과 같은 형태」)은 본문에 **정정 절을 덧붙이는** 방식으로 남겼다 — 틀린 진단도 기록이다(§3 「검증으로 뒤집힌 보고」와 같은 취급) | 2026-09-09 |
 | Integration branch override — 작업 브랜치 `fix/154-155-granted-skill-mcp-hang` | 레인명과 다름. `main`(`5cde403`)에서 분기 — 레인 밖 결함 수정. 이 PR 한정, 머지 시 소멸 — This lane targets `fix/154-155-granted-skill-mcp-hang` instead of `main` for this PR only | 2026-09-09 |
 | #149~#152 등재문(다른 세션의 미커밋 워킹 트리)을 **#152 수정 PR의 첫 커밋으로 싣는다** | `[빌드]` 세션이 `docs/BACKLOG.md`에 #149~#152 등재와 #148 얼굴 ② 철회를 써 두고 커밋하지 않았다(S33의 #145와 같은 형태). #152를 고치려면 같은 파일을 만져야 해 갈라 낼 수 없고, 등재문을 버리면 수정이 가리키는 항목이 git에 없다. 사용자 부재라 **세션 판단**으로 별도 커밋에 실어 출처를 남겼다 — 내용은 손대지 않았다 | 2026-09-09 |
