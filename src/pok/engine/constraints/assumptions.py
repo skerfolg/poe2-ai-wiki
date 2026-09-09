@@ -190,6 +190,26 @@ def _stem_pattern(keyword: str) -> re.Pattern[str]:
     return re.compile(rf"\b{re.escape(stem)}\w*", re.I)
 
 
+# `Grants Skill: Level 20 Eternal Rage` · `Grants Skill: Parry` · `Grants Skill: Level (1-20)
+# Mana Drain` — PoB 아이템 텍스트와 KB implicit 표기 둘 다. 앞의 `{variant:7}`·`{tags:…}`
+# 꼴 표식은 뗀다.
+_GRANTS_SKILL = re.compile(
+    r"Grants\s+Skill:\s*(?:Level\s*\(?[\d\s\-\u2013\u2014.]+\)?\s*)?(?P<name>[^\r\n]+?)\s*$",
+    re.I,
+)
+_BRACED = re.compile(r"\{[^}]*\}")
+
+
+def granted_skill_names(lines: Sequence[str]) -> list[str]:
+    """문구 줄에서 **부여 스킬 이름**을 뽑는다 — 「Grants Skill: (Level N )?<이름>」 (#154)."""
+    out: list[str] = []
+    for line in lines:
+        m = _GRANTS_SKILL.search(_BRACED.sub("", str(line)))
+        if m:
+            out.append(m.group("name").strip())
+    return out
+
+
 def build_text_sources(
     build_spec: Mapping[str, Any], *, root: Path | None = None
 ) -> dict[str, list[str]]:
@@ -220,14 +240,18 @@ def build_text_sources(
         elif rec.type == "Passive" and data.get("node_id") is not None:
             by_node[int(data["node_id"])] = (rid, data)
 
+    def _skill_lines(data: Mapping[str, Any]) -> list[str]:
+        stats = [str(s) for s in (data.get("stats") or [])]
+        if data.get("description"):
+            stats.append(str(data["description"]))
+        return stats
+
     for group in build_spec.get("skills") or []:
         for gem in group.get("gems") or []:
             hit = by_name.get(str(gem.get("name", "")).lower())
             if hit:
                 rid, data = hit
-                stats = [str(s) for s in (data.get("stats") or [])]
-                if data.get("description"):
-                    stats.append(str(data["description"]))
+                stats = _skill_lines(data)
                 if stats:
                     sources[f"젬:{gem.get('name')}"] = stats
     for node in build_spec.get("tree_nodes") or ():
@@ -237,6 +261,21 @@ def build_text_sources(
             stats = [str(s) for s in (data.get("stats_en") or data.get("stats") or [])]
             if stats:
                 sources[f"노드:{rid}"] = stats
+    # **아이템·주얼·노드가 부여한 스킬**은 그 스킬의 stats가 공급원이다 (#154). 줄
+    # `Grants Skill: Level 20 Eternal Rage`는 문자열로만 들어가 있었고 「Rage」가 이름에만
+    # 있어 어느 키워드에도 안 걸렸다 — 부재 목걸이의 영원한 격노(초당 0.25~5 격노 재생)가
+    # 있는데 `multiplierRage`가 **차단**됐다(실측 2026-09-09). 유니크 104종이 이 줄을
+    # 갖는다 — 아이템 부여 스킬에서 파워가 나오는 빌드는 전부 거짓 차단 대상이었다.
+    # 젬 경로와 **같은 사전**(`by_name`)으로 푼다. 사전에 없는 이름은 그대로 둔다 —
+    # 원문 줄은 이미 출처에 있으니 잃는 것은 없다(모르면 지어내지 않는다).
+    for source, lines in list(sources.items()):
+        for name in granted_skill_names(lines):
+            hit = by_name.get(name.lower())
+            if not hit:
+                continue
+            stats = _skill_lines(hit[1])
+            if stats:
+                sources[f"부여 스킬:{name}←{source}"] = stats
     return sources
 
 

@@ -84,3 +84,15 @@ def test_실패_사유를_기록한다() -> None:
     assert "접사" in telemetry.detail_of({"legal": False, "errors": ["접사 수 초과"]})
     assert telemetry.detail_of([{"empty": True, "why": ["한글 질의"]}]) == "한글 질의"
     assert telemetry.detail_of({"stats": {}}) == ""
+
+
+def test_비JSON_인자는_형만_남기고_기록은_살린다(tmp_path: Path) -> None:
+    """FastMCP가 주입하는 `Context` 같은 인자가 args에 섞이면 `json.dumps`가 죽고, record는
+    모든 오류를 삼키므로 **호출 기록이 통째로 조용히 사라진다** (#155)."""
+
+    class _Ctx:
+        pass
+
+    telemetry.record("assemble_pob", {"slug": "x", "ctx": _Ctx()}, outcome="failed", root=tmp_path)
+    rows = telemetry.read(tmp_path)
+    assert rows and rows[-1]["args"] == {"slug": "x", "ctx": "<_Ctx>"}, rows

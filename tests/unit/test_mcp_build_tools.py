@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from pok.mcp.tools.build import check_item_legality
@@ -147,3 +149,89 @@ def test_req_shortfall_rides_on_every_return() -> None:
     # 룬 소켓 한도도 **매 반환에** 실린다 (#120) — `items_legal`은 소켓 수를 안 본다
     assert out["item_sockets_legal"] is True
     assert "item_socket_problems" not in out, "정상일 땐 안 싣는다(소음 방지)"
+
+
+# ── #155 — assemble_pob이 30분을 조용히 태우고 결과를 잃던 자리 ───────────────────
+
+
+def test_차단될_스펙에는_자동_채움을_돌리지_않는다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#155 — 정적 검사(0.2초)가 자동 채움(슬롯당 수 분) **앞**에 온다.
+
+    순서가 반대라서 어차피 차단될 스펙에 30분을 태운 뒤 거부했고(실측 2026-09-09:
+    31분 57초), 클라이언트는 1800초에 포기해 그 결과를 버렸다.
+    """
+    import pok.engine.rares as rares
+    from pok.mcp.tools.build import assemble_pob
+
+    calls: list[str] = []
+
+    def spy(spec: dict[str, Any], slot: str, base: str, weights: dict[str, float]) -> Any:
+        calls.append(slot)
+        raise RuntimeError("PoB 없음")
+
+    monkeypatch.setattr(rares, "optimize_rare", spy)
+    spec = {
+        "class_name": "Mercenary",
+        "ascendancy": "Mercenary3",
+        "tree_nodes": [],
+        "config": {"multiplierRage": 44},  # 공급원 없음 → 차단
+        "derived_from": {"items": {"weights": {"TotalDPS": 1.0}}},
+        "items": [{"slot": "Ring 1", "text": "Rarity: RARE\nR\nGold Ring\n+10 to Strength"}],
+    }
+    out = assemble_pob(spec, "test-155")
+    assert out["ok"] is False and "실현 불가능" in out["reason"]
+    assert calls == [], "차단될 스펙에 optimize_rare를 돌렸다 — 30분이 버려진다"
+
+
+def test_MCP_경유_자동_채움이_진행을_알린다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#155 — 진행 알림이 없으면 클라이언트는 「no response or progress」로 포기한다.
+
+    서버 래퍼를 실제로 지나는 경로(인메모리 클라이언트)에서 알림이 나오는지 본다 —
+    `Context` 주입·스레드→루프 브리지·텔레메트리(비JSON 인자)가 전부 이 길에 있다.
+    """
+    import asyncio
+    import json
+
+    from fastmcp import Client
+
+    import pok.engine.rares as rares
+    from pok.mcp.server import mcp
+
+    class _R:
+        def __init__(self, text: str) -> None:
+            self.text, self.delta = text, {}
+
+    def fake(spec: dict[str, Any], slot: str, base: str, weights: dict[str, float]) -> Any:
+        if slot == "Ring 2":
+            raise RuntimeError("둘째는 실패 — PoB 전에 거부로 끝나게")
+        return _R(f"Rarity: RARE\n산출물\n{base}\n+30 to Strength")
+
+    monkeypatch.setattr(rares, "optimize_rare", fake)
+    spec = {
+        "class_name": "Mercenary",
+        "ascendancy": "Mercenary3",
+        "tree_nodes": [],
+        "derived_from": {"items": {"weights": {"TotalDPS": 1.0}}},
+        "items": [
+            {"slot": "Ring 1", "text": "Rarity: RARE\nR\nGold Ring\n+10 to Strength"},
+            {"slot": "Ring 2", "text": "Rarity: RARE\nR\nIron Ring\n+10 to Strength"},
+        ],
+    }
+    seen: list[tuple[float, float | None, str | None]] = []
+
+    async def on_progress(progress: float, total: float | None, message: str | None) -> None:
+        seen.append((progress, total, message))
+
+    async def main() -> Any:
+        async with Client(mcp) as client:
+            return await client.call_tool(
+                "assemble_pob",
+                {"build_spec": spec, "slug": "test-155"},
+                progress_handler=on_progress,
+                raise_on_error=False,
+            )
+
+    result = asyncio.run(main())
+    data = result.data if isinstance(result.data, dict) else json.loads(result.content[0].text)
+    assert data.get("ok") is False and "autofill_failed" in data, data
+    assert seen and any("Ring 1" in (m or "") for _, _, m in seen), seen

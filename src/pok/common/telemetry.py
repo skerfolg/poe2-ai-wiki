@@ -45,7 +45,11 @@ def _brief(value: Any) -> Any:
         return [_brief(v) for v in value[:5]] + (["…"] if len(value) > 5 else [])
     if isinstance(value, dict):
         return {k: _brief(v) for k, v in list(value.items())[:8]}
-    return value
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    # 주입 인자(FastMCP `Context`) 같은 비JSON 값 — 그대로 두면 `json.dumps`가 죽고, record는
+    # 모든 오류를 삼키므로 **호출 기록이 통째로 조용히 사라진다**. 형만 남긴다 (#155).
+    return f"<{type(value).__name__}>"
 
 
 def classify(result: Any) -> str:
