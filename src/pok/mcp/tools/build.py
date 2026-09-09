@@ -741,7 +741,9 @@ def assemble_pob(
             "reason": (
                 "도장 없는 희귀 슬롯을 자동으로 채우지 못했다 — 손으로 지은 접사가 "
                 "그대로 나가는 것을 막는다. 아래 슬롯을 직접 optimize_rare로 돌리거나, "
-                "의도한 것이면 그 슬롯에 derived_from을 명시할 것"
+                "의도한 것이면 그 슬롯에 derived_from을 명시할 것 — 예: "
+                'items[i].derived_from = {"tool": "manual", "why": "<사유>"} '
+                "(조립은 이 키를 읽고 벗겨 낸다, #152)"
             ),
             "autofill_failed": autofill.skipped,
             **({"autofilled": autofill.replaced} if autofill.replaced else {}),

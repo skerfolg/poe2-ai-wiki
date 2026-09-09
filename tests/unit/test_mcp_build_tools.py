@@ -49,6 +49,26 @@ class TestSpecFromDict:
         assert spec.level == 90
         assert spec.tree_nodes == ()
 
+    def test_아이템의_derived_from은_스펙_전용_키다(self) -> None:
+        """#152 — 희귀 슬롯의 출처 도장은 **받되 PoB로는 안 보낸다**.
+
+        훅 게이트와 자동 채움이 읽는 유일한 신호인데 스키마가 거부해, 자동 채움이 첫 칸에
+        찍은 도장으로 둘째 칸부터 죽었고 거부문이 안내한 탈출구도 막혀 있었다. 최상위
+        `derived_from`과 같은 규약을 아이템에도 둔다 — **모르는 키는 여전히 거부**하되,
+        허용 목록이 이 키를 말해야 거부문과 스키마가 어긋나지 않는다.
+        """
+        item = {
+            "slot": "Ring 1",
+            "text": "Rarity: RARE\nA\nIron Ring",
+            "derived_from": {"tool": "x"},
+        }
+        spec = spec_from_dict({"class_name": "Witch", "ascendancy": "Witch1", "items": [item]})
+        assert spec.items[0].slot == "Ring 1" and not hasattr(spec.items[0], "derived_from")
+        with pytest.raises(ValueError, match=r"모르는 키: \['oops'\].*derived_from"):
+            spec_from_dict(
+                {"class_name": "Witch", "ascendancy": "Witch1", "items": [{**item, "oops": 1}]}
+            )
+
 
 def test_check_item_legality_어댑터() -> None:
     out = check_item_legality(

@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Any
 
@@ -190,3 +190,118 @@ def test_실물_빌드에서_희귀_슬롯을_찾아낸다() -> None:
     assert any(f["base_type"] == "Massive Greathammer" for f in found)
     # 주얼은 찾되 **자동으로는 안 채운다**
     assert any(f.get("jewel") for f in found)
+
+
+# ── #152 — 자동 채움이 자기 스펙을 오염시키던 자리 ─────────────────────────────
+#
+# 첫 칸에 찍은 `derived_from` 도장이 둘째 칸의 `optimize_rare`와 조립의 `spec_from_dict`로
+# 그대로 가는데, 스키마가 그 키를 거부해 **첫 칸만 성공하고 나머지는 전부 실패**했다.
+# 위의 가짜 최적화기는 받은 스펙을 **읽지 않아** 이 오염을 볼 수 없었다 — 아래 가짜는
+# 실제 도구가 하는 것과 같이 받은 스펙을 스키마에 태운다.
+
+_FULL = {"class_name": "Witch", "ascendancy": "Witch1"}
+
+
+def _strict_optimizer(calls: list[dict[str, Any]]) -> Any:
+    """받은 스펙을 **실제 도구처럼** 스키마에 태우는 가짜 — 오염이 있으면 여기서 죽는다."""
+    from pok.pob.buildxml import spec_from_dict
+
+    def run(spec: dict[str, Any], slot: str, base_type: str, weights: dict[str, float]) -> _Result:
+        spec_from_dict(spec, validate_catalog=False)  # 실제 optimize_rare가 밟는 첫 관문
+        calls.append({"slot": slot, "items": [dict(i) for i in spec["items"]]})
+        return _Result(text=f"Rarity: RARE\n산출물\n{base_type}\n+30 to Strength", delta={})
+
+    return run
+
+
+def test_둘째_칸부터_자기_스펙을_넘겨도_스키마를_통과한다() -> None:
+    """#152 — **2칸 이상**이어야 보인다. 1칸 시험은 첫 칸이 언제나 성공해 구조적으로 못 본다."""
+    spec = _spec(
+        **_FULL,
+        derived_from={"items": {"weights": {"TotalDPS": 1.0}}},
+        items=[
+            {"slot": "Ring 1", "text": _RARE},
+            {"slot": "Ring 2", "text": _RARE.replace("Gold Ring", "Iron Ring")},
+        ],
+    )
+    calls: list[dict[str, Any]] = []
+    _, report = autofill_rares(spec, _strict_optimizer(calls))
+
+    assert not report.skipped, report.skipped
+    assert [r["slot"] for r in report.replaced] == ["Ring 1", "Ring 2"]
+    # 둘째 호출은 첫 칸의 **도장 찍힌** 아이템을 이미 들고 있었다 — 그 스펙이 통과했다
+    carried = next(i for i in calls[1]["items"] if i["slot"] == "Ring 1")
+    assert carried["derived_from"] == {"tool": "optimize_rare", "via": "autofill"}
+
+
+def test_자동_채움_산출_스펙은_조립_입력_스키마를_통과한다() -> None:
+    """채운 스펙은 그대로 `assemble(spec_from_dict(…))`로 간다 — 거기서 죽으면 1칸도 못 나간다.
+
+    도장은 아이템의 속성이 아니라 계보라 **PoB로는 안 간다**: 스키마가 받되 벗겨 낸다.
+    `ItemSpec` 자체에는 그 필드가 없어야 한다 — PoB 직렬화 형식은 그대로다.
+    """
+    from pok.pob.buildxml import ItemSpec, spec_from_dict
+
+    spec = _spec(**_FULL, derived_from={"items": {"weights": {"TotalDPS": 1.0}}})
+    out, report = autofill_rares(spec, _fake_optimizer([]))
+    assert report.ran
+
+    built = spec_from_dict(out, validate_catalog=False)
+    ring = next(i for i in built.items if i.slot == "Ring 1")
+    assert "도구 산출물" in ring.text
+    assert "derived_from" not in {f.name for f in fields(ItemSpec)}
+
+
+def test_거부문이_안내한_탈출구가_실제로_열려_있다(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#152 얼굴 ② — 거부문은 「그 슬롯에 derived_from을 명시할 것」을 안내한다.
+
+    금지하려면 대안 경로가 먼저 있어야 한다(철칙 5 따름정리). 안내를 **그대로 따른** 스펙이
+    훅 게이트·자동 채움·스키마를 다 지나야 탈출구다 — 실측 2026-09-09: 스키마가 막았다.
+    거부문을 실제 경로(`assemble_pob`)에서 받아 온다 — 문구를 베껴 적으면 둘이 따로 논다.
+    """
+    import pok.engine.rares as rares
+    from pok.mcp.tools.build import assemble_pob
+    from pok.pob.buildxml import spec_from_dict
+
+    def unavailable(*_: Any, **__: Any) -> Any:
+        raise RuntimeError("PoB 없음")
+
+    monkeypatch.setattr(rares, "optimize_rare", unavailable)
+    spec = _spec(
+        **_FULL,
+        derived_from={"items": {"weights": {"TotalDPS": 1.0}}},
+        items=[
+            {"slot": "Ring 1", "text": _RARE},
+            {"slot": "Ring 2", "text": _RARE.replace("Gold Ring", "Iron Ring")},
+        ],
+    )
+    refused = assemble_pob(spec, "test-152")
+    assert refused["ok"] is False and "derived_from" in refused["reason"]
+    assert {s["slot"] for s in refused["autofill_failed"]} == {"Ring 1", "Ring 2"}
+
+    # 안내대로 — 실패한 슬롯마다 도장을 명시한다
+    escaped = {
+        **spec,
+        "items": [{**i, "derived_from": {"tool": "manual", "why": "시험"}} for i in spec["items"]],
+    }
+    assert unstamped_rares(escaped) == []  # 자동 채움 대상에서 빠진다
+    _, report = autofill_rares(escaped, unavailable)  # 최적화기를 부르지 않는다
+    assert not report.skipped and not report.ran
+    built = spec_from_dict(escaped, validate_catalog=False)  # 스키마가 받는다
+    assert {i.slot for i in built.items} == {"Ring 1", "Ring 2"}
+
+
+def test_날린_대리_측정_줄을_보고에_남긴다() -> None:
+    """갈아 끼우면 `substitutes`가 함께 빠진다 — 옮기지도, 조용히 버리지도 않는다 (#153).
+
+    옮기면 사라진 룬의 대리 줄이 추산을 실측으로 둔갑시키고, 조용히 버리면 트리 문구를
+    얹어 두던 측정이 말없이 준다. 엔진은 어느 쪽인지 모른다 — 빠진 사실을 낸다.
+    """
+    spec = _spec(
+        derived_from={"items": {"weights": {"TotalDPS": 1.0}}},
+        items=[{"slot": "Ring 1", "text": _RARE, "substitutes": ["10% increased Cast Speed"]}],
+    )
+    out, report = autofill_rares(spec, _fake_optimizer([]))
+    assert report.replaced[0]["before_substitutes"] == ["10% increased Cast Speed"]
+    ring = next(i for i in out["items"] if i["slot"] == "Ring 1")
+    assert "substitutes" not in ring, "대리 줄을 새 아이템으로 옮기면 추산이 실측으로 둔갑한다"

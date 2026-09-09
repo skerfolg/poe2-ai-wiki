@@ -254,14 +254,21 @@ def _with_substitutes(item: ItemSpec) -> str:
     return item.text.rstrip("\n") + "\n" + "\n".join(item.substitutes)
 
 
-def _make[T](cls: type[T], data: dict[str, Any], where: str) -> T:
+def _make[T](
+    cls: type[T], data: dict[str, Any], where: str, *, spec_only: frozenset[str] = frozenset()
+) -> T:
     """dataclass 생성 — 빠진/모르는 키를 **어디서 났는지와 함께** 말한다.
 
     raw TypeError는 "missing 1 required positional argument: 'gem_id'"만 남긴다.
     어느 젬인지도, 무엇을 넣어야 하는지도 알 수 없어서 호출자는 추측으로 재시도한다.
     최상위 키는 이미 친절히 거부하고 있었는데 **중첩만 날것이었다** — 그 비대칭을 없앤다.
+
+    `spec_only`는 **스펙에는 있지만 dataclass(=PoB)에는 안 가는** 키다 — 허용하되
+    벗겨 낸다. 최상위 `_SPEC_ONLY_KEYS`와 같은 성격인데 중첩에는 그 규약이 없어서
+    아이템의 `derived_from` 도장을 여기서 거부했다(#152). 허용 키 목록에도 실린다 —
+    거부문이 가리키는 키와 스키마가 어긋나면 안내를 따라도 막힌다.
     """
-    allowed = {f.name for f in fields(cls)}  # type: ignore[arg-type]
+    allowed = {f.name for f in fields(cls)} | spec_only  # type: ignore[arg-type]
     required = {
         f.name
         for f in fields(cls)  # type: ignore[arg-type]
@@ -277,7 +284,7 @@ def _make[T](cls: type[T], data: dict[str, Any], where: str) -> T:
         if unknown:
             parts.append(f"모르는 키: {unknown}")
         raise ValueError(f"{where} — {' · '.join(parts)}. 허용 키: {sorted(allowed)}")
-    return cls(**data)
+    return cls(**{k: v for k, v in data.items() if k not in spec_only})
 
 
 @functools.lru_cache(maxsize=1)
@@ -543,6 +550,15 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
 # 복원한 실물 빌드가 막혔다. 계산엔 안 가지만 스펙에 남아야 그 판별이 선다.
 _SPEC_ONLY_KEYS = frozenset({"derived_from", "restored_from"})
 
+# **아이템 단위**의 스펙 전용 키 (#152). 희귀 슬롯의 출처 도장 `items[i].derived_from`은
+# 조립 게이트(`scripts/lib/assembly-gate-rule.mjs`)와 자동 채움(`engine/autofill.py`)이
+# 「손으로 지은 접사인가」를 가르는 **유일한 신호**인데, `ItemSpec`에는 그 필드가 없어
+# `_make`가 거부했다 — 자동 채움이 첫 칸에 도장을 찍은 스펙을 둘째 칸의 `optimize_rare`에
+# 넘기는 순간 `모르는 키: ['derived_from']`로 죽었고, 거부문이 안내한 탈출구(「그 슬롯에
+# derived_from을 명시할 것」)도 같은 자리에서 막혔다(실측 2026-09-09). 도장은 아이템의
+# 속성이 아니라 **계보**라 PoB로는 안 간다 — 받아서 벗겨 낸다. `ItemSpec` 자체는 그대로다.
+_ITEM_SPEC_ONLY_KEYS = frozenset({"derived_from"})
+
 
 def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> BuildSpec:
     """JSON 친화 dict → BuildSpec (MCP 도구 입력 경로). 모르는 키는 즉시 거부.
@@ -567,7 +583,10 @@ def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> Bu
         )
         for gi, grp in enumerate(data.get("skills", []))
     )
-    items = tuple(_make(ItemSpec, it, f"items[{i}]") for i, it in enumerate(data.get("items", [])))
+    items = tuple(
+        _make(ItemSpec, it, f"items[{i}]", spec_only=_ITEM_SPEC_ONLY_KEYS)
+        for i, it in enumerate(data.get("items", []))
+    )
     jewels = tuple(
         _make(JewelSpec, j, f"jewels[{i}]") for i, j in enumerate(data.get("jewels", []))
     )

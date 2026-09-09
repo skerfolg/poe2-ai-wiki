@@ -175,10 +175,10 @@ def autofill_rares(
                 }
             )
             continue
-        before = next(
-            (str(i.get("text") or "") for i in (out.get("items") or ()) if i.get("slot") == slot),
-            "",
+        prev: dict[str, Any] = next(
+            (i for i in (out.get("items") or ()) if i.get("slot") == slot), {}
         )
+        before = str(prev.get("text") or "")
         try:
             result = optimize(out, slot, base, weights)
         # 한 칸이 실패해도 나머지는 채운다 — 하나 때문에 전부 멈추면 거부와 같아진다
@@ -190,15 +190,30 @@ def autofill_rares(
             report.skipped.append({**target, "why": "optimize_rare가 텍스트를 못 냈다"})
             continue
         items = [dict(i) for i in (out.get("items") or ()) if str(i.get("slot")) != slot]
-        items.append({"slot": slot, "text": text, "derived_from": {"tool": "optimize_rare"}})
-        out = {**out, "items": items}
-        report.replaced.append(
+        # 도장은 **아이템 단위**로 찍는다 — 훅 게이트와 `unstamped_rares`가 읽는 자리다.
+        # 이 `out`이 다음 칸의 `optimize(out, …)`와 조립의 `spec_from_dict`로 그대로 간다 —
+        # 스키마가 이 키를 스펙 전용으로 받아 벗겨 내야 한다(`_ITEM_SPEC_ONLY_KEYS`, #152).
+        # 실측 2026-09-09: 그 규약이 없어 첫 칸만 성공하고 둘째 칸부터 전부 실패했다.
+        items.append(
             {
                 "slot": slot,
-                "base_type": base,
-                "before": before,
-                "after": text,
-                "delta": getattr(result, "delta", None),
+                "text": text,
+                "derived_from": {"tool": "optimize_rare", "via": "autofill"},
             }
         )
+        out = {**out, "items": items}
+        entry: dict[str, Any] = {
+            "slot": slot,
+            "base_type": base,
+            "before": before,
+            "after": text,
+            "delta": getattr(result, "delta", None),
+        }
+        # ⚠ 대리 측정 줄(`substitutes`)은 아이템과 함께 **빠진다** — 새 아이템으로 옮기지
+        # 않는다. 그 줄이 사라진 룬을 대신하던 것이면 옮기는 순간 추산이 실측으로 둔갑하고,
+        # 트리 문구를 얹어 두던 것이면 빠지는 순간 측정이 준다. 어느 쪽인지 엔진은 모른다 —
+        # 빠졌다는 사실을 보고에 남기고 판단은 호출자 몫이다(AD-3, #153).
+        if prev.get("substitutes"):
+            entry["before_substitutes"] = [str(s) for s in prev["substitutes"]]
+        report.replaced.append(entry)
     return out, report
