@@ -19,7 +19,8 @@ from pok.kb.store import Store, load
 # 인덱스 구조(테이블·칼럼) 변경 시 반드시 +1 → 기존 인덱스 자동 재빌드
 # v6: records.unlock — 해금 제약을 검색 히트에 실어 보낸다(B-13)
 # v7: fts body에 minion_stats — 소환수 효과 검색(#8-b 분리 후 도달 경로)
-SCHEMA_VERSION = 9  # v9: records.carrier_unknown — 담체 미확인 접사를 히트에 실어 보낸다(#39)
+# v9: records.carrier_unknown — 담체 미확인 접사를 히트에 실어 보낸다(#39)
+SCHEMA_VERSION = 10  # v10: records.category·sub_type — 부위·방어 유형으로 거른다(#147)
 
 _DDL = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -40,9 +41,19 @@ CREATE TABLE records (
     -- 없음"이라는 실측으로 오독한다. 레코드 본문(get_entry)에만 두면 후보를 훑는
     -- 단계에서 안 보이고, 오독은 그 단계에서 굳는다(B-13과 같은 구조).
     pob_gap TEXT NOT NULL DEFAULT '',
-    carrier_unknown INTEGER NOT NULL DEFAULT 0
+    carrier_unknown INTEGER NOT NULL DEFAULT 0,
+    -- data.category / data.sub_type — **소문자로** 저장한다(필터 전용 칼럼이고
+    -- 원본 표기는 json에 그대로 있다). Item을 **부위·방어 유형으로 열거할 경로**가
+    -- 없어서 세션이 이름 토큰(`query="Boots"`)으로 훑다가 **「신발에는 회피/ES
+    -- 듀얼 베이스가 없다」고 오판**했다(#147, 실측 2026-09-09). 실제로는
+    -- category=boots 217건이고 이름군이 Boots/Sandals/Greaves로 갈려 있었다.
+    -- 0건이면 알아챘을 텐데 **그럴듯한 부분집합**이 나와서 갭이 안 보였다.
+    category TEXT NOT NULL DEFAULT '',
+    sub_type TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX idx_records_asc ON records(ascendancy);
+CREATE INDEX idx_records_category ON records(category);
+CREATE INDEX idx_records_sub_type ON records(sub_type);
 CREATE TABLE tags (id TEXT NOT NULL, tag TEXT NOT NULL);
 CREATE INDEX idx_tags_tag ON tags(tag);
 CREATE TABLE relations (src TEXT NOT NULL, rel TEXT NOT NULL, target TEXT NOT NULL);
@@ -60,6 +71,14 @@ CREATE VIRTUAL TABLE insights_fts USING fts5(id UNINDEXED, title, body);
 """
 
 # data 안에서 검색 가치가 있는 텍스트 필드 (효과·설명 — 한/영)
+#
+# ⛔ **여기 없는 문장 필드는 「없는 것」이 된다.** 0건이 아니라 **다른 타입이 대신
+# 나와서** 세션은 "모드는 있는데 담체가 없구나"로 읽는다 — 실제로는 담체가 KB에
+# 있는데 검색이 못 닿은 것이다(#146, §0 ⑧의 아이템판). 실측 2026-09-09: 유니크의
+# `explicits`가 색인 밖이라 `Facebreaker`·`Thunderfist`를 **효과로 못 찾고** 세션이
+# 이름만 들고 30분을 헤맸다. 그래서 `test_index_covers_prose_fields`가 **새 문장
+# 필드가 조용히 색인 밖에 남는 것을 막는다**(철칙 5) — 안 실을 것은 거기
+# `_NOT_INDEXED`에 사유와 함께 적는다.
 _BODY_FIELDS = (
     "stats",
     "stats_en",
@@ -70,6 +89,18 @@ _BODY_FIELDS = (
     "description",
     "implicit",
     "affix_name",
+    # 아이템 효과 문구 — 유니크의 본체다(#146). `implicit`(베이스)만 있고 이쪽이
+    # 없어서 **영어 원문조차 안 걸렸다**.
+    "implicits",
+    "explicits",
+    "explicits_ko",
+    "implicit_variants",
+    "base_type",
+    "base_type_ko",
+    # 젬의 품질·암시 효과 — 같은 부류의 조용한 갭이다(플레이어가 읽는 문장인데
+    # `stats`에는 없다).
+    "quality_stats",
+    "implicit_stats",
 )
 
 
@@ -149,7 +180,26 @@ def _fts_body(raw: dict[str, object]) -> str:
             lines = entity.get("stats")
             if isinstance(lines, list):
                 parts += [str(x) for x in lines]
+    # 함양 유니크가 부위별로 다는 접사는 `[{item_class, text, ...}]` 꼴이라 위의
+    # 문자열/리스트 분기에 안 걸린다 — `minion_stats`와 같은 형태의 갭이다(#146).
+    grants = data.get("grants")
+    if isinstance(grants, list):
+        parts += [str(g.get("text", "")) for g in grants if isinstance(g, dict)]
     return " ".join(parts)
+
+
+def _classify_key(raw: dict[str, object], field: str) -> str:
+    """`data.category`·`data.sub_type` → 필터 칼럼 값(소문자). 없으면 빈 문자열.
+
+    소문자로 저장하는 이유: 두 필드의 표기가 축마다 다르다(Item의 `category`는
+    `boots`, `sub_type`은 `Evasion/Energy Shield`). 호출자가 `describe_type`에서
+    본 표기를 그대로 넣어도 걸리게 하려면 양쪽을 접어야 한다 — **표기 불일치는
+    조회 실패의 단골 원인**이다(B-1).
+    """
+    data_obj = raw.get("data")
+    data: dict[str, object] = data_obj if isinstance(data_obj, dict) else {}
+    value = data.get(field)
+    return str(value).strip().lower() if isinstance(value, str) else ""
 
 
 def source_fingerprint(kdir: Path) -> str:
@@ -180,7 +230,7 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
         )
         for r in store.records.values():
             con.execute(
-                "INSERT INTO records VALUES (?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO records VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     r.id,
                     r.type,
@@ -192,6 +242,8 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
                     _unlock_key(r.raw),
                     _pob_gap_key(r.raw),
                     1 if (r.raw.get("data") or {}).get("carrier_unknown") else 0,
+                    _classify_key(r.raw, "category"),
+                    _classify_key(r.raw, "sub_type"),
                 ),
             )
             con.executemany("INSERT INTO tags VALUES (?,?)", [(r.id, t) for t in r.tags])

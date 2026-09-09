@@ -167,12 +167,18 @@ def search(
     root: Path | None = None,
     db_path: Path | None = None,
     for_ascendancy: str | None = None,
+    category: str | None = None,
+    sub_type: str | None = None,
 ) -> list[Hit]:
     """search_kb 1단계 — 압축 히트 반환 (D14).
 
     `ascendancy`와 `for_ascendancy`는 **다른 축**이다: 전자는 "그 전직이 **소유**한
     노드"를 거르는 필터, 후자는 "그 전직으로 플레이할 때 **해금 가능한가**"의 판정이다.
     후자는 거르지 않고 `excluded_by_unlock` 사유를 실어 보낸다.
+
+    `category`·`sub_type`은 **속성으로 열거**하는 축이다(#147). Item의 `tags`는 비어
+    있어서 부위를 물을 경로가 없었고, 세션은 이름 토큰으로 훑다가 **그럴듯한
+    부분집합**을 전량으로 오독했다. 대소문자는 접어서 대조한다.
     """
     con = _connect(root, db_path)
     try:
@@ -191,6 +197,10 @@ def search(
             # 코드·영문·한글 중 아무 표기로나 — 부분 일치
             where.append("r.ascendancy LIKE ?")
             params.append(f"%{ascendancy}%")
+        for column, value in (("category", category), ("sub_type", sub_type)):
+            if value:
+                where.append(f"r.{column} = ?")
+                params.append(value.strip().lower())
         for t in tags or []:
             where.append("r.id IN (SELECT id FROM tags WHERE tag = ?)")
             params.append(t)
@@ -283,11 +293,14 @@ def diagnose_empty(
     ascendancy: str | None = None,
     root: Path | None = None,
     db_path: Path | None = None,
+    category: str | None = None,
+    sub_type: str | None = None,
 ) -> EmptyDiagnosis:
     """0건 질의를 되짚어 원인 후보를 낸다. 판단은 하지 않고 **사실만** 낸다(AD-3)."""
     reasons: list[str] = []
     other: list[tuple[str, int]] = []
     tokens: list[tuple[str, int]] = []
+    narrow = {"category": category, "sub_type": sub_type}
 
     if query and _HANGUL.search(query):
         where = (
@@ -304,7 +317,13 @@ def diagnose_empty(
     if type_:
         # 같은 질의를 type 없이 — 다른 타입에 있으면 분류를 오해한 것이다
         loose = search(
-            query=query, tags=tags, ascendancy=ascendancy, limit=200, root=root, db_path=db_path
+            query=query,
+            tags=tags,
+            ascendancy=ascendancy,
+            limit=200,
+            root=root,
+            db_path=db_path,
+            **narrow,
         )
         counts: dict[str, int] = {}
         for hit in loose:
@@ -331,6 +350,7 @@ def diagnose_empty(
                         limit=200,
                         root=root,
                         db_path=db_path,
+                        **narrow,
                     )
                 )
                 tokens.append((part, n))
@@ -359,6 +379,29 @@ def diagnose_empty(
 
     if tags:
         reasons.append(f"tags={tags} 필터가 걸려 있다 — 태그는 게임 공식 소문자 표기다")
+        if type_ == "Item":
+            # Item의 tags는 **비어 있다** — 분류는 category·sub_type에 있다(#147).
+            # 이걸 안 말하면 세션은 "그 부위가 KB에 없다"로 읽는다.
+            reasons.append(
+                "⛔ **Item의 `tags`는 비어 있다** — 부위·방어 유형은 `category`"
+                "(`boots`·`helmet`·`body` …)와 `sub_type`(`Evasion/Energy Shield` …)에 "
+                "있다. `search_kb(category=..., sub_type=...)`로 물어라"
+            )
+    for column, value in (("category", category), ("sub_type", sub_type)):
+        if value:
+            reasons.append(
+                f"{column}={value!r} 필터가 걸려 있다 — 실제 표기는 "
+                f"`describe_type(type, field={column!r})`가 분포로 준다"
+            )
+    if query and type_ == "Item" and not category and not sub_type:
+        # **0건이면 알아채는데, 그럴듯한 부분집합이 나오면 갭이 안 보인다**(#147).
+        # 그래서 0건 진단에도 붙여 둔다 — 이름 토큰으로 훑는 습관 자체가 함정이다.
+        reasons.append(
+            "Item을 **이름 토큰으로 훑고 있다면** 같은 부위의 다른 이름군이 통째로 "
+            '빠진다(실측: 신발은 Boots·Sandals·Greaves로 갈린다 — `query="Boots"`는 '
+            '217건 중 16건만 본다). 부위 전량은 `search_kb(category="boots")`, '
+            '표기 분포는 `describe_type("Item", field="sub_type")`'
+        )
     if ascendancy and not reasons:
         reasons.append(f"ascendancy={ascendancy!r}가 어떤 표기와도 부분 일치하지 않았다")
     if not reasons:
