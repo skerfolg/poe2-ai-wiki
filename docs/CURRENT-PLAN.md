@@ -182,6 +182,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | scratchpad `m4final`·`m4v2`·`m4v3` | disposable | 집계 대조용 임시 — 레인 종료 시 폐기 |
 | worktree `.claude/worktrees/*` (arc-measure·ecstatic-benz·zealous-dewdney) | **소멸** | 2026-08-24 확인: `.claude/worktrees` **디렉터리 자체가 없다**. 표만 남아 있었다 |
 | worktree `.worktrees/ci-fix` (실제 경로는 다른 세션 scratchpad) | prunable | 실재하는 유일한 외부 워크트리 — 다른 세션(`3dee16c4`) scratchpad, detached `9eeb97e`(2026-08-13 「CI 복구 — mypy strict 17건」). **커밋은 main에 흡수 완료**(ancestor 확인)라 잃을 것이 없다. 가드가 「Current Plan에 없는 워크트리」로 경고하는 대상. **미커밋 변경 0건**(2026-08-24 확인)이라 지워도 잃을 것이 없다. ⛔ 그래도 소유 세션 확인 후 `git worktree remove` — 이 표에 적힌 것은 삭제 근거이지 삭제 승인이 아니다 |
+| branch `feat/145-dps-inflation-warnings` | merged · 삭제 후보 | PR #134가 스쿼시 머지(`26588a3`, 2026-09-09) — S33·S35·S36을 담았다. **로컬·원격 모두 잔존**. 커밋은 main에 흡수 완료라 잃을 것이 없다. ⛔ 삭제는 사용자 승인 후(아래 「원격 브랜치」 항과 같은 이유) |
 | branch `feat/m5-proposal-contract` | **소멸** | 머지 후 삭제됨 — 로컬·원격 모두 없다 |
 | branch `feat/long-jump-bundles` | stale | main이 #70을 PR #83으로 완결했고 `engine/tree/optimize.py`에 `long_jump`가 실재한다 — 이 브랜치는 **그 이전 작업분**이다. 로컬·원격 모두 잔존 · 삭제 후보 |
 | 원격 브랜치 21개 | stale | 스쿼시 머지 뒤 안 지워진 잔재(`fix/restore-item-granted-groups` 등). 일괄 정리는 **사용자 판정** — 소유 세션을 특정할 수 없다 |
@@ -190,9 +191,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
-| Integration Branch Override — 작업 브랜치 `feat/145-dps-inflation-warnings` | 레인명(`M5-proposal-rounds`)과 다름. `main`에서 분기 — 백로그 결함 수정(신고 층·검색 인덱스)이라 레인 파일과 겹치지 않는다. 이 PR 한정, 머지 시 소멸 | 2026-09-09 |
-| S33(#145)과 S35(#146·#147)를 **한 PR로 낸다** | #145는 이전 세션이 워킹 트리에 남긴 미커밋 작업이고(문서엔 이미 「해결」로 적혀 있었다), 두 작업이 `mcp/server.py`·`AGENTS.md`·`BACKLOG.md`·`CURRENT-PLAN.md`에서 겹친다. 갈라 내면 중간 커밋이 깨질 위험이 있어 **사용자 판정으로** 하나로 묶었다 — 커밋 메시지에 #145의 공이 이전 세션 것임을 적는다 | 2026-09-09 |
-| Integration Branch Override — 작업 브랜치 `fix/133-135-silent-oracle-gaps` | 레인명(`M5-proposal-rounds`)과 다름. `main`에서 분기 — 오라클 신고 층(`pob/`·`engine/items.py`) 수정이라 레인 파일과 겹치지 않는다. 이 PR 한정, 머지 시 소멸 | 2026-09-01 |
+| S33(#145)과 S35(#146·#147)를 **한 PR로 낸다** | #145는 이전 세션이 워킹 트리에 남긴 미커밋 작업이고(문서엔 이미 「해결」로 적혀 있었다), 두 작업이 `mcp/server.py`·`AGENTS.md`·`BACKLOG.md`·`CURRENT-PLAN.md`에서 겹친다. 갈라 내면 중간 커밋이 깨질 위험이 있어 **사용자 판정으로** 하나로 묶었다 — 커밋 메시지에 #145의 공이 이전 세션 것임을 적는다. **머지 완료**(`26588a3`) — 뒤이어 다른 세션이 올린 #148(S36)도 같은 이유로 이 PR에 붙였다 | 2026-09-09 |
 | #136을 **기각**한다 — PoB의 「한 발 기준」은 결함이 아니라 의도된 보수적 모델링 | 인게임에서 투사체가 한 몹에 전부 맞는 구조가 아니다(위치·각도). **사용자 판정**. ⚠ 형태 ②(축이 측정에 없으면 점수 0)는 강력한 렌즈라 **오라클이 일부러 낮게 잡은 것까지 결함으로 읽게** 만든다 — 가르는 질문은 「인게임에서 그 상한이 실제로 걸리나」이고 정본에도 PoB에도 그 답이 없다 | 2026-09-01 |
 | 버려진 아이템 판정을 **우리가 다시 구현하지 않는다** | 베이스명 대조를 우리 카탈로그로 하면 PoB와 어긋나는 순간 조용히 틀린다(AD-1). 드라이버가 이미 `POK_META.items`를 싣고 있어 **보낸 id와 맞추기만** 하면 된다 — 주얼도 그 목록에 들어와 오탐이 없다 | 2026-09-01 |
 | 복원은 **코드에 있는 statSet 색인을 쓴다** — 가정은 없을 때만 | 「PoB 코드는 어느 모드로 계산했는지 안 남긴다」가 틀렸다(`SkillsTab.lua:508`). 있는 값을 버리고 1번을 가정하면 **파트별 20배**가 조용히 갈린다. ⚠ #132가 statSet 1에서만 갈린다고 보고된 것과 겹친다 — 복원본이 전부 1번이었다 | 2026-09-01 |
