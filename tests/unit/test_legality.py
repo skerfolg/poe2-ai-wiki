@@ -908,3 +908,71 @@ def test_일반_베이스는_그대로_통과한다(checker: ItemLegalityChecker
     """
     assert checker.check(_rare_with_base("Felled Greatclub")).is_legal
     assert checker.check(_rare_with_base("Rusted Cuirass")).is_legal
+
+
+# ── #156 — 접사 효과 확장이 origins만 보고 scope를 안 보던 자리 ─────────────────
+
+_ABYSS_ID = "modifier.desecrated-jewel-of-the-abyss-1-2-increased-strength"
+_PRE_TRIGGER_OVER = "Triggered Spells deal 30% increased Spell Damage"  # 18 x 1.6 = 28.8 < 30
+_SUF_ABYSS_STR = "3% increased Strength"  # 신성모독 주얼 접미 of the Abyss (1-2)%, scope=jewel
+
+
+def test_신성모독_주얼_접미도_접미어_효과_확장을_받는다(checker: ItemLegalityChecker) -> None:
+    """#156 — 주얼 여부는 `origins`(일반 209건)**와** `scope`(신성모독 3건) 두 형태다.
+
+    실측 2026-09-09: `54% increased Effect of Suffixes` 아래 `of the Abyss` (1-2)%가
+    2 x 1.54 = 3.08 → 3%로 표시된 주얼을 「수치 [3.0]가 티어 범위 밖」으로 거부했다 —
+    사용자가 원인을 짚었다("접두어/접미어 효과 증가 속성 때문에 3%로 된 거 같은데").
+    """
+    report = checker.check(_jewel("54% increased Effect of Suffixes", _SUF_ABYSS_STR))
+    assert report.is_legal, report
+    verdict = next(v for v in report.verdicts if v.line == _SUF_ABYSS_STR)
+    assert verdict.modifier_id == _ABYSS_ID
+    assert "접미어 효과 54% 반영 상한" in verdict.reason, verdict
+
+
+def test_신성모독_주얼_접미_상한_초과는_여전히_거부(checker: ItemLegalityChecker) -> None:
+    """확장은 배율만큼이다 — 2 x 1.54 = 3.08 < 4. 게이트는 살아 있어야 한다."""
+    report = checker.check(_jewel("54% increased Effect of Suffixes", "4% increased Strength"))
+    assert not report.is_legal, report
+
+
+def test_접두어_효과도_대칭으로_확장한다(checker: ItemLegalityChecker) -> None:
+    """`Effect of Prefixes`(주얼 접미, LocalPrefixEffect)는 접두 수치를 같은 꼴로 배율한다 —
+    접미 쪽만 있던 확장의 대칭 (#156 곁가지). 15(상한) x 1.6 = 24."""
+    report = checker.check(_jewel("60% increased Effect of Prefixes", "24% increased Spell Damage"))
+    assert report.is_legal, report
+    assert any("접두어 효과 60% 반영 상한" in v.reason for v in report.verdicts), report.verdicts
+    # 상한 초과는 거부 — 18(상한) x 1.6 = 28.8 < 30. (`increased Spell Damage` 단독 문구는
+    # 룬 문구와도 겹쳐 CONDITIONAL로 빠지므로, 룬에 없는 접두 문구로 잰다)
+    over = checker.check(_jewel("60% increased Effect of Prefixes", _PRE_TRIGGER_OVER))
+    assert not over.is_legal, over
+
+
+# ── #157 — applicable_pages 대조가 클래스 조인 실패에서 단락하던 자리 ──────────────
+
+
+def test_주얼의_applicable_pages는_베이스명이다(checker: ItemLegalityChecker) -> None:
+    """#157 — `applicable_pages`는 축이 둘이다: 장비는 클래스 페이지, 주얼은 **베이스명**.
+
+    주얼 베이스는 전부 `item_class: "Jewel"`이라 클래스 조인이 항상 실패하고, 실패를 즉시
+    거부로 만들어 이름 대조에 영영 못 갔다 — 실측 2026-09-09: `{desecrated}2% increased
+    Strength`가 「applicable_pages(Diamond, Emerald, Ruby, Sapphire) 밖 베이스(Jewel)」로
+    거부됐다. **목록에 Emerald가 있는데 「밖」**이었다. #156을 고쳐도 이것이 남아 막았다.
+    """
+    for line in ("2% increased Strength", "{desecrated}2% increased Strength"):
+        report = checker.check(_jewel(line))
+        assert report.is_legal, report
+        verdict = next(v for v in report.verdicts if v.line.endswith("2% increased Strength"))
+        assert verdict.modifier_id == _ABYSS_ID
+        assert "밖 베이스" not in verdict.reason, verdict
+
+
+def test_장비의_클래스_조인_거부는_그대로다(checker: ItemLegalityChecker) -> None:
+    """정확 일치로만 넘긴다 — 느슨한 부분 문자열 대조로 넘기면 조인이 옳게 거부한 장비가
+    다시 통과한다. 주얼 접사를 **장비 베이스**에 쓰면 여전히 밖이다."""
+    report = checker.check(
+        "Rarity: RARE\nPok Ring\nIron Ring\nItem Level: 81\n{desecrated}2% increased Strength"
+    )
+    abyss = [v for v in report.verdicts if v.modifier_id == _ABYSS_ID]
+    assert not abyss or all(v.status == "ILLEGAL" for v in abyss), report
