@@ -11,9 +11,11 @@ from typing import Any
 
 from pok.engine.constraints.assumptions import (
     audit_config,
+    build_text_sources,
     check_ascendancy_entry,
     check_assumptions,
     check_locked_nodes,
+    granted_skill_names,
 )
 
 # 오라클 전용 해금 노드 (PoB unlockConstraint = {"ascendancy": "Oracle", "nodes": [5571]})
@@ -214,3 +216,62 @@ def test_해금_위반은_조립을_막는다() -> None:
 def test_전직은_코드로_줘도_해소된다() -> None:
     """빌드 스펙이 드는 값은 실명이 아니라 코드다 — 못 이으면 자기 노드가 위반이 된다."""
     assert check_locked_nodes(ORACLE_ONLY, "Druid1") == ()
+
+
+# ── #154 — 아이템이 부여한 스킬을 공급원으로 못 보던 자리 ──────────────────────
+
+ABSENT_AMULET = (
+    "Rarity: UNIQUE\nAbsent Amulet\nHavoc Gorget\n"
+    "{variant:7}Grants Skill: Level 20 Eternal Rage\n-1 Prefix Modifier\n-1 Suffix Modifier"
+)
+
+
+def test_아이템이_부여한_스킬이_공급원이다() -> None:
+    """#154 — `Grants Skill:` 줄은 문자열이 아니라 **그 스킬의 stats**가 공급원이다.
+
+    실측 2026-09-09: 부재 목걸이의 영원한 격노(초당 0.25~5 격노 재생)가 있는데
+    `multiplierRage`가 **차단**됐다 — 「Rage」가 이름에만 있어 어느 키워드에도 안 걸렸고,
+    걸렸어도 `Gain + Rage` 두 단어를 요구해 「Regenerate … Rage」는 못 넘었다.
+    """
+    spec: dict[str, Any] = {
+        "class_name": "Mercenary",
+        "config": {"multiplierRage": 44},
+        "items": [{"slot": "Amulet", "text": ABSENT_AMULET}],
+    }
+    sources = build_text_sources(spec)
+    granted = next((k for k in sources if k.startswith("부여 스킬:Eternal Rage")), None)
+    assert granted, list(sources)
+    assert any("Rage per second" in ln for ln in sources[granted])
+
+    verdict = {v.var: v for v in audit_config(spec)}["multiplierRage"]
+    assert verdict.status == "grounded", verdict.reason
+
+    # 게이트는 살아 있다 — 목걸이를 빼면 여전히 근거 없음이다
+    bare = {**spec, "items": []}
+    assert {v.var: v for v in audit_config(bare)}["multiplierRage"].status == "ungrounded"
+
+
+def test_부여_스킬_이름을_표기_변형에서_뽑는다() -> None:
+    """PoB 텍스트(`Level 20`)·KB 표기(`Level (1-20)`)·레벨 없음·변형 표식 전부."""
+    lines = [
+        "{variant:7}Grants Skill: Level 20 Eternal Rage",
+        "Grants Skill: Level (1-20) Mana Drain",
+        "{tags:gem}Grants Skill: Parry",
+        "Grants Skill: Level 15 Untether",
+        "20% increased Rage",  # 부여 줄이 아니다
+    ]
+    assert granted_skill_names(lines) == ["Eternal Rage", "Mana Drain", "Parry", "Untether"]
+
+
+def test_능력_플래그의_키워드는_동사가_아니라_대상이다() -> None:
+    """`Condition:CanGainRage` → `Rage`. PoB가 이 플래그를 세우는 문구는 gain·grants·
+    regenerated로 동사가 제각각이라(ModParser) 동사를 요구하면 공급원을 놓친다 (#154)."""
+    from pok.pob.catalog import ConfigOption
+
+    def kw(cond: str) -> tuple[str, ...]:
+        return ConfigOption(var="x", label="", conditions=(cond,)).keywords
+
+    assert kw("Condition:CanGainRage") == ("Rage",)
+    assert kw("Condition:CanApplyFireExposure") == ("Fire", "Exposure")
+    assert kw("Condition:CanInflictIncision") == ("Incision",)  # 종전과 같다
+    assert kw("Condition:CanHaveTailwind") == ("Tailwind",)

@@ -22,6 +22,8 @@
 from __future__ import annotations
 
 import re
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -103,17 +105,23 @@ class _Optimizer(Protocol):
     ) -> Any: ...
 
 
+#: 진행 보고 — `(끝낸 칸 수, 전체 칸 수, 메시지)`. 침묵은 「멈춤」과 구별되지 않는다 (#155).
+_Progress = Callable[[int, int, str], None]
+
+
 @dataclass
 class AutofillReport:
     """무엇을 돌렸고 무엇을 못 돌렸나 — **양쪽 다** 낸다."""
 
-    #: 갈아 끼운 슬롯. `{slot, base_type, before, after, delta}`
+    #: 갈아 끼운 슬롯. `{slot, base_type, before, after, delta, elapsed_s}`
     replaced: list[dict[str, Any]] = field(default_factory=list)
     #: 돌려야 했는데 못 돌린 슬롯과 사유 — 침묵하면 「다 했다」로 읽힌다
     skipped: list[dict[str, str]] = field(default_factory=list)
     #: 재사용한 가중치(호출자가 선언한 것). None이면 아무것도 안 돌렸다
     weights: dict[str, float] | None = None
     notes: list[str] = field(default_factory=list)
+    #: 벽시계 소요(초) — 「일한 게 아니다」와 「30분 일했다」를 가르는 숫자 (#155)
+    elapsed_s: float = 0.0
 
     @property
     def ran(self) -> bool:
@@ -121,14 +129,28 @@ class AutofillReport:
 
 
 def autofill_rares(
-    spec: dict[str, Any], optimize: _Optimizer, *, limit: int = 6
+    spec: dict[str, Any],
+    optimize: _Optimizer,
+    *,
+    limit: int = 6,
+    budget_s: float | None = None,
+    progress: _Progress | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> tuple[dict[str, Any], AutofillReport]:
     """도장 없는 희귀 슬롯을 `optimize_rare`로 채운 **새 스펙**과 보고를 낸다.
 
     `optimize`는 주입받는다 — 엔진이 PoB 실행 경로를 직접 잡으면 시험이 PoB에 묶인다.
 
-    `limit`은 폭주 방지다. 슬롯당 1~2분이라 한 번에 여러 칸이 걸리면 조립이 통째로
+    `limit`은 폭주 방지다. 슬롯당 수 분이라 한 번에 여러 칸이 걸리면 조립이 통째로
     길어진다 — 넘치면 **자른 사실을 `skipped`에 남긴다**(조용히 자르면 「다 했다」로 읽힌다).
+
+    `budget_s`는 **벽시계 상한**이다 (#155). 슬롯당 2~8분이라 여러 칸이면 호출 하나가
+    클라이언트 상한(1800초)을 넘고, 그러면 30분을 일하고도 결과가 버려진다 — 실측
+    2026-09-09: 31분 57초 뒤 반환한 응답을 클라이언트가 이미 포기했다. 다음 칸을
+    **시작하기 전에** 지금까지의 슬롯당 평균으로 넘칠지 예측해, 넘치면 남은 칸을
+    `skipped`로 낸다. 반쯤 돌다 죽이지 않는다 — 돌린 만큼은 결과다.
+
+    `progress`는 칸마다 부른다 — 침묵은 「멈춤」과 구별되지 않는다. `clock`은 시험용이다.
     """
     report = AutofillReport()
     targets = unstamped_rares(spec)
@@ -159,8 +181,11 @@ def autofill_rares(
         ]
         targets = targets[:limit]
 
+    started = clock()
+    attempted = 0
+    total = len(targets)
     out = spec
-    for target in targets:
+    for index, target in enumerate(targets):
         slot, base = target["slot"], target["base_type"]
         if target.get("jewel"):
             report.skipped.append(
@@ -175,10 +200,30 @@ def autofill_rares(
                 }
             )
             continue
+        elapsed = clock() - started
+        if budget_s is not None:
+            # 지금까지의 슬롯당 평균으로 **이 칸이 넘칠지** 미리 본다 — 시작한 칸은 끝까지 돌린다
+            avg = elapsed / attempted if attempted else 0.0
+            if elapsed >= budget_s or (attempted and elapsed + avg > budget_s):
+                report.skipped.append(
+                    {
+                        **target,
+                        "why": (
+                            f"시간 예산 {budget_s:.0f}초를 넘긴다 — 경과 {elapsed:.0f}초, "
+                            f"슬롯당 평균 {avg:.0f}초. 이 슬롯은 optimize_rare로 직접 돌려"
+                            "(호출 하나에 슬롯 하나) 그 text를 derived_from과 함께 스펙에 넣을 것"
+                        ),
+                    }
+                )
+                continue
+        if progress is not None:
+            progress(index, total, f"희귀 자동 채움 {index + 1}/{total}: {slot} ({base}) 실측 중")
         prev: dict[str, Any] = next(
             (i for i in (out.get("items") or ()) if i.get("slot") == slot), {}
         )
         before = str(prev.get("text") or "")
+        attempted += 1
+        slot_started = clock()
         try:
             result = optimize(out, slot, base, weights)
         # 한 칸이 실패해도 나머지는 채운다 — 하나 때문에 전부 멈추면 거부와 같아진다
@@ -208,6 +253,7 @@ def autofill_rares(
             "before": before,
             "after": text,
             "delta": getattr(result, "delta", None),
+            "elapsed_s": round(clock() - slot_started, 1),
         }
         # ⚠ 대리 측정 줄(`substitutes`)은 아이템과 함께 **빠진다** — 새 아이템으로 옮기지
         # 않는다. 그 줄이 사라진 룬을 대신하던 것이면 옮기는 순간 추산이 실측으로 둔갑하고,
@@ -216,4 +262,8 @@ def autofill_rares(
         if prev.get("substitutes"):
             entry["before_substitutes"] = [str(s) for s in prev["substitutes"]]
         report.replaced.append(entry)
+    report.elapsed_s = round(clock() - started, 1)
+    if progress is not None:
+        filled = len(report.replaced)
+        progress(total, total, f"희귀 자동 채움 끝 — {filled}/{total}칸, {report.elapsed_s:.0f}초")
     return out, report

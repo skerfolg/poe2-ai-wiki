@@ -305,3 +305,62 @@ def test_날린_대리_측정_줄을_보고에_남긴다() -> None:
     assert report.replaced[0]["before_substitutes"] == ["10% increased Cast Speed"]
     ring = next(i for i in out["items"] if i["slot"] == "Ring 1")
     assert "substitutes" not in ring, "대리 줄을 새 아이템으로 옮기면 추산이 실측으로 둔갑한다"
+
+
+# ── #155 — 자동 채움이 30분을 조용히 태우던 자리 ─────────────────────────────────
+
+
+def _ticking(seconds_per_call: float) -> tuple[Any, Any]:
+    """가짜 시계 + 호출마다 시계를 `seconds_per_call` 밀어 주는 최적화기."""
+    now = [0.0]
+
+    def clock() -> float:
+        return now[0]
+
+    def run(spec: dict[str, Any], slot: str, base: str, w: dict[str, float]) -> _Result:
+        now[0] += seconds_per_call
+        return _Result(text=f"Rarity: RARE\n산출물\n{base}", delta={})
+
+    return clock, run
+
+
+def test_시간_예산을_넘길_칸은_시작하지_않는다() -> None:
+    """#155 — 슬롯당 수 분이라 여러 칸이면 호출 하나가 클라이언트 상한(1800초)을 넘는다.
+
+    실측 2026-09-09: 07:35:55 발신 → 08:07:52 반환(31분 57초). 클라이언트는 1800초에
+    포기했고 30분의 결과가 버려졌다. 지금까지의 슬롯당 평균으로 **다음 칸이 넘칠지
+    시작 전에** 판단한다 — 반쯤 돌다 죽이지 않는다(돌린 만큼은 결과다).
+    """
+    clock, run = _ticking(480.0)  # 슬롯당 8분
+    spec = _spec(
+        derived_from={"items": {"weights": {"TotalDPS": 1.0}}},
+        items=[{"slot": f"Ring {i}", "text": _RARE} for i in range(1, 5)],
+    )
+    _, report = autofill_rares(spec, run, budget_s=1200.0, clock=clock)
+    # 480 → 960 → 다음은 1440 > 1200 이므로 셋째부터 건너뛴다
+    assert [r["slot"] for r in report.replaced] == ["Ring 1", "Ring 2"]
+    assert [s["slot"] for s in report.skipped] == ["Ring 3", "Ring 4"]
+    assert all("시간 예산" in s["why"] and "480초" in s["why"] for s in report.skipped)
+    assert report.elapsed_s == 960.0 and report.replaced[0]["elapsed_s"] == 480.0
+
+
+def test_예산이_없으면_종전과_같다() -> None:
+    clock, run = _ticking(480.0)
+    spec = _spec(
+        derived_from={"items": {"weights": {"TotalDPS": 1.0}}},
+        items=[{"slot": f"Ring {i}", "text": _RARE} for i in range(1, 4)],
+    )
+    _, report = autofill_rares(spec, run, clock=clock)
+    assert len(report.replaced) == 3 and not report.skipped and report.elapsed_s == 1440.0
+
+
+def test_진행을_칸마다_보고한다() -> None:
+    """침묵은 「멈춤」과 구별되지 않는다 — 클라이언트 타이머는 진행 알림으로 리셋된다."""
+    seen: list[tuple[int, int, str]] = []
+    spec = _spec(
+        derived_from={"items": {"weights": {"TotalDPS": 1.0}}},
+        items=[{"slot": "Ring 1", "text": _RARE}, {"slot": "Ring 2", "text": _RARE}],
+    )
+    autofill_rares(spec, _fake_optimizer([]), progress=lambda d, t, m: seen.append((d, t, m)))
+    assert [(d, t) for d, t, _ in seen] == [(0, 2), (1, 2), (2, 2)]
+    assert "Ring 1" in seen[0][2] and "Ring 2" in seen[1][2] and "2/2칸" in seen[2][2]

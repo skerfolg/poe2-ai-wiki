@@ -76,8 +76,16 @@ class ConfigOption:
         for cond in self.conditions:
             bare = cond.split(":")[-1]
             # 접두 기능어를 떼면 남는 게 실제 대상이다 — CanInflictIncision → Incision
+            # 능력 동사도 뗀다 — `CanGainRage`는 「Gain + Rage」가 아니라 **Rage**다. PoB가
+            # 이 플래그를 세우는 문구는 gain·grants·regenerated로 동사가 제각각이라
+            # (ModParser) 동사를 키워드로 요구하면 「Regenerate … Rage per second」(영원한
+            # 격노)가 공급원인데도 안 걸린다 — 실측 2026-09-09: 그래서 `multiplierRage`가
+            # 거짓 차단됐다(#154). `CanApplyFireExposure`도 같은 꼴이다(공급 문구는 inflict).
             bare = re.sub(
-                r"^(Can|Is|Are|Has|Have|Do|Using|While|Enemy|Your)+(Inflict|Be|Have)?", "", bare
+                r"^(Can|Is|Are|Has|Have|Do|Using|While|Enemy|Your)+"
+                r"(Inflict|Be|Have|Gain|Apply)?",
+                "",
+                bare,
             )
             # CamelCase를 단어로 — CanInflictIncision → Incision
             words = re.findall(r"[A-Z][a-z]{2,}", bare)

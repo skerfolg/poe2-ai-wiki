@@ -37,9 +37,13 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import functools
+import os
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+from fastmcp.server.context import Context
 
 from pok.common.paths import knowledge_dir
 from pok.engine.assemble import IllegalBuildError, assemble
@@ -686,11 +690,57 @@ def parse_pob(
     return out
 
 
+#: 자동 채움의 벽시계 상한(초). 환경변수로 덮는다 — 클라이언트 상한(Claude Code의 MCP
+#: 도구 호출은 1800초 뒤 「no response or progress」로 포기한다) 안에 KB 로드·PoB 조립까지
+#: 들어와야 하므로 기본 20분이다. 실측 2026-09-09: 슬롯당 133~156초(접사 풀 64~82개),
+#: 큰 빌드는 4칸에 32분 — 상한 없이는 한 호출이 30분을 넘기고 결과가 통째로 버려진다.
+_AUTOFILL_BUDGET_ENV = "POK_AUTOFILL_BUDGET_S"
+_AUTOFILL_BUDGET_DEFAULT_S = 1200.0
+
+
+def _autofill_budget_s() -> float:
+    raw = os.environ.get(_AUTOFILL_BUDGET_ENV, "")
+    try:
+        return float(raw) if raw else _AUTOFILL_BUDGET_DEFAULT_S
+    except ValueError:
+        return _AUTOFILL_BUDGET_DEFAULT_S
+
+
+def _progress_reporter(ctx: Context | None) -> Callable[[int, int, str], None] | None:
+    """칸마다 MCP 진행 알림을 보낸다 — **침묵은 「멈춤」과 구별되지 않는다** (#155).
+
+    클라이언트의 상한은 「응답도 진행도 없는」 시간을 재므로 진행 알림이 타이머를 되돌린다.
+    동기 도구는 FastMCP가 워커 스레드에서 돌리므로(`run_in_thread`) 코루틴인
+    `ctx.report_progress`는 `anyio.from_thread.run`으로 서버 루프에 넘긴다. 진행 보고는
+    부가 기능이다 — 어떤 실패도 조립을 막지 않는다. 직접 호출(시험·CLI)에는 ctx가 없다.
+    """
+    if ctx is None:
+        return None
+
+    def report(done: int, total: int, message: str) -> None:
+        try:
+            import anyio
+
+            anyio.from_thread.run(ctx.report_progress, float(done), float(total), message)
+        except Exception:
+            pass
+
+    return report
+
+
 def assemble_pob(
-    build_spec: dict[str, Any], slug: str, stats: list[str] | None = None
+    build_spec: dict[str, Any],
+    slug: str,
+    stats: list[str] | None = None,
+    ctx: Context | None = None,
 ) -> dict[str, Any]:
     """빌드 조립→검증→계산→artifacts/builds/<build-id>/ 기록. 비합법이면
-    거부하고 사유 반환. 성공 시 PoB 공유 코드(build_code) 포함."""
+    거부하고 사유 반환. 성공 시 PoB 공유 코드(build_code) 포함.
+
+    도장 없는 희귀 슬롯은 자동으로 optimize_rare를 돌려 채운다 — 칸마다 진행을 알리고
+    벽시계 예산(기본 20분, `POK_AUTOFILL_BUDGET_S`) 안에서만 돈다. 넘치는 칸은
+    autofill_failed로 낸다(그 칸은 optimize_rare를 직접 부를 것). `ctx`는 FastMCP가
+    주입한다 — 호출자가 주지 않는다."""
     from pok.pob.buildxml import find_probe_lines
 
     probes = find_probe_lines(build_spec)
@@ -719,8 +769,36 @@ def assemble_pob(
     #
     # ⛔ 가중치는 **이 빌드가 이미 선언한 것**만 재사용한다(철칙 3 — 엔진은 빌드 판단을
     #    지어내지 않는다). 선언이 없으면 안 돌리고, 그때는 훅 게이트가 거부한다.
-    # ⚠ 비용은 슬롯당 1~2분이다. 정상 절차를 밟은 조립은 도장이 있어 **0초**다.
+    # ⚠ 비용은 슬롯당 2~8분이다(실측 2026-09-09: 접사 풀 64~82개에서 133~156초, 보고
+    #    세션의 큰 빌드는 4칸에 32분). 정상 절차를 밟은 조립은 도장이 있어 **0초**다.
     from pok.engine.autofill import autofill_rares
+    from pok.engine.constraints.assumptions import check_assumptions
+
+    def _blocked(report: Any) -> dict[str, Any]:
+        return {
+            "ok": False,
+            "reason": "실현 불가능한 구성 — 인게임에서 성립하지 않는다",
+            "blocking": list(report.blocking),
+            "locked_nodes": [
+                {
+                    "node_id": n.node_id,
+                    "name": n.name,
+                    "locked_to": n.locked_to,
+                    "missing_nodes": list(n.missing_nodes),
+                    "why": n.why,
+                }
+                for n in report.locked_nodes
+            ],
+        }
+
+    # **정적 검사가 먼저다** (#155). 자동 채움은 슬롯당 수 분의 PoB 실측인데 이 검사는
+    # 0.2초짜리 정적 판정이다 — 순서가 반대라서 **어차피 차단될 스펙에 30분을 태운 뒤에야
+    # 거부**했다(실측 2026-09-09: 07:35:55 발신 → 08:07:52 반환, 31분 57초). 클라이언트는
+    # 1800초에 포기해 그 응답을 버렸고, 세션은 침묵을 「멈춤」으로 읽었다. 채우면 스펙이
+    # 달라지므로(손으로 지은 접사가 공급원이었을 수 있다 — #153) 갈아 끼운 뒤 **한 번 더** 본다.
+    assumptions = check_assumptions(build_spec)
+    if assumptions.blocking:
+        return _blocked(assumptions)
 
     def _run_rare(
         spec: dict[str, Any], slot: str, base_type: str, weights: dict[str, float]
@@ -729,7 +807,9 @@ def assemble_pob(
 
         return _opt(spec, slot, base_type, weights)
 
-    build_spec, autofill = autofill_rares(build_spec, _run_rare)
+    build_spec, autofill = autofill_rares(
+        build_spec, _run_rare, budget_s=_autofill_budget_s(), progress=_progress_reporter(ctx)
+    )
 
     # ⛔ **훅이 넘긴 것을 조립이 못 채웠으면 거부한다.** 훅 게이트는 자동 실행을 믿고
     # 비켜 준다(가중치 선언이 있으면 통과) — 그런데 실제로 못 채우면 손으로 지은
@@ -743,31 +823,17 @@ def assemble_pob(
                 "그대로 나가는 것을 막는다. 아래 슬롯을 직접 optimize_rare로 돌리거나, "
                 "의도한 것이면 그 슬롯에 derived_from을 명시할 것 — 예: "
                 'items[i].derived_from = {"tool": "manual", "why": "<사유>"} '
-                "(조립은 이 키를 읽고 벗겨 낸다, #152)"
+                "(조립은 이 키를 읽고 벗겨 낸다, #152). 이미 채운 슬롯(autofilled)은 그 "
+                "after 텍스트를 derived_from과 함께 스펙에 넣으면 다시 돌지 않는다"
             ),
             "autofill_failed": autofill.skipped,
+            "autofill_elapsed_s": autofill.elapsed_s,
             **({"autofilled": autofill.replaced} if autofill.replaced else {}),
         }
-
-    from pok.engine.constraints.assumptions import check_assumptions
-
-    assumptions = check_assumptions(build_spec)
-    if assumptions.blocking:
-        return {
-            "ok": False,
-            "reason": "실현 불가능한 구성 — 인게임에서 성립하지 않는다",
-            "blocking": list(assumptions.blocking),
-            "locked_nodes": [
-                {
-                    "node_id": n.node_id,
-                    "name": n.name,
-                    "locked_to": n.locked_to,
-                    "missing_nodes": list(n.missing_nodes),
-                    "why": n.why,
-                }
-                for n in assumptions.locked_nodes
-            ],
-        }
+    if autofill.replaced:
+        assumptions = check_assumptions(build_spec)
+        if assumptions.blocking:
+            return _blocked(assumptions)
     try:
         built = assemble(
             spec_from_dict(build_spec), slug, checker=_get_checker(), spec_data=build_spec
@@ -833,6 +899,7 @@ def assemble_pob(
                     "skipped": autofill.skipped,
                     "weights": autofill.weights,
                     "notes": autofill.notes,
+                    "elapsed_s": autofill.elapsed_s,
                 }
             }
             if (autofill.replaced or autofill.skipped)

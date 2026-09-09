@@ -59,6 +59,7 @@ flowchart TD
   ITEMQ[S35 #146·#147 아이템 조회 축<br/>done]
   RARERT[S36 #148 희귀 왕복<br/>done]
   STAMP[S37 #152 자동 채움 도장 스키마<br/>done]
+  GRANT[S38 #154·#155 부여 스킬 공급원 + 자동 채움 예산<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -90,6 +91,8 @@ flowchart TD
   RARERT -. 레인 밖 · 두 도구가 같은 텍스트를 다르게 읽었다 .-> M6
   RARERT -. 같은 세션이 출고에서 막혔다 .-> STAMP
   STAMP -. 레인 밖 · 거부문의 탈출구를 스키마와 맞춘다 .-> M6
+  STAMP -. 같은 세션 · 도장을 찍고 나니 다음 벽 .-> GRANT
+  GRANT -. 레인 밖 · 거짓 차단과 조용한 30분 .-> M6
 ```
 
 ## Baseline Structure
@@ -138,6 +141,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S35 | #146·#147 — Item에 닿는 축이 **이름 하나뿐**이라 세션이 이름 토큰으로 훑었고, 갭이 **0건이 아니라 그럴듯한 부분집합**으로 나와 안 보였다. #146 유니크의 `explicits`·`implicits`가 색인 밖(영어 원문조차 안 걸렸다) → FTS body에 실었다(+`grants`·젬 `quality_stats`) · #147 `category`·`sub_type` 필터 신설(소문자로 접어 대조 — 두 필드의 표기 규약이 다르다). ⭐ 실측 교정: 「신발에는 회피/ES 듀얼 베이스가 없다」던 보고가 틀렸다 — `category="boots"` **217건**, 그 조합 **27종**. 강제 지점은 `test_index_covers_prose_fields` — 정본의 **모든 문장 필드**가 색인되었거나 사유와 함께 제외되었거나 둘 중 하나임을 강제한다(#146은 그 결정을 **아무도 내리지 않아** 생긴 갭이었다) (`index/build.py` SCHEMA_VERSION 10) | done |
 | S36 | #148 — **희귀 아이템 왕복이 막혀 있던 자리.** 세 얼굴이 한 뿌리다: PoB 아이템 텍스트는 선언(`Prefix:`)과 렌더 문구를 **함께** 담는데 두 도구가 그것을 다르게 읽었다(§0 ④). ①문구를 재파싱하며 인접 두 줄을 하이브리드로 **탐욕 매칭**해 **판정이 줄 순서에 의존**했고(`+162 to Evasion Rating` 한 줄이 후보 **55건**에 걸린다) ②선언과 다른 id로 잡혀 접두 3개가 **4개로 계수**됐다(문구가 심지어 **룬**으로 잡혔다). 선언이 **자기 문구 줄을 먼저 집게** 해 둘을 함께 닫았다 — 좁히는 것이지 건너뛰는 것이 아니라 티어·스폰 검사는 그대로 돈다(`legality.py::_claim_declared`). ③`compute_pob`이 선언형을 **조용히 버리던 것**은 `unbuilt_declarations`로 매 반환에 신고하고 `check_item_legality`도 `not_computable`을 낸다 — ⚠ **거부가 아니라 신고로 했다**(접수 제안과 다름): 같은 형태의 #135가 신고이고, 거짓 거부는 우회를 학습시키며(§0 ⑪), 대안 경로(`build_items`)가 이미 있어 신고문이 그것을 가리킨다. ⭑ 재현은 `Drakeskin Boots`로만 성립한다 — `Stone Greaves`의 ILLEGAL은 **정상 판정**이다 | done |
 | S37 | #152 — **자동 채움이 자기 스펙을 오염시키던 자리.** 희귀 슬롯의 출처 도장(`items[i].derived_from`)을 훅 게이트·`unstamped_rares`·거부문 세 곳이 아이템 단위로 읽는데 `spec_from_dict`만 거부했다 — 첫 칸에 찍은 도장이 둘째 칸의 `optimize_rare`에서 `모르는 키`로 죽었고, 거부문이 안내한 탈출구(「그 슬롯에 derived_from을 명시할 것」)도 같은 자리에서 막혔다(철칙 5 따름정리 — 금지하려면 대안 경로부터). ⭑ 보고보다 넓었다: 채운 스펙은 그대로 조립의 `spec_from_dict`로 가므로 **1칸짜리도 조립 직전에 죽었다.** 최상위 `_SPEC_ONLY_KEYS`와 같은 규약을 아이템에 뒀다(받되 벗겨 낸다, `_make(spec_only=)`) — `ItemSpec`·manifest 해시는 그대로. 강제 지점: **2칸** + 받은 스펙을 스키마에 태우는 엄격한 가짜 최적화기, 거부문을 실제 경로에서 받아 탈출구를 밟는 시험. 둘째 절반(의도한 부품을 지운다)은 **#153으로 분리**하고 빠진 대리 줄만 신고한다 (`pob/buildxml.py`·`engine/autofill.py`) | done |
+| S38 | #154·#155 — **같은 세션이 도장을 찍고 나니 다음 벽에 부딪힌 자리.** #154 `check_assumptions`가 아이템이 부여한 스킬을 공급원으로 못 봐 **거짓 차단**했다 — 두 겹이었다: `Grants Skill:` 줄이 스킬 stats로 안 풀렸고, 풀려도 `CanGainRage`→`Gain + Rage`라 「Regenerate … Rage」(영원한 격노)는 못 넘었다. 부여 스킬을 젬과 같은 사전으로 풀고, 능력 동사(`Gain`·`Apply`)를 떼 대상만 키워드로 삼는다(유니크 104종이 `Grants Skill:`을 갖는다). #155 「1800초 무응답」은 ⚠ **진단 정정** — 멈춘 게 아니라 **32분 일하고 반환**했다(텔레메트리 `failed` 행 08:07:52, 발신 07:35:55): 차단될 스펙에 자동 채움(슬롯당 133~156초 실측, 큰 빌드 4칸 32분)을 **먼저** 돌린 뒤 거부했고 클라이언트가 1800초에 포기해 결과를 버렸다. 정적 검사 선행 · 벽시계 예산(`POK_AUTOFILL_BUDGET_S`, 기본 1200초, 다음 칸이 넘칠지 시작 전에 예측) · FastMCP `Context` 진행 알림 · 소요 시간 반환. #150(루프 교착)과 형태가 다르다 — 그대로 미수정. 강제 지점은 인메모리 FastMCP 클라이언트로 서버 래퍼를 실제로 지난다 (`engine/constraints/assumptions.py`·`pob/catalog.py`·`engine/autofill.py`·`mcp/tools/build.py`) | done |
 
 ## Canonical Next Step
 
@@ -187,6 +191,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | worktree `.claude/worktrees/*` (arc-measure·ecstatic-benz·zealous-dewdney) | **소멸** | 2026-08-24 확인: `.claude/worktrees` **디렉터리 자체가 없다**. 표만 남아 있었다 |
 | worktree `.worktrees/ci-fix` (실제 경로는 다른 세션 scratchpad) | prunable | 실재하는 유일한 외부 워크트리 — 다른 세션(`3dee16c4`) scratchpad, detached `9eeb97e`(2026-08-13 「CI 복구 — mypy strict 17건」). **커밋은 main에 흡수 완료**(ancestor 확인)라 잃을 것이 없다. 가드가 「Current Plan에 없는 워크트리」로 경고하는 대상. **미커밋 변경 0건**(2026-08-24 확인)이라 지워도 잃을 것이 없다. ⛔ 그래도 소유 세션 확인 후 `git worktree remove` — 이 표에 적힌 것은 삭제 근거이지 삭제 승인이 아니다 |
 | branch `feat/145-dps-inflation-warnings` | merged · 삭제 후보 | PR #134가 스쿼시 머지(`26588a3`, 2026-09-09) — S33·S35·S36을 담았다. **로컬·원격 모두 잔존**. 커밋은 main에 흡수 완료라 잃을 것이 없다. ⛔ 삭제는 사용자 승인 후(아래 「원격 브랜치」 항과 같은 이유) |
+| branch `fix/152-autofill-item-stamp` | merged · 삭제 후보 | PR #136이 스쿼시 머지(`5cde403`, 2026-09-09) — S37. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
 | branch `chore/M5-proposal-rounds-close-s33-s36` | merged · 삭제 후보 | PR #135가 스쿼시 머지(`de40859`, 2026-09-09) — S33·S35·S36 종결 기록. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
 | branch `feat/m5-proposal-contract` | **소멸** | 머지 후 삭제됨 — 로컬·원격 모두 없다 |
 | branch `feat/long-jump-bundles` | stale | main이 #70을 PR #83으로 완결했고 `engine/tree/optimize.py`에 `long_jump`가 실재한다 — 이 브랜치는 **그 이전 작업분**이다. 로컬·원격 모두 잔존 · 삭제 후보 |
@@ -196,6 +201,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| #154·#155 등재문(다른 세션의 미커밋 워킹 트리)을 **#154·#155 수정 PR의 첫 커밋으로 싣는다** | 아래 #149~#152와 같은 형태·같은 이유(두 번째). 등재문은 손대지 않았고, #155의 진단(「#150과 같은 형태」)은 본문에 **정정 절을 덧붙이는** 방식으로 남겼다 — 틀린 진단도 기록이다(§3 「검증으로 뒤집힌 보고」와 같은 취급) | 2026-09-09 |
+| Integration branch override — 작업 브랜치 `fix/154-155-granted-skill-mcp-hang` | 레인명과 다름. `main`(`5cde403`)에서 분기 — 레인 밖 결함 수정. 이 PR 한정, 머지 시 소멸 — This lane targets `fix/154-155-granted-skill-mcp-hang` instead of `main` for this PR only | 2026-09-09 |
 | #149~#152 등재문(다른 세션의 미커밋 워킹 트리)을 **#152 수정 PR의 첫 커밋으로 싣는다** | `[빌드]` 세션이 `docs/BACKLOG.md`에 #149~#152 등재와 #148 얼굴 ② 철회를 써 두고 커밋하지 않았다(S33의 #145와 같은 형태). #152를 고치려면 같은 파일을 만져야 해 갈라 낼 수 없고, 등재문을 버리면 수정이 가리키는 항목이 git에 없다. 사용자 부재라 **세션 판단**으로 별도 커밋에 실어 출처를 남겼다 — 내용은 손대지 않았다 | 2026-09-09 |
 | S33(#145)과 S35(#146·#147)를 **한 PR로 낸다** | #145는 이전 세션이 워킹 트리에 남긴 미커밋 작업이고(문서엔 이미 「해결」로 적혀 있었다), 두 작업이 `mcp/server.py`·`AGENTS.md`·`BACKLOG.md`·`CURRENT-PLAN.md`에서 겹친다. 갈라 내면 중간 커밋이 깨질 위험이 있어 **사용자 판정으로** 하나로 묶었다 — 커밋 메시지에 #145의 공이 이전 세션 것임을 적는다. **머지 완료**(`26588a3`) — 뒤이어 다른 세션이 올린 #148(S36)도 같은 이유로 이 PR에 붙였다 | 2026-09-09 |
 | #136을 **기각**한다 — PoB의 「한 발 기준」은 결함이 아니라 의도된 보수적 모델링 | 인게임에서 투사체가 한 몹에 전부 맞는 구조가 아니다(위치·각도). **사용자 판정**. ⚠ 형태 ②(축이 측정에 없으면 점수 0)는 강력한 렌즈라 **오라클이 일부러 낮게 잡은 것까지 결함으로 읽게** 만든다 — 가르는 질문은 「인게임에서 그 상한이 실제로 걸리나」이고 정본에도 PoB에도 그 답이 없다 | 2026-09-01 |
