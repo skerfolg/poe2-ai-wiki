@@ -52,6 +52,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pok.engine.legality import _DECLARED_AFFIX, _parse_item
 from pok.engine.valuation import UnscoredAxis, axis_gain, unscored_axes
 
 # PoB 슬롯 → KB 유니크 `category`. 실측 0.5.4b: 유니크의 (class_group, category)
@@ -407,6 +408,76 @@ def unread_item_lines(spec: Mapping[str, Any], root: Path | None = None) -> list
         unread = [line for line in known if line in active]
         if unread:
             out.append({"slot": slot, "item": name, "unread": unread})
+    return out
+
+
+def unbuilt_declarations(spec: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """`Prefix:`/`Suffix:` **선언만** 있고 문구가 없는 아이템 (#148 얼굴 ③).
+
+    ⛔ **PoB의 아이템 파서는 선언을 스탯으로 적용하지 않는다.** 선언을 문구로 바꾸는
+    것은 `Craft()`이고(`pob.roundtrip.build_items`), 빌드 XML에 그냥 넣으면
+    `Prefix:` 줄은 **크래프팅 메타데이터로 보관될 뿐** 계산에 안 들어간다.
+    `Sockets:`·`Rune:`은 먹으므로 **아이템이 잘 조립된 것처럼 보이고 수치만 낮다** —
+    §0 ① 선언이 없으면 조용한 0.
+
+    실측 2026-09-09: 접두 구성을 바꿔 두 번 돌렸는데 `CombinedDPS`가 **소수점까지
+    동일**(`790958.0612`)했고 `EvasionOnAllArmourItems`가 415(베이스+룬)였다.
+    아무 경고도 없었다. `check_item_legality`는 같은 텍스트를 **줄별 전부 LEGAL**로
+    통과시키므로, 게이트는 예라고 하고 오라클은 조용히 틀린다.
+
+    판정하지 않는다(AD-3) — 사실과 **대안 경로**만 낸다. 선언형이 맞는 형식이고,
+    잘못은 그것을 **렌더링 없이** 계산에 넣은 것이다.
+    ⚠ 문구가 **하나라도** 있으면 신고하지 않는다 — 하이브리드는 선언 1개가 줄 2개를
+    내므로 개수 대조로는 부분 누락과 정상을 못 가른다(거짓 경보는 게이트 우회를
+    학습시킨다, §0 ⑪).
+    """
+    out: list[dict[str, Any]] = []
+    entries = [(str(i.get("slot", "")), str(i.get("text", ""))) for i in spec.get("items") or ()]
+    entries += [
+        (f"Jewel@{j.get('socket_node_id')}", str(j.get("text", "")))
+        for j in spec.get("jewels") or ()
+    ]
+    for slot, text in entries:
+        declared = _DECLARED_AFFIX.findall(text)
+        keys = [k.strip() for _, k in declared if k.strip() and k.strip().lower() != "none"]
+        if not keys:
+            continue
+        lines = _active_lines(text)
+        name = lines[1] if len(lines) > 1 else ""
+        # ⭑ **적법성 검사기와 같은 파서를 쓴다.** 두 도구가 같은 텍스트를 다르게
+        #   읽는 것이 #148의 뿌리였다(§0 ④ 판정 주체가 둘이면 어긋난다).
+        if _parse_item(text)[3]:
+            continue  # 문구 줄이 있다 — PoB가 읽을 것이 있다
+        # ⛔ `Crafted: true`가 없으면 PoB `Craft()`도 선언을 **전부 버린다**(실측
+        #    2026-09-09) — 렌더로 우회하려다 **같은 조용한 0**을 또 밟는 자리다.
+        _crafted = any(ln.lower().startswith("crafted:") for ln in lines)
+        out.append(
+            {
+                "slot": slot,
+                "item": name,
+                "declared": keys,
+                "why": (
+                    f"`Prefix:`/`Suffix:` 선언 {len(keys)}건뿐이고 문구 줄이 없다 — "
+                    f"PoB 아이템 파서는 선언을 **스탯으로 적용하지 않는다**. 이 수치는 "
+                    f"그 접사들을 **하나도 안 낀 값**이다(소켓·룬은 먹으므로 조립은 "
+                    f"정상으로 보인다)"
+                ),
+                "fix": (
+                    "명세를 PoB 정본 문구로 렌더한 뒤 넣을 것 — "
+                    "`pok.pob.roundtrip.build_items({슬롯: spec_text})` 또는 "
+                    "`optimize_rare`의 `text`(이미 렌더된 정본). `spec_text`는 "
+                    "**계산용이 아니라 명세용**이다"
+                    + (
+                        ""
+                        if _crafted
+                        else " ⛔ 그리고 이 명세엔 **`Crafted: true`가 없다** — 그러면 "
+                        "PoB `Craft()`가 선언을 **전부 조용히 버린다**(실측 2026-09-09: "
+                        "같은 명세가 그 한 줄 유무로 접사 0개 / `+135 to maximum Life`로 "
+                        "갈렸다). 렌더하기 전에 먼저 넣을 것 — `optimize_rare`는 넣는다"
+                    )
+                ),
+            }
+        )
     return out
 
 

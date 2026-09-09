@@ -46,7 +46,7 @@ from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.integrity import spec_integrity
-from pok.engine.items import req_shortfall, unread_item_lines
+from pok.engine.items import req_shortfall, unbuilt_declarations, unread_item_lines
 from pok.engine.legality import ItemLegalityChecker
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob.buildxml import spec_from_dict
@@ -181,6 +181,14 @@ def _pick(
         gaps = unread_item_lines(build_spec)
         if gaps:
             out["items_pob_gaps"] = gaps
+        # 선언만 있고 문구가 없는 아이템 (#148 ③). PoB 아이템 파서는 `Prefix:`를
+        # **스탯으로 적용하지 않는다** — 소켓·룬은 먹으므로 조립은 정상으로 보이고
+        # 수치만 낮다. 실측: 접두를 바꿔 두 번 돌렸는데 DPS가 **소수점까지 동일**했다.
+        # `check_item_legality`는 같은 텍스트를 전부 LEGAL로 통과시킨다 —
+        # **게이트는 예라고 하고 오라클은 조용히 틀린다.** 매번 싣는다(#29).
+        unbuilt = unbuilt_declarations(build_spec)
+        if unbuilt:
+            out["unbuilt_declarations"] = unbuilt
     return out
 
 
@@ -221,6 +229,87 @@ def _tree_graph():  # type: ignore[no-untyped-def]
     return TreeGraph(knowledge_dir())
 
 
+def _condition_sources(
+    build_spec: dict[str, Any],
+) -> tuple[dict[str, list[str]], dict[str, float]]:
+    """이 빌드에서 **config 조건을 걸 수 있는 것들**의 효과 문구와 쿨다운.
+
+    젬·할당 노드·장착 아이템 셋 다 본다 — 젬만 보면 조건의 출처가 노드일 때 추적이
+    끊긴다(백로그 #36). `_unset_config`(꺼진 것)과 `_config_upkeep`(켠 것의 대가)이
+    **같은 출처 집합**을 봐야 두 신고가 서로 어긋나지 않는다.
+    """
+    from pok.engine.legality import _parse_item
+    from pok.index.search import get_entry
+    from pok.kb.ingest.merge import slug_to_id_part
+
+    texts: dict[str, list[str]] = {}
+    cooldowns: dict[str, float] = {}
+    for group in build_spec.get("skills", []):
+        for gem in group.get("gems", []):
+            name = str(gem.get("name", "")).strip()
+            if not name:
+                continue
+            # ⛔ `name.lower().replace(" ", "-")`로는 아포스트로피가 든 이름이 **전부
+            # 조용히 빠진다** — `Sniper's Mark` → `skill.sniper's-mark`는 KB에 없고
+            # 정본 id는 `skill.snipers-mark`다. 실측 2026-09-04: 마크 2종 중 하나만
+            # 신고돼 「팩에서 한 마리에만」이 절반만 보였다. 정본 규칙을 그대로 쓴다.
+            for prefix in ("support", "skill"):
+                rid = f"{prefix}.{slug_to_id_part(name)}"
+                try:
+                    data = get_entry(rid, fields=["data"]).get("data") or {}
+                except KeyError:
+                    continue
+                if data.get("stats"):
+                    texts[rid] = list(data["stats"])
+                    if isinstance(cd := data.get("cooldown_s"), (int, float)) and cd > 0:
+                        cooldowns[rid] = float(cd)
+                    break
+    # 할당된 트리 노드 — 조건부 노드가 요구하는 config가 여기서 나온다
+    for node_id in build_spec.get("tree_nodes") or ():
+        node = _tree_graph().nodes.get(int(node_id))
+        if node is not None and node.stats_en:
+            texts[f"passive.{node_id}"] = list(node.stats_en)
+    # 장착 아이템의 모드 줄 — 스펙 줄(`Prefix:`·`Sockets:` 등)은 모드가 아니다
+    for item in build_spec.get("items") or ():
+        text = str(item.get("text") or "")
+        if not text.strip():
+            continue
+        with contextlib.suppress(ValueError):
+            lines = _parse_item(text)[3]
+            if lines:
+                texts[f"item:{item.get('slot', '?')}"] = lines
+    return texts, cooldowns
+
+
+def _config_upkeep(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
+    """켜 둔 config의 **유지 비용** — 「이 수치가 팩에서도 나오나」 (#145).
+
+    `unset_config`의 거울이다. 저쪽은 안 켠 것을, 이쪽은 **켠 것의 대가**를 낸다.
+    실측 2026-09-04(레퍼런스 힘스태킹 젬링): 조건 13종을 전부 참으로 둔 빌드가
+    세팅 없이 팩에 들어가면 표기의 **52.6%**였고, 그중 6종은 켜든 끄든 델타 0,
+    노출 3종은 **끄는 쪽이 더 높았다**(역저항 축이라 저항을 깎으면 손해).
+
+    ⛔ **거부가 아니라 신고다**(AD-3) — 보스 하나를 오래 잡는 구도라면 전부 거는 게
+    맞고 그때 이 수치는 정직하다. 판정은 호출자 몫이다.
+    """
+    from pok.engine.constraints.upkeep import find_upkeep_costs
+
+    texts, cooldowns = _condition_sources(build_spec)
+    if not texts:
+        return []
+    costs = find_upkeep_costs(texts, dict(build_spec.get("config", {})), cooldowns=cooldowns)
+    return [
+        {
+            "source": c.source,
+            "kind": c.kind,
+            "evidence": c.evidence,
+            "note": c.note,
+            "config_vars": list(c.config_vars),
+        }
+        for c in costs
+    ]
+
+
 def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
     """이 빌드에 **관련 있는데 미설정인** PoB config.
 
@@ -241,38 +330,8 @@ def _unset_config(build_spec: dict[str, Any]) -> list[dict[str, Any]]:
     젬만 나오면 노드가 원인일 때 추적이 끊긴다.
     """
     from pok.engine.constraints.config_relevance import find_unset_options
-    from pok.engine.legality import _parse_item
-    from pok.index.search import get_entry
 
-    texts: dict[str, list[str]] = {}
-    for group in build_spec.get("skills", []):
-        for gem in group.get("gems", []):
-            name = str(gem.get("name", "")).strip()
-            if not name:
-                continue
-            for prefix in ("support", "skill"):
-                rid = f"{prefix}.{name.lower().replace(' ', '-')}"
-                try:
-                    lines = (get_entry(rid, fields=["data"]).get("data") or {}).get("stats")
-                except KeyError:
-                    continue
-                if lines:
-                    texts[rid] = list(lines)
-                    break
-    # 할당된 트리 노드 — 조건부 노드가 요구하는 config가 여기서 나온다
-    for node_id in build_spec.get("tree_nodes") or ():
-        node = _tree_graph().nodes.get(int(node_id))
-        if node is not None and node.stats_en:
-            texts[f"passive.{node_id}"] = list(node.stats_en)
-    # 장착 아이템의 모드 줄 — 스펙 줄(`Prefix:`·`Sockets:` 등)은 모드가 아니다
-    for item in build_spec.get("items") or ():
-        text = str(item.get("text") or "")
-        if not text.strip():
-            continue
-        with contextlib.suppress(ValueError):
-            lines = _parse_item(text)[3]
-            if lines:
-                texts[f"item:{item.get('slot', '?')}"] = lines
+    texts, _ = _condition_sources(build_spec)
     if not texts:
         return []
     unset = find_unset_options(texts, configured=dict(build_spec.get("config", {})))
@@ -474,7 +533,20 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     `unset_config`는 **이 빌드에 관련 있는데 안 켠 PoB 설정**이다. 미설정 config의
     기본값에서 나온 델타 0은 "효과 없음"이 아니라 "안 켰다"의 증거다 — 그걸로
     무엇을 빼기 전에 이 목록을 볼 것(BUILD_DESIGN §2-3 측정 무효의 판정 의무).
-    켜지 않는 게 맞는 축도 있으니 판단은 호출자 몫이다(AD-3)."""
+    켜지 않는 게 맞는 축도 있으니 판단은 호출자 몫이다(AD-3).
+
+    `config_upkeep`은 그 **거울**이다(#145) — 켜 둔 조건의 **유지 비용**. 이 수치가
+    「팩마다 6종을 다 걸고 반경 안에 서 있을 때」의 값인지 알려 준다. 실측
+    2026-09-04(레퍼런스 힘스태킹 젬링): 세팅 없이 팩에 들어가면 표기의 **52.6%**.
+    딜을 인용하기 전에 볼 것 — 역시 거부가 아니라 신고다.
+
+    ⛔ **`unbuilt_declarations`가 있으면 그 아이템의 접사는 하나도 안 들어갔다** (#148).
+    PoB 아이템 파서는 `Prefix:`/`Suffix:` 선언을 **스탯으로 적용하지 않는다** —
+    선언을 문구로 바꾸는 것은 `Craft()`(`pob.roundtrip.build_items`)이다. 소켓·룬은
+    먹으므로 **잘 조립된 것처럼 보이고 수치만 낮다**. 실측 2026-09-09: 접두 구성을
+    바꿔 두 번 돌렸는데 `CombinedDPS`가 소수점까지 동일했다(`790958.0612`).
+    ⚠ `check_item_legality`는 같은 텍스트를 **줄별 전부 LEGAL**로 통과시킨다 —
+    적법성과 계산 가능성은 다른 축이다."""
     out = _pick(_compute(spec_from_dict(build_spec)), stats, build_spec)
     out["points"] = _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy"))
     scalers = _stat_scalers(build_spec)
@@ -483,6 +555,9 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     unset = _unset_config(build_spec)
     if unset:
         out["unset_config"] = unset
+    upkeep = _config_upkeep(build_spec)
+    if upkeep:
+        out["config_upkeep"] = upkeep
     return out
 
 
@@ -514,13 +589,24 @@ def evaluate_delta(
 
 def check_item_legality(item_text: str) -> dict[str, Any]:
     """합성 아이템 텍스트를 KB 모드풀로 검증(RC4). LEGAL/CONDITIONAL(경로
-    한정—사유 확인)/ILLEGAL/UNKNOWN 판정과 접사 수·group 배타 오류를 반환."""
+    한정—사유 확인)/ILLEGAL/UNKNOWN 판정과 접사 수·group 배타 오류를 반환.
+
+    ⛔ **`legal: True`가 「계산된다」는 뜻은 아니다** (#148). 선언형(`Prefix:` 줄만
+    있고 문구가 없는 형식)은 줄별로 전부 LEGAL인데 `compute_pob`에서는 **접사가
+    하나도 안 들어간다** — 게이트는 예라고 하고 오라클은 조용히 틀린다. 그 경우
+    `not_computable`이 함께 온다. 적법성과 계산 가능성은 **다른 축**이다."""
     report = _get_checker().check(item_text)
-    return {
+    out: dict[str, Any] = {
         "legal": report.is_legal,
         "errors": list(report.errors),
         "lines": [dataclasses.asdict(v) for v in report.verdicts],
     }
+    # 적법한데 **계산은 안 되는** 형식을 여기서도 말한다 — 한쪽에서만 신고하면
+    # 세션은 통과한 쪽만 보고 넘어간다(§0 ④ 판정 주체가 둘이면 어긋난다).
+    blocked = unbuilt_declarations({"items": [{"slot": "", "text": item_text}]})
+    if blocked:
+        out["not_computable"] = [{k: v for k, v in blocked[0].items() if k != "slot"}]
+    return out
 
 
 def parse_pob(
@@ -842,6 +928,96 @@ def check_pob_stability(
         "mode": reading.mode,
         "ratio": round(reading.ratio, 4),
     }
+
+
+def audit_config_upkeep(
+    build_spec: dict[str, Any],
+    measure: bool = False,
+    axis: str = "CombinedDPS",
+) -> dict[str, Any]:
+    """켜 둔 config가 **팩에서도 서는가** — 유지 비용 신고 + (옵션) 기여 실측 (#145).
+
+    `compute_pob`이 반환에 붙여 주는 `config_upkeep`과 같은 정적 판정에, `measure=True`면
+    **켠 조건을 하나씩 꺼서 실제 기여를 잰다**. 남의 PoB 코드를 인용하기 전에 돌린다.
+
+    반환:
+      `upkeep`   정적 신고 — `single_target`(마크가 한 마리에만) / `resource_gate`
+                 (영광 등 자원을 먼저 벌어야) / `limited_uses`(횟수 소진) /
+                 `positional`(반경 유지) / `recast`(쿨다운·지속). 근거는 **문구 원문**이다.
+      `measured` `measure=True`일 때만. 조건별 `delta_pct`(그 하나를 껐을 때의 변화)와
+                 전부 껐을 때의 `all_off`. **`delta_pct`가 0이면 켤 이유가 없고,
+                 양수면 켜는 쪽이 손해다**(역저항 축에서 원소 노출이 그렇다).
+
+    ⚠ 비용은 `measure=True`에서 **켠 조건 수 + 2회의 PoB 계산**이다. 비교는 전부
+    **한 호출 안**에서 이뤄진다 — PoB는 프로세스마다 값이 갈릴 수 있어(#132) 회차가
+    다르면 델타가 무의미하다.
+
+    ⛔ 거부가 아니라 신고다(AD-3). 보스 하나를 오래 잡는 구도면 전부 거는 게 맞다.
+    """
+    import copy
+
+    out: dict[str, Any] = {
+        "upkeep": _config_upkeep(build_spec),
+        "note": (
+            "유지 비용은 「이 수치가 팩에서도 나오나」의 근거일 뿐 실격 사유가 아니다 — "
+            "보스 하나를 오래 잡는 구도라면 전부 거는 것이 맞다(AD-3)."
+        ),
+    }
+    if not measure:
+        return out
+
+    from pok.engine.constraints.upkeep import truthy_conditions
+
+    config = dict(build_spec.get("config", {}))
+    # 켜 둔 **플레이어 쪽 가정**을 전수로 잰다. 정적 신고에 걸렸는지와 무관하게 재는
+    # 것은, 문구 매칭이 놓친 축(재의 전령의 점화)이야말로 실측이 대신 답해야 하는
+    # 자리이기 때문이다.
+    #
+    # ⛔ 접두 허용 목록(`condition`·`multiplier`·`use`)으로 고르지 말 것 — 첫 판이
+    # 그렇게 했다가 **`bannerPlanted`를 통째로 놓쳤다.** 실측 2026-09-04: 그 하나가
+    # 딜의 **20.3%**였고 `all_off`가 78.8%로 나와 실제(63.0%)보다 훨씬 순해 보였다.
+    # 제외 목록으로 뒤집는다 — 적 프로파일·표시 토글·퀘스트 보상만 뺀다.
+    skip = ("enemy", "Disable", "override", "quest", "custom")
+    flagged = sorted(v for v in truthy_conditions(config) if not v.startswith(skip))
+    if not flagged:
+        out["measured"] = {"axis": axis, "flags": [], "why": "켜 둔 플레이어 쪽 config 가정이 없다"}
+        return out
+
+    def _with(dropped: set[str]) -> dict[str, Any]:
+        spec = copy.deepcopy(build_spec)
+        spec["config"] = [(k, v) for k, v in config.items() if k not in dropped]
+        return spec
+
+    base = float(_pick(_compute(spec_from_dict(build_spec)), [axis], build_spec)["stats"][axis])
+    rows = []
+    for var in flagged:
+        value = float(
+            _pick(_compute(spec_from_dict(_with({var}))), [axis], build_spec)["stats"][axis]
+        )
+        rows.append(
+            {
+                "var": var,
+                "off": round(value, 2),
+                # 껐을 때의 변화. **음수 = 그만큼 켜서 벌고 있다**, 0 = 켤 이유 없음,
+                # 양수 = 켜는 쪽이 손해다.
+                "delta_pct": round((value - base) / base * 100, 2) if base else None,
+            }
+        )
+    all_off = float(
+        _pick(_compute(spec_from_dict(_with(set(flagged)))), [axis], build_spec)["stats"][axis]
+    )
+    out["measured"] = {
+        "axis": axis,
+        "base": round(base, 2),
+        "flags": sorted(rows, key=lambda r: (r["delta_pct"] is None, -(r["delta_pct"] or 0))),
+        "all_off": round(all_off, 2),
+        "all_off_pct": round(all_off / base * 100, 2) if base else None,
+        "reading": (
+            "`all_off_pct`가 「아무 세팅 없이 팩에 들어갔을 때 표기의 몇 %인가」다. "
+            "`delta_pct` 0은 **켜 둘 이유가 없는 조건**, 양수는 **켜면 손해인 조건**이다."
+        ),
+    }
+    return out
 
 
 def restore_pob_spec(build_code: str, assume_first_stat_set: bool = True) -> dict[str, Any]:

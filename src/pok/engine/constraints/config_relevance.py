@@ -29,6 +29,10 @@ import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pok.pob.catalog import ConfigOption
 
 # 조건 단어가 **전부** 문구에 있어야 관련으로 본다(AND). 한 단어라도 걸리면 매칭하던
 # 방식은 `Have`·`From`·`With` 같은 기능어 때문에 32건 중 대부분이 노이즈였다 —
@@ -78,6 +82,45 @@ def _keywords_of(option_keywords: Iterable[str]) -> list[str]:
     return [k for k in option_keywords if len(k) >= _MIN_KEYWORD_LEN and k not in _STOPWORDS]
 
 
+def matching_sources(
+    option: ConfigOption,
+    build_stats_text: Mapping[str, list[str]],
+) -> tuple[tuple[str, str], ...]:
+    """이 config 항목의 관련성 조건에 걸리는 **(출처, 근거 문구) 전량**.
+
+    `find_unset_options`(꺼진 것 찾기)와 `constraints.upkeep`(켠 것의 대가 찾기)이
+    **같은 매처를 쓰도록** 뽑아 둔 것이다. 매처가 갈리면 한쪽에서 관련이라고 본 축을
+    다른 쪽이 무관하다고 보게 되고, 그 불일치는 조용하다.
+    """
+    keywords = _keywords_of(option.keywords)
+    if not keywords:
+        return ()
+    patterns = [re.compile(rf"\b{re.escape(k)}", re.I) for k in keywords]
+    # 승수형(ifMult) config는 그 승수를 소비하는 "per …" 문구가 있어야 관련이다
+    mult_only = bool(option.condition_kinds) and set(option.condition_kinds) == {"ifMult"}
+    out: list[tuple[str, str]] = []
+    for source, lines in build_stats_text.items():
+        # 키워드가 **부정 아닌 문장에** 전부 있어야 한다. 줄 단위로 보는 것은
+        # 부정어가 그 문장에만 걸리기 때문이다("Cannot inflict Freeze, Shock or
+        # Ignite" 옆 줄에 멀쩡한 Freeze 문구가 있으면 그건 관련이 맞다).
+        usable = [ln for ln in lines if not _NEGATION.search(ln)]
+        if not usable:
+            continue
+        blob = " ".join(usable)
+        # **전부** 있어야 한다 — 하나만 걸리면 기능어 때문에 전 config가 잡힌다
+        if not all(p.search(blob) for p in patterns):
+            continue
+        if mult_only and not any(
+            _PER_PHRASE.search(ln) and all(p.search(ln) for p in patterns) for ln in usable
+        ):
+            continue
+        # 근거는 **한 줄에 전부 걸린 문장**을 우선한다 — 여러 줄에 흩어져 걸렸으면
+        # 그중 하나를 골라도 반박에 쓸 수 없으므로 첫 줄로 물러선다.
+        evidence = next((ln for ln in usable if all(p.search(ln) for p in patterns)), usable[0])
+        out.append((source, evidence))
+    return tuple(out)
+
+
 def find_unset_options(
     build_stats_text: Mapping[str, list[str]],
     configured: Iterable[str],
@@ -93,40 +136,19 @@ def find_unset_options(
 
     already = {str(c) for c in configured}
     out: list[UnsetOption] = []
-    seen: set[str] = set()
     for option in config_options(root):
-        if option.var in already or option.var in seen or not option.conditions:
+        if option.var in already or not option.conditions:
             continue
-        keywords = _keywords_of(option.keywords)
-        if not keywords:
+        hits = matching_sources(option, build_stats_text)
+        if not hits:
             continue
-        patterns = [re.compile(rf"\b{re.escape(k)}", re.I) for k in keywords]
-        # 승수형(ifMult) config는 그 승수를 소비하는 "per …" 문구가 있어야 관련이다
-        mult_only = bool(option.condition_kinds) and set(option.condition_kinds) == {"ifMult"}
-        for source, lines in build_stats_text.items():
-            # 키워드가 **부정 아닌 문장에** 전부 있어야 한다. 줄 단위로 보는 것은
-            # 부정어가 그 문장에만 걸리기 때문이다("Cannot inflict Freeze, Shock or
-            # Ignite" 옆 줄에 멀쩡한 Freeze 문구가 있으면 그건 관련이 맞다).
-            usable = [ln for ln in lines if not _NEGATION.search(ln)]
-            if not usable:
-                continue
-            blob = " ".join(usable)
-            # **전부** 있어야 한다 — 하나만 걸리면 기능어 때문에 전 config가 잡힌다
-            if not all(p.search(blob) for p in patterns):
-                continue
-            if mult_only and not any(
-                _PER_PHRASE.search(ln) and all(p.search(ln) for p in patterns) for ln in usable
-            ):
-                continue
-            out.append(
-                UnsetOption(
-                    var=option.var,
-                    label=option.label,
-                    matched_keyword=" + ".join(keywords),
-                    matched_in=source,
-                    tooltip=option.tooltip,
-                )
+        out.append(
+            UnsetOption(
+                var=option.var,
+                label=option.label,
+                matched_keyword=" + ".join(_keywords_of(option.keywords)),
+                matched_in=hits[0][0],
+                tooltip=option.tooltip,
             )
-            seen.add(option.var)
-            break
+        )
     return tuple(out)

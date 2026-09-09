@@ -172,6 +172,8 @@ def search_kb(
     ascendancy: str | None = None,
     limit: int = 20,
     for_ascendancy: str | None = None,
+    category: str | None = None,
+    sub_type: str | None = None,
 ) -> list[dict[str, Any]]:
     """KB 검색 (1단계 — 압축 히트). type은 Skill|Support|Passive|Item|Modifier|
     Resource|Mechanic|Defence, tags는 게임 공식 태그(소문자). 상세는 get_entry로.
@@ -207,7 +209,17 @@ def search_kb(
     — 모드가 KB에 있다는 것이 곧 획득 가능은 아니다. `item-exclusive` 5,488건 중
     **2,163건(39.4%)**이 여기 해당한다(실측 2026-08-10, PoB 유니크 정의 전량 + 생성
     유니크 대조). 빌드 세션이 하루에 5건 오판했고 둘은 설계 근거로 쓰였다가 뒤집혔다.
-    ⛔ "획득 불가"가 아니라 **"확인 못 함"**이다 — 담체를 확인한 뒤에 근거로 쓸 것."""
+    ⛔ "획득 불가"가 아니라 **"확인 못 함"**이다 — 담체를 확인한 뒤에 근거로 쓸 것.
+
+    **`category`·`sub_type` = 속성으로 열거하는 축**(#147). Item의 `tags`는 **비어
+    있어서** 부위를 물을 경로가 tags엔 없다 — 분류는 `category`(`boots`·`helmet`·
+    `body`·`shield` … 29종)와 `sub_type`(`Evasion/Energy Shield`·`Armour/Evasion` …
+    14종)에 있다. 대소문자는 접어서 대조하므로 `describe_type`이 보여 준 표기를
+    그대로 넣으면 된다.
+    ⚠ **이름 토큰으로 훑지 말 것**: 실측 2026-09-09, `query="Boots"`로 16종을 보고
+    「신발에는 회피/ES 듀얼 베이스가 없다」고 판정했는데 실제로는 `category="boots"`가
+    **217건**이고 이름군이 Boots(회피)·Sandals(ES)·Greaves(방어도)로 갈려 있었다.
+    0건이면 알아챘겠지만 **그럴듯한 부분집합**이 나와서 갭이 안 보였다."""
     hits = _search(
         query=query,
         tags=tags,
@@ -215,13 +227,22 @@ def search_kb(
         ascendancy=ascendancy,
         limit=limit,
         for_ascendancy=for_ascendancy,
+        category=category,
+        sub_type=sub_type,
     )
     if hits:
         return [_hit_dict(h) for h in hits]
     # 0건이면 **왜 비었는지**를 함께 낸다. 빈 배열은 아무것도 말하지 않아서, 실측
     # 2026-08-05에 세션이 9번 모두 "KB에 없다"로 오판하고 파일 탐색으로 도피했다 —
     # 실제로는 한글 효과 문구·type 오해·AND 매칭 때문이었다.
-    diag = _diagnose_empty(query=query, tags=tags, type_=type, ascendancy=ascendancy)
+    diag = _diagnose_empty(
+        query=query,
+        tags=tags,
+        type_=type,
+        ascendancy=ascendancy,
+        category=category,
+        sub_type=sub_type,
+    )
     return [
         {
             "empty": True,
@@ -457,6 +478,9 @@ parse_pob = tool(_build.parse_pob)
 restore_pob_spec = tool(_build.restore_pob_spec)
 measure_leverage = tool(_build.measure_leverage)
 check_pob_stability = tool(_build.check_pob_stability)
+# 켠 config의 유지 비용 (#145) — 「이 표기가 팩에서도 서나」. `compute_pob`이 정적
+# 신고를 반환에 붙이고, 이 도구는 `measure=True`로 **조건별 실제 기여까지** 잰다.
+audit_config_upkeep = tool(_build.audit_config_upkeep)
 
 # 설계 루프 (P4.5, D26~D28)
 check_constraints = tool(_constraints.check_constraints)
