@@ -121,6 +121,90 @@ def test_legal_gear_is_not_flagged() -> None:
     assert _items_legal(spec) == {"items_legal": True, "illegal_items": []}
 
 
+def test_illegal_jewel_is_flagged_by_compute_pob() -> None:
+    """**주얼도 `items_legal`에 실린다** (#162) — #27이 `items[]`만 고친 자리의 구멍.
+
+    `assemble()`의 검사 대상은 `items + jewels`인데 `_items_legal`은 `items[]`만 돌았다.
+    그래서 설계 반복(`compute_pob`) 내내 주얼이 **무검사로** 지나가고 출고에서야 잡힌다 —
+    #27이 장비에 대해 고친 것과 **정확히 같은 형태**가 주얼에 남아 있었다.
+
+    실측 2026-09-10: `compute_pob`이 `items_legal: True`를 낸 빌드가 출고에서
+    `[Jewel@61419] 24% increased Critical Hit Chance for Attacks → ILLEGAL`로 거부됐다
+    (주얼의 그 접사는 6~16만 적법하다). 그 사이 수치가 설계 판단의 근거로 쓰였다.
+
+    ⚠ 슬롯 이름은 `assemble()`과 같은 `Jewel@<소켓 node_id>`여야 한다 — 두 도구가
+    다른 이름을 내면 세션이 같은 것을 가리키는지 모른다.
+    """
+    from pok.mcp.tools.build import _items_legal
+
+    spec = {
+        "class_name": "Mercenary",
+        "ascendancy": "Mercenary3",
+        "items": [{"slot": "Amulet", "text": "Rarity: RARE\nOK\nAmber Amulet\nItem Level: 80"}],
+        "jewels": [
+            {
+                "socket_node_id": 61419,
+                "text": (
+                    "Rarity: RARE\nMaelstrom Heart\nEmerald\nItem Level: 82\n"
+                    "24% increased Critical Hit Chance for Attacks"
+                ),
+            }
+        ],
+    }
+    out = _items_legal(spec)
+    assert out["items_legal"] is False
+    assert out["illegal_items"][0]["slot"] == "Jewel@61419"
+
+
+def test_legal_jewel_is_not_flagged() -> None:
+    """적법한 주얼을 실격으로 말하면 그게 새 오도다 — 양방향으로 정확해야 한다."""
+    from pok.mcp.tools.build import _items_legal
+
+    spec = {
+        "class_name": "Mercenary",
+        "ascendancy": "Mercenary3",
+        "jewels": [
+            {
+                "socket_node_id": 61419,
+                "text": (
+                    "Rarity: RARE\nMaelstrom Heart\nEmerald\nItem Level: 82\n"
+                    "16% increased Critical Hit Chance for Attacks"
+                ),
+            }
+        ],
+    }
+    assert _items_legal(spec) == {"items_legal": True, "illegal_items": []}
+
+
+def test_jewel_spec_accepts_derived_from_stamp() -> None:
+    """주얼도 출처 도장을 받는다 (#162) — #152가 `items[]`에만 준 규약의 대칭.
+
+    `optimize_rare(slot="Jewel@<소켓 node_id>")`가 내는 결과에는 `derived_from`이 붙어
+    있고, 그것을 스펙의 주얼 항목에 옮겨 적는 것이 정상 사용인데
+    `모르는 키: ['derived_from']`로 죽었다(실측 2026-09-10).
+    """
+    from pok.pob.buildxml import spec_from_dict
+
+    spec = spec_from_dict(
+        {
+            "class_name": "Mercenary",
+            "ascendancy": "Mercenary3",
+            "tree_nodes": [61419],
+            "jewels": [
+                {
+                    "socket_node_id": 61419,
+                    "derived_from": {"tool": "optimize_rare", "reason": "테스트"},
+                    "text": "Rarity: RARE\nOK\nEmerald\nItem Level: 82",
+                }
+            ],
+        },
+        validate_catalog=False,
+    )
+    # 도장은 계보이지 아이템 속성이 아니다 — 받아서 벗겨 낸다(PoB로 안 간다)
+    assert len(spec.jewels) == 1
+    assert not hasattr(spec.jewels[0], "derived_from")
+
+
 def test_req_shortfall_rides_on_every_return() -> None:
     """요구 속성 미달은 **1회성 경고여선 안 된다** (백로그 #29).
 

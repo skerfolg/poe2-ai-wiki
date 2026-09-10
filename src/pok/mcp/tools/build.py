@@ -92,17 +92,32 @@ def _items_legal(build_spec: dict[str, Any]) -> dict[str, Any]:
     (존재하지 않는 베이스 `Silk Gloves` · 실재하지 않는 문구 · 붙을 수 없는 접사).
     그 위에서 나온 수치가 설계 판단의 근거로 쓰였다.
 
+    ⭑ **주얼도 함께 본다** (#162). #27은 `items[]`만 돌았는데 `assemble()`의 검사 대상은
+    `items + jewels`다(`engine/assemble.py`의 `targets`) — 즉 **주얼에 대해서는 #27이
+    고치려던 상태가 그대로 남아 있었다.** 실측 2026-09-10: `compute_pob`이 20여 회
+    `items_legal: True`를 낸 저가판 빌드가 출고에서 `[Jewel@61419] 24% increased Critical
+    Hit Chance for Attacks → ILLEGAL`로 거부됐고, 그 사이 그 수치가 설계 판단의 근거로
+    쓰였다. 슬롯 이름은 `assemble()`과 같은 `Jewel@<소켓 node_id>` 표기를 쓴다 —
+    두 도구가 같은 이름을 내야 세션이 같은 것을 가리키는지 안다.
+
     PoB를 돌리지 않으므로 비용은 KB 인덱스 조회뿐이다.
     """
     checker = _get_checker()
     illegal: list[dict[str, Any]] = []
-    for item in build_spec.get("items") or []:
-        report = checker.check(str(item.get("text", "")))
+    targets: list[tuple[Any, str]] = [
+        (item.get("slot"), str(item.get("text", ""))) for item in build_spec.get("items") or []
+    ]
+    targets += [
+        (f"Jewel@{jewel.get('socket_node_id', '?')}", str(jewel.get("text", "")))
+        for jewel in build_spec.get("jewels") or []
+    ]
+    for slot, text in targets:
+        report = checker.check(text)
         if report.is_legal:
             continue
         illegal.append(
             {
-                "slot": item.get("slot"),
+                "slot": slot,
                 "reasons": [
                     *report.errors,
                     *(
