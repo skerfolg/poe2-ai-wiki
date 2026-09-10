@@ -208,6 +208,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | --- | --- | --- |
 | #157을 **#156과 함께** 고친다(요청은 #156) | 보고자가 「#156을 고쳐도 #157이 남아 막으므로 함께 고쳐야 주얼이 통과한다」고 적었고, #156만 고친 시험이 실제로 #157에서 막혔다. 한 분기 변경이라 분리 PR의 이득이 없고, 요청 범위 밖임은 PR·백로그에 명시했다 — **세션 판단** | 2026-09-09 |
 | #156·#157 등재문(다른 세션의 미커밋 워킹 트리)을 **수정 PR의 첫 두 커밋으로 싣는다** | #149~#155와 같은 형태(세·네 번째). #157은 이 작업 **중에** 이어 써졌다 — 저장 시점 diff를 각각 떠서 분리 커밋했다. 내용은 손대지 않았다 | 2026-09-09 |
+| #162의 **최초 진단이 틀렸다는 것을 본문에 남긴다**(지우지 않는다) | 접수 시엔 「주얼에 도장을 못 찍어 자동 채움이 30분을 쓴다」였는데, `unstamped_rares`는 `jewels[]`를 보지도 않는다(로컬 계측 0.00초). 증상에서 원인을 지어낸 것이라 **그 사실 자체가 기록 가치**가 있다 — #155의 진단 정정과 같은 취급 · **세션 판단** | 2026-09-10 |
+| 곁가지(주얼 `derived_from`)를 **#162와 한 PR로 낸다** | 조사 중 함께 재현됐고 둘 다 「#152·#27이 `items[]`에만 준 규약의 주얼 대칭 부재」라는 **한 뿌리**다. `pob/buildxml.py` 한 줄이라 분리 PR의 이득이 없다 — **세션 판단** | 2026-09-10 |
+| Integration branch override — 작업 브랜치 `fix/162-jewel-derived-from` | 레인명(`M5-proposal-rounds`)과 다름. `main`(`508339a`)에서 분기 — 레인 밖 결함 수정. 이 PR 한정, 머지 시 소멸 — This lane targets `fix/162-jewel-derived-from` instead of `main` for this PR only | 2026-09-10 |
 | Integration branch override — 작업 브랜치 `fix/156-jewel-suffix-scope` | 레인명과 다름. `main`(`a21a4f2`)에서 분기 — 레인 밖 결함 수정. 이 PR 한정, 머지 시 소멸 — This lane targets `fix/156-jewel-suffix-scope` instead of `main` for this PR only | 2026-09-09 |
 | #154·#155 등재문(다른 세션의 미커밋 워킹 트리)을 **#154·#155 수정 PR의 첫 커밋으로 싣는다** | 아래 #149~#152와 같은 형태·같은 이유(두 번째). 등재문은 손대지 않았고, #155의 진단(「#150과 같은 형태」)은 본문에 **정정 절을 덧붙이는** 방식으로 남겼다 — 틀린 진단도 기록이다(§3 「검증으로 뒤집힌 보고」와 같은 취급) | 2026-09-09 |
 | Integration branch override — 작업 브랜치 `fix/154-155-granted-skill-mcp-hang` | 레인명과 다름. `main`(`5cde403`)에서 분기 — 레인 밖 결함 수정. 이 PR 한정, 머지 시 소멸 — This lane targets `fix/154-155-granted-skill-mcp-hang` instead of `main` for this PR only | 2026-09-09 |

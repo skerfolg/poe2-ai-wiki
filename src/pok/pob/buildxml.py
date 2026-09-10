@@ -557,6 +557,12 @@ _SPEC_ONLY_KEYS = frozenset({"derived_from", "restored_from"})
 # 넘기는 순간 `모르는 키: ['derived_from']`로 죽었고, 거부문이 안내한 탈출구(「그 슬롯에
 # derived_from을 명시할 것」)도 같은 자리에서 막혔다(실측 2026-09-09). 도장은 아이템의
 # 속성이 아니라 **계보**라 PoB로는 안 간다 — 받아서 벗겨 낸다. `ItemSpec` 자체는 그대로다.
+#
+# ⭑ **주얼에도 같은 규약을 준다** (#162). #152는 `items[]`만 고쳤는데 주얼은 `jewels[]`라는
+# 별도 배열이라 그대로 남았다 — `optimize_rare(slot="Jewel@<소켓 node_id>")`가 내는 결과에는
+# `derived_from`이 붙어 있고, 그것을 스펙의 주얼 항목에 옮겨 적는 것이 **정상 사용**인데
+# `모르는 키: ['derived_from']`로 죽는다(실측 2026-09-10). 자동 채움이 `jewels[]`를 세지
+# 않는 것과는 별개다 — 세지 않아도 **호출자가 도장을 남길 수 없으면 계보가 끊긴다**.
 _ITEM_SPEC_ONLY_KEYS = frozenset({"derived_from"})
 
 
@@ -588,7 +594,8 @@ def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> Bu
         for i, it in enumerate(data.get("items", []))
     )
     jewels = tuple(
-        _make(JewelSpec, j, f"jewels[{i}]") for i, j in enumerate(data.get("jewels", []))
+        _make(JewelSpec, j, f"jewels[{i}]", spec_only=_ITEM_SPEC_ONLY_KEYS)
+        for i, j in enumerate(data.get("jewels", []))
     )
     if validate_catalog:
         _validate_catalog(data)
