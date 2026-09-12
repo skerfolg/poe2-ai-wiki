@@ -184,7 +184,7 @@ class BuildSpec:
     skills: tuple[SkillGroupSpec, ...] = ()
     items: tuple[ItemSpec, ...] = ()
     jewels: tuple[JewelSpec, ...] = ()
-    main_socket_group: int = 1
+    main_socket_group: int = 1  # 1-based (PoB 관례) — 0-based로 읽으면 이웃 그룹을 잰다 (#144)
     config: tuple[tuple[str, str | int | bool], ...] = field(default=())  # Input name→value
     # 능력치 택1 노드의 선택 — {node_id: "str"|"dex"|"int"} (이관 5 C13')
     #

@@ -23,7 +23,10 @@ from typing import Any
 from pok.pob.codec import decode
 
 # PoB 슬롯명 그대로 쓴다. 주얼은 슬롯이 아니라 `Spec/Sockets`에 있어 따로 처리한다.
-_SKIP_SLOTS = frozenset({"Weapon 1 Swap", "Weapon 2 Swap"})
+# 교체 세트(2세트) 슬롯 → 1세트 슬롯. 우리 스펙은 무기 세트를 하나만 들고 있어서,
+# **활성 세트**가 무엇이든 `Weapon 1`·`Weapon 2`에 싣는다 (#143).
+_SWAP_TO_MAIN = {"Weapon 1 Swap": "Weapon 1", "Weapon 2 Swap": "Weapon 2"}
+_MAIN_WEAPON_SLOTS = frozenset(_SWAP_TO_MAIN.values())
 
 # 속성값 안의 공백문자 → 문자 참조. **표준 XML 리더는 속성 안 개행·탭을 공백 하나로
 # 정규화한다**(XML 1.0 §3.3.3 attribute-value normalization). 문자 참조는 그 정규화를
@@ -85,11 +88,15 @@ class RestoredBuild:
     # 두면 걸러낼 수 없다** — 딜을 비교하려면 이게 빈 빌드만 써야 한다(실측
     # 2026-08-12: 복원 256벌 중 203벌이 여기 걸리고, 그쪽 DPS는 원본보다 낮게 나온다).
     dropped_item_granted: tuple[tuple[str, int], ...] = ()
+    # **활성 무기 세트**의 무기인데 싣지 못한 슬롯 (#143). 무기가 빠진 공격 빌드의 딜은
+    # 원본과 무관한 수치인데 「비교 가능」이라고 말하면 그 위의 비교가 전부 틀린다.
+    dropped_weapons: tuple[str, ...] = ()
 
     @property
     def damage_comparable(self) -> bool:
-        """딜 수치를 원본과 견줄 수 있나 — 부여 그룹을 뺐으면 보조가 빠져 낮게 나온다."""
-        return not self.dropped_item_granted
+        """딜 수치를 원본과 견줄 수 있나 — 부여 그룹을 뺐으면 보조가 빠져 낮게 나오고,
+        활성 세트의 무기를 잃었으면 아예 다른 빌드다."""
+        return not self.dropped_item_granted and not self.dropped_weapons
 
     @property
     def faithful(self) -> bool:
@@ -193,23 +200,42 @@ def _stat_set_index(gem: ET.Element, gem_id: str) -> int | None:
     return None
 
 
-def _skills(
-    root: ET.Element, assume_first_stat_set: bool, assume_stages: int | None
-) -> tuple[list[dict[str, Any]], list[str], int, list[tuple[str, int]]]:
+@dataclass
+class _SkillScan:
+    """`<Skills>`를 훑은 결과 — 남긴 그룹과 **뺀 그룹의 자취**를 함께 든다 (#144).
+
+    PoB `mainSocketGroup`은 `<Skill>` **전체**(아이템 부여 그룹 포함)의 1-based 색인이라,
+    그룹을 빼면서 목록이 당겨지면 그 값을 옮겨야 한다. 옮기려면 남긴 그룹이 원래 몇
+    번째였는지(`kept_positions`)와, 빠진 그룹에 무슨 젬이 있었는지(`dropped_names` —
+    플레이어가 같은 스킬을 다시 실은 그룹으로 옮기는 근거)가 필요하다.
+    """
+
+    groups: list[dict[str, Any]]
+    assumed: list[str]
+    from_items: int
+    granted_groups: list[tuple[str, int]]
+    kept_positions: list[int]  # groups[i]가 원래 <Skill> 목록에서 몇 번째였나 (1-based)
+    dropped_names: dict[int, list[str]]  # 뺀 그룹의 원래 위치 → 젬 이름들
+
+
+def _skills(root: ET.Element, assume_first_stat_set: bool, assume_stages: int | None) -> _SkillScan:
     holder = root.find("Skills")
     if holder is None:
-        return [], [], 0, []
+        return _SkillScan([], [], 0, [], [], {})
     sset = holder.find("SkillSet")
     groups: list[dict[str, Any]] = []
     assumed: list[str] = []
     from_items = 0
     granted_groups: list[tuple[str, int]] = []
-    for skill in (sset if sset is not None else holder).findall("Skill"):
+    kept_positions: list[int] = []
+    dropped_names: dict[int, list[str]] = {}
+    for position, skill in enumerate((sset if sset is not None else holder).findall("Skill"), 1):
         # PoB는 **아이템이 준 스킬 그룹**에 `source`를 붙인다. 그걸 젬으로 다시 실으면
         # 이중 계산이고, 우리 게이트도 "젬으로 못 켠다"며 막는다. 아이템을 장착하면
         # PoB가 알아서 되살리므로 여기서는 싣지 않는다.
         if skill.get("source"):
             from_items += 1
+            dropped_names[position] = [g.get("nameSpec") or "" for g in skill.findall("Gem")]
             continue
         # ⛔ 예전엔 여기서 **젬 이름**으로 한 번 더 걸러 냈다 — `source`가 없어도 KB가
         #    아이템 부여로 아는 스킬이 들어 있으면 그룹째 뺐다. **그게 결함이었다.**
@@ -259,7 +285,69 @@ def _skills(
                     "main_active_skill": _int(skill.get("mainActiveSkill"), 1),
                 }
             )
-    return groups, assumed, from_items, granted_groups
+            kept_positions.append(position)
+        else:
+            dropped_names[position] = [g.get("nameSpec") or "" for g in skill.findall("Gem")]
+    return _SkillScan(groups, assumed, from_items, granted_groups, kept_positions, dropped_names)
+
+
+def _remap_main_group(raw: int, scan: _SkillScan) -> tuple[int, list[str], list[str]]:
+    """PoB `mainSocketGroup`(전체 `<Skill>`의 1-based 색인) → **남긴 그룹**의 색인 (#144).
+
+    그대로 복사하면 빠진 그룹이 주력 **앞**에 하나라도 있을 때 다른 스킬을 가리킨다.
+    PoB는 지정된 그룹을 계산할 뿐이라 오류가 없다 — 지속형을 가리키면 DPS 0으로 그나마
+    보이지만, 다른 액티브 스킬을 가리키면 **그럴듯한 오답**이 나온다(실측 2026-09-04:
+    한 칸 어긋나자 `Ghost Dance` → CombinedDPS 0). 이번 표본은 빠진 그룹이 전부 주력
+    뒤라 우연히 맞았을 뿐이다.
+
+    주력 그룹 자체가 빠졌으면(아이템 부여 그룹을 주력으로 지정한 빌드) 추측하지 않는다 —
+    플레이어가 같은 스킬을 젬으로 다시 실은 그룹이 있으면 그리로 옮기고 **말하고**,
+    없으면 `needs_decision`으로 묻는다. 반환은 (색인, notes, needs_decision)이다.
+    """
+    if raw in scan.kept_positions:
+        return scan.kept_positions.index(raw) + 1, [], []
+    if not scan.groups:
+        return 1, [], []
+    names = {n for n in scan.dropped_names.get(raw, []) if n}
+    for index, group in enumerate(scan.groups, 1):
+        if names and any(gem.get("name") in names for gem in group["gems"]):
+            return (
+                index,
+                [
+                    f"main_socket_group {raw}는 뺀 그룹(아이템 부여)이었다 — 같은 스킬"
+                    f"({', '.join(sorted(names))})을 다시 실은 그룹 {index}로 옮겼다"
+                ],
+                [],
+            )
+    return (
+        1,
+        [],
+        [
+            f"main_socket_group {raw}가 가리키던 그룹을 뺐다(아이템 부여 또는 빈 그룹)인데 같은 "
+            "스킬을 다시 실은 그룹이 없다 — 임시로 1을 넣었다. 주력 스킬을 스펙에 젬으로 싣고 "
+            "main_socket_group을 직접 정할 것(1-based)"
+        ],
+    )
+
+
+def _fold_weapon_sets(
+    groups: list[dict[str, Any]], main_index: int
+) -> tuple[list[dict[str, Any]], int]:
+    """교체 세트가 활성일 때 스킬 그룹의 슬롯을 무기와 함께 옮긴다 (#143).
+
+    무기만 `Weapon 1`로 옮기고 그룹은 `Weapon 1 Swap`에 두면 PoB가 **빈 슬롯의 그룹**으로
+    보고 끈다. 반대로 1세트 무기에 꽂힌 그룹은 PoB처럼 끈다 — `CalcSetup.lua:1729`
+    `slotEnabled = slot.weaponSet == 활성 세트`, 단 주력 그룹은 색인으로 항상 계산된다.
+    """
+    disabled = 0
+    for index, group in enumerate(groups, 1):
+        slot = str(group.get("slot") or "")
+        if slot in _SWAP_TO_MAIN:
+            group["slot"] = _SWAP_TO_MAIN[slot]
+        elif slot in _MAIN_WEAPON_SLOTS and index != main_index and group.get("enabled", True):
+            group["enabled"] = False
+            disabled += 1
+    return groups, disabled
 
 
 def _config(root: ET.Element) -> list[list[Any]]:
@@ -324,18 +412,57 @@ def spec_from_pob_xml(
     by_id = _items_by_id(items_el) if items_el is not None else {}
 
     items: list[dict[str, str]] = []
+    dropped_weapons: list[str] = []
+    folded: list[str] = []
+    use_second = False
     if items_el is not None:
         itemset = items_el.find("ItemSet")
-        for slot in (itemset if itemset is not None else items_el).findall("Slot"):
+        holder = itemset if itemset is not None else items_el
+        # **활성 무기 세트** — `useSecondWeaponSet`은 `<ItemSet>` 속성이다(구형 코드는
+        # `<Items>` 속성, `ItemsTab.lua:1153·1189`). 참이면 주무기는 **Swap 슬롯**에 있다.
+        use_second = (
+            holder.get("useSecondWeaponSet") or items_el.get("useSecondWeaponSet") or ""
+        ) == "true"
+        for slot in holder.findall("Slot"):
             name, iid = slot.get("name") or "", slot.get("itemId") or "0"
-            if iid in ("0", "") or iid not in by_id:
+            if iid in ("0", ""):
                 continue
-            if name in _SKIP_SLOTS:
-                # 교체 무기는 우리 스펙에 자리가 없다. 조용히 버리면 "무기 없는
-                # 빌드"가 되어 DPS 0이 나오고, 원인을 짚을 수 없다.
-                notes.append(f"교체 무기 슬롯 '{name}'를 싣지 못했다 — 스펙에 자리가 없다")
+            is_swap, is_main = name in _SWAP_TO_MAIN, name in _MAIN_WEAPON_SLOTS
+            active_weapon = (is_swap and use_second) or (is_main and not use_second)
+            if iid not in by_id:
+                if active_weapon:
+                    # 활성 세트의 무기가 코드에 없다 — 조용히 빼면 무기 없는 빌드를
+                    # 「비교 가능」으로 재게 된다 (#143)
+                    dropped_weapons.append(name)
+                    notes.append(
+                        f"'{name}' 슬롯이 가리키는 아이템 {iid}가 코드에 없다 — 무기가 빠졌다"
+                    )
+                continue
+            if is_swap:
+                if not use_second:
+                    # 비활성 교체 세트 — 우리 스펙에 자리가 없다. 조용히 버리면 원인을
+                    # 짚을 수 없으므로 말한다(PoB도 이 세트는 계산에 안 쓴다).
+                    notes.append(f"교체 무기 슬롯 '{name}'를 싣지 못했다 — 스펙에 자리가 없다")
+                    continue
+                # ⭑ 교체 세트가 **활성**이다 — 주무기가 여기 있다. 빈 채로 복원하면 창 공격
+                #    빌드가 창 없이 계산된다(실측 2026-09-04: 래더 창 젬링, #143). PoB가
+                #    활성 세트로 계산하는 것을 1세트 슬롯으로 접어 싣는다.
+                items.append({"slot": _SWAP_TO_MAIN[name], "text": by_id[iid]})
+                folded.append(name)
+                continue
+            if is_main and use_second:
+                # 1세트 무기는 비활성이다 — PoB도 계산에 안 쓴다. 둘 다 실으면 없는 빌드가 된다.
+                notes.append(
+                    f"비활성 무기 세트의 '{name}'를 뺐다 — 교체 세트가 활성이라 PoB도 안 쓴다"
+                )
                 continue
             items.append({"slot": name, "text": by_id[iid]})
+    if folded:
+        notes.append(
+            f"교체 무기 세트가 활성이라 {', '.join(folded)}를 1세트 슬롯으로 접어 실었다 — "
+            "⚠ **근사**다: 세트 전용 트리 할당(WeaponSet2)·「양 세트에서 활성」 젬(예: Eternal "
+            "Rage)은 재현되지 않는다"
+        )
 
     # 주얼은 슬롯이 아니라 트리 소켓에 박힌다 — `Items`만 보면 통째로 빠진다.
     # ⚠ PoB는 **할당하지 않은 소켓의 매핑도 남겨 둔다**(예전에 꽂았던 주얼). 그대로
@@ -365,9 +492,25 @@ def spec_from_pob_xml(
     if (spec_el.get("masteryEffects") or "").strip():
         notes.append("masteryEffects가 있는데 스펙에 자리가 없다 — 그만큼 빠진 채 계산된다")
 
-    groups, assumed, from_items, granted_groups = _skills(
-        root, assume_first_stat_set, assume_stages
+    scan = _skills(root, assume_first_stat_set, assume_stages)
+    groups, assumed, from_items, granted_groups = (
+        scan.groups,
+        scan.assumed,
+        scan.from_items,
+        scan.granted_groups,
     )
+    # ⛔ `mainSocketGroup`을 그대로 복사하지 않는다 (#144) — 빠진 그룹만큼 당긴다.
+    main_index, main_notes, main_needs = _remap_main_group(
+        _int(build.get("mainSocketGroup"), 1), scan
+    )
+    notes.extend(main_notes)
+    if use_second:
+        groups, disabled = _fold_weapon_sets(groups, main_index)
+        if disabled:
+            notes.append(
+                f"비활성 무기 세트에 꽂힌 스킬 그룹 {disabled}개를 껐다 — PoB도 그 세트가 "
+                "비활성이면 계산에서 뺀다(주력 그룹은 예외)"
+            )
     if granted_groups:
         lost = sum(s for _, s in granted_groups)
         notes.append(
@@ -399,7 +542,8 @@ def spec_from_pob_xml(
         # 전직은 **내부 코드**여야 한다("Monk1") — 실명은 카탈로그가 거부한다.
         "ascendancy": spec_el.get("ascendancyInternalId") or build.get("ascendClassName") or "",
         "level": _int(build.get("level"), 90),
-        "main_socket_group": _int(build.get("mainSocketGroup"), 1),
+        # 1-based (PoB 관례) — 0-based로 읽으면 이웃 그룹을 조용히 잰다 (#144)
+        "main_socket_group": main_index,
         "tree_nodes": nodes,
         "items": items,
         "skills": groups,
@@ -407,7 +551,7 @@ def spec_from_pob_xml(
         "attribute_choices": _attribute_choices(spec_el),
         "config": _config(root),
     }
-    needs: list[str] = []
+    needs: list[str] = list(main_needs)
     if assume_stages is not None:
         needs.append(
             f"단계형 스킬에 `stages={assume_stages}`를 **가정했다** — PoB 코드에는 단계 "
@@ -428,6 +572,7 @@ def spec_from_pob_xml(
         notes=tuple(notes),
         needs_decision=tuple(needs),
         dropped_item_granted=tuple(granted_groups),
+        dropped_weapons=tuple(dropped_weapons),
     )
 
 

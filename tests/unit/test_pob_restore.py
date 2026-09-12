@@ -251,3 +251,136 @@ def test_색인이_없을_때만_1번을_가정한다() -> None:
     r = spec_from_pob_xml(_XML)  # 픽스처엔 StatSetIndex가 없다
     assert r.spec["skills"][0]["gems"][0]["stat_set_index"] == 1
     assert any("stat_set_index" in n for n in r.needs_decision)
+
+
+# ── #144 — 그룹을 빼면서 main_socket_group을 재매핑하지 않던 자리 ────────────────
+
+_SPEAR_GRANTED = (
+    '<Skill enabled="true" source="Item" mainActiveSkill="1">'
+    '<Gem gemId="Metadata/Items/Gems/SkillGemSpearThrow" nameSpec="Spear Throw" level="20"'
+    ' quality="0"/></Skill>'
+)
+_SPEAR_PLAYER = _SPEAR_GRANTED.replace(' source="Item"', "")
+_DANCER = (
+    '<Skill enabled="true" mainActiveSkill="1">'
+    '<Gem gemId="Metadata/Items/Gem/SkillGemWindDancer" nameSpec="Wind Dancer" level="20"'
+    ' quality="0"/></Skill>'
+)
+_SPARK = (
+    '<Skill enabled="true" mainActiveSkill="1">'
+    '<Gem gemId="Metadata/Items/Gems/SkillGemSpark" nameSpec="Spark" level="20" quality="0"/>'
+    "</Skill>"
+)
+
+
+def _with_skills(main: int, *skills: str) -> str:
+    import re
+
+    xml = re.sub(
+        r"<Skills>.*?</Skills>",
+        "<Skills><SkillSet>" + "".join(skills) + "</SkillSet></Skills>",
+        _XML,
+        flags=re.S,
+    )
+    return xml.replace('mainSocketGroup="1"', f'mainSocketGroup="{main}"')
+
+
+def test_그룹을_빼면_main_socket_group을_재매핑한다() -> None:
+    """#144 — PoB `mainSocketGroup`은 **<Skill> 전체**(아이템 부여 포함)의 1-based 색인이다.
+
+    부여 그룹을 빼면서 목록이 당겨지는데 값은 그대로 복사했다 — 빠진 그룹이 주력 **앞**에
+    있으면 조용히 다른 스킬을 잰다(실측 2026-09-04: 한 칸 어긋나자 `Ghost Dance`를 가리켜
+    CombinedDPS 0). 이번 표본은 빠진 그룹이 전부 주력 뒤라 우연히 맞았을 뿐이다.
+    """
+    r = spec_from_pob_xml(_with_skills(3, _SPEAR_GRANTED, _DANCER, _SPARK))
+    assert [g["gems"][0]["name"] for g in r.spec["skills"]] == ["Wind Dancer", "Spark"]
+    assert r.spec["main_socket_group"] == 2, "빠진 그룹만큼 당겨져야 Spark를 가리킨다"
+    assert not any("main_socket_group" in n for n in r.needs_decision)
+
+
+def test_빠진_그룹이_주력_뒤면_그대로다() -> None:
+    r = spec_from_pob_xml(_with_skills(1, _DANCER, _SPEAR_GRANTED, _SPARK))
+    assert r.spec["main_socket_group"] == 1
+    assert not any("main_socket_group" in n for n in r.needs_decision)
+
+
+def test_주력_그룹_자체가_빠지면_이웃을_조용히_재지_않는다() -> None:
+    """주력이 아이템 부여(`source`) 그룹이면 우리 목록엔 그 그룹이 없다.
+
+    같은 스킬을 플레이어가 젬으로 다시 실은 그룹이 있으면 그리로 옮기고 **말한다**;
+    없으면 `needs_decision`으로 묻는다 — 어느 쪽도 이웃 그룹을 침묵 속에 재지 않는다.
+    """
+    unresolved = spec_from_pob_xml(_with_skills(1, _SPEAR_GRANTED, _DANCER, _SPARK))
+    assert any("main_socket_group" in n for n in unresolved.needs_decision), (
+        unresolved.needs_decision
+    )
+    remade = spec_from_pob_xml(_with_skills(1, _SPEAR_GRANTED, _DANCER, _SPEAR_PLAYER))
+    assert remade.spec["main_socket_group"] == 2, "같은 스킬을 다시 실은 그룹으로 옮긴다"
+    assert any("main_socket_group" in n for n in remade.notes), remade.notes
+    assert not any("main_socket_group" in n for n in remade.needs_decision)
+
+
+# ── #143 — 웨폰셋 교체 빌드를 무기 없이 복원하고도 비교 가능이라 하던 자리 ─────────
+
+_SPEAR_TEXT = (
+    "Rarity: RARE\nViper Edge\nAkoyan Spear\nItem Level: 80\nAdds 10 to 20 Physical Damage"
+)
+
+
+def _with_weapon_sets(use_second: bool, *, main: str = "0", swap: str = "3") -> str:
+    xml = _XML.replace('<Item id="2">', f'<Item id="3">{_SPEAR_TEXT}</Item><Item id="2">')
+    xml = xml.replace(
+        '<ItemSet id="1">', f'<ItemSet id="1" useSecondWeaponSet="{str(use_second).lower()}">'
+    )
+    return xml.replace(
+        '<Slot name="Weapon 1 Swap" itemId="2"/>',
+        f'<Slot name="Weapon 1" itemId="{main}"/><Slot name="Weapon 1 Swap" itemId="{swap}"/>',
+    )
+
+
+def test_교체_세트가_활성이면_그_무기를_주무기_슬롯으로_접어_싣는다() -> None:
+    """#143 — `useSecondWeaponSet="true"`면 주무기는 **Swap 슬롯**에 있다(래더 창 젬링 실측).
+
+    빈 채로 복원하면 창 공격 빌드가 창 없이 계산되는데 `damage_comparable`은 True였다.
+    PoB가 활성 세트로 계산하는 것을 그대로 옮긴다 — 단 **근사**임을 말한다(세트 전용 트리
+    할당·「양 세트에서 활성」 젬은 재현 못 한다).
+    """
+    r = spec_from_pob_xml(_with_weapon_sets(True))
+    weapon = next(i for i in r.spec["items"] if i["slot"] == "Weapon 1")
+    assert "Akoyan Spear" in weapon["text"]
+    assert not any(i["slot"].endswith("Swap") for i in r.spec["items"])
+    assert any("근사" in n for n in r.notes), r.notes
+    assert r.damage_comparable is True
+
+
+def test_교체_세트가_활성이면_1세트_무기는_뺀다() -> None:
+    """PoB도 비활성 세트는 계산에 안 쓴다 — 둘 다 실으면 없는 빌드가 된다."""
+    r = spec_from_pob_xml(_with_weapon_sets(True, main="1"))  # 1세트 슬롯에 목걸이 텍스트
+    weapons = [i for i in r.spec["items"] if i["slot"] == "Weapon 1"]
+    assert len(weapons) == 1 and "Akoyan Spear" in weapons[0]["text"]
+    assert any("비활성" in n for n in r.notes), r.notes
+
+
+def test_교체_세트가_비활성이면_종전과_같다() -> None:
+    r = spec_from_pob_xml(_with_weapon_sets(False))
+    assert not any(i["slot"] == "Weapon 1" for i in r.spec["items"])
+    assert any("교체 무기" in n for n in r.notes)
+    assert r.damage_comparable is True, "비활성 세트의 무기는 PoB도 계산에 안 쓴다"
+
+
+def test_교체_세트가_활성이면_그_슬롯의_스킬_그룹도_따라온다() -> None:
+    """무기만 옮기고 그룹의 slot을 `Weapon 1 Swap`으로 두면 PoB가 빈 슬롯의 그룹으로 보고 끈다.
+    반대로 1세트 무기에 꽂힌 그룹은 PoB처럼 끈다(`CalcSetup.lua:1729`, 주력 그룹은 예외)."""
+    xml = _with_weapon_sets(True).replace(
+        '<Skill enabled="true" mainActiveSkill="nil">',
+        '<Skill enabled="true" slot="Weapon 1 Swap" mainActiveSkill="nil">',
+    )
+    r = spec_from_pob_xml(xml)
+    assert r.spec["skills"][0]["slot"] == "Weapon 1" and r.spec["skills"][0]["enabled"] is True
+
+
+def test_활성_세트의_무기가_코드에_없으면_비교_불가다() -> None:
+    """무기 슬롯이 가리키는 아이템이 코드에 없으면 조용히 빠지던 자리 — 딜 축 비교 불가로 내린다."""
+    r = spec_from_pob_xml(_with_weapon_sets(True, swap="99"))
+    assert r.damage_comparable is False
+    assert any("Weapon 1" in n for n in r.notes), r.notes
