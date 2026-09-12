@@ -76,6 +76,8 @@ def _pob_dump() -> tuple[list[dict[str, int]], dict[int, dict[int, set[int]]]]:
             input="",
             capture_output=True,
             text=True,
+            encoding="utf-8",  # 로케일 디코딩 금지 (#166)
+            errors="replace",
             timeout=180,
         )
     finally:

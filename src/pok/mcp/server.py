@@ -52,6 +52,7 @@ def _git_head(root: Path) -> tuple[str, str]:
             ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
             timeout=5,
             check=False,
         ).stdout.strip()
@@ -59,6 +60,17 @@ def _git_head(root: Path) -> tuple[str, str]:
             ["git", "-C", str(root), "log", "-1", "--format=%s"],
             capture_output=True,
             text=True,
+            # ⛔ **이 두 줄이 없으면 재시작 신호가 통째로 죽는다**(#166). 커밋 제목은
+            #    이 레포에선 거의 항상 한글 + em dash라, 로케일이 UTF-8이 아닌
+            #    Windows(한국어면 cp949)에서 디코딩이 깨진다. 그런데 아래 `except`가
+            #    그것을 ("", "")로 삼켜 **`_LOADED_COMMIT`도 `source_commit`도 빈
+            #    문자열**이 되고, 둘이 같으니 `stale`은 **영원히 False**다 — 옛 코드를
+            #    로드한 채 도는 서버를 아무도 못 본다. 실측 2026-09-12(한국어 Windows,
+            #    `PYTHONUTF8` 없이): `source_commit=''` · `stale=False`.
+            #    `errors="replace"`인 이유는 제목이 **라벨**이기 때문이다 — 한 글자
+            #    때문에 커밋 식별 자체를 잃는 쪽이 나쁘다(`runner.py` #120과 같은 판단).
+            encoding="utf-8",
+            errors="replace",
             timeout=5,
             check=False,
         ).stdout.strip()
