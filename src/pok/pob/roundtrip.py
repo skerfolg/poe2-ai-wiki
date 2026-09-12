@@ -104,6 +104,10 @@ def roundtrip(
             input="",
             capture_output=True,
             text=True,
+            # 로케일 디코딩 금지 — 근거는 `runner.py`의 #120 주석(같은 luajit
+            # 출력이고, 여기선 아이템 원문이라 비ASCII 이름이 더 흔하다). #166.
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
     finally:

@@ -337,6 +337,7 @@ def main(argv: list[str] | None = None) -> int:
                 ["git", "-C", str(cwd), "rev-parse", "HEAD"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",  # 로케일 디코딩 금지(#166) — 출력은 SHA지만 규약을 비우지 않는다
                 check=True,
             ).stdout.strip()
 

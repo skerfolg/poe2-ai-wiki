@@ -63,6 +63,7 @@ flowchart TD
   JEWEL[S39 #156·#157 주얼 접사 검사 두 자리<br/>done]
   JEWELDF[S40 #162 주얼 items_legal + derived_from 대칭<br/>done]
   BATCH[S41 백로그 결함 9건 일괄 + 지도 2건<br/>done]
+  ENC[S42 #166 로케일 디코딩 7자리<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -102,6 +103,8 @@ flowchart TD
   JEWELDF -. 레인 밖 .-> M6
   JEWELDF -. 미수정 큐를 한 번에 .-> BATCH
   BATCH -. 레인 밖 · 거짓 거부·조용한 오답 일괄 .-> M6
+  BATCH -. 새 PC 셋업이 드러낸 자리 .-> ENC
+  ENC -. 레인 밖 · 재시작 신호가 죽어 있었다 .-> M6
 ```
 
 ## Baseline Structure
@@ -154,6 +157,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S39 | #156·#157 — **같은 신성모독 주얼에서 연달아 난 거짓 거부 둘.** #156 접미어 효과 확장이 `origins`만 보고 `scope`를 안 봐 `of the Abyss`((1-2)%, `scope="jewel"`)가 54% 효과 아래 3%로 표시된 것을 「티어 범위 밖」으로 거부했다(사용자가 원인을 짚었다) — `_is_jewel_mod`가 두 형태를 다 본다. 곁가지로 `Effect of Prefixes`의 대칭 확장이 아예 없던 것을 같은 꼴로 닫았다. #157 `applicable_pages` 대조가 클래스 조인 실패에서 **단락**해 주얼(pages가 베이스명, `item_class`는 전부 Jewel) 대상 접사 전량이 「목록에 Emerald가 있는데 밖」으로 거부됐다 — 조인 실패 뒤 **정확 일치**로 한 번 더 본다(제안의 느슨한 부분 문자열 대조는 장비 오통과를 부르므로 택하지 않았다). 요청은 #156이었지만 #156만 고친 시험이 #157에서 막혀 함께 닫았다(보고자 예측 그대로) (`engine/legality.py`) | done |
 | S40 | #162 — `compute_pob`의 `items_legal`이 **주얼을 검사하지 않던 것** + 주얼 `derived_from` 대칭(#152·#27이 `items[]`에만 준 규약의 주얼 판). PR #139(`118661c`). 이 행은 S41 작업 중 소급 기재 — 그 PR은 Open Decisions 행만 남겼다 | done |
 | S41 | **백로그 미수정 큐 일괄** — 원인이 특정된 엔진 결함 9건 + 지도 2건을 한 PR로 닫았다(포크 4개 병렬 + 본 세션). #161 `optimize_tree`의 `point_budget`을 **총 예산**으로(기반+앵커+그리디 ≤ 예산, 예산 원장 반환) · #158 임플리싯 대조는 `Implicits: N`이 지목한 줄에서만 최종 · #142 수치 없는 임플리싯은 문구 일치로 통과 · #149 스폰 가중치를 **목록 순서로 처음 맞는 태그**로 판정(게임·PoB 규칙)하고 하이브리드 묶음 전에 베이스 적합성 · #164 `find_carriers`가 효과 전량을 평가하고 효과 꼬리표를 낸다(⭑ 가루칸의 결의는 참 거부였다) · #150 `server_info`가 등록 시점 동기 등록부를 읽는다(워커 스레드 `asyncio.run` 교착 — `RuntimeError` 분기는 타지도 않았다) · #144 `main_socket_group` 색인 사상 · #143 교체 세트 접어 싣기 + 잃은 활성 무기는 비교 불가 · #151 지도의 젬 이름을 조건절로 · #137 지도에 인사이트 경로(🔶 부분 — 도구 부착은 미수정). 각 항목이 자기 강제 지점을 가진다(수정 전 실패 확인). 제외: #159·#160·#163(KB 재수집) · #165(설계 논의) · #132·#139(상류) · #138·#140·#141(도구 설계) (`engine/legality.py`·`engine/tree/optimize.py`·`engine/hosting.py`·`mcp/server.py`·`pob/restore.py`·`AGENTS.md`) | done |
+| S42 | #166 — **새 PC 셋업이 드러낸 자리.** `text=True`인 subprocess가 **로케일 코드페이지**로 디코딩한다 — UTF-8이 아닌 Windows(한국어면 cp949)에서만 터지고 **CI는 러너가 전부 UTF-8이라 못 잡는다**. 가장 나쁜 자리는 `_git_head`였다: 예외가 **리더 스레드**에서 터져 호출부엔 `IndexError`만 오고 그 위 `except`가 `("", "")`로 삼켜, `_LOADED_COMMIT`과 `source_commit`이 **둘 다 빈 문자열**이 되고 `stale`이 **영원히 False**가 된다 — 이관 D-1이 세운 재시작 신호가 통째로 죽은 채 초록이었다(형태 ①·⑩). 실측 2026-09-12: `source_commit=''`·`stale=False` → 수정 후 `'18d3422'`. #120이 `pob/runner.py` **한 자리**만 고정했고 규율이 주석에만 있어 나머지 **7자리**가 그대로였다(형태 ⑦). 7자리 + 같은 형태의 통합 시험 1자리에 `encoding="utf-8"`을 명시하고, `errors="replace"`는 **라벨인 것에만** 준다 (`kb/store.py`는 **경로**라 strict 유지 — 뭉개면 없는 파일을 가리킨다). 강제 지점은 **로케일과 무관한 정적 검사** `tests/unit/test_subprocess_encoding.py`로, 실행 결과가 아니라 **호출의 모양**을 보므로 UTF-8 러너에서도 잡는다(우회 문법 `from subprocess import run`도 함께 막는다). ⚠ **환경변수로는 못 막는다** — `PYTHONUTF8`은 인터프리터 기동 전에 정해져야 하고, 세션 설정은 그것을 읽는 호스트만 덮는다(`common/stdio.py`가 출력 쪽에서 같은 이유로 코드에 강제 지점을 둔다) (`mcp/server.py`·`kb/store.py`·`kb/ingest/__main__.py`·`pob/{parse_gaps,item_parse_gaps,roundtrip}.py`) | done |
 
 ## Canonical Next Step
 

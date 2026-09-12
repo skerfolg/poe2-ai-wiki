@@ -74,6 +74,10 @@ def _untracked(kdir: Path) -> frozenset[Path]:
             ["git", "-C", str(kdir), "ls-files", "--others", "--exclude-standard", "-z"],
             capture_output=True,
             text=True,
+            # 로케일 디코딩 금지(#166). ⚠ `errors`는 **기본(strict)로 둔다** — 여기
+            # 나오는 것은 라벨이 아니라 **경로**라, 뭉개면 있지도 않은 파일을 가리킨다.
+            # 깨지면 아래 `except`가 빈 집합을 내고 판정을 포기하는 편이 맞다.
+            encoding="utf-8",
             timeout=20,
         )
     except (OSError, subprocess.SubprocessError):
