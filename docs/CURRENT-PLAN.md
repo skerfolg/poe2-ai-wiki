@@ -61,6 +61,8 @@ flowchart TD
   STAMP[S37 #152 자동 채움 도장 스키마<br/>done]
   GRANT[S38 #154·#155 부여 스킬 공급원 + 자동 채움 예산<br/>done]
   JEWEL[S39 #156·#157 주얼 접사 검사 두 자리<br/>done]
+  JEWELDF[S40 #162 주얼 items_legal + derived_from 대칭<br/>done]
+  BATCH[S41 백로그 결함 9건 일괄 + 지도 2건<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -96,6 +98,10 @@ flowchart TD
   GRANT -. 레인 밖 · 거짓 차단과 조용한 30분 .-> M6
   GRANT -. 같은 세션 · 같은 주얼에서 연달아 .-> JEWEL
   JEWEL -. 레인 밖 · 거짓 거부 둘을 함께 .-> M6
+  JEWEL -. 같은 세션 · 주얼 규약의 대칭 부재 .-> JEWELDF
+  JEWELDF -. 레인 밖 .-> M6
+  JEWELDF -. 미수정 큐를 한 번에 .-> BATCH
+  BATCH -. 레인 밖 · 거짓 거부·조용한 오답 일괄 .-> M6
 ```
 
 ## Baseline Structure
@@ -146,6 +152,8 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S37 | #152 — **자동 채움이 자기 스펙을 오염시키던 자리.** 희귀 슬롯의 출처 도장(`items[i].derived_from`)을 훅 게이트·`unstamped_rares`·거부문 세 곳이 아이템 단위로 읽는데 `spec_from_dict`만 거부했다 — 첫 칸에 찍은 도장이 둘째 칸의 `optimize_rare`에서 `모르는 키`로 죽었고, 거부문이 안내한 탈출구(「그 슬롯에 derived_from을 명시할 것」)도 같은 자리에서 막혔다(철칙 5 따름정리 — 금지하려면 대안 경로부터). ⭑ 보고보다 넓었다: 채운 스펙은 그대로 조립의 `spec_from_dict`로 가므로 **1칸짜리도 조립 직전에 죽었다.** 최상위 `_SPEC_ONLY_KEYS`와 같은 규약을 아이템에 뒀다(받되 벗겨 낸다, `_make(spec_only=)`) — `ItemSpec`·manifest 해시는 그대로. 강제 지점: **2칸** + 받은 스펙을 스키마에 태우는 엄격한 가짜 최적화기, 거부문을 실제 경로에서 받아 탈출구를 밟는 시험. 둘째 절반(의도한 부품을 지운다)은 **#153으로 분리**하고 빠진 대리 줄만 신고한다 (`pob/buildxml.py`·`engine/autofill.py`) | done |
 | S38 | #154·#155 — **같은 세션이 도장을 찍고 나니 다음 벽에 부딪힌 자리.** #154 `check_assumptions`가 아이템이 부여한 스킬을 공급원으로 못 봐 **거짓 차단**했다 — 두 겹이었다: `Grants Skill:` 줄이 스킬 stats로 안 풀렸고, 풀려도 `CanGainRage`→`Gain + Rage`라 「Regenerate … Rage」(영원한 격노)는 못 넘었다. 부여 스킬을 젬과 같은 사전으로 풀고, 능력 동사(`Gain`·`Apply`)를 떼 대상만 키워드로 삼는다(유니크 104종이 `Grants Skill:`을 갖는다). #155 「1800초 무응답」은 ⚠ **진단 정정** — 멈춘 게 아니라 **32분 일하고 반환**했다(텔레메트리 `failed` 행 08:07:52, 발신 07:35:55): 차단될 스펙에 자동 채움(슬롯당 133~156초 실측, 큰 빌드 4칸 32분)을 **먼저** 돌린 뒤 거부했고 클라이언트가 1800초에 포기해 결과를 버렸다. 정적 검사 선행 · 벽시계 예산(`POK_AUTOFILL_BUDGET_S`, 기본 1200초, 다음 칸이 넘칠지 시작 전에 예측) · FastMCP `Context` 진행 알림 · 소요 시간 반환. #150(루프 교착)과 형태가 다르다 — 그대로 미수정. 강제 지점은 인메모리 FastMCP 클라이언트로 서버 래퍼를 실제로 지난다 (`engine/constraints/assumptions.py`·`pob/catalog.py`·`engine/autofill.py`·`mcp/tools/build.py`) | done |
 | S39 | #156·#157 — **같은 신성모독 주얼에서 연달아 난 거짓 거부 둘.** #156 접미어 효과 확장이 `origins`만 보고 `scope`를 안 봐 `of the Abyss`((1-2)%, `scope="jewel"`)가 54% 효과 아래 3%로 표시된 것을 「티어 범위 밖」으로 거부했다(사용자가 원인을 짚었다) — `_is_jewel_mod`가 두 형태를 다 본다. 곁가지로 `Effect of Prefixes`의 대칭 확장이 아예 없던 것을 같은 꼴로 닫았다. #157 `applicable_pages` 대조가 클래스 조인 실패에서 **단락**해 주얼(pages가 베이스명, `item_class`는 전부 Jewel) 대상 접사 전량이 「목록에 Emerald가 있는데 밖」으로 거부됐다 — 조인 실패 뒤 **정확 일치**로 한 번 더 본다(제안의 느슨한 부분 문자열 대조는 장비 오통과를 부르므로 택하지 않았다). 요청은 #156이었지만 #156만 고친 시험이 #157에서 막혀 함께 닫았다(보고자 예측 그대로) (`engine/legality.py`) | done |
+| S40 | #162 — `compute_pob`의 `items_legal`이 **주얼을 검사하지 않던 것** + 주얼 `derived_from` 대칭(#152·#27이 `items[]`에만 준 규약의 주얼 판). PR #139(`118661c`). 이 행은 S41 작업 중 소급 기재 — 그 PR은 Open Decisions 행만 남겼다 | done |
+| S41 | **백로그 미수정 큐 일괄** — 원인이 특정된 엔진 결함 9건 + 지도 2건을 한 PR로 닫았다(포크 4개 병렬 + 본 세션). #161 `optimize_tree`의 `point_budget`을 **총 예산**으로(기반+앵커+그리디 ≤ 예산, 예산 원장 반환) · #158 임플리싯 대조는 `Implicits: N`이 지목한 줄에서만 최종 · #142 수치 없는 임플리싯은 문구 일치로 통과 · #149 스폰 가중치를 **목록 순서로 처음 맞는 태그**로 판정(게임·PoB 규칙)하고 하이브리드 묶음 전에 베이스 적합성 · #164 `find_carriers`가 효과 전량을 평가하고 효과 꼬리표를 낸다(⭑ 가루칸의 결의는 참 거부였다) · #150 `server_info`가 등록 시점 동기 등록부를 읽는다(워커 스레드 `asyncio.run` 교착 — `RuntimeError` 분기는 타지도 않았다) · #144 `main_socket_group` 색인 사상 · #143 교체 세트 접어 싣기 + 잃은 활성 무기는 비교 불가 · #151 지도의 젬 이름을 조건절로 · #137 지도에 인사이트 경로(🔶 부분 — 도구 부착은 미수정). 각 항목이 자기 강제 지점을 가진다(수정 전 실패 확인). 제외: #159·#160·#163(KB 재수집) · #165(설계 논의) · #132·#139(상류) · #138·#140·#141(도구 설계) (`engine/legality.py`·`engine/tree/optimize.py`·`engine/hosting.py`·`mcp/server.py`·`pob/restore.py`·`AGENTS.md`) | done |
 
 ## Canonical Next Step
 
@@ -195,6 +203,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | worktree `.claude/worktrees/*` (arc-measure·ecstatic-benz·zealous-dewdney) | **소멸** | 2026-08-24 확인: `.claude/worktrees` **디렉터리 자체가 없다**. 표만 남아 있었다 |
 | worktree `.worktrees/ci-fix` (실제 경로는 다른 세션 scratchpad) | prunable | 실재하는 유일한 외부 워크트리 — 다른 세션(`3dee16c4`) scratchpad, detached `9eeb97e`(2026-08-13 「CI 복구 — mypy strict 17건」). **커밋은 main에 흡수 완료**(ancestor 확인)라 잃을 것이 없다. 가드가 「Current Plan에 없는 워크트리」로 경고하는 대상. **미커밋 변경 0건**(2026-08-24 확인)이라 지워도 잃을 것이 없다. ⛔ 그래도 소유 세션 확인 후 `git worktree remove` — 이 표에 적힌 것은 삭제 근거이지 삭제 승인이 아니다 |
 | branch `feat/145-dps-inflation-warnings` | merged · 삭제 후보 | PR #134가 스쿼시 머지(`26588a3`, 2026-09-09) — S33·S35·S36을 담았다. **로컬·원격 모두 잔존**. 커밋은 main에 흡수 완료라 잃을 것이 없다. ⛔ 삭제는 사용자 승인 후(아래 「원격 브랜치」 항과 같은 이유) |
+| branch `fix/162-jewel-derived-from` | merged · 삭제 후보 | PR #139가 스쿼시 머지(`118661c`, 2026-09-09) — S40. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
+| branch `fix/156-jewel-suffix-scope` | merged · 삭제 후보 | PR #138이 스쿼시 머지(2026-09-09) — S39. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
 | branch `fix/154-155-granted-skill-mcp-hang` | merged · 삭제 후보 | PR #137이 스쿼시 머지(`a21a4f2`, 2026-09-09) — S38. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
 | branch `fix/152-autofill-item-stamp` | merged · 삭제 후보 | PR #136이 스쿼시 머지(`5cde403`, 2026-09-09) — S37. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
 | branch `chore/M5-proposal-rounds-close-s33-s36` | merged · 삭제 후보 | PR #135가 스쿼시 머지(`de40859`, 2026-09-09) — S33·S35·S36 종결 기록. 로컬·원격 잔존, 잃을 것 없음. ⛔ 삭제는 사용자 승인 후 |
@@ -206,6 +216,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| S41 — 미수정 큐에서 **무엇을 고르고 무엇을 뺄지** | 사용자 지시 「백로그 확인하고 수정 진행」. 원인이 특정된 엔진 결함(코드만 바꾸면 닫히는 것) 9건 + 지도 2건을 골랐다. KB 재수집이 필요한 #159·#160·#163, 설계 논의가 필요한 #165, 상류 결함 #132·#139, 도구 설계가 필요한 #138·#140·#141은 **뺐다** — 한 PR에 섞으면 검토가 불가능해진다. 항목별 커밋으로 나눴다 | 2026-09-12 |
+| S41 — 제안과 다르게 판정한 것 넷 | ① #149: `_claim_multi_lines`만 거르지 않고 **스폰 판정 자체**를 게임 규칙(목록 순서 첫 태그)으로 통일 — 판정 주체를 둘로 두지 않는다 ② #143: 「무기 없는 딜 빌드면 비교 불가」 대신 **잃어버린 활성 무기**로 잰다(맨손 빌드) ③ #158: 헤더 없는 텍스트의 범위 안 문구 일치는 임플리싯으로 둔다(#57 경로 보존) ④ #164: 가루칸의 결의는 **참 거부**로 남는다(배제 타입). 전부 백로그 본문에 사유를 적었다 | 2026-09-12 |
+| #163~#165 등재문(다른 세션의 미커밋 워킹 트리)을 **S41 PR의 첫 커밋으로 싣는다** | #149~#157과 같은 형태(다섯 번째). 내용은 손대지 않았다 | 2026-09-12 |
+| Integration branch override — 작업 브랜치 `fix/backlog-batch-0912` | 레인명과 다름. `main`(`118661c`)에서 분기 — 레인 밖 결함 수정 묶음. 이 PR 한정, 머지 시 소멸 — This lane targets `fix/backlog-batch-0912` instead of `main` for this PR only | 2026-09-12 |
 | #157을 **#156과 함께** 고친다(요청은 #156) | 보고자가 「#156을 고쳐도 #157이 남아 막으므로 함께 고쳐야 주얼이 통과한다」고 적었고, #156만 고친 시험이 실제로 #157에서 막혔다. 한 분기 변경이라 분리 PR의 이득이 없고, 요청 범위 밖임은 PR·백로그에 명시했다 — **세션 판단** | 2026-09-09 |
 | #156·#157 등재문(다른 세션의 미커밋 워킹 트리)을 **수정 PR의 첫 두 커밋으로 싣는다** | #149~#155와 같은 형태(세·네 번째). #157은 이 작업 **중에** 이어 써졌다 — 저장 시점 diff를 각각 떠서 분리 커밋했다. 내용은 손대지 않았다 | 2026-09-09 |
 | #162의 **최초 진단이 틀렸다는 것을 본문에 남긴다**(지우지 않는다) | 접수 시엔 「주얼에 도장을 못 찍어 자동 채움이 30분을 쓴다」였는데, `unstamped_rares`는 `jewels[]`를 보지도 않는다(로컬 계측 0.00초). 증상에서 원인을 지어낸 것이라 **그 사실 자체가 기록 가치**가 있다 — #155의 진단 정정과 같은 취급 · **세션 판단** | 2026-09-10 |
