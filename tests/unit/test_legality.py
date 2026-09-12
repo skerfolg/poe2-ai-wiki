@@ -976,3 +976,101 @@ def test_장비의_클래스_조인_거부는_그대로다(checker: ItemLegality
     )
     abyss = [v for v in report.verdicts if v.modifier_id == _ABYSS_ID]
     assert not abyss or all(v.status == "ILLEGAL" for v in abyss), report
+
+
+# ── #158 · #142 · #149 — 임플리싯 대조와 하이브리드 묶음이 거짓 거부하던 자리 ──────
+
+_SOLAR = "Rarity: RARE\nPok Amulet\nSolar Amulet\nItem Level: 81\n"
+
+
+def test_임플리싯과_문구를_공유하는_접사를_선언하면_통과한다(checker: ItemLegalityChecker) -> None:
+    """#158 — 태양의 목걸이(임플리싯 `+(10-15) to Spirit`)에 `IncreasedSpirit3`(+38~42) 접두.
+
+    실측 2026-09-10: 렌더 줄 `+40 to Spirit`이 임플리싯으로 재해석돼 「베이스 임플리싯 범위
+    밖」으로 거부됐다 — 선언을 함께 줘도 그대로였다. PoB는 Spirit 155로 정상 계산했다(게이트만
+    틀렸다). 임플리싯 대조는 `Implicits: N`이 지목한 줄에서만 **최종**이다.
+    """
+    text = _SOLAR + (
+        "Implicits: 1\n+15 to Spirit\nPrefix: {range:0.5}IncreasedSpirit3\n+40 to Spirit\n"
+    )
+    report = checker.check(text)
+    assert report.is_legal, [(v.status, v.line, v.reason) for v in report.verdicts]
+    spirit = next(v for v in report.verdicts if v.line == "+40 to Spirit")
+    assert spirit.modifier_id == "modifier.increasedspirit3", spirit
+    implicit = next(v for v in report.verdicts if v.line == "+15 to Spirit")
+    assert "임플리싯" in implicit.reason, implicit
+
+
+def test_선언_없이도_헤더_뒤의_같은_문구는_접사로_본다(checker: ItemLegalityChecker) -> None:
+    """인게임·거래소 복사 형식(선언 없음)도 같다 — 헤더 뒤의 `+40 to Spirit`은 접사다."""
+    report = checker.check(_SOLAR + "Implicits: 1\n+15 to Spirit\n+40 to Spirit\n")
+    assert report.is_legal, [(v.status, v.line, v.reason) for v in report.verdicts]
+    spirit = next(v for v in report.verdicts if v.line == "+40 to Spirit")
+    assert spirit.modifier_id == "modifier.increasedspirit3", spirit
+
+
+def test_임플리싯_줄에_적은_부풀린_값은_여전히_거부한다(checker: ItemLegalityChecker) -> None:
+    """대조를 통째로 끄면 안 된다 — `Implicits: 1`이 지목한 줄의 +40은 임플리싯 범위 밖이다."""
+    report = checker.check(_SOLAR + "Implicits: 1\n+40 to Spirit\n")
+    assert not report.is_legal, report
+    assert any("임플리싯 범위 밖" in v.reason for v in report.verdicts), report.verdicts
+
+
+def test_헤더_없는_손글씨는_접사로_맞으면_접사다(checker: ItemLegalityChecker) -> None:
+    """헤더가 없으면 텍스트만으로 임플리싯·접사를 못 가른다 — 접사로 맞으면 접사로 본다
+    (거짓 거부보다 낫다). 범위 안이면 종전대로 임플리싯이다(#57의 경로는 그대로)."""
+    report = checker.check(_SOLAR + "+40 to Spirit\n")
+    assert report.is_legal, [(v.status, v.line, v.reason) for v in report.verdicts]
+    assert next(v for v in report.verdicts).modifier_id == "modifier.increasedspirit3"
+    as_implicit = checker.check(_SOLAR + "+12 to Spirit\n")
+    assert as_implicit.is_legal and "임플리싯" in as_implicit.verdicts[0].reason
+
+
+def test_수치_없는_임플리싯은_문구_일치로_통과한다(checker: ItemLegalityChecker) -> None:
+    """#142 — `Grants Skill: Spear Throw`처럼 수치가 없는 임플리싯에서 `min()`이 빈 시퀀스로
+    죽어 `compute_pob` 전체가 멈췄다. 판정 불가는 예외가 아니라 판정으로 실려야 한다."""
+    text = "Rarity: RARE\nX\nAkoyan Spear\nItem Level: 80\nImplicits: 1\n"
+    text += "Grants Skill: Spear Throw\n"
+    report = checker.check(text)  # 터지지 않는 것이 핵심
+    granted = next(v for v in report.verdicts if v.line.startswith("Grants Skill"))
+    assert granted.status == "LEGAL" and "임플리싯" in granted.reason, granted
+
+
+_DRAKESKIN = "Rarity: RARE\nPok Boots\nDrakeskin Boots\nItem Level: 81\n"
+
+
+def test_베이스에_스폰_불가한_하이브리드로_묶지_않는다(checker: ItemLegalityChecker) -> None:
+    """#149 — 선언 없는 렌더 문구 4줄(인게임·거래소 복사 형식)이 신발에서 거짓 ILLEGAL이었다.
+
+    `+162 to Evasion Rating` + `96% increased Evasion Rating`이 `LocalIncreasedEvasionAndBase`
+    (boots 0 · dex_armour 1)로 묶였다 — 스폰 가중치는 **목록 순서로 처음 맞는 태그**가 정하므로
+    회피 신발에는 안 붙는 모드다. 묶지 않으면 두 줄이 각자의 단독 접사로 풀린다.
+    """
+    text = _DRAKESKIN + (
+        "35% increased Movement Speed\n+162 to Evasion Rating\n"
+        "96% increased Evasion Rating\n+135 to maximum Life\n"
+    )
+    report = checker.check(text)
+    assert report.is_legal, [(v.status, v.line, v.reason) for v in report.verdicts]
+    by_line = {v.line: v for v in report.verdicts}
+    assert "andbase" not in (by_line["+162 to Evasion Rating"].modifier_id or "")
+    assert "andlife" not in (by_line["96% increased Evasion Rating"].modifier_id or "")
+    # 줄 순서를 바꿔도 같다 — 판정이 순서에 의존하면 세션이 줄을 바꿔 끼는 우회를 배운다
+    swapped = _DRAKESKIN + (
+        "+162 to Evasion Rating\n+135 to maximum Life\n"
+        "96% increased Evasion Rating\n35% increased Movement Speed\n"
+    )
+    assert checker.check(swapped).is_legal
+
+
+def test_스폰_가중치는_모드_목록_순서로_처음_맞는_태그가_정한다() -> None:
+    """게임·PoB `getModSpawnWeight`의 규칙 — `[(boots,0),(dex_armour,1),(default,0)]`이면 회피
+    신발은 0, 회피 갑옷은 1이다. `any(양수)`로 보면 둘 다 1이 된다."""
+    from pok.engine.legality import _spawn_weight
+
+    mod = {"spawn_weights": {"boots": 0, "dex_armour": 1, "default": 0}}
+    boots = {"data": {"spawn_tags": ["boots", "dex_armour", "default"]}}
+    body = {"data": {"spawn_tags": ["body_armour", "dex_armour", "default"]}}
+    assert _spawn_weight(mod, boots) == 0
+    assert _spawn_weight(mod, body) == 1
+    assert _spawn_weight({"spawn_weights": {}}, boots) is None
