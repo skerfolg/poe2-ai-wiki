@@ -100,6 +100,12 @@ def optimize_tree(
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
+    ⛔ `point_budget`은 **총 예산**이다(#161): 기반 트리(`tree_nodes`의 일반 포인트) +
+    필수 앵커 + 그리디 ≤ point_budget. 레벨 90 풀 트리면 123을 그대로 주면 된다 —
+    기반 크기를 손으로 빼지 말 것. 기반+앵커만으로 넘치면 그리디를 돌리지 않고
+    `budget.over_budget`·notes로 밝힌다. 전직은 별도 풀(8)이라 세지 않는다.
+    반환 `budget` = {point_budget, base_general, anchor_general, greedy_general,
+    total_general, over_budget} — `spent_points`(그리디 순지출)만 보면 총량이 안 보인다.
     weights = 다축 정책(RC3), 예: {"CombinedDPS": 1.0, "Life": 0.6}.
     jewel_templates = 소켓 평가용 **가정 탐침**(설계물이 아니다). 빈 소켓은 델타 0이라
     그리디가 영영 안 찍으므로, 값을 재려면 무언가 꽂아 봐야 한다 — 소켓 후보를
@@ -255,6 +261,9 @@ def optimize_tree(
         "waste_notes": list(out.waste_notes),
         "spent_points": sum(s.node_delta.points for s in out.steps)
         - sum(len(p.nodes) for p in out.pruned),
+        # **예산 원장** (#161) — 기반·앵커·그리디·총·초과. `spent_points`는 그리디 순지출뿐이라
+        # 기반 트리를 포함한 총량이 안 보였고, 만들 수 없는 트리가 정상으로 읽혔다.
+        "budget": out.budget._asdict() if out.budget is not None else None,
         "stopped_no_positive": bool(out.rejected_rounds),
         "tree_nodes": list(out.spec.tree_nodes),
         # **가정 주얼로 산 소켓을 명시한다** (철칙 5). `jewel_templates`가 설계물이

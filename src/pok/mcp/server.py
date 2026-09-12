@@ -18,7 +18,7 @@ from __future__ import annotations
 import functools
 import inspect
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -96,6 +96,18 @@ mcp: FastMCP = FastMCP(
 
 _FRONT_ID = re.compile(r"^id:\s*(\S+)$", re.M)
 
+#: 도구 이름 → 파라미터 지문(정렬). **등록 시점에 동기로** 채운다 (#150).
+#:
+#: `server_info`가 `asyncio.run(mcp.list_tools())`로 등록부를 읽었는데, FastMCP는 동기
+#: 도구를 **워커 스레드**에서 돌리므로 그 안에서 `asyncio.run`은 새 루프를 띄워 서버
+#: 루프에 묶인 코루틴을 기다렸다 — 스탠드얼론에선 0.0초, 서버 안에선 **영원히**
+#: 안 돌아왔다(실측 2026-09-09: 1800초 무응답 뒤 중단). 폴백의 `ThreadPoolExecutor`
+#: `with` 블록은 `shutdown(wait=True)`라 `timeout=10`이 아무것도 못 풀었다. stale 탐지기가
+#: 자기 자신을 못 쓰는 꼴이었다. 지문은 FastMCP가 스키마를 만드는 **같은 경로**
+#: (`FunctionTool.from_function`)에서 뽑으므로 주입 인자(`Context`)가 빠지는 것까지 같다 —
+#: 둘의 일치는 `tests/unit/test_mcp_server_info.py`가 잠근다.
+_TOOL_PARAMS: dict[str, list[str]] = {}
+
 
 def tool[F: Callable[..., Any]](fn: F) -> F:
     """도구를 등록하면서 호출 이력을 남긴다.
@@ -127,6 +139,11 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
             )
         return result
 
+    # 지문을 **지금** 뽑는다 — 루프가 없는 등록 시점이라 어디서 불려도 안전하다 (#150)
+    from fastmcp.tools.function_tool import FunctionTool
+
+    schema = FunctionTool.from_function(wrapper)
+    _TOOL_PARAMS[schema.name] = sorted((schema.parameters or {}).get("properties", {}))
     return mcp.tool(wrapper)  # type: ignore[return-value]
 
 
@@ -326,28 +343,12 @@ def server_info() -> dict[str, Any]:
     source_commit, source_subject = _git_head(knowledge_dir().parent)
 
     # **등록부에서 직접 읽는다** — 모듈 전역을 훑으면 데코레이터 반환 형태에 따라
-    # 0종이 나온다(실측). 파라미터 지문은 등록된 inputSchema에서 뽑는다 — 이것이
-    # "이 프로세스가 실제로 받는 인자"다(이관 D-2).
-    import asyncio
-
-    def _collect() -> Sequence[Any]:
-        return asyncio.run(mcp.list_tools())
-
-    try:
-        registered = _collect()
-    except RuntimeError:
-        # 이미 이벤트 루프 안이면(서버 런타임) 별도 루프에서 돌린다
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            registered = pool.submit(_collect).result(timeout=10)
-
-    # FastMCP FunctionTool의 스키마는 `parameters`에 있다 — `inputSchema`로 읽으면
-    # 전 도구가 빈 지문으로 나온다(실측 2026-08-06, 첫 구현에서 그랬다)
-    tools = {
-        t.name: sorted((getattr(t, "parameters", None) or {}).get("properties", {}))
-        for t in registered
-    }
+    # 0종이 나온다(실측). 파라미터 지문은 스키마에서 뽑는다 — 이것이 "이 프로세스가
+    # 실제로 받는 인자"다(이관 D-2).
+    # ⛔ **이벤트 루프에 기대지 않는다** (#150). `asyncio.run(mcp.list_tools())`는 서버
+    #    런타임(워커 스레드) 안에서 영원히 안 돌아왔고, 이 도구가 바로 그것을 확인하라고
+    #    만든 도구였다. 등록 시점에 동기로 채운 `_TOOL_PARAMS`를 읽는다.
+    tools = {name: list(params) for name, params in sorted(_TOOL_PARAMS.items())}
     stale = bool(_LOADED_COMMIT and source_commit and source_commit != _LOADED_COMMIT)
     # 사본을 빼고 로드했으면 **말한다** — 조용히 빼면 "왜 이 레코드가 안 보이지"가 된다(#21)
     from pok.kb.store import load as store_load

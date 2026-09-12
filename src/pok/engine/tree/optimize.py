@@ -172,6 +172,8 @@ class OptimizeResult:
     ascendancy_points: int = 0
     # 스냅샷 주얼을 새 트리에 되배치한 내역 — **왜 거기인지**가 각각 붙어 있다.
     jewel_placements: tuple[Placement, ...] = ()
+    # `point_budget` 회계 원장 (#161) — 기반·앵커·그리디·총·초과를 **갈라서** 낸다.
+    budget: BudgetLedger | None = None
 
     @property
     def wasted_points(self) -> int:
@@ -295,6 +297,11 @@ def optimize_tree(
 ) -> OptimizeResult:
     """포인트 예산 안에서 정책 점수가 양수인 최선 수를 반복 채택한다.
 
+    `point_budget`은 **총 예산**이다 (#161) — 기반 트리(`spec.tree_nodes`의 일반 포인트) +
+    필수 앵커 연결 + 그리디 ≤ 예산. 기반과 앵커만으로 넘치면 그리디를 돌리지 않고
+    `budget.over_budget`·notes로 **밝힌다**(조용히 초과한 트리는 산출물이 아니다).
+    전직 포인트는 별도 풀이라 세지 않는다(#68).
+
     후보 = 현재 트리에서 candidate_radius 안의 notable/keystone/jewel-socket
     (거리순 상한 max_candidates_per_round — 초과분은 다음 라운드에서 트리가
     자라며 자연히 반경에 들어온다). 주얼 소켓의 가치는 장착 주얼이 있어야
@@ -338,10 +345,27 @@ def optimize_tree(
     # 최적화 **전** 주얼을 스냅샷한다 — 끝나고 새 트리에 되배치할 원본이다.
     jewel_snapshot = tuple(j.text for j in spec.jewels if j.text)
     timeless_notes = _timeless_notes(spec, graph)
-    spec, anchor_notes, anchor_cost = _seed_anchors(spec, graph, required_anchors, point_budget)
+    # ⛔ **기반 트리도 예산이다** (#161). 호출자가 준 `tree_nodes`의 일반 포인트를 먼저 뺀다 —
+    #    예전엔 앵커만 빼서, 기반 23짜리에 예산 123을 주면 146포인트 트리가 정상으로 나갔다.
+    #    셈법은 `compute_pob`의 `points`와 같다(`point_split` — 전직·미지 노드는 일반이 아니다).
+    base_general = int(graph.point_split(spec.ascendancy, spec.tree_nodes)["general"])
+    spec, anchor_notes, anchor_cost = _seed_anchors(
+        spec, graph, required_anchors, max(0, point_budget - base_general)
+    )
     current = spec
     # 전직 포인트는 **빼지 않는다** — 인게임에서 별도 풀이라 일반 트리를 갉으면 안 된다(#68).
-    budget = max(0, point_budget - anchor_cost.general)
+    committed = base_general + anchor_cost.general
+    budget = max(0, point_budget - committed)
+    budget_notes: list[str] = []
+    if committed > point_budget:
+        # 조용히 초과하는 것보다 **안 사고 말하는 것**이 낫다 — 만들 수 없는 트리는 산출물이
+        # 아니다. `budget`이 0이라 아래 그리디는 한 수도 안 돈다.
+        budget_notes.append(
+            f"⛔ 예산 초과 — 기반 트리 {base_general} + 필수 앵커 {anchor_cost.general} = "
+            f"{committed}포인트가 예산 {point_budget}을 {committed - point_budget}포인트 넘는다. "
+            "그리디를 돌리지 않았다. `point_budget`은 **총 예산**이다(기반 트리를 포함한다, #161) "
+            "— 기반 트리를 줄이거나 예산을 올릴 것"
+        )
     rejected = 0
     # 주얼 소켓은 **빈 채로는 델타 0**이다 — 템플릿이 없으면 그리디가 영영 안 찍는다.
     # 실측 2026-08-12: 같은 소켓이 템플릿 없이 0, 매직 주얼 +10.16 DPS, 레어 +21.07.
@@ -537,7 +561,7 @@ def optimize_tree(
     far, notes = _scan_far_clusters(
         graph, current, cluster_include, cluster_exclude, candidate_radius
     )
-    notes = (*anchor_notes, *notes, *_target_notes(objective, final.stats))
+    notes = (*budget_notes, *anchor_notes, *notes, *_target_notes(objective, final.stats))
     # 템플릿 결함은 **입력의 문제**라 소켓을 하나도 안 찍었어도 알린다 — 안 그러면
     # 다음 실행에서 같은 템플릿으로 또 0을 잰다.
     notes = (*notes, *template_notes)
@@ -570,6 +594,17 @@ def optimize_tree(
             "점수가 양수인 후보가 없었다. 목적(weights·targets)이 이 빌드에서 오르지 "
             "않는 축이거나, 남은 예산으로 닿을 곳이 없다",
         )
+    # 원장은 **반환 트리에서** 다시 센다 — 최선 해가 중간 해(끝단만 뺀 것)일 수 있어
+    # 스텝 합산과 다를 수 있다. 초과는 셈 결과로 말한다(0이면 예산 안).
+    total_general = int(graph.point_split(current.ascendancy, current.tree_nodes)["general"])
+    ledger = BudgetLedger(
+        point_budget=point_budget,
+        base_general=base_general,
+        anchor_general=anchor_cost.general,
+        greedy_general=max(0, total_general - committed),
+        total_general=total_general,
+        over_budget=max(0, total_general - point_budget),
+    )
     return OptimizeResult(
         current,
         final,
@@ -580,6 +615,7 @@ def optimize_tree(
         notes=notes,
         ascendancy_points=anchor_cost.ascendancy,
         jewel_placements=tuple(jewel_rows),
+        budget=ledger,
     )
 
 
@@ -660,6 +696,25 @@ def _timeless_notes(spec: BuildSpec, graph: TreeGraph) -> tuple[str, ...]:
     )
 
 
+class BudgetLedger(NamedTuple):
+    """`point_budget` 회계 — **총 예산**이다 (#161).
+
+    `기반(호출자의 tree_nodes 일반 포인트) + 필수 앵커 연결 + 그리디 ≤ point_budget`.
+    예전엔 앵커만 빼고 **기반은 세지 않았다** — 실측 2026-09-10: 예산 123에 기반 23을
+    준 회차가 「앵커 62 + 그리디 61」로 146포인트짜리 트리를 **정상 반환**했다(레벨 90에서
+    만들 수 없는 트리의 수치가 `final_stats`로 나갔다, 철칙 4). 잡은 것은 조립 게이트뿐이었다.
+    기반은 `compute_pob`의 `points`와 **같은 셈법**(`TreeGraph.point_split`)으로 센다 —
+    전직·미지 노드는 일반이 아니고, 전직 풀은 지금처럼 별도다.
+    """
+
+    point_budget: int
+    base_general: int  # 호출자의 tree_nodes 중 일반 포인트
+    anchor_general: int  # 필수 앵커 연결에 든 일반 포인트
+    greedy_general: int  # 그리디가 채택하고 가지치기 회수 뒤 남긴 일반 포인트
+    total_general: int  # 반환 트리의 일반 포인트 (= 기반 + 앵커 + 그리디)
+    over_budget: int  # 0이면 예산 안. 기반+앵커만으로 넘치면 그 초과분(그리디는 안 돈다)
+
+
 class AnchorCost(NamedTuple):
     """앵커 연결에 든 포인트 — **두 풀로 갈라서** 센다 (#68).
 
@@ -736,9 +791,11 @@ def _seed_anchors(
         # 조용히 빼면 "앵커를 넣었다"고 믿은 채 없는 트리를 받는다.
         notes.append(f"⚠ 연결 불가 앵커 {unreachable} — 트리에 들어가지 않았다")
     if cost.general > budget:
+        # `budget`은 기반 트리를 뺀 **남은** 예산이다(#161) — 총 예산이 아니다.
         notes.append(
-            f"⚠ 필수 앵커만으로 예산을 {cost.general - budget}포인트 **초과**했다 — "
-            "그리디에 남은 예산이 없다. 앵커를 줄이거나 예산을 늘릴 것"
+            f"⚠ 기반 트리를 뺀 남은 예산 {budget}포인트를 필수 앵커({cost.general}포인트)가 "
+            f"{cost.general - budget}포인트 **초과**했다 — 그리디에 남은 예산이 없다. "
+            "앵커나 기반 트리를 줄이거나 예산을 늘릴 것"
         )
     # 전직 풀도 상한이 있다(8 = 전직당 2포인트씩 4차). ⛔ 거부하지 않고 **경고만** 한다 —
     # 앵커를 빼는 판단은 해석 층의 몫이고, 여기서 자르면 근거 없이 트리가 바뀐다.

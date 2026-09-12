@@ -79,12 +79,14 @@ def test_최적화가_소켓을_채택하면_주얼이_스펙에_편입된다(gr
     allocated, _paths = graph.connect_anchors("Sorceress", [_SOCKET])
     spec = dataclasses.replace(SPEC, tree_nodes=tuple(n for n in allocated if n != _SOCKET))
     obj = Objective(weights={"CombinedDPS": 1.0})
+    # `point_budget`은 **총 예산**이다(#161) — 기반 트리(소켓 직전까지의 경로)를 포함한다.
+    base_points = int(graph.point_split(spec.ascendancy, spec.tree_nodes)["general"])
     out = optimize_tree(
         spec,
         graph,
         obj,
-        # 반경 1 후보는 둘: Raw Power(실측 17.5)·소켓+주얼(실측 14.6) — 예산 2면 둘 다 채택
-        point_budget=2,
+        # 반경 1 후보는 둘: Raw Power(실측 17.5)·소켓+주얼(실측 14.6) — 여유 2면 둘 다 채택
+        point_budget=base_points + 2,
         candidate_radius=1,
         jewel_templates=(_JEWEL_TMPL,),
     )

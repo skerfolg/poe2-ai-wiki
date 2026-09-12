@@ -133,6 +133,28 @@ def _resolve(query: str, gates: dict[str, SkillGate]) -> SkillGate | None:
     return found[0] if found else None
 
 
+def _resolve_effects(query: str, gates: dict[str, SkillGate]) -> list[SkillGate]:
+    """페이로드 쪽 — 해석된 스킬 **레코드의 활성 효과 전량** (#164).
+
+    한 젬이 `pob.effects`를 여러 개 갖는다(내장 트리거·부산 스킬 — KB에 70종). 반발은
+    저주 효과와 충격파 효과(`Attack`)를 갖는데, 첫 효과 하나만 평가하면 충격파에 붙는
+    보조가 전부 「요구 타입 미충족: Attack」으로 나온다 — 실측 2026-09-11: 세션이 그 반환을
+    근거로 사용자가 인게임에서 쓰는 구성을 "불가능"으로 판정했다. **수집은 멀쩡했고
+    도구가 안 읽었다.** 주 효과(`_resolve`)를 앞에 두고 같은 레코드의 나머지를 잇는다.
+    """
+    primary = _resolve(query, gates)
+    if primary is None:
+        return []
+    if not primary.record_id:
+        return [primary]
+    rest = [
+        g
+        for g in gates.values()
+        if g.record_id == primary.record_id and not g.is_support and g is not primary
+    ]
+    return [primary, *rest]
+
+
 def _resolve_carrier(query: str, gates: dict[str, SkillGate]) -> SkillGate | None:
     """담체 쪽 해석 — 메타 젬이면 **보조 반쪽**을 고른다."""
     found = _candidates(query, gates)
@@ -154,32 +176,50 @@ def find_carriers(skill: str, *, include_blocked: bool = False) -> dict[str, Any
     설계 정보다(까부르는 화염이 `fromItem`이라 안 된다는 것을 그렇게 알았다).
     """
     gates = skill_gates()
-    payload = _resolve(skill, gates)
-    if payload is None:
+    effects = _resolve_effects(skill, gates)
+    if not effects:
         return {"ok": False, "reason": f"모르는 스킬: {skill}"}
+    payload = effects[0]  # 주 효과 — `skill_id`·경고는 이것을 기준으로 한다
+    multi = len(effects) > 1
 
     hosts, blocked = [], []
     for gate in gates.values():
-        if not gate.is_support or gate is payload:
+        if not gate.is_support:
             continue
-        verdict = can_host(gate, payload)
+        # ⛔ 효과 **전량**을 각각 판정한다 (#164). 합집합 한 덩어리로 판정하면 「저주에 근접
+        #    보조가 붙는다」는 반대 오독이 생긴다 — 그래서 어느 효과에 붙는지를 함께 낸다.
+        verdicts = [(effect, can_host(gate, effect)) for effect in effects]
+        hosting = [effect.skill_id for effect, verdict in verdicts if verdict.ok]
         row: dict[str, Any] = {"carrier": label_of(gate), "skill_id": gate.skill_id}
-        if verdict.ok:
+        if multi:
+            row["effects"] = hosting
+        if hosting:
             if gate.adds:
                 # 보조가 **타입을 더한다** — 다음 보조의 판정이 달라진다(연쇄 주의)
                 row["adds_types"] = list(gate.adds)
             hosts.append(row)
         elif include_blocked:
-            blocked.append({**row, "why": verdict.reason})
+            if multi:
+                # 막힌 것은 효과마다 사유를 낸다 — 하나만 내면 「왜 안 되는가」가 반쪽이다
+                row["reasons"] = {effect.skill_id: verdict.reason for effect, verdict in verdicts}
+                why = " / ".join(
+                    f"{effect.skill_id}: {verdict.reason}" for effect, verdict in verdicts
+                )
+            else:
+                why = verdicts[0][1].reason
+            blocked.append({**row, "why": why})
 
     out: dict[str, Any] = {
         "ok": True,
         "skill": label_of(payload),
         "skill_id": payload.skill_id,
-        "types": sorted(payload.types),
+        # 합집합 — 첫 효과만 내면 충격파의 Attack 같은 타입이 통째로 빠진다 (#164)
+        "types": sorted(frozenset().union(*(effect.types for effect in effects))),
         "carriers": sorted(hosts, key=lambda r: r["carrier"]),
         "count": len(hosts),
     }
+    if multi:
+        out["effects"] = [{"id": e.skill_id, "types": sorted(e.types)} for e in effects]
     if not payload.socketable:
         # ⚠ **단정하지 않는다.** 예전 문구는 "메타 젬·토템에 넣지 못한다"고 못박았는데,
         # 정작 같은 반환값의 `carriers`에 주문 토템이 들어 있어 **자기모순**이었다
@@ -199,7 +239,15 @@ def find_carriers(skill: str, *, include_blocked: bool = False) -> dict[str, Any
         )
     if include_blocked:
         out["blocked"] = sorted(blocked, key=lambda r: r["carrier"])
-    out["notes"] = [
+    out["notes"] = (
+        [
+            f"⚠ 이 스킬은 효과가 {len(effects)}개다(내장 트리거·부산 스킬) — `types`는 합집합이고 "
+            "담체마다 `effects`가 **어느 효과에 붙는지** 말한다. 합집합만 보고 「저주에 근접 "
+            "보조가 붙는다」로 읽지 말 것. 막힌 담체의 `reasons`는 효과별 사유다"
+        ]
+        if multi
+        else []
+    ) + [
         "판정은 PoB `CalcTools.lua`의 타입 식 평가를 전사한 것이다 — 레코드 문구가 "
         "아니라 타입 시스템이다. 범위는 KB 수록분이며, PoB에만 있는 나머지는 전량 "
         "**제외 원장 근거**(잔재·미획득 — `exclusions.json`)라 커버리지에 구멍이 없다",

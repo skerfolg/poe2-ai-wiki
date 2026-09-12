@@ -275,6 +275,14 @@ def _match_implicit(line: str, implicits: dict[str, str]) -> LineVerdict | None:
     bounds = [(float(lo), float(hi)) for lo, hi in _RANGE.findall(source)] or [
         (v, v) for v in _magnitudes(source)
     ]
+    if not bounds:
+        # 수치가 없는 임플리싯(`Grants Skill: Spear Throw`) — 대조할 값이 없다. 문구가 맞으면
+        # 그것으로 끝이다. 빈 시퀀스에 `min()`을 걸어 `ValueError`가 났고, 판정 자리에서 난
+        # 예외라 `compute_pob` 전체가 멈췄다(실측 2026-09-04, Akoyan Spear). 판정 불가는
+        # 예외가 아니라 판정으로 실려야 한다 (#142).
+        return LineVerdict(
+            line, "LEGAL", reason="베이스 임플리싯(수치 없음) — 접사 칸을 쓰지 않는다"
+        )
     low, high = min(b[0] for b in bounds), max(b[1] for b in bounds)
     written = _magnitudes(stripped) + [float(lo) for lo, _ in _RANGE.findall(stripped)]
     outside = [v for v in written if v < low - 1e-6 or v > high + 1e-6]
@@ -285,6 +293,45 @@ def _match_implicit(line: str, implicits: dict[str, str]) -> LineVerdict | None:
         "ILLEGAL",
         reason=f"베이스 임플리싯 범위 밖: {outside} ∉ [{low:g}, {high:g}] (베이스: {source!r})",
     )
+
+
+# `Implicits: N` — 헤더 뒤 N줄이 임플리싯이고 그 뒤는 명시 접사다(PoB `Item.lua` 규약).
+_IMPLICIT_HEADER = re.compile(r"^\s*implicits:\s*(\d+)\s*$", re.I | re.M)
+
+
+def _declared_implicit_count(item_text: str) -> int | None:
+    """`Implicits: N` 선언값 — 없으면 None(손으로 쓴 텍스트)."""
+    m = _IMPLICIT_HEADER.search(item_text)
+    return int(m.group(1)) if m else None
+
+
+def _spawn_weight(d: dict[str, Any], base: dict[str, Any] | None) -> int | None:
+    """이 모드가 이 베이스에 붙는 스폰 가중치 — **모드 목록 순서로 처음 맞는 태그**가 정한다 (#149).
+
+    게임(그리고 PoB `getModSpawnWeight`)의 규칙이다: `[(boots, 0), (dex_armour, 1), (default, 0)]`
+    이면 회피 신발은 `dex_armour`를 갖고 있어도 **boots 0이 먼저 맞아** 안 붙는다. `any(양수)`로
+    보면 `dex_armour 1`에 걸려 「붙는다」가 되고, 그 오판이 하이브리드 묶음을 신발에 걸어 두 줄을
+    거짓 ILLEGAL로 냈다(실측 2026-09-09, `Drakeskin Boots`). KB `spawn_weights`는 정본 순서를
+    보존한다(dict 삽입 순 — 구체 태그가 앞, `default`가 끝).
+    None = `spawn_weights` 자체가 없다(비크래프팅 경로 판정으로 넘긴다).
+    """
+    weights = d.get("spawn_weights") or {}
+    if not weights:
+        return None
+    tags = set((base or {}).get("data", {}).get("spawn_tags") or [])
+    for tag, weight in weights.items():
+        if tag in tags:
+            return int(weight)
+    return 0
+
+
+def _fits_base(d: dict[str, Any], base: dict[str, Any]) -> bool:
+    """이 모드가 이 베이스에 붙을 수 있나 — `_check_line`과 같은 판정(스폰 가중치 → 경로)."""
+    weight = _spawn_weight(d, base)
+    if weight is not None and weight > 0:
+        return True
+    routes = [a for a in d.get("acquisition", []) if a not in _CRAFT_EQUIVALENT]
+    return bool(routes) and _route_base_fit(d, base)[0]
 
 
 def _rune_value_note(line: str, rune: dict[str, Any]) -> str:
@@ -472,7 +519,9 @@ class ItemLegalityChecker:
                 i += 1
         return claims
 
-    def _claim_multi_lines(self, mod_lines: list[str]) -> dict[int, frozenset[str]]:
+    def _claim_multi_lines(
+        self, mod_lines: list[str], base: dict[str, Any] | None = None
+    ) -> dict[int, frozenset[str]]:
         """연속 줄 묶음이 잡은 줄 → 그 모드 id (#118). **긴 묶음이 먼저 이긴다.**
 
         되돌려주는 것은 「이 줄은 이 묶음의 모드들로만 봐라」는 지정이다. 두 줄이
@@ -496,6 +545,17 @@ class ItemLegalityChecker:
                 recs = self._multi.get(_multi_key(mod_lines[i : i + size]))
                 if not recs:
                     continue
+                if base is not None:
+                    # ⛔ 이 베이스에 붙을 수 없는 하이브리드는 묶지 않는다 (#149). 묶으면 후보가
+                    #    스폰 불가한 모드 하나로 좁혀져 **두 줄이 모두** 「티어 범위 밖」이 된다 —
+                    #    실측 2026-09-09: `Drakeskin Boots`의 `+162 to Evasion Rating`과
+                    #    `96% increased Evasion Rating`이 `LocalIncreasedEvasionAndBase`(boots 0)로
+                    #    묶여 거짓 ILLEGAL.
+                    #    선언 없는 인게임·거래소 복사 텍스트가 정확히 이 경로를 밟는다. 판정이
+                    #    줄 순서에 의존했고(#118의 남은 절반) 세션이 줄을 바꿔 끼는 우회를 배웠다.
+                    recs = [r for r in recs if _fits_base(r["data"], base)]
+                    if not recs:
+                        continue
                 ids = frozenset(str(r["id"]) for r in recs)
                 for off in range(size):
                     claims[i + off] = ids
@@ -568,12 +628,22 @@ class ItemLegalityChecker:
         #    단독 쪽이 잡혀 ①없는 group 충돌 ②접사 수 +1이 생긴다. 실측 2026-08-23:
         #    인게임 기준 「양손 철퇴의 정답」이 그렇게 거부돼 `assemble_pob`을 통째로
         #    막았고, 세션이 게이트를 우회하는 경로를 학습했다(철칙 5 따름정리).
-        claims = self._claim_multi_lines(mod_lines)
+        claims = self._claim_multi_lines(mod_lines, base)
         # ⛔ **선언이 이긴다** (#148). 선언된 모드가 자기 문구 줄을 집으면 그 줄은
         #    후보가 하나로 좁혀져, 탐욕 하이브리드 매칭도 이중 계수도 일어나지 않는다.
         claims |= self._claim_declared(mod_lines, declared_records)
+        declared_implicits = _declared_implicit_count(item_text)
         for idx, line in enumerate(mod_lines):
-            if (found := _match_implicit(line, implicits)) is not None:
+            # 임플리싯 대조는 **`Implicits: N`이 지목한 줄**에서만 최종이다 (#158). 그 밖의 줄은
+            # 문구가 임플리싯과 같아도 **범위 안일 때만** 임플리싯으로 보고, 범위 밖이면 명시 접사
+            # 풀에서 다시 본다 — 접사로 맞으면 그것이 답이고, 아니면 임플리싯 사유를 낸다.
+            # 실측 2026-09-10: 태양의 목걸이(임플리싯 `+(10-15) to Spirit`)에 단 `IncreasedSpirit3`
+            # 렌더 줄 `+40 to Spirit`이 임플리싯으로 재해석돼 「범위 밖」으로 거부됐다 — 선언을
+            # 함께 줘도 그대로였고 PoB는 Spirit 155로 정상 계산했다. 게이트만 틀렸다(#148의
+            # 반대 방향).
+            in_implicit_block = declared_implicits is not None and idx < declared_implicits
+            found = _match_implicit(line, implicits)
+            if found is not None and (in_implicit_block or found.status == "LEGAL"):
                 verdicts.append(found)
                 continue
             verdict = self._check_line(
@@ -588,6 +658,8 @@ class ItemLegalityChecker:
                 catalyst=catalyst,
                 catalyst_quality=catalyst_quality,
             )
+            if found is not None and verdict.status not in ("LEGAL", "CONDITIONAL"):
+                verdict = found  # 접사로도 안 맞는다 — 임플리싯 범위 밖이 더 정확한 사유다
             verdicts.append(verdict)
             if verdict.modifier_id:
                 matched[verdict.modifier_id] = next(
@@ -1140,9 +1212,9 @@ class ItemLegalityChecker:
                 reasons.append(f"{rec['id']}: 요구 ilvl {d['ilvl']} > 아이템 {ilvl}")
                 continue
             if base is not None:
-                weights = d.get("spawn_weights", {})
-                tags = base.get("data", {}).get("spawn_tags", [])
-                if any(weights.get(t, 0) > 0 for t in tags):
+                # 스폰 가중치는 **모드 목록 순서로 처음 맞는 태그**가 정한다 (#149) — `any(양수)`는
+                # `boots 0`을 `dex_armour 1`이 덮어 회피 신발에 못 붙는 하이브리드를 통과시켰다.
+                if (_spawn_weight(d, base) or 0) > 0:
                     if rounding_assumed:
                         return _rounding_verdict(line, rec["id"], label)
                     return LineVerdict(line, "LEGAL", rec["id"], note)
