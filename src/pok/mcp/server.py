@@ -289,7 +289,13 @@ def get_entry(
     include_narrative: bool = False,
 ) -> dict[str, Any]:
     """엔티티 상세 (2단계). fields로 필요한 필드만 선별(생략 시 전체 레코드).
-    include_narrative=True면 자체 재작성 서술 문서(있을 때)를 함께 반환."""
+    include_narrative=True면 자체 재작성 서술 문서(있을 때)를 함께 반환.
+
+    **아이템이 부여하는 Skill에는 `granted_instance`가 fields와 무관하게 붙는다**
+    (#167). 부여 인스턴스는 젬과 **별개**다 — 같은 스킬 젬을 직접 등록한 것과
+    **중복해서** 돌고(부재 목걸이 Cast on Dodge + 젬 Cast on Dodge = 2개), 목걸이
+    베이스가 주는 것은 **정신력을 점유하지 않는다**. 레코드의 `reservation`은 젬
+    인스턴스의 값이다. 부여원은 `granted_by`(불완전)가 아니라 아이템 문구에서 뽑는다."""
     record = _get_entry(id, fields=fields)
     if include_narrative:
         doc = _narrative_index(knowledge_dir()).get(id)

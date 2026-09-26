@@ -427,9 +427,101 @@ def get_entry(
     if row is None:
         raise KeyError(f"엔티티 없음: {entity_id}")
     raw: dict[str, Any] = json.loads(row[0])
-    if fields:
-        return {k: raw[k] for k in ["id", "type", *fields] if k in raw}
-    return raw
+    out = {k: raw[k] for k in ["id", "type", *fields] if k in raw} if fields else raw
+    if raw.get("type") == "Skill":
+        # fields 선별과 무관하게 싣는다 — 고른 필드에 안 들어 있어서 못 봤다는 게 #167이다
+        granted = granted_instance(raw, root=root, db_path=db_path)
+        if granted:
+            out["granted_instance"] = granted
+    return out
+
+
+# 「Grants Skill: Level (1-20) Cast on Dodge」 — {variant:N} 태그는 떼고 대조한다
+_GRANTS = re.compile(r"Grants Skill:\s*(?:Level\s+\S+\s+)?(.+?)\s*$")
+
+
+def _granting_items(con: sqlite3.Connection, name_en: str) -> list[tuple[str, bool]]:
+    """이 스킬을 **문구로** 부여하는 Item 전량 → [(이름, 목걸이 베이스인가)].
+
+    `data.granted_by`(poe2db From 카드)는 **불완전하다** — 실측 2026-09-26: 문구로
+    부여하는 스킬 126종 중 27종이 부여원 일부를 빠뜨렸다(한탄 목걸이의 `Alchemist's
+    Boon` 등). 그래서 부여원은 아이템 문구에서 직접 뽑는다.
+    """
+    rows = con.execute(
+        "SELECT json FROM records WHERE type='Item' AND json LIKE ?",
+        (f"%Grants Skill:%{name_en}%",),
+    ).fetchall()
+    target = name_en.lower()
+    found: dict[str, bool] = {}
+    for (blob,) in rows:
+        rec = json.loads(blob)
+        data = rec.get("data") or {}
+        texts: list[str] = []
+        for key in ("implicit", "implicits", "explicit", "explicits"):
+            value = data.get(key)
+            if isinstance(value, str):
+                texts.extend(value.split("\n"))
+            elif isinstance(value, list):
+                texts.extend(str(v) for v in value)
+        for text in texts:
+            m = _GRANTS.search(re.sub(r"\{[^}]*\}", "", text))
+            if m and m.group(1).lower() == target:
+                found[(rec.get("name") or {}).get("en", rec.get("id", ""))] = (
+                    data.get("rarity") == "normal" and data.get("category") == "amulet"
+                )
+    return sorted(found.items())
+
+
+def granted_instance(
+    record: dict[str, Any], root: Path | None = None, db_path: Path | None = None
+) -> dict[str, Any] | None:
+    """아이템이 부여하는 스킬이면 **그 인스턴스가 젬과 별개**임을 신고한다 (#167).
+
+    사용자 인게임 확인(2026-09-26): 부재·한탄 목걸이처럼 **베이스가 기본 제공하는
+    스킬은 무료**(정신력 점유 없음)이고, **같은 스킬 젬을 직접 등록한 것과 중복해서**
+    쓸 수 있다 — 예: 부재 목걸이의 Cast on Dodge + 직접 등록한 Cast on Dodge = 2개.
+    레코드의 `reservation`·`granted_by`만 보면 「하나뿐이고 100 점유」로 읽혀 세션마다
+    사용자가 다시 설명해야 했다.
+
+    반환 없음 = 문구로 부여하는 아이템이 없다(젬 전용).
+    """
+    name_en = str((record.get("name") or {}).get("en") or "")
+    if not name_en:
+        return None
+    con = _connect(root, db_path)
+    try:
+        items = _granting_items(con, name_en)
+    finally:
+        con.close()
+    if not items:
+        return None
+    data = record.get("data") or {}
+    gem_route = data.get("source") == "gem"
+    bases = [n for n, amulet_base in items if amulet_base]
+    out: dict[str, Any] = {
+        "granted_by_items": [n for n, _ in items],
+        "gem_route": gem_route,
+        "source": "mechanic.item-granted-skills (IN_GAME)",
+    }
+    if data.get("reservation"):
+        out["reservation"] = (
+            "부여 인스턴스는 정신력을 점유하지 않는다(무료) — 레코드의 `reservation`은 "
+            "**젬으로 등록한 인스턴스**의 값이다"
+        )
+    if gem_route:
+        out["stacks_with_gem"] = (
+            "젬으로 직접 등록한 인스턴스와 **중복 사용 가능** — 부여 1 + 젬 1 = 2개가 "
+            "각각 따로 돈다(메타 젬이면 연결 주문·에너지도 인스턴스별)"
+        )
+    if bases:
+        out["verified_for"] = f"목걸이 베이스 부여(인게임 확인): {', '.join(bases)}"
+    others = [n for n, amulet_base in items if not amulet_base]
+    if others:
+        out["unverified_for"] = (
+            f"{', '.join(others)} — 목걸이 베이스가 아닌 부여원은 무료·중복을 인게임으로 "
+            "확인하지 않았다. 같은 규칙이리라는 것은 **추정**이다"
+        )
+    return out
 
 
 @dataclass(frozen=True)

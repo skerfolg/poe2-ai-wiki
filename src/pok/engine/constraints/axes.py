@@ -150,7 +150,8 @@ def check_axes(
                 "covered" if skill_names else "empty",
                 f"부여 아이템 {len(granting)}건({', '.join(granting)}) — 스킬 그룹에 "
                 f"등록해야 계산·점유 장부에 들어간다. **부여 스킬은 정신력 0에서도 "
-                f"쓸 수 있다**(mechanic.item-granted-skills)",
+                f"쓸 수 있고, 같은 스킬 젬을 직접 등록한 것과 중복해서 돈다**"
+                f"(mechanic.item-granted-skills, #167)",
             )
         )
     else:
