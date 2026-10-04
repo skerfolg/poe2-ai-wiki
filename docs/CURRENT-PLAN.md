@@ -211,7 +211,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| `codex/codex-compatibility` | review-ready | S44 구현·검증 완료. PR로 검토하고 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
+| `codex/codex-compatibility` | PR open | S44 구현·검증 완료, [PR #143](https://github.com/skerfolg/poe2-ai-wiki/pull/143). 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
 | `.codex/config.toml` | local | 이 PC의 검증된 Python 절대 경로·MCP 제한. gitignore, 설정 스크립트로 재생성 |
 | `var/pytest-codex-*`·`var/codex-protocol/`·`var/codex-native-check.py` | disposable | S44 검증용 파생물. 정본 아님, gitignore |
 | CI 환경 가드 규약 | enforced | `tests/unit/test_integration_guards.py` — PoB 쓰는 통합 시험에 `skipif` 강제(내 시험이 CI를 깨뜨린 뒤 도입) |
