@@ -135,7 +135,13 @@ def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: igno
                     ]
                 }
             ],
-            "items": [{"slot": "Amulet", "text": "Rarity: RARE\nT\nBase"}],
+            "items": [
+                {
+                    "slot": "Amulet",
+                    "text": "Rarity: RARE\nT\nBase",
+                    "derived_from": {"tool": "manual", "why": "축 보고 부착만 검사하는 모의 장비"},
+                }
+            ],
         },
         "axes-autorun-test",
     )

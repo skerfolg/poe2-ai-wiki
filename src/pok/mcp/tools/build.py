@@ -52,6 +52,7 @@ from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.integrity import spec_integrity
 from pok.engine.items import req_shortfall, unbuilt_declarations, unread_item_lines
 from pok.engine.legality import ItemLegalityChecker
+from pok.engine.procedures import check_procedures
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob.buildxml import spec_from_dict
 from pok.pob.runner import PobResult, socket_budget
@@ -280,7 +281,7 @@ def _condition_sources(
                     continue
                 if data.get("stats"):
                     texts[rid] = list(data["stats"])
-                    if isinstance(cd := data.get("cooldown_s"), (int, float)) and cd > 0:
+                    if isinstance(cd := data.get("cooldown_s"), int | float) and cd > 0:
                         cooldowns[rid] = float(cd)
                     break
     # 할당된 트리 노드 — 조건부 노드가 요구하는 config가 여기서 나온다
@@ -520,6 +521,17 @@ def _stat_scalers(build_spec: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def _procedure_refusal(build_spec: dict[str, Any]) -> dict[str, Any] | None:
+    problems = check_procedures(build_spec)
+    if not problems:
+        return None
+    return {
+        "ok": False,
+        "reason": "계산·조립 전 필수 절차가 빠졌다 (#129)",
+        "blocking": list(problems),
+    }
+
+
 def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> dict[str, Any]:
     """빌드 스펙(dict)을 headless PoB로 계산. stats로 반환 스탯 선별
     (생략=핵심 24종+곱연산 축, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
@@ -566,6 +578,9 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     바꿔 두 번 돌렸는데 `CombinedDPS`가 소수점까지 동일했다(`790958.0612`).
     ⚠ `check_item_legality`는 같은 텍스트를 **줄별 전부 LEGAL**로 통과시킨다 —
     적법성과 계산 가능성은 다른 축이다."""
+    refusal = _procedure_refusal(build_spec)
+    if refusal is not None:
+        return refusal
     out = _pick(_compute(spec_from_dict(build_spec)), stats, build_spec)
     out["points"] = _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy"))
     scalers = _stat_scalers(build_spec)
@@ -758,6 +773,9 @@ def assemble_pob(
     주입한다 — 호출자가 주지 않는다."""
     from pok.pob.buildxml import find_probe_lines
 
+    refusal = _procedure_refusal(build_spec)
+    if refusal is not None:
+        return refusal
     probes = find_probe_lines(build_spec)
     if probes:
         # **출고 게이트** (회차 종결 R1): 탐침은 천장을 재는 가정치다 — 측정
@@ -783,7 +801,7 @@ def assemble_pob(
     # **되돌려주고**, 되돌려받은 쪽이 안 하면 그대로다. 여기서 채우면 건너뛸 것 자체가 없다.
     #
     # ⛔ 가중치는 **이 빌드가 이미 선언한 것**만 재사용한다(철칙 3 — 엔진은 빌드 판단을
-    #    지어내지 않는다). 선언이 없으면 안 돌리고, 그때는 훅 게이트가 거부한다.
+    #    지어내지 않는다). 선언이 없으면 위의 공통 절차 검사가 거부한다.
     # ⚠ 비용은 슬롯당 2~8분이다(실측 2026-09-09: 접사 풀 64~82개에서 133~156초, 보고
     #    세션의 큰 빌드는 4칸에 32분). 정상 절차를 밟은 조립은 도장이 있어 **0초**다.
     from pok.engine.autofill import autofill_rares
@@ -826,7 +844,7 @@ def assemble_pob(
         build_spec, _run_rare, budget_s=_autofill_budget_s(), progress=_progress_reporter(ctx)
     )
 
-    # ⛔ **훅이 넘긴 것을 조립이 못 채웠으면 거부한다.** 훅 게이트는 자동 실행을 믿고
+    # ⛔ **절차 검사가 넘긴 것을 조립이 못 채웠으면 거부한다.** 자동 실행을 믿고
     # 비켜 준다(가중치 선언이 있으면 통과) — 그런데 실제로 못 채우면 손으로 지은
     # 아이템이 **그대로 나간다**. 게이트가 검사기에게, 검사기가 게이트에게 미루는 꼴이라
     # 두 겹 다 있는데 구멍이 남는다(형태 ⑭ — 침묵은 통과와 구별되지 않는다).

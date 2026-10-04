@@ -65,6 +65,7 @@ flowchart TD
   BATCH[S41 백로그 결함 9건 일괄 + 지도 2건<br/>done]
   ENC[S42 #166 로케일 디코딩 7자리<br/>done]
   GINST[S43 #167 부여 스킬 인스턴스 신고<br/>done]
+  CODEX[S44 Codex 연결·스킬·공통 검사·재개<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -107,6 +108,7 @@ flowchart TD
   BATCH -. 새 PC 셋업이 드러낸 자리 .-> ENC
   ENC -. 레인 밖 · 재시작 신호가 죽어 있었다 .-> GINST
   GINST -. 레인 밖 · 사용자가 세션마다 재설명 .-> M6
+  GINST -. Codex 호환성 점검에서 확인 .-> CODEX --> M6
 ```
 
 ## Baseline Structure
@@ -162,9 +164,15 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S42 | #166 — **새 PC 셋업이 드러낸 자리.** `text=True`인 subprocess가 **로케일 코드페이지**로 디코딩한다 — UTF-8이 아닌 Windows(한국어면 cp949)에서만 터지고 **CI는 러너가 전부 UTF-8이라 못 잡는다**. 가장 나쁜 자리는 `_git_head`였다: 예외가 **리더 스레드**에서 터져 호출부엔 `IndexError`만 오고 그 위 `except`가 `("", "")`로 삼켜, `_LOADED_COMMIT`과 `source_commit`이 **둘 다 빈 문자열**이 되고 `stale`이 **영원히 False**가 된다 — 이관 D-1이 세운 재시작 신호가 통째로 죽은 채 초록이었다(형태 ①·⑩). 실측 2026-09-12: `source_commit=''`·`stale=False` → 수정 후 `'18d3422'`. #120이 `pob/runner.py` **한 자리**만 고정했고 규율이 주석에만 있어 나머지 **7자리**가 그대로였다(형태 ⑦). 7자리 + 같은 형태의 통합 시험 1자리에 `encoding="utf-8"`을 명시하고, `errors="replace"`는 **라벨인 것에만** 준다 (`kb/store.py`는 **경로**라 strict 유지 — 뭉개면 없는 파일을 가리킨다). 강제 지점은 **로케일과 무관한 정적 검사** `tests/unit/test_subprocess_encoding.py`로, 실행 결과가 아니라 **호출의 모양**을 보므로 UTF-8 러너에서도 잡는다(우회 문법 `from subprocess import run`도 함께 막는다). ⚠ **환경변수로는 못 막는다** — `PYTHONUTF8`은 인터프리터 기동 전에 정해져야 하고, 세션 설정은 그것을 읽는 호스트만 덮는다(`common/stdio.py`가 출력 쪽에서 같은 이유로 코드에 강제 지점을 둔다) (`mcp/server.py`·`kb/store.py`·`kb/ingest/__main__.py`·`pob/{parse_gaps,item_parse_gaps,roundtrip}.py`) | done |
 | S43 | #167 — **사용자가 세션마다 다시 설명하던 규칙.** 아이템이 부여하는 스킬 인스턴스는 **젬과 별개**다 — 부재·한탄 목걸이 베이스가 주는 스킬은 **무료**(정신력 점유 없음)이고 같은 스킬 젬을 직접 등록한 것과 **중복해서** 돈다(Cast on Dodge ×2). 레코드에는 `reservation: 100`·`granted_by: [Absent Amulet]`만 있어 세션이 「목걸이 하나뿐」이라고 답했다. `get_entry`가 부여원 있는 Skill에 `granted_instance`(부여원·젬 경로·중복 가부·점유·검증 범위)를 **fields와 무관하게** 자동으로 싣는다. 부여원은 `granted_by`가 아니라 **아이템 문구**에서 뽑는다 — 실측: 문구로 부여되는 126종 중 27종이 `granted_by`에서 부여원을 빠뜨렸다(한탄 목걸이 `Alchemist's Boon` 등). 인게임 확인 범위는 **목걸이 베이스**로 한정하고 나머지 부여원은 `unverified_for`로 낸다 (`index/search.py`·`mechanic.item-granted-skills`·`engine/constraints/axes.py`) | done |
 
+| S44 | Codex MCP 설정 생성기(기동 60초·도구 1,800초), PoE 스킬 7종, 공통 필수 절차 검사, 전체 `spec.json` 보존·재개, 최고 레벨 점유 조회. 단위 **1,221 통과·34 skip**, PoB 통합 **71 통과**. 실제 Codex 발견 7종·도구 48개 및 stdio 조회·거부 검증. Ruff·mypy·import-linter 통과 | done |
+
 ## Canonical Next Step
 
 The only next executable step is: **M6 큐레이션 게이트 설계.**
+
+사용자 지시(2026-10-04)에 따른 레인 밖 수정 S44는 구현·로컬 검증을 마쳤다.
+기존 Codex 작업은 새 작업에서, Claude는 MCP 재시작 뒤 수정된 도구를 사용한다.
+PR 머지·로컬 main 동기화는 아래 작업 브랜치 항목으로 추적한다.
 
 측정 층은 닫혔다. S20이 전량을 다시 쟀고(전 축 0인 노드 936 → 583), S23이 #113을 고쳤고,
 S24가 그 수정을 정본에 반영했다(속도 노드 5종 부활 · 73노드 양방향 교정). 판정 41건 중
@@ -203,6 +211,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
+| `codex/codex-compatibility` | PR open | S44 구현·검증 완료, [PR #143](https://github.com/skerfolg/poe2-ai-wiki/pull/143). 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
+| `.codex/config.toml` | local | 이 PC의 검증된 Python 절대 경로·MCP 제한. gitignore, 설정 스크립트로 재생성 |
+| `var/pytest-codex-*`·`var/codex-protocol/`·`var/codex-native-check.py` | disposable | S44 검증용 파생물. 정본 아님, gitignore |
 | CI 환경 가드 규약 | enforced | `tests/unit/test_integration_guards.py` — PoB 쓰는 통합 시험에 `skipif` 강제(내 시험이 CI를 깨뜨린 뒤 도입) |
 | `artifacts/ingest-raw/proposals/0-5/` | active | 데이터 repo — 제안·전개·측정(파생). 정본 아님, 유지 |
 | `artifacts/ingest-raw/counterfactual/0-5/removals-pre87/` | keep | #87 수정 전 1차분 — 대조·감사용 보관 |
@@ -223,6 +234,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| S44 — Codex 호환성 수정 범위 | 2026-10-04 점검 결과 전체 수정 지시. `.agents/skills/`는 Codex 등록 진입점만 추가하고 정본 절차는 기존 `skills/`에 둔다. `.codex/config.toml`은 로컬 생성, 공통 검사와 스펙 저장은 기존 모듈 경계 안에서 구현한다. M5 진행 상태는 보존 | 2026-10-04 |
+| S44 — #129의 현재 강제 지점 | S30·S37 및 2026-08-27 결정에 적힌 훅은 당시 구현이다. 이제 `engine/procedures.py`를 MCP에서 직접 호출한다. 복원·수동 출처 예외와 선언 가중치 자동 채움은 보존하고, 택1 노드는 실제 ID 누락을 검사한다 | 2026-10-04 |
+| S44 — 실제 Codex 발견 검증 | 사용자 계정의 `config/read`에서 pok enabled·1,800초, `skills/list`에서 `poe2-ai-wiki:` 스킬 7종·오류 0, `mcpServerStatus/list`에서 도구 48개 확인. 기존 kit 이름이 PoE 스킬에 붙던 플러그인 메타데이터도 프로젝트명으로 정정 | 2026-10-04 |
+| Integration branch override — `codex/codex-compatibility` | S44 사용자 요청 호환성 수정. This lane targets `codex/codex-compatibility` instead of `main` for this PR only | 2026-10-04 |
 | S41 — 미수정 큐에서 **무엇을 고르고 무엇을 뺄지** | 사용자 지시 「백로그 확인하고 수정 진행」. 원인이 특정된 엔진 결함(코드만 바꾸면 닫히는 것) 9건 + 지도 2건을 골랐다. KB 재수집이 필요한 #159·#160·#163, 설계 논의가 필요한 #165, 상류 결함 #132·#139, 도구 설계가 필요한 #138·#140·#141은 **뺐다** — 한 PR에 섞으면 검토가 불가능해진다. 항목별 커밋으로 나눴다 | 2026-09-12 |
 | S41 — 제안과 다르게 판정한 것 넷 | ① #149: `_claim_multi_lines`만 거르지 않고 **스폰 판정 자체**를 게임 규칙(목록 순서 첫 태그)으로 통일 — 판정 주체를 둘로 두지 않는다 ② #143: 「무기 없는 딜 빌드면 비교 불가」 대신 **잃어버린 활성 무기**로 잰다(맨손 빌드) ③ #158: 헤더 없는 텍스트의 범위 안 문구 일치는 임플리싯으로 둔다(#57 경로 보존) ④ #164: 가루칸의 결의는 **참 거부**로 남는다(배제 타입). 전부 백로그 본문에 사유를 적었다 | 2026-09-12 |
 | #163~#165 등재문(다른 세션의 미커밋 워킹 트리)을 **S41 PR의 첫 커밋으로 싣는다** | #149~#157과 같은 형태(다섯 번째). 내용은 손대지 않았다 | 2026-09-12 |

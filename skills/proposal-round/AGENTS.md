@@ -1,7 +1,7 @@
 # proposal-round — M5 제안 라운드 (브리프 → 제안 → 측정 → 다이제스트)
 
 > **대상**: 재량을 제거한 절차. **아래 순서를 벗어나지 말 것.**
-> 전제: 레포 루트 · `PYTHONPATH=src` · `.venv` 파이썬.
+> 전제: [공통 실행 환경](../AGENTS.md#명령-실행-환경-windows--macos) 준비.
 > 설계: [ROADMAP §M5 확정 설계](../../docs/ROADMAP.md) · 철칙 3(엔진=결정적)·4(PoB는
 > 검증기가 아니다)·5(강제 지점).
 > **저장**: 제안·전개·측정은 **데이터 repo**(`artifacts/ingest-raw/proposals/<시즌>/`).
@@ -114,8 +114,8 @@ python -m pok.engine.proposal_round digest --season 0-5
 ## P4. 푸시
 
 ```bash
-git -C artifacts/ingest-raw add -A && \
-git -C artifacts/ingest-raw commit -m "0-5 제안 라운드 — <n>건" && \
+git -C artifacts/ingest-raw add -A
+git -C artifacts/ingest-raw commit -m "0-5 제안 라운드 — <n>건"
 git -C artifacts/ingest-raw push
 ```
 

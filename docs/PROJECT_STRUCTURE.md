@@ -87,8 +87,10 @@ poe2-ai-wiki/
 │
 ├── external/pob/<snapshot>/     # PoB 스냅샷 독립 클론 (gitignore, 재현성 D4)
 │
-├── .claude/skills/<이름>/SKILL.md  # Claude 진입점 (frontmatter). **이 경로만 탐색된다**
-│                                #   — skills/ 아래 두면 `/스킬명`이 뜨지 않는다
+├── .claude/skills/<이름>/SKILL.md  # Claude 스킬 등록 진입점 (frontmatter)
+├── .agents/skills/<이름>/SKILL.md  # Codex 스킬 등록 진입점 (frontmatter)
+├── .codex-plugin/plugin.json     # 프로젝트 이름·스킬 네임스페이스 (poe2-ai-wiki)
+├── .codex/config.example.toml    # Codex MCP 설정 예시 (실제 경로는 설정 도구가 생성)
 ├── skills/                      # ══ 고수준 워크플로 (D6) — 생성 파이프라인 오케스트레이션 ══
 │   ├── build-generation/AGENTS.md   # 지침 본문(정본) 한 벌. SKILL.md가 여기를 가리킨다
 │   ├── kb-ingest/AGENTS.md
@@ -97,6 +99,7 @@ poe2-ai-wiki/
 │
 ├── tests/{unit, integration, eval}/   # eval = 반프록시 생성 품질 (PoB 실측, AD-8)
 └── scripts/                     # PoB 셋업·버전검증, 인덱스 재생성 CLI
+    └── configure_codex.py        # 현재 체크아웃용 Codex MCP 등록 설정
 ```
 
 ---
@@ -177,6 +180,16 @@ artifacts/builds/<id>          ──[승격: reference 가치 판단]───�
 
 - **Claude는 `AGENTS.md`를 자동으로 읽지 않는다** — Claude의 네이티브 파일은 `CLAUDE.md`다. 그래서 각 디렉터리에 **`AGENTS.md`(실내용, Codex용) + `CLAUDE.md`(`@AGENTS.md` 임포트, Claude용)** 를 쌍으로 둔다. 수정은 `AGENTS.md` 한 곳만.
 - **Codex**는 작업 위치 기준으로 nested `AGENTS.md`를 자동 병합한다.
+- **스킬 발견과 폴더 지침 로드는 별개다.** PoE 스킬은 `.agents/skills/`(Codex)와
+  `.claude/skills/`(Claude)의 `SKILL.md`로 등록하고, 둘 다 `skills/AGENTS.md`의
+  공통 실행 환경과 `skills/<이름>/AGENTS.md`의 정본 절차를 참조한다.
+  `tests/unit/test_skills_registered.py`가 양쪽의 등록·메타데이터·참조 경로를 검증한다.
+- 루트 `.codex-plugin/plugin.json`은 프로젝트 이름 `poe2-ai-wiki`를 선언한다.
+  Codex에서 스킬은 `$poe2-ai-wiki:build-generation`처럼 표시된다. 실제 파일 발견은
+  위 등록 디렉터리가 맡으며, 매니페스트에 스킬 이름 목록을 경로 대신 넣지 않는다.
+  이 로컬 메타데이터 설정은 마켓플레이스 등록·설치나 MCP 연결을 대신하지 않는다.
+- Codex의 `pok` MCP는 `scripts/configure_codex.py`로 현재 체크아웃의 Python·작업
+  경로를 설정한다. `.mcp.json`(Claude)만으로 Codex에 등록되지는 않는다.
 - 원칙: **런타임 동작은 코드로 강제**(§5), 문서는 **확장 시 판단**을 안내할 뿐. 동작을 문서 준수에 의존시키지 않는다.
 
 현재 `AGENTS.md`가 배치된 디렉터리: 루트 · `knowledge/` · `skills/` · `artifacts/`(데이터) · `src/pok/{kb,index,pob,engine,artifacts,mcp}`.

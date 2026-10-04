@@ -2,7 +2,7 @@
 
 > **대상**: 저비용 에이전트(저티어 Claude/Codex)로 실행 가능하도록 **재량을 제거한 절차**.
 > **아래 순서를 벗어나지 말 것.**
-> 전제: 레포 루트에서 실행 · `PYTHONPATH=src` · `.venv/bin/python`.
+> 전제: [공통 실행 환경](../AGENTS.md#명령-실행-환경-windows--macos) 준비.
 > 설계 배경: [BACKLOG](../../docs/BACKLOG.md) #67 4·5차 절.
 
 ## 세 갈래가 있다 — 먼저 어느 쪽인지 확인할 것
@@ -39,8 +39,7 @@ git -C artifacts/ingest-raw pull
 ### 1. 수집 — 컨셉 하나당 1회
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate collect \
-  --league runesofaldur --filter class=Chronomancer --limit 10
+python -m pok.engine.ladder_aggregate collect --league runesofaldur --filter class=Chronomancer --limit 10
 ```
 
 - `--filter`는 반복 가능하다. **컨셉 정의가 곧 필터다.**
@@ -63,11 +62,11 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate collect \
 ### 2. 집계 — 표본이 찼을 때만
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate aggregate \
-  --season 0-5 --concept class-Chronomancer --min-sample 10
+python -m pok.engine.ladder_aggregate aggregate --season 0-5 --concept class-Chronomancer --min-sample 10
 ```
 
 - `--min-sample`은 **기본값이 없다.** 사람이 지정한 값을 그대로 쓴다. 모르면 **묻는다.**
+- `--min-count`는 주지 않는다. 기본값 1로 관측 전량을 유지한다.
 - 표본이 모자라면 `{"error": "표본 부족"}`과 함께 종료 1을 낸다 → 1로 돌아가
   `--limit`을 올려 더 모으거나, 사람에게 보고한다. **`--min-sample`을 임의로 낮추지 말 것.**
 - 성공하면 `data.observed` 꼴 JSON이 stdout으로 나온다.
@@ -75,10 +74,7 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate aggregate \
 ### 3-A. A군 — UsageProfile 만들기 (`profile`)
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
-  --season 0-5 --concept skillmodes-Totem \
-  --anchor mechanic.totems --label "토템 (Totem)" \
-  --filter skillmodes=Totem --min-sample 10 --write
+python -m pok.engine.ladder_aggregate profile --season 0-5 --concept skillmodes-Totem --anchor mechanic.totems --label "토템 (Totem)" --filter skillmodes=Totem --min-sample 10 --write
 ```
 
 - `--concept`은 1에서 만들어진 디렉터리 이름과 **정확히 같아야 한다**
@@ -123,10 +119,7 @@ PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
 절차는 3-A와 완전히 같고 `--filter`·`--anchor`만 다르다:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pok.engine.ladder_aggregate profile \
-  --season 0-5 --concept class-Blood_Mage \
-  --anchor passive.blood-mage-59822 --label "블러드 메이지 (Blood Mage)" \
-  --filter "class=Blood Mage" --min-sample 10 --write
+python -m pok.engine.ladder_aggregate profile --season 0-5 --concept class-Blood_Mage --anchor passive.blood-mage-59822 --label "블러드 메이지 (Blood Mage)" --filter "class=Blood Mage" --min-sample 10 --write
 ```
 
 - ⚠ **클래스 구성이 10/10 한 클래스로 나오는 것이 정상이다.** 3-A의 「한 어센던시가
@@ -191,8 +184,7 @@ push한다 — 몰아서 하면 중간에 끊겼을 때 통째로 잃는다.
 ### 5. 검증 — 반드시 통과시킬 것
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pytest \
-  tests/unit/test_build_entity.py tests/unit/test_ladder_collector.py -q
+python -m pytest tests/unit/test_build_entity.py tests/unit/test_ladder_collector.py -q
 ```
 
 실패하면 되돌리고 사유와 함께 보고한다.

@@ -1,7 +1,7 @@
 # pob-snapshot — PoB 스냅샷 교체 워크플로
 
 > **대상**: 저비용 에이전트로도 실행되도록 **재량을 제거한 절차**. 순서를 벗어나지 말 것.
-> 전제: 레포 루트, `.venv` 활성(또는 `.venv/bin/python`), `PYTHONPATH=src`, `luajit` 사용 가능.
+> 전제: [공통 실행 환경](../AGENTS.md#명령-실행-환경-windows--macos) 준비, `luajit` 사용 가능.
 > 근거: [BLUEPRINT](../../docs/BLUEPRINT.md) §9(AD-1/AD-2/D4) · [KB_INGEST](../../docs/KB_INGEST.md) §5.
 
 ## 왜 절차가 필요한가
@@ -24,13 +24,26 @@
 
 ### 1. 새 클론 (덮어쓰기 금지 — AD-2/D4)
 
+Windows PowerShell:
+
+```powershell
+$pobNewCommit = '<40자 SHA>'
+$pobSnapshotDir = 'external/pob/' + $pobNewCommit.Substring(0, 7)
+git init "$pobSnapshotDir"
+git -C "$pobSnapshotDir" remote add origin https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git
+git -C "$pobSnapshotDir" fetch --depth 1 origin "$pobNewCommit"
+git -C "$pobSnapshotDir" checkout FETCH_HEAD
+```
+
+macOS / Linux의 Bash·Zsh:
+
 ```bash
-NEW=<40자 SHA>
-DIR=external/pob/${NEW:0:7}
-git init "$DIR"
-git -C "$DIR" remote add origin https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git
-git -C "$DIR" fetch --depth 1 origin "$NEW"
-git -C "$DIR" checkout FETCH_HEAD
+pob_new_commit='<40자 SHA>'
+pob_snapshot_dir="external/pob/${pob_new_commit:0:7}"
+git init "$pob_snapshot_dir"
+git -C "$pob_snapshot_dir" remote add origin https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git
+git -C "$pob_snapshot_dir" fetch --depth 1 origin "$pob_new_commit"
+git -C "$pob_snapshot_dir" checkout FETCH_HEAD
 ```
 
 ⛔ **`git clone`으로 받지 말 것** — 전체 히스토리를 끌어온다. 스냅샷은 **커밋 하나**만
@@ -61,7 +74,7 @@ git -C "$DIR" checkout FETCH_HEAD
 manifest가 정하므로, 이걸 잊으면 상수만 새 것이고 실제로는 옛 PoB가 돈다:
 
 ```bash
-PYTHONPATH=src python -m pok.kb.ingest manifest --patch <ver>
+python -m pok.kb.ingest manifest --patch <ver>
 ```
 
 ⛔ **`knowledge/game-data/**`의 `sources[].pob`는 건드리지 않는다.** 그건 그 레코드를
@@ -72,7 +85,7 @@ PYTHONPATH=src python -m pok.kb.ingest manifest --patch <ver>
 확인:
 
 ```bash
-PYTHONPATH=src pytest tests/unit/test_pob_pin_consistency.py -q
+python -m pytest tests/unit/test_pob_pin_consistency.py -q
 ```
 
 빠뜨린 곳이 있으면 **어느 파일인지 이름을 대며** 실패한다(manifest 재생성 누락 ·
@@ -84,8 +97,8 @@ PYTHONPATH=src pytest tests/unit/test_pob_pin_consistency.py -q
 노드도 생긴다.
 
 ```bash
-PYTHONPATH=src python -m pok.pob.parse_gaps        # 트리 노드
-PYTHONPATH=src python -m pok.pob.item_parse_gaps   # 아이템·룬 접사 (베이스 20종, 수 분)
+python -m pok.pob.parse_gaps        # 트리 노드
+python -m pok.pob.item_parse_gaps   # 아이템·룬 접사 (베이스 20종, 수 분)
 ```
 
 - 출력의 **표기/해제 건수를 보고에 그대로 옮긴다.** 해제(cleared)가 많으면 PoB가
@@ -96,11 +109,12 @@ PYTHONPATH=src python -m pok.pob.item_parse_gaps   # 아이템·룬 접사 (베�
 ### 4. 전량 검증
 
 ```bash
-PYTHONPATH=src pytest
+python -m pytest tests
 ```
 
-인자 없이 돌린다. `tests/unit/`과 `tests/integration/`을 따로 돌리면 잡히지 않는
-것이 있다(실측 2026-08-08: 파일명 중복이 CI에서만 터졌다).
+`tests` 경로를 명시해 단위·통합을 한 번에 수집한다. 인자 없는 `pytest`는
+`pyproject.toml`에 따라 단위만 실행하므로 스냅샷 전량 검증을 대신하지 못한다.
+한 번에 수집해야 파일명 중복처럼 분리 실행에서 놓치는 문제도 잡는다(2026-08-08).
 
 실패가 나면 **고치기 전에 분류부터** 한다:
 - **핀 불일치** → 2로 돌아간다
@@ -115,7 +129,7 @@ PoB 유래 KB(젬 스탯·트리·유니크·상태이상 상수)는 스냅샷�
 **값이 달라졌을 수 있다.**
 
 ```bash
-PYTHONPATH=src python -m pok.kb.ingest status --patch <ver>
+python -m pok.kb.ingest status --patch <ver>
 ```
 
 값 갱신이 필요하면 이 스킬이 아니라 **`kb-ingest` 스킬**로 넘긴다(수집은 그쪽 소관).

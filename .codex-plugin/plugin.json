@@ -1,11 +1,17 @@
 {
-  "name": "workflow-governance-kit",
+  "name": "poe2-ai-wiki",
   "version": "0.1.0",
-  "description": "Workflow governance skills and guard templates for Codex projects",
-  "skills": [
-    "workflow-init",
-    "workflow-status",
-    "workflow-close",
-    "workflow-release"
-  ]
+  "description": "Path of Exile 2 knowledge and build design workflows for Claude and Codex",
+  "author": {
+    "name": "skerfolg"
+  },
+  "interface": {
+    "displayName": "PoE2 AI Wiki",
+    "shortDescription": "PoE2 지식 조회와 빌드 설계·검증",
+    "longDescription": "pok MCP와 공통 스킬 절차로 Path of Exile 2 빌드를 구상하고 PoB로 조립·검증하는 로컬 프로젝트입니다.",
+    "developerName": "skerfolg",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "defaultPrompt": ["PoE2 빌드를 새로 설계해 줘."]
+  }
 }

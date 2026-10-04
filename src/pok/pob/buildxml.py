@@ -551,7 +551,7 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
 _SPEC_ONLY_KEYS = frozenset({"derived_from", "restored_from"})
 
 # **아이템 단위**의 스펙 전용 키 (#152). 희귀 슬롯의 출처 도장 `items[i].derived_from`은
-# 조립 게이트(`scripts/lib/assembly-gate-rule.mjs`)와 자동 채움(`engine/autofill.py`)이
+# 공통 절차 검사(`engine/procedures.py`)와 자동 채움(`engine/autofill.py`)이
 # 「손으로 지은 접사인가」를 가르는 **유일한 신호**인데, `ItemSpec`에는 그 필드가 없어
 # `_make`가 거부했다 — 자동 채움이 첫 칸에 도장을 찍은 스펙을 둘째 칸의 `optimize_rare`에
 # 넘기는 순간 `모르는 키: ['derived_from']`로 죽었고, 거부문이 안내한 탈출구(「그 슬롯에
