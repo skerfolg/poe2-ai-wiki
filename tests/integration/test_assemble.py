@@ -8,7 +8,7 @@ import pytest
 
 from pok.engine.assemble import IllegalBuildError, assemble
 from pok.pob import codec
-from pok.pob.buildxml import BuildSpec, ItemSpec
+from pok.pob.buildxml import BuildSpec, ItemSpec, spec_from_dict, to_xml
 from pok.pob.versions import find_luajit, resolve_snapshot
 
 
@@ -43,6 +43,10 @@ def test_적법_빌드_조립_기록(tmp_path_factory: pytest.TempPathFactory) -
     try:
         assert built.is_legal
         assert built.result.stats["Life"] == 1187
+        # 재사용 스펙도 실제 계산한 XML과 같아야 한다 — 공유 코드 복원은 손실 경로다.
+        saved = json.loads((built.path / "spec.json").read_text(encoding="utf-8"))
+        resumed = spec_from_dict(saved)
+        assert to_xml(resumed) == to_xml(spec)
         # 기록물: manifest + build.pob(코덱 왕복) + validation.json
         validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
         assert validation["tree"]["legal"] is True

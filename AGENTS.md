@@ -3,6 +3,14 @@
 PoE2 지식 **엔진** + Claude/Codex용 **MCP 도구·스킬**. 웹서비스 아님.
 **단일 진실 소스**: [docs/BLUEPRINT.md](docs/BLUEPRINT.md)(방향·결정) · [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)(구조).
 
+## 빌드 대화의 진입점
+
+빌드 구상·생성·개정은 `build-generation`, 계산 가능한 최종 조립·출고는
+`build-assembly` 스킬을 사용한다. Codex 등록은 `.agents/skills/<이름>/SKILL.md`,
+공통 절차는 `skills/<이름>/AGENTS.md`다. 스킬이 목록에 없으면 해당 공통 절차를 읽는다.
+`pok` 도구가 없으면 게임 지식을 파일로 대신 검색하지 말고 [README](README.md)의
+Codex 설정을 확인한다. 설정 후 새 작업에서 `server_info`로 연결을 검증한다.
+
 ## KB 질의는 MCP 도구로 (파일 탐색 금지)
 
 **PoE2 게임 지식 질문("~에 좋은 노드/모드/아이템은?")은 `pok` MCP 도구로 답한다:**
@@ -156,7 +164,7 @@ Greaves(방어도)로 갈려 있었다 — 그 조합은 **27종** 있다. Item�
    비어 있지 않으면 먼저 당긴다. 특히 **다른 세션의 결과를 이어받을 때**.
 4. **세션 제목에 역할 접두를 붙인다** — `[엔진]`(엔진·KB 수정·백로그 관리) /
    `[빌드]`(빌드 생성·검증). 세션에는 원래 종류 구분이 없어 **다른 세션이 찾을 방법이
-   없다** — `list_sessions`에서 접두로 고른다. 결함·제안은 `[엔진]` 접두 중 가장 최근
+   없다** — 세션 목록 도구(Codex: `list_threads`, Claude: `list_sessions`)에서 접두로 고른다. 결함·제안은 `[엔진]` 접두 중 가장 최근
    활동 세션에 보내고, 없거나 애매하면 **추측하지 말고 사용자에게 묻는다**.
    역할을 섞지 말 것 — 빌드 세션이 결함을 찾아내는 이유는 **도구를 만들지 않았기
    때문**이다(docs/BACKLOG.md §운용).

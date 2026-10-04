@@ -76,7 +76,11 @@ flowchart LR
 ```
 
 - **MCP = 저수준 도구**(조회/조립/계산/피드백) — Claude·Codex 공통, 크로스플랫폼.
-- **스킬 = 고수준 워크플로** — Claude는 `.claude/skills/<이름>/SKILL.md`(그 경로만 탐색된다), Codex는 `skills/<이름>/AGENTS.md`. 지침 본문은 AGENTS.md 한 벌이고 SKILL.md는 진입점이다. 같은 MCP 도구 호출.
+- **스킬 = 고수준 워크플로** — Claude는 `.claude/skills/<이름>/SKILL.md`, Codex는
+  `.agents/skills/<이름>/SKILL.md`로 등록한다. 두 진입점은 같은
+  `skills/<이름>/AGENTS.md`를 읽는다. `AGENTS.md`만으로는 Codex 스킬이 등록되지 않는다.
+  같은 `pok` MCP 도구를 호출하되, 클라이언트별 MCP 설정도 필요하다
+  ([README](../README.md)의 설정 절차, `scripts/configure_codex.py`).
 - **엔진은 결정적**, 지능(무엇을 만들지)은 외부 에이전트.
 
 ---

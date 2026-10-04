@@ -235,7 +235,7 @@ def autofill_rares(
             report.skipped.append({**target, "why": "optimize_rare가 텍스트를 못 냈다"})
             continue
         items = [dict(i) for i in (out.get("items") or ()) if str(i.get("slot")) != slot]
-        # 도장은 **아이템 단위**로 찍는다 — 훅 게이트와 `unstamped_rares`가 읽는 자리다.
+        # 도장은 **아이템 단위**로 찍는다 — 공통 절차 검사와 `unstamped_rares`가 읽는 자리다.
         # 이 `out`이 다음 칸의 `optimize(out, …)`와 조립의 `spec_from_dict`로 그대로 간다 —
         # 스키마가 이 키를 스펙 전용으로 받아 벗겨 내야 한다(`_ITEM_SPEC_ONLY_KEYS`, #152).
         # 실측 2026-09-09: 그 규약이 없어 첫 칸만 성공하고 둘째 칸부터 전부 실패했다.

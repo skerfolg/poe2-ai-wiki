@@ -1,7 +1,7 @@
 # build-assembly — 조립 정본 루프 (컨셉 확정 후)
 
 > **대상**: 저비용 에이전트로도 실행되도록 **재량을 제거한 절차**. 순서를 벗어나지 말 것.
-> 전제: 레포 루트, `.venv` 활성(또는 `.venv/bin/python`), `PYTHONPATH=src`, `luajit` 사용 가능.
+> 전제: [공통 실행 환경](../AGENTS.md#명령-실행-환경-windows--macos) 준비, `luajit` 사용 가능.
 > 발의: 사용자 2026-08-09 (백로그 제안 E). 근거 사고: 백로그 #27.
 
 ## 왜 이 루프인가 — 정본이 없으면 표류한다
@@ -79,11 +79,20 @@ assemble_pob(build_spec=..., slug="<빌드 이름>")
 
 ### 5. 재개 — 새 저장 위치를 만들지 않는다
 
-세션이 끊기거나 컨텍스트가 차면 **직전 산출물에서 이어받는다**:
+세션이 끊기거나 컨텍스트가 차면 **직전 산출물의 `spec.json`을 먼저 읽는다**.
+`assemble_pob`가 실제 조립에 사용한 스펙(자동 채움 후)을 저장하므로, config·젬 설정·
+능력치 선택·출처 도장을 그대로 다음 입력으로 쓴다. 편집본도 같은 폴더의 `spec.json`에
+저장하고 재조립한다. 설계 판단·검증 큐는 `parse_design_doc`로 함께 이어받는다.
+
+`spec.json`이 없는 옛 산출물만 `build.pob`의 전체 코드를 읽어 복원한다:
 
 ```
-parse_pob(code_path="artifacts/builds/<id>/build.pob")
+restore_pob_spec(build_code=<build.pob의 전체 문자열>)
 ```
+
+반환의 `build_spec`을 쓰기 전에 **`notes`·`needs_decision`·`damage_comparable`을 읽고**
+복원되지 않은 설정을 확인한다. `parse_pob`은 내용 요약이므로 재계산 입력을 대신하지
+못한다. 복원본에서 바꾼 수치는 새 조립으로 검증한다.
 
 ⛔ 스펙 편집본을 둘 새 디렉터리를 만들지 말 것. **사용자 판정 2026-08-09(제안 E):
 스펙 파일도 `artifacts/builds/<id>/`에서 관리한다** — 빌드별 폴더가 이미 있으니
@@ -93,9 +102,9 @@ parse_pob(code_path="artifacts/builds/<id>/build.pob")
 
 ```
 artifacts/builds/<id>/
-  build.pob          조립 산출물 (재개점)
+  build.pob          조립 산출물 (PoB 공유 코드)
   validation.json    실측 스탯·적법성·트리 판정
-  spec.json          편집 중인 스펙 — 다음 회차의 입력
+  spec.json          실제 조립에 사용한 스펙 — 재개·다음 회차 편집의 입력
 ```
 
 `artifacts/`는 gitignore 파생물이라 git에 남지 않는다. **정본으로 남길 것은 커밋

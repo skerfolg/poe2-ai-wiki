@@ -1,7 +1,7 @@
 # counterfactual-measure — 반사실 측정 캠페인 (교정 → 측정 → 재개)
 
 > **대상**: 저비용 에이전트로 실행 가능하도록 **재량을 제거한 절차**. **아래 순서를 벗어나지 말 것.**
-> 전제: 레포 루트에서 실행 · `PYTHONPATH=src` · `.venv` 파이썬.
+> 전제: [공통 실행 환경](../AGENTS.md#명령-실행-환경-windows--macos) 준비.
 > 설계 배경: BACKLOG 반사실 하네스 항목 · 철칙 3(엔진=결정적)·철칙 4(PoB는 검증기가 아니다)·철칙 5(강제 지점).
 > **저장 위치**: 계획·체크포인트·결과는 전부 **데이터 repo**(`artifacts/ingest-raw`, `poe2-ai-wiki-data`)다.
 > 사용자 결정 2026-08-13 — Windows·Mac 양쪽이 이어받아야 하므로 gitignore인 `artifacts/`·`var/`는 쓸 수 없다.
@@ -24,8 +24,7 @@
 된다("래더가 찍은 이 노드가 죽어 있다"가 실은 "보조가 빠진 약한 빌드에서 죽어 있다").
 
 ```bash
-python -m pok.engine.corpus_fidelity survey --season 0-5 \
-  --out artifacts/ingest-raw/counterfactual/0-5/fidelity.json
+python -m pok.engine.corpus_fidelity survey --season 0-5 --out artifacts/ingest-raw/counterfactual/0-5/fidelity.json
 ```
 
 PoB도 LuaJIT도 필요 없다(복원은 base64+XML뿐) — **수집 전용 PC에서도 돈다.**

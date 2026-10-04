@@ -61,14 +61,18 @@ def test_find_by_value_answers_what_fits_in_the_headroom() -> None:
     """
     from pok.index.describe import find_by_value
 
-    hits = find_by_value("reservation.max", type_="Skill", maximum=40, limit=50)
+    hits = find_by_value("reservation.at_max_level", type_="Skill", maximum=40, limit=100)
     assert hits, "정신력 40 이하로 점유하는 스킬이 있어야 한다"
     assert all(h.value <= 40 for h in hits)
     assert hits == sorted(hits, key=lambda h: (h.value, h.id)), "값 오름차순 (순위 판단 없음)"
     assert all("reservation[" in h.path for h in hits), "리스트는 원소마다 갈라진다"
 
+    # 레벨 상승으로 점유가 줄어드는 스킬을 놓치지 않는다. max는 저레벨 값이다.
+    cleric = next(h for h in hits if h.id == "skill.skeletal-cleric")
+    assert cleric.value == 20
+
     # 범위 밖은 걸러진다 — 상한만 준 것과 하한을 함께 준 것이 일관되어야 한다
-    high = find_by_value("reservation.max", type_="Skill", minimum=90, limit=50)
+    high = find_by_value("reservation.at_max_level", type_="Skill", minimum=90, limit=100)
     assert high and all(h.value >= 90 for h in high)
     assert not ({h.id for h in hits} & {h.id for h in high}), "40 이하와 90 이상은 겹칠 수 없다"
 

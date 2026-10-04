@@ -10,7 +10,7 @@
              빌드·계산 (P3, tools/build.py — PoB 오라클·RC4 검증·기록)
 
 실행: PYTHONPATH=src python -m pok.mcp   (stdio)
-등록: claude mcp add pok -- <venv>/bin/python -m pok.mcp  (env PYTHONPATH=src)
+등록: README.md의 Claude/Codex 설정 절차 (Codex: scripts/configure_codex.py).
 """
 
 from __future__ import annotations
@@ -452,9 +452,11 @@ def find_by_value(
     """`data` 안의 **수치로** 후보를 찾는다 — `search_kb`(텍스트)로는 닿지 않는 축.
 
     쓸 때: 자원이 얼마 남았고 **그 안에 들어가는 것**을 찾을 때.
-    예) 정신력 40 잔여 → `find_by_value("reservation.max", type="Skill", maximum=40)`
+    예) 정신력 40 잔여 → `find_by_value("reservation.at_max_level", type="Skill", maximum=40)`
         코스트 상한   → `find_by_value("cost.max", type="Skill", maximum=25)`
 
+    점유는 레벨이 오르면 줄기도 한다. `at_max_level`은 최고 레벨 값이고,
+    `min`/`max`는 크기순 경계다. 특정 젬 레벨로 쓸 때는 해당 레벨의 점유도 확인한다.
     `path`는 `data` 아래의 점 표기다. 리스트를 만나면 원소마다 갈라진다
     (`reservation.max` → `reservation[0].max`, `[1].max`, …). 어떤 경로가 있는지는
     `describe_type`의 필드 목록에서 본다.

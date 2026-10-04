@@ -2,7 +2,7 @@
 
 결정적 파이프라인만 담당한다(AD-3):
   BuildSpec → ① 합성 아이템 적법성(RC4) → ② PoB 계산(트리 적법성 포함)
-  → ③ artifacts/builds/<build-id>/ 기록 (build.xml·build.pob·validation.json)
+  → ③ artifacts/builds/<build-id>/ 기록 (spec.json·build.xml·build.pob·validation.json)
 
 validation.json은 **실측 기록이지 합격 판정이 아니다** — 다차원 목적 프로파일
 대비 floor 판정(RC1: validation은 바닥선)은 skills/+에이전트의 몫.
@@ -29,7 +29,7 @@ from pok.engine.integrity import spec_integrity
 from pok.engine.legality import ItemLegalityChecker, LegalityReport
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob import codec
-from pok.pob.buildxml import BuildSpec, to_xml
+from pok.pob.buildxml import BuildSpec, spec_from_dict, to_xml
 from pok.pob.runner import PobResult, run_build
 from pok.pob.versions import pinned_commit
 
@@ -58,6 +58,39 @@ class IllegalBuildError(ValueError):
     """RC4: 못 만드는 아이템이 포함된 빌드 — 사유를 담는다."""
 
 
+def _runtime_spec_data(spec: BuildSpec) -> dict[str, Any]:
+    """기본값을 포함한 실제 계산 입력 — 다시 spec_from_dict에 넣을 수 있는 JSON."""
+    data = dataclasses.asdict(spec)
+    data["config"] = dict(spec.config)
+    data["attribute_choices"] = {str(node): choice for node, choice in spec.attribute_choices}
+    # dataclass의 튜플과 dict 입력의 리스트를 같은 형태로 만든다. NaN 등의 비JSON 값은
+    # 기록 후 재사용할 수 없으므로 계산을 시작하기 전에 거부한다.
+    return dict(json.loads(json.dumps(data, ensure_ascii=False, allow_nan=False)))
+
+
+def _resume_spec_data(spec: BuildSpec, source: dict[str, Any] | None) -> dict[str, Any]:
+    """계산 입력과 계보를 함께 보존한다 — 옛 스펙의 계보를 새 빌드에 붙이지 않는다."""
+    runtime = _runtime_spec_data(spec)
+    if source is None:
+        return runtime
+    supplied = _runtime_spec_data(spec_from_dict(source, validate_catalog=False))
+    changed = sorted(key for key in runtime if runtime[key] != supplied[key])
+    if changed:
+        raise ValueError(
+            f"spec_data가 실제 BuildSpec과 다르다: {', '.join(changed)} — "
+            "계산에 사용한 최종 스펙을 spec_data로 넘길 것"
+        )
+    saved = {**source, **runtime}
+    # BuildSpec에 없는 아이템/주얼의 derived_from도 보존한다. 런타임 필드를 먼저
+    # 대조했으므로 순서가 다른 아이템에 도장이 옮겨 붙을 수 없다.
+    for key in ("items", "jewels"):
+        saved[key] = [
+            {**original, **actual}
+            for original, actual in zip(source.get(key, ()), runtime[key], strict=True)
+        ]
+    return dict(json.loads(json.dumps(saved, ensure_ascii=False, allow_nan=False)))
+
+
 def assemble(
     spec: BuildSpec,
     slug: str,
@@ -74,7 +107,10 @@ def assemble(
 
     `spec_data`는 **PoB에 안 가는 스펙 칸**(`derived_from`)을 읽으려는 것이다 —
     `BuildSpec`엔 없지만 산출 출처는 기록물에 남아야 다음 세션이 안다(#58 ③).
+    실제 계산 입력과 함께 `spec.json`에 보존하며, 두 입력이 다르면 계산 전에 거부한다.
+    생략하면 BuildSpec의 기본값까지 포함한 재사용 가능한 스펙을 기록한다.
     """
+    saved_spec = _resume_spec_data(spec, spec_data)
     chk = checker or ItemLegalityChecker(knowledge_dir())
     item_reports: dict[str, LegalityReport] = {}
     targets = [(item.slot, item.text) for item in spec.items] + [
@@ -133,6 +169,7 @@ def assemble(
         },
     }
     files = {
+        "spec.json": json.dumps(saved_spec, ensure_ascii=False, indent=1) + "\n",
         "build.xml": xml,
         "build.pob": build_code + "\n",
         "validation.json": json.dumps(validation, ensure_ascii=False, indent=1, sort_keys=True)
@@ -159,17 +196,17 @@ def assemble(
     # 나왔는지"를 알 수 있어야 한다(#58 ③). `derived_from`은 스펙에만 있고 PoB로는
     # 안 가므로 조립이 옮겨 주지 않으면 사라진다.
     if spec_data is not None:
-        stamps = spec_data.get("derived_from")
+        stamps = saved_spec.get("derived_from")
         if stamps:
             manifest["derived_from"] = stamps
-        stale = stale_components(spec_data)
+        stale = stale_components(saved_spec)
         if stale:
             manifest["stale"] = stale
         # **출고 시점에만** 묻는다 (#58 ④) — 탐색 중에는 안 돌린 게 정상이라 매번
         # 물으면 소음이 된다(§0 ⑤). 규율은 이미 `skills/`에 있었고 **감지 수단만**
         # 없었다: 실측 2026-08-11, 한 회차가 유니크 전수를 끝까지 안 돌렸고 그래서
         # 검은화염을 포함한 유니크가 후보에 오른 적이 없었다.
-        skipped = missing_procedures(spec_data)
+        skipped = missing_procedures(saved_spec)
         if skipped:
             manifest["skipped_procedures"] = skipped
         # **문서의 기각 결정과 대조한다** (#58 ②). 적법성은 「기각했었나」를 모른다 —
@@ -177,7 +214,7 @@ def assemble(
         # 문서는 슬러그로 자동 탐색한다(인자를 새로 만들면 안 넘기면 그만이다).
         design_text = find_design_doc(slug)
         if design_text:
-            revived = rejected_but_present(spec_data, design_text)
+            revived = rejected_but_present(saved_spec, design_text)
             if revived:
                 manifest["rejected_but_present"] = revived
             gap = rejection_record_gap(design_text)

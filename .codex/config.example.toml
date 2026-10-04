@@ -1,0 +1,15 @@
+# Example only: generate machine-specific paths with scripts/configure_codex.py --write.
+[mcp_servers.pok]
+command = "/absolute/path/to/project/.venv/bin/python"
+args = ["-m", "pok.mcp"]
+cwd = "/absolute/path/to/project"
+env_vars = ["POK_LUAJIT"]
+startup_timeout_sec = 60
+tool_timeout_sec = 1800
+enabled = true
+
+[mcp_servers.pok.env]
+PYTHONPATH = "/absolute/path/to/project/src"
+PYTHONUTF8 = "1"
+PYTHONIOENCODING = "utf-8"
+POK_AUTOFILL_BUDGET_S = "1200"
