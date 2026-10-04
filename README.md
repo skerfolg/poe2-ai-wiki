@@ -38,7 +38,7 @@ codex mcp get pok --json
 Codex에서 이 저장소를 신뢰한 뒤 **새 작업을 열어** MCP와 스킬을 읽습니다.
 기존 작업에는 도구 목록이 남을 수 있습니다. 새 작업에서 `server_info`를 호출해 연결을
 확인하고, `$poe2-ai-wiki:build-generation` 또는 “PoE2 빌드를 구상해 줘”로 시작합니다.
-PoE 스킬 7종은 `.agents/skills/`에서 발견하며 실제 절차는 `skills/` 한 곳을 참조합니다.
+PoE 스킬 8종은 `.agents/skills/`에서 발견하며 실제 절차는 `skills/` 한 곳을 참조합니다.
 설정 형식과 탐색 규칙은 [Codex MCP](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)와
 [Skills](https://learn.chatgpt.com/docs/build-skills)를 따릅니다.
 
@@ -47,6 +47,14 @@ LuaJIT가 필요합니다. `knowledge/ingest/manifest.json`이 가리키는 스�
 `external/pob/<snapshot>/`에 준비하고, LuaJIT가 PATH에 없으면 `POK_LUAJIT`를
 실행 파일 경로로 설정한 뒤 Codex를 다시 시작합니다. 설치된 스냅샷은 덮어쓰지 않습니다.
 상세 규약은 [PoB 지침](src/pok/pob/AGENTS.md)을 봅니다.
+
+## 거래소 검색
+
+`$poe2-ai-wiki:trade-search` 또는 “거래소에서 이 조건의 매물을 찾아줘”로 호출합니다.
+호스트·리그·아이템 조건을 받아 거래소 파라미터를 구성하고 검색 결과를 JSON으로 돌려줍니다.
+검색 링크만 만들 수도 있습니다. 구매·귓속말·이동·상시 감시는 수행하지 않습니다.
+이 스킬은 Python 표준 라이브러리만 사용하며 MCP·PoB·overlay 설치가 필요하지 않습니다.
+직접 실행과 입력 예제는 [거래소 검색 절차](skills/trade-search/AGENTS.md)를 봅니다.
 
 ## Claude Code
 
