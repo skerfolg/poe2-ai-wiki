@@ -66,6 +66,7 @@ flowchart TD
   ENC[S42 #166 로케일 디코딩 7자리<br/>done]
   GINST[S43 #167 부여 스킬 인스턴스 신고<br/>done]
   CODEX[S44 Codex 연결·스킬·공통 검사·재개<br/>done]
+  TRADE[S45 거래소 검색 전용 스킬<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
@@ -109,6 +110,7 @@ flowchart TD
   ENC -. 레인 밖 · 재시작 신호가 죽어 있었다 .-> GINST
   GINST -. 레인 밖 · 사용자가 세션마다 재설명 .-> M6
   GINST -. Codex 호환성 점검에서 확인 .-> CODEX --> M6
+  CODEX -. 사용자 요청 · 검색 전용 스킬 .-> TRADE --> M6
 ```
 
 ## Baseline Structure
@@ -165,10 +167,14 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S43 | #167 — **사용자가 세션마다 다시 설명하던 규칙.** 아이템이 부여하는 스킬 인스턴스는 **젬과 별개**다 — 부재·한탄 목걸이 베이스가 주는 스킬은 **무료**(정신력 점유 없음)이고 같은 스킬 젬을 직접 등록한 것과 **중복해서** 돈다(Cast on Dodge ×2). 레코드에는 `reservation: 100`·`granted_by: [Absent Amulet]`만 있어 세션이 「목걸이 하나뿐」이라고 답했다. `get_entry`가 부여원 있는 Skill에 `granted_instance`(부여원·젬 경로·중복 가부·점유·검증 범위)를 **fields와 무관하게** 자동으로 싣는다. 부여원은 `granted_by`가 아니라 **아이템 문구**에서 뽑는다 — 실측: 문구로 부여되는 126종 중 27종이 `granted_by`에서 부여원을 빠뜨렸다(한탄 목걸이 `Alchemist's Boon` 등). 인게임 확인 범위는 **목걸이 베이스**로 한정하고 나머지 부여원은 `unverified_for`로 낸다 (`index/search.py`·`mechanic.item-granted-skills`·`engine/constraints/axes.py`) | done |
 
 | S44 | Codex MCP 설정 생성기(기동 60초·도구 1,800초), PoE 스킬 7종, 공통 필수 절차 검사, 전체 `spec.json` 보존·재개, 최고 레벨 점유 조회. 단위 **1,221 통과·34 skip**, PoB 통합 **71 통과**. 실제 Codex 발견 7종·도구 48개 및 stdio 조회·거부 검증. Ruff·mypy·import-linter 통과 | done |
+| S45 | `poe2-overlay`를 참고한 AI 에이전트 중심 `trade-search`. 원형 query JSON·공개 카탈로그·단발 search/fetch·구조화 결과, Codex/Claude 등록. 표준 라이브러리 실행기, 호스트별 캐시·공유 잠금·헤더 기반 제한. 전체 단위·PoB 통합 **1,341 통과·34 skip**. 후속 Windows 출력 회귀 검사를 포함한 관련 단위/등록 **56 통과**. Ruff·mypy·import-linter·스킬 검증 통과. 글로벌·카카오 무인증 검색→상세 실측 성공. 독립 에이전트의 조건 구성·링크 왕복 및 코드 리뷰 완료 | done |
 
 ## Canonical Next Step
 
 The only next executable step is: **M6 큐레이션 게이트 설계.**
+
+사용자 지시(2026-10-05)에 따른 레인 밖 S45는 구현·검증을 마쳤다. M5 측정·판정 상태는
+보존했다. 새 작업에서 `trade-search`를 발견하며, 기존 작업에서도 포함된 실행기를 직접 쓸 수 있다.
 
 사용자 지시(2026-10-04)에 따른 레인 밖 수정 S44는 구현·로컬 검증을 마쳤다.
 기존 Codex 작업은 새 작업에서, Claude는 MCP 재시작 뒤 수정된 도구를 사용한다.
@@ -211,6 +217,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
+| `codex/trade-search-skill` | PR open | S45 구현·전체 검사 완료, [PR #144](https://github.com/skerfolg/poe2-ai-wiki/pull/144). `poe2-overlay`는 읽기 전용 참고. 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
+| `var/live/trade-search/` | disposable | 거래소 호스트별 공개 카탈로그·제한 상태·검증 자료. 파생물이며 인증정보는 저장하지 않음 |
+| `var/pytest-trade-*`·`var/trade-forward-test/` | disposable | S45 단위·통합 검사와 독립 실행 검증의 파생물. 정본 아님, gitignore |
 | `codex/codex-compatibility` | PR open | S44 구현·검증 완료, [PR #143](https://github.com/skerfolg/poe2-ai-wiki/pull/143). 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
 | `.codex/config.toml` | local | 이 PC의 검증된 Python 절대 경로·MCP 제한. gitignore, 설정 스크립트로 재생성 |
 | `var/pytest-codex-*`·`var/codex-protocol/`·`var/codex-native-check.py` | disposable | S44 검증용 파생물. 정본 아님, gitignore |
@@ -234,6 +243,10 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| S45 — 검색 범위와 실행 경계 | 사용자 요청 「검색 자체만, 주 사용자는 AI 에이전트」. `skills/trade-search/` 내부의 독립 실행기를 사용하며 기존 엔진·MCP 모듈 경계는 바꾸지 않는다. 원형 파라미터와 검색 결과를 반환하고 거래 동작은 구현하지 않는다. 기존 M5 레인 상태를 보존하는 사용자 지정 부수 작업으로 S45 우선 실행 | 2026-10-05 |
+| S45 — 검증 범위와 참고 구현의 차이 | 글로벌·카카오 search/fetch는 무인증으로 실측 성공. 로그인 필수라는 참고 스킬의 가정을 복사하지 않았다. 로그인 검색은 미검증. 예제는 출처 미지정 능력치를 `pseudo` 합산으로 표현하며 explicit 접사로 몰래 좁히지 않는다. 실측 결과·독립 시험은 `var/live/trade-search/research/`·`var/trade-forward-test/` 파생물에 남겼다 | 2026-10-05 |
+| S45 — 실사용에서 확인한 언어·매물 형식 | 사용자 확인: 글로벌/카카오는 같은 거래 서버의 언어 선택이며 계정 서버를 별도로 묻지 않는다. 금단의 의식 장갑 검색은 카카오 무인증 search/fetch 성공(131건 중 10건 상세). 실제 `explicitMods`가 문자열 대신 `{description,domain,hash,mods}` 객체여서 문구를 버리던 투영을 수정하고 회귀 검증; 관련 단위/등록 **55 통과**. 현재 표시 ES·투사체 +2·룬 홈 2칸도 10건 전부 대조. 결과는 `var/live/trade-search/gloves-projectile2-es250-2s.*.json` | 2026-10-05 |
+| S45 — PR 전 독립 리뷰 | Windows 비UTF-8 stdout에서 `Mjölner` 등 매물명이 출력 오류를 일으키므로 JSON을 ASCII escape로 내보내고, 실제 CLI를 `cp949:strict`로 실행해 원문 복원을 검사. 실행기 50건·등록 6건 통과. 기존 전체 검사 완료 후 추가한 회귀 검사도 별도 실행 | 2026-10-05 |
 | S44 — Codex 호환성 수정 범위 | 2026-10-04 점검 결과 전체 수정 지시. `.agents/skills/`는 Codex 등록 진입점만 추가하고 정본 절차는 기존 `skills/`에 둔다. `.codex/config.toml`은 로컬 생성, 공통 검사와 스펙 저장은 기존 모듈 경계 안에서 구현한다. M5 진행 상태는 보존 | 2026-10-04 |
 | S44 — #129의 현재 강제 지점 | S30·S37 및 2026-08-27 결정에 적힌 훅은 당시 구현이다. 이제 `engine/procedures.py`를 MCP에서 직접 호출한다. 복원·수동 출처 예외와 선언 가중치 자동 채움은 보존하고, 택1 노드는 실제 ID 누락을 검사한다 | 2026-10-04 |
 | S44 — 실제 Codex 발견 검증 | 사용자 계정의 `config/read`에서 pok enabled·1,800초, `skills/list`에서 `poe2-ai-wiki:` 스킬 7종·오류 0, `mcpServerStatus/list`에서 도구 48개 확인. 기존 kit 이름이 PoE 스킬에 붙던 플러그인 메타데이터도 프로젝트명으로 정정 | 2026-10-04 |

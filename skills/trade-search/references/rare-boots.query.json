@@ -1,0 +1,35 @@
+{
+  "query": {
+    "status": {"option": "any"},
+    "stats": [
+      {
+        "type": "and",
+        "filters": [
+          {"id": "pseudo.pseudo_total_life", "value": {"min": 100}},
+          {"id": "pseudo.pseudo_increased_movement_speed", "value": {"min": 25}}
+        ]
+      },
+      {
+        "type": "count",
+        "value": {"min": 2},
+        "filters": [
+          {"id": "pseudo.pseudo_total_fire_resistance", "value": {"min": 30}},
+          {"id": "pseudo.pseudo_total_cold_resistance", "value": {"min": 30}},
+          {"id": "pseudo.pseudo_total_lightning_resistance", "value": {"min": 30}}
+        ]
+      }
+    ],
+    "filters": {
+      "type_filters": {
+        "filters": {
+          "category": {"option": "armour.boots"},
+          "rarity": {"option": "rare"}
+        }
+      },
+      "trade_filters": {
+        "filters": {"price": {"max": 5, "option": "divine"}}
+      }
+    }
+  },
+  "sort": {"price": "asc"}
+}
