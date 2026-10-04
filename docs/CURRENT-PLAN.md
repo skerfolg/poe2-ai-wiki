@@ -217,7 +217,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| `codex/trade-search-skill` | PR ready | S45 구현·전체 검사 완료, 사용자 요청에 따라 커밋·PR 준비. `poe2-overlay`는 읽기 전용 참고. 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
+| `codex/trade-search-skill` | PR open | S45 구현·전체 검사 완료, [PR #144](https://github.com/skerfolg/poe2-ai-wiki/pull/144). `poe2-overlay`는 읽기 전용 참고. 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
 | `var/live/trade-search/` | disposable | 거래소 호스트별 공개 카탈로그·제한 상태·검증 자료. 파생물이며 인증정보는 저장하지 않음 |
 | `var/pytest-trade-*`·`var/trade-forward-test/` | disposable | S45 단위·통합 검사와 독립 실행 검증의 파생물. 정본 아님, gitignore |
 | `codex/codex-compatibility` | PR open | S44 구현·검증 완료, [PR #143](https://github.com/skerfolg/poe2-ai-wiki/pull/143). 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
