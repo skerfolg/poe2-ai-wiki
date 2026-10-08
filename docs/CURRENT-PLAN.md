@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `main`
+**Integration branch**: `codex/pok-ui-bundle`
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -22,6 +22,7 @@ M5(3층 제안) — 반사실 캠페인의 창의 층. **무인 라운드 배치
 
 ```mermaid
 flowchart TD
+  DESKTOP[Desktop 코드·단위·PoB 통합 done<br/>배포 검증 blocked]
   CONTRACT[S1 제안 계약 검증기<br/>done]
   FLOW[S2 전개기 + 출처 분리 저장<br/>done]
   ROUND[S3 라운드 러너 brief/measure/digest<br/>done]
@@ -115,6 +116,8 @@ flowchart TD
 
 ## Baseline Structure
 
+추가 사용자 요청: Desktop 원본 export / runtime identity / portable 빌더 / XML 계산 구현·회귀 검증 완료. PoB 5d173cb 핀 유지. 문서보호로 배포 복사본 읽기가 실패하여 UI production bundle 검증은 남음.
+
 ### M5-proposal-rounds
 
 Status: `active`
@@ -171,7 +174,9 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **M6 큐레이션 게이트 설계.**
+The only next executable step is: **다른 PC에서 거래 검색 스킬을 포함한 production bundle을 생성하고 정식 패키지 검증.**
+
+2026-10-08 사용자 승인 계획에 따른 레인 밖 통합 작업을 먼저 수행한다. 기존 M5/M6 데이터와 진행 기록은 유지하며, 이 작업은 PoB 핀 변경·KB 재수집을 수행하지 않는다.
 
 사용자 지시(2026-10-05)에 따른 레인 밖 S45는 구현·검증을 마쳤다. M5 측정·판정 상태는
 보존했다. 새 작업에서 `trade-search`를 발견하며, 기존 작업에서도 포함된 실행기를 직접 쓸 수 있다.
@@ -240,6 +245,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | 원격 브랜치 21개 | stale | 스쿼시 머지 뒤 안 지워진 잔재(`fix/restore-item-granted-groups` 등). 일괄 정리는 **사용자 판정** — 소유 세션을 특정할 수 없다 |
 
 ## Open Decisions
+
+- 2026-10-08 사용자 승인: pok-ui 통합 계획의 고정 PoB 원본 export 경계를 추가하고 standalone runtime 경로를 구현한다. 현재 next-step override는 기존 M6보다 이 배포 기반을 먼저 완성하기 위한 것이다.
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
@@ -595,3 +602,40 @@ Snap의 기본 쿨다운 **4초**가 순환 전체의 회전수를 정한다. Sn
 
 **재개 조건**: 「Power를 곱연산으로 바꾸는 담체」가 새로 나오면(시즌 갱신 등).
 그전까지는 위 목록을 **평범하지만 저점 높은 무술가 철퇴 빌드**의 재료로만 쓴다.
+
+## Desktop 통합 — 2026-10-08
+
+- 작업 브랜치: codex/pok-ui-bundle, 기준 main 4da18c1.
+- 사용자 승인된 pok-ui 상세 계획 S0/S1/S6 구현. 고정 원본 PoB와 가공 KB를 분리하고 빌드 단계에서 배포 묶음을 준비한다.
+- S6 XML 계산/MCP: `compute_pob_xml(xml, stats)`는 supplied XML을 복원 스펙으로 바꾸지 않고 직접 PoB에 태운다. `render_pob_item(request)`는 unique/base/rare 요청마다 성공 원문 또는 명시 오류를 반환한다. 단위 스키마·렌더 테스트와 실제 PoB XML parity 통합 테스트 통과.
+- POK 전체 단위 1,321 passed / 2 skipped; 직접 XML/아이템 PoB 통합 4 passed. 최종 새 단위 10 passed. Ruff, mypy(155 files), import-linter 통과.
+- UI 개발 묶음에서 카탈로그 13,945개, 직업 8개, 트리 5개 버전 생성; source identity 동일성 검증.
+- Portable runtime은 생성됐지만 문서보호 환경에서 Node가 323/12,015 파일 읽기 실패. 제공된 drm-reader는 help.txt를 detected=Unknown으로 거부. production hash 검증은 유지하며 배포 패키지 완료로 간주하지 않는다.
+- 직접/in-process MCP server_info는 성공했지만 Windows stdio는 120초 timeout 재현. faulthandler에서 `_git_head`의 `subprocess.run` timeout 후 출력 reader thread join 대기를 확인. 앱→MCP 완주 검증은 남아 있으며 원인 미확정 수정을 적용하지 않았다.
+- 실제 사용자 빌드·대화·세션을 fixture/배포물에 추가하지 않았고, PoB 원본 핀과 KB 정본을 변경하지 않았다.
+
+
+### Desktop 후속 — 기존 거래 스킬 배포 포함
+
+- trade-search 스킬 등록 파일·정본 절차·실행기를 portable runtime에 포함하고, 스킬 변경도 source digest에 반영한다. 검색 로직·거래 MCP·인증 UI를 새로 만들지 않는다.
+- 배포 캐시는 POK_CACHE_HOME/trade-search, 입력·결과는 POK_DATA_HOME/live/trade-search를 사용한다. 개발 checkout의 기본 경로는 유지한다.
+- 사용자 지시: 이 PC에서는 코드·테스트·로컬 실행용 exe까지, 정식 배포는 다른 PC에서 수행한다. 문서 파일 암호화와 일반 소스의 읽기 오류를 동일시하지 않는다.
+- 관련 단위 71개, Ruff 및 변경 MCP/identity 파일 mypy 통과. 실제 Codex에서 staged trade-search 발견·활성화와 prepare 실행을 확인했다. 실제 매물 검색이나 모델 추론 성공을 주장하지 않는다.
+
+- pok-ui 로컬 테스트 exe 생성·실제 창 실행 완료. 현재 체크아웃 bundle에서 13,945개 카탈로그·직업 8개 ready 확인. UI 89 tests/build 통과.
+
+### Desktop 연결 대기 수정
+
+- server_info(include_kb_diagnostics=False)로 연결 확인 시 KB 전체 로드를 생략하고 kb_diagnostics_checked=False를 반환한다. 기존 기본 동작은 유지한다.
+- runtime_identity는 실제 source/KB/PoB 내용 해시와 파일 변경 감지 캐시를 사용한다. 반복 Git digest 조회와 중첩 checkout 검색을 제거했으며 출처 일치 검증은 유지한다.
+- 관련 회귀 3개 및 Ruff 통과. UI 회귀 4개/빌드 통과. 실제 UI에서 엔진 연결·Iron Ring 생성·반지 1 장착 저장 확인. 전체 suite는 사용자 요청에 따라 재실행하지 않았다.
+
+## UI 채팅 연결/KB 첫 조회 진단 (2026-10-08)
+
+- server_info(include_kb_diagnostics=False)는 검증된 runtime identity에서 source commit을 재사용해 중복 Git 실행을 줄인다. 기본 진단 경로는 유지한다.
+- kb/store.py의 _untracked는 Windows subprocess PIPE 정리 중 대기를 피하도록 stdout을 임시 파일로 받는다. 시간 제한·UTF-8 디코딩·중복/미추적 파일 검사는 유지한다. 지식 레코드 수정이나 PoB 핀 변경은 없다.
+- 관련 fast server_info 검사 1개와 Git stdio 회귀 2개 통과. 실제 cold search_kb는 60초 시간 초과에서 수정 후 53.2초·1개 결과로 완료했다. 첫 인덱스 준비 지연은 남아 있으며 즉시 응답을 보장하지 않는다. UI의 진행 상태·실제 연결 해제 표시와 함께 사용한다.
+
+## 다른 PC 인계 — 2026-10-08
+
+사용자 요청에 따라 codex/pok-ui-bundle 브랜치를 커밋·푸시한다. 대응 UI 브랜치는 skerfolg/pok-ui 저장소의 skerfolg/coho다. 두 브랜치를 함께 사용하며, PoB는 기존 고정 커밋 5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6을 유지한다. 생성 runtime/로컬 cache/사용자 데이터는 Git에 포함하지 않는다. 다른 PC에서는 기존 개발 환경을 준비한 뒤 UI의 docs/DATA-BUNDLE.md에 따라 runtime 또는 checkout 데이터 묶음을 다시 생성한다. 첫 KB 조회 지연·실제 모델 추론·정식 패키지 검증이 다음 확인 사항이다.

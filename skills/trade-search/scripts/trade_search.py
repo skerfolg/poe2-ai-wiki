@@ -22,7 +22,6 @@ from pathlib import Path
 
 HOSTS = {"global": "https://www.pathofexile.com", "kakao": "https://poe.kakaogames.com"}
 KINDS = ("stats", "items", "static", "filters", "leagues")
-DEFAULT_CACHE = Path(__file__).resolve().parents[3] / "var/live/trade-search"
 CACHE_SECONDS = 86400
 MARGIN = 1.25
 ITEM_FIELDS = (
@@ -103,6 +102,16 @@ class TradeError(Exception):
     def __init__(self, code, message, *, status="error", **details):
         super().__init__(message)
         self.output = {"status": status, "error": {"code": code, "message": message, **details}}
+
+
+def default_cache_dir():
+    override = os.environ.get("POK_CACHE_HOME")
+    if override:
+        return Path(override) / "trade-search"
+    return Path(__file__).resolve().parents[3] / "var/live/trade-search"
+
+
+DEFAULT_CACHE = default_cache_dir()
 
 
 def stamp(now=None):

@@ -595,6 +595,121 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     return out
 
 
+def compute_pob_xml(xml: str, stats: list[str] | None = None) -> dict[str, Any]:
+    """PoB XML 원문을 **복원 스펙으로 바꾸지 않고** 직접 계산한다.
+
+    UI 편집 정본은 XML이므로 이 경로는 supplied XML을 그대로 `run_xml`에 보낸다.
+    기존 build_spec 기반 검사는 가능한 경우 복원본으로 진단만 수행하고, 실패하면
+    `checks.not_run`에 남긴다. 계산 입력에는 복원본을 쓰지 않는다.
+    """
+    from pok.pob.restore import spec_from_pob_xml
+    from pok.pob.ui_operations import active_spec_nodes, compute_xml
+
+    selected_stats = stats if stats is not None else ["*"]
+    restored_spec: dict[str, Any] | None = None
+    active_nodes: tuple[int, ...] = ()
+    active_spec: dict[str, Any] = {}
+    checks: dict[str, Any] = {
+        "restore_for_diagnostics": {"status": "not_run"},
+        "procedure_checks": {"status": "not_run"},
+        "build_spec_diagnostics": {"status": "not_run"},
+    }
+    xml_sha256 = ""
+    try:
+        active_nodes, active_spec = active_spec_nodes(xml)
+        import hashlib
+
+        xml_sha256 = hashlib.sha256(xml.encode("utf-8")).hexdigest()
+    except Exception as exc:
+        return {
+            "ok": False,
+            "reason": f"{type(exc).__name__}: {exc}",
+            "calculation_path": "direct_xml",
+            "diagnostics": {"checks": checks},
+        }
+    try:
+        restored = spec_from_pob_xml(xml)
+        restored_spec = restored.spec
+        checks["restore_for_diagnostics"] = {
+            "status": "passed",
+            "faithful": restored.faithful,
+            "notes": list(restored.notes),
+            "needs_decision": list(restored.needs_decision),
+            "dropped_item_granted": [
+                {"skill": name, "lost_supports": count}
+                for name, count in restored.dropped_item_granted
+            ],
+            "damage_comparable": restored.damage_comparable,
+        }
+        guard_spec = dict(restored_spec)
+        guard_spec.pop("restored_from", None)
+        refusal = _procedure_refusal(guard_spec)
+        if refusal is not None:
+            checks["procedure_checks"] = {
+                "status": "failed",
+                "reason": refusal.get("reason"),
+                "blocking": refusal.get("blocking", []),
+            }
+            return {
+                "ok": False,
+                "reason": refusal.get("reason"),
+                "blocking": refusal.get("blocking", []),
+                "calculation_path": "direct_xml",
+                "xml_sha256": xml_sha256,
+                "requested_nodes": list(active_nodes),
+                "diagnostics": {
+                    "calculation_path": "direct_xml",
+                    "xml_preserved": True,
+                    "active_spec": active_spec,
+                    "checks": checks,
+                },
+            }
+        checks["procedure_checks"] = {"status": "passed"}
+    except Exception as exc:
+        checks["restore_for_diagnostics"] = {
+            "status": "not_run",
+            "reason": f"{type(exc).__name__}: {exc}",
+        }
+        checks["procedure_checks"] = {
+            "status": "not_run",
+            "reason": "XML을 build_spec으로 복원하지 못해 procedure guard를 적용하지 않았다",
+        }
+    computed = compute_xml(xml)
+    out = _pick(computed.result, selected_stats, restored_spec)
+    if restored_spec is not None:
+        checks["build_spec_diagnostics"] = {"status": "ran"}
+    else:
+        checks["build_spec_diagnostics"] = {
+            "status": "not_run",
+            "reason": "XML을 build_spec으로 복원하지 못해 build_spec 기반 검사를 생략했다",
+        }
+    out.update(
+        {
+            "ok": True,
+            "calculation_path": "direct_xml",
+            "xml_sha256": computed.xml_sha256,
+            "requested_nodes": list(computed.requested_nodes),
+            "diagnostics": {**computed.diagnostics, "checks": checks},
+        }
+    )
+    return out
+
+
+def render_pob_item(request: dict[str, Any]) -> dict[str, Any]:
+    """UI 아이템 요청 → PoB 계산용 원문.
+
+    request:
+      {"kind":"base|unique|rare", "id":"PoB original name",
+       "variants":["Variant name"], "mods":["Prefix: ModId"], "rolls":{"ModId":1}}
+
+    성공은 `ok: true, text`, 실패는 `ok: false, error`다. 요청이 실패해도 조용히
+    다른 아이템을 돌려주지 않는다.
+    """
+    from pok.pob.ui_operations import render_pob_item as _render
+
+    return _render(request)
+
+
 def evaluate_delta(
     base_spec: dict[str, Any], variants: dict[str, dict[str, Any]], stats: list[str] | None = None
 ) -> dict[str, Any]:

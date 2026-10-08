@@ -68,8 +68,9 @@ python skills/trade-search/scripts/trade_search.py catalog --host kakao --kind s
 
 ## 조건 구성과 실제 검색
 
-에이전트가 만든 입력은 `var/live/trade-search/` 아래 작업별 JSON 파일에 저장한다.
-인증정보는 넣지 않는다. [희귀 신발 예제](references/rare-boots.query.json)는 거래소의 합산
+에이전트가 만든 입력은 개발 checkout에서는 `var/live/trade-search/`, 배포 런타임에서는
+`POK_DATA_HOME/live/trade-search/` 아래 작업별 JSON 파일에 저장한다. 인증정보는 넣지 않는다.
+[희귀 신발 예제](references/rare-boots.query.json)는 거래소의 합산
 생명력·이동속도·저항 셋 중 둘·가격 조건을 함께 표현한다. 상태 `any`라 오프라인도 포함한다.
 사용자의 조건으로 고쳐서 사용한다.
 

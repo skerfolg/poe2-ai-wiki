@@ -29,62 +29,16 @@ from dataclasses import MISSING, dataclass, field, fields
 from typing import Any
 from xml.sax.saxutils import escape, quoteattr
 
+from pok.pob.ui_export import class_metadata as _ui_class_metadata
+from pok.pob.ui_export import default_tree_version_for as _ui_default_tree_version
+
 TARGET_VERSION = "0_1"  # 빌드 포맷 버전 (게임 버전 아님!)
-TREE_VERSION = "0_5"
+TREE_VERSION = _ui_default_tree_version()
 
-# PoB latestTree.classIntegerIdMap 실측 (0.5 트리) — 항등이지만 이름 매핑이 목적
-CLASS_INTERNAL_ID = {
-    "Witch": 1,
-    "Ranger": 2,
-    "Warrior": 6,
-    "Sorceress": 7,
-    "Huntress": 8,
-    "Mercenary": 9,
-    "Monk": 10,
-    "Druid": 11,
-}
-
-# 구형식 `classId` — `classInternalId`와 **다른 수다**(Witch는 테이블 6, integerId 1).
-# 출처: 고정 PoB `src/TreeData/0_5/tree.lua`의 `classes` 테이블 키.
-CLASS_LEGACY_ID = {
-    "Ranger": 1,
-    "Huntress": 2,
-    "Warrior": 3,
-    "Mercenary": 4,
-    "Druid": 5,
-    "Witch": 6,
-    "Sorceress": 7,
-    "Monk": 8,
-}
-
-# internalId → (구형식 ascendClassId, 표시명). 같은 출처의 `ascendancies` 테이블 키.
-# ⚠ 코드 끝자리 ≠ id다 — "Witch3b"(심연 리치)는 4번이다. 유추하지 말 것.
-# 표가 트리 데이터와 어긋나면 tests/unit/test_buildxml_ascendancy.py가 막는다.
-ASCENDANCY_ID = {
-    "Ranger1": (1, "Deadeye"),
-    "Ranger3": (2, "Pathfinder"),
-    "Huntress1": (1, "Amazon"),
-    "Huntress2": (2, "Spirit Walker"),
-    "Huntress3": (3, "Ritualist"),
-    "Warrior1": (1, "Titan"),
-    "Warrior2": (2, "Warbringer"),
-    "Warrior3": (3, "Smith of Kitava"),
-    "Mercenary1": (1, "Tactician"),
-    "Mercenary2": (2, "Witchhunter"),
-    "Mercenary3": (3, "Gemling Legionnaire"),
-    "Druid1": (1, "Oracle"),
-    "Druid2": (2, "Shaman"),
-    "Witch1": (1, "Infernalist"),
-    "Witch2": (2, "Blood Mage"),
-    "Witch3": (3, "Lich"),
-    "Witch3b": (4, "Abyssal Lich"),
-    "Sorceress1": (1, "Stormweaver"),
-    "Sorceress2": (2, "Chronomancer"),
-    "Sorceress3": (3, "Disciple of Varashta"),
-    "Monk1": (1, "Martial Artist"),
-    "Monk2": (2, "Invoker"),
-    "Monk3": (3, "Acolyte of Chayula"),
-}
+# 구·신 클래스/전직 ID는 UI raw catalog와 같은 PoB TreeData 원본에서 파생한다.
+# `classInternalId`(tree.json integerId)와 구형식 `classId`(tree.lua classes key)는
+# 서로 다르므로 한쪽에서 유추하지 않는다.
+CLASS_INTERNAL_ID, CLASS_LEGACY_ID, ASCENDANCY_ID = _ui_class_metadata()
 
 
 @dataclass(frozen=True)

@@ -72,6 +72,9 @@ index.sqlite
 # 규칙이 없어 untracked로 떴고, 이 트리는 여러 세션이 **동시에** 쓰기 때문에 남의
 # 커밋에 딸려 들어갈 수 있었다(`*.log`가 추적된 채 커밋됐던 것과 같은 형태 — §④).
 .omx/
+# Machine-local diagnostics and build probes are not source artifacts.
+.local/
+/%SystemDrive%/
 
 # --- 비밀/환경 ---
 .env

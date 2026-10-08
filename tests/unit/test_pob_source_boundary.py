@@ -13,6 +13,8 @@
   존재 검증은 PoB가 옳은 권위다 — 게임 사실이 아니다
 - `pob/uniques.py` — 유니크 아이템 **원문**의 정본은 PoB다(#34 B, AD-1) — 변형과
   모드 줄의 연결이 KB에 없고, 그 텍스트는 계산기 입력이다
+- `pob/ui_export.py` — 데스크톱 UI용 raw catalog exporter. 편집 UI가 PoB 원문 ID와
+  변형을 보존해야 하므로 PoB 소스를 직접 수집하되 계산·게임판정에는 쓰지 않는다.
 - `pob/versions.py` — 스냅샷 해석 (계산 실행 경로)
 
 여기 안 드는 파일이 걸리면: 그 사실을 `kb/ingest/`로 수집해 KB에 넣고
@@ -35,6 +37,7 @@ _ALLOWED_FILES = {
     "kb/pob_pin.py",
     "pob/catalog.py",
     "pob/uniques.py",
+    "pob/ui_export.py",
     "pob/versions.py",
 }
 _ALLOWED_PREFIX = "kb/ingest/"

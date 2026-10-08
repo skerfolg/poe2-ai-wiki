@@ -46,34 +46,33 @@ from pok.mcp.tools import tree as _tree
 def _git_head(root: Path) -> tuple[str, str]:
     """(짧은 커밋, 제목). 실패해도 세션을 막지 않는다."""
     import subprocess
+    import tempfile
+
+    def run_git_text(args: list[str]) -> str:
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        options: dict[str, Any] = {
+            "stdin": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "timeout": 5,
+            "check": False,
+        }
+        if creationflags:
+            options["creationflags"] = creationflags
+        with tempfile.TemporaryFile() as stdout:
+            # Windows stdio MCP can hang in subprocess pipe reader cleanup if Git descendants
+            # keep stdout/stderr handles open, so capture through a file descriptor instead.
+            completed = subprocess.run(args, stdout=stdout, **options)
+            if completed.returncode != 0:
+                return ""
+            stdout.seek(0)
+            # Decode here, not in subprocess text mode, so Windows locale never hides HEAD.
+            return stdout.read().decode("utf-8", errors="replace").strip()
 
     try:
-        commit = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=5,
-            check=False,
-        ).stdout.strip()
-        subject = subprocess.run(
+        commit = run_git_text(["git", "-C", str(root), "rev-parse", "--short", "HEAD"])
+        subject = run_git_text(
             ["git", "-C", str(root), "log", "-1", "--format=%s"],
-            capture_output=True,
-            text=True,
-            # ⛔ **이 두 줄이 없으면 재시작 신호가 통째로 죽는다**(#166). 커밋 제목은
-            #    이 레포에선 거의 항상 한글 + em dash라, 로케일이 UTF-8이 아닌
-            #    Windows(한국어면 cp949)에서 디코딩이 깨진다. 그런데 아래 `except`가
-            #    그것을 ("", "")로 삼켜 **`_LOADED_COMMIT`도 `source_commit`도 빈
-            #    문자열**이 되고, 둘이 같으니 `stale`은 **영원히 False**다 — 옛 코드를
-            #    로드한 채 도는 서버를 아무도 못 본다. 실측 2026-09-12(한국어 Windows,
-            #    `PYTHONUTF8` 없이): `source_commit=''` · `stale=False`.
-            #    `errors="replace"`인 이유는 제목이 **라벨**이기 때문이다 — 한 글자
-            #    때문에 커밋 식별 자체를 잃는 쪽이 나쁘다(`runner.py` #120과 같은 판단).
-            encoding="utf-8",
-            errors="replace",
-            timeout=5,
-            check=False,
-        ).stdout.strip()
+        )
         return commit, subject
     except Exception:
         return "", ""
@@ -191,6 +190,17 @@ def _hit_dict(hit: Any) -> dict[str, Any]:
     if "requires_nodes" in out:
         out["requires_nodes"] = list(out["requires_nodes"])
     return out
+
+
+def _runtime_identity() -> dict[str, Any]:
+    """frozen/runtime identity가 있으면 싣고, 없어도 server_info는 살아 있어야 한다."""
+    try:
+        from pok.pob.runtime_identity import runtime_identity
+
+        identity = runtime_identity()
+        return dict(identity) if isinstance(identity, dict) else {"value": identity}
+    except Exception as exc:
+        return {"status": "unavailable", "reason": f"{type(exc).__name__}: {exc}"}
 
 
 @tool
@@ -339,7 +349,7 @@ def get_insight(id: str) -> dict[str, Any]:
 
 
 @tool
-def server_info() -> dict[str, Any]:
+def server_info(include_kb_diagnostics: bool = True) -> dict[str, Any]:
     """이 MCP 서버가 **어느 판인지** — 로드된 커밋·소스 커밋·도구별 파라미터 지문.
 
     ⚠ **이관·수정 통보를 받으면 가장 먼저 부를 것.** MCP 서버는 기동 시점의 코드로
@@ -358,7 +368,14 @@ def server_info() -> dict[str, Any]:
 
     재시작 전까지는 그 도구·인자에 의존하는 결론을 내지 않는다.
     """
-    source_commit, source_subject = _git_head(knowledge_dir().parent)
+    identity = _runtime_identity()
+    if include_kb_diagnostics:
+        source_commit, source_subject = _git_head(knowledge_dir().parent)
+    else:
+        # The identity already checks HEAD. Avoid launching Git twice more for each UI lookup.
+        pok_identity = identity.get("pok", {})
+        source_commit = str(pok_identity.get("sourceCommit", ""))[: len(_LOADED_COMMIT) or 7]
+        source_subject = _LOADED_SUBJECT if source_commit == _LOADED_COMMIT else ""
 
     # **등록부에서 직접 읽는다** — 모듈 전역을 훑으면 데코레이터 반환 형태에 따라
     # 0종이 나온다(실측). 파라미터 지문은 스키마에서 뽑는다 — 이것이 "이 프로세스가
@@ -371,17 +388,24 @@ def server_info() -> dict[str, Any]:
     # 사본을 빼고 로드했으면 **말한다** — 조용히 빼면 "왜 이 레코드가 안 보이지"가 된다(#21)
     from pok.kb.store import load as store_load
 
-    try:
-        skipped = list(store_load().skip_warnings)
-    except Exception:  # 진단 도구는 KB가 깨져도 답해야 한다
-        skipped = []
+    skipped: list[str] = []
+    kb_diagnostics_checked = False
+    if include_kb_diagnostics:
+        try:
+            skipped = list(store_load().skip_warnings)
+            kb_diagnostics_checked = True
+        except Exception:  # 진단 도구는 KB가 깨져도 답해야 한다
+            pass
     return {
         "kb_skipped_copies": skipped,
+        "kb_diagnostics_checked": kb_diagnostics_checked,
+        "identity": identity,
         "loaded_commit": _LOADED_COMMIT,
         "loaded_subject": _LOADED_SUBJECT,
         "source_commit": source_commit,
         "source_subject": source_subject,
         "stale": stale,
+        "runtime_identity": identity,
         "source_root": str(knowledge_dir().parent),
         "tools": tools,
         "tool_count": len(tools),
@@ -492,6 +516,8 @@ def related(id: str, rel: str | None = None) -> list[dict[str, str]]:
 
 # 빌드·계산 도구 (P3) — 시그니처·독스트링은 tools/build.py 가 정본
 compute_pob = tool(_build.compute_pob)
+compute_pob_xml = tool(_build.compute_pob_xml)
+render_pob_item = tool(_build.render_pob_item)
 evaluate_delta = tool(_build.evaluate_delta)
 check_item_legality = tool(_build.check_item_legality)
 assemble_pob = tool(_build.assemble_pob)

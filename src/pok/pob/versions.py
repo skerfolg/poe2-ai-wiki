@@ -13,7 +13,7 @@ import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
-from pok.common.paths import project_root
+from pok.common.paths import resource_root
 
 POB_REPO = "https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git"
 
@@ -33,7 +33,7 @@ class PobSnapshot:
 
 def pinned_commit(root: Path | None = None) -> str:
     """manifest.json의 pob_commit — KB가 근거한 바로 그 PoB."""
-    manifest = (root or project_root()) / "knowledge" / "ingest" / "manifest.json"
+    manifest = (root or resource_root()) / "knowledge" / "ingest" / "manifest.json"
     commit = json.loads(manifest.read_text(encoding="utf-8")).get("pob_commit", "")
     if not commit:
         raise RuntimeError(f"manifest에 pob_commit 없음: {manifest}")
@@ -42,9 +42,10 @@ def pinned_commit(root: Path | None = None) -> str:
 
 def resolve_snapshot(root: Path | None = None, commit: str | None = None) -> PobSnapshot:
     """스냅샷 디렉터리를 찾아 검증한다. 없으면 준비 방법을 담아 실패."""
-    base = root or project_root()
+    base = root or resource_root()
     sha = commit or pinned_commit(base)
-    snap_root = base / "external" / "pob" / sha[:7]
+    pob_root = os.environ.get("POK_POB_ROOT")
+    snap_root = Path(pob_root).resolve() if pob_root else base / "external" / "pob" / sha[:7]
     src = snap_root / "src"
     if not (src / "HeadlessWrapper.lua").exists():
         # ⛔ `git clone`을 안내하지 않는다 — 전체 히스토리(1.5GB)를 끌어오는데 쓰는 건
@@ -62,7 +63,12 @@ def resolve_snapshot(root: Path | None = None, commit: str | None = None) -> Pob
 
 
 def find_luajit() -> str:
-    """LuaJIT 실행 파일 — POK_LUAJIT 환경변수 > PATH (Win/mac 공통, D21)."""
+    """LuaJIT 실행 파일 — bundled runtime > POK_LUAJIT > PATH (Win/mac 공통, D21)."""
+    bundled = resource_root() / "resources" / "luajit" / (
+        "luajit.exe" if os.name == "nt" else "luajit"
+    )
+    if bundled.exists():
+        return str(bundled)
     override = os.environ.get("POK_LUAJIT")
     if override:
         if not Path(override).exists():

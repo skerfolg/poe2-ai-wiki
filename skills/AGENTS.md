@@ -40,3 +40,12 @@ python -c "import sys; print(sys.executable)"
 여러 명령은 앞 명령의 성공을 확인한 뒤 다음 명령을 실행한다. `<...>`는 입력할 값을
 나타내는 자리표시자이므로 실제 값으로 바꾼다.
 PoB 계산 단계에는 [README](../README.md)의 LuaJIT·핀 스냅샷 설정도 필요하다.
+
+## 배포 런타임 실행 환경
+
+데스크톱 배포 런타임에서는 리소스 루트가 읽기 전용일 수 있다. 이때는 앱이 제공한
+`POK_RESOURCE_ROOT`, `POK_DATA_HOME`, `POK_CACHE_HOME`를 그대로 쓰고, Python은 런타임 안의
+`python/python.exe`(Windows) 또는 `python/python`(POSIX)를 사용한다. 에이전트가 만든 거래소
+검색 입력·결과 JSON은 `POK_DATA_HOME/live/trade-search/` 아래에 두고, 실행기 캐시는
+`POK_CACHE_HOME/trade-search/` 아래에 둔다. 배포 런타임 사용을 위해 에이전트 권한을 넓히지
+말고 기본 읽기 전용 + 요청 시 승인 정책을 유지한다.

@@ -5,6 +5,29 @@ from __future__ import annotations
 from pok.mcp.server import get_entry, related, search_kb
 
 
+def test_server_info_can_verify_identity_without_loading_the_kb(monkeypatch):
+    from pok.kb import store
+    from pok.mcp import server
+
+    loads = []
+
+    def unexpected_load():
+        loads.append(True)
+        raise AssertionError("Connection verification must not cold-load the KB")
+
+    monkeypatch.setattr(store, "load", unexpected_load)
+    def unexpected_git(root):
+        raise AssertionError("Identity already checks HEAD; do not spawn Git again")
+
+    monkeypatch.setattr(server, "_git_head", unexpected_git)
+    monkeypatch.setattr(server, "_runtime_identity", lambda: {"apiVersion": 1})
+    info = server.server_info(include_kb_diagnostics=False)
+    assert loads == []
+    assert info["identity"] == {"apiVersion": 1}
+    assert info["kb_diagnostics_checked"] is False
+    assert info["kb_skipped_copies"] == []
+
+
 def test_search_kb_compact_hits() -> None:
     hits = search_kb(query="카오스 오브", limit=3)
     assert any(h["id"] == "item.chaos-orb" for h in hits)
@@ -51,6 +74,10 @@ def test_server_info_reports_signatures_not_just_names() -> None:
     assert isinstance(tools, dict), "이름 목록이 아니라 {이름: 파라미터 지문}이어야 한다"
     assert "axes" in tools["check_constraints"], "지문이 비면 D-2가 재발한다"
     assert "ids" in tools["find_by_value"]
+    assert tools["compute_pob_xml"] == ["stats", "xml"]
+    assert tools["render_pob_item"] == ["request"]
+    assert "runtime_identity" in info
+    assert "identity" in info
     assert "attribute_choices" not in tools["search_kb"], "지문은 도구별이어야 한다"
 
 
@@ -80,3 +107,52 @@ def test_server_info_separates_loaded_from_source_commit() -> None:
         assert "재시작" in stale_info["note"]
     finally:
         server._LOADED_COMMIT = original
+
+
+def test_git_head_captures_through_file_not_subprocess_pipes(monkeypatch, tmp_path) -> None:
+    """Windows MCP stdio must not depend on subprocess pipe reader threads.
+
+    `subprocess.run(capture_output=True)` creates stdout/stderr reader threads. In the real
+    stdio server, Git can hit timeout cleanup while those threads wait for descendant-held
+    pipe handles to close, which blocks `server_info`.
+    """
+    import io
+    import subprocess
+    import tempfile
+
+    from pok.mcp import server
+
+    calls: list[dict[str, object]] = []
+
+    class TemporaryOutput:
+        def __init__(self) -> None:
+            self.buffer = io.BytesIO()
+
+        def __enter__(self) -> io.BytesIO:
+            return self.buffer
+
+        def __exit__(self, *args: object) -> None:
+            self.buffer.close()
+
+    def fake_run(args, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(dict(kwargs))
+        stdout = kwargs["stdout"]
+        stdout.write(b"abc123\n" if "rev-parse" in args else b"commit subject\n")
+
+        class Completed:
+            returncode = 0
+
+        return Completed()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(tempfile, "TemporaryFile", TemporaryOutput)
+
+    result = server._git_head(tmp_path)
+    assert len(calls) == 2
+    for call in calls:
+        assert "capture_output" not in call
+        assert call["stdin"] == subprocess.DEVNULL
+        assert call["stderr"] == subprocess.DEVNULL
+        assert call["timeout"] == 5
+        assert call["stdout"] is not subprocess.PIPE
+    assert result == ("abc123", "commit subject")

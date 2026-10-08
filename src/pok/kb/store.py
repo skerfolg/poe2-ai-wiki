@@ -70,21 +70,25 @@ def _untracked(kdir: Path) -> frozenset[Path]:
     찾는 데 몇 분이 걸렸다 — 무인 세션이었으면 그대로 멈췄을 것이다).
     """
     try:
-        proc = subprocess.run(
-            ["git", "-C", str(kdir), "ls-files", "--others", "--exclude-standard", "-z"],
-            capture_output=True,
-            text=True,
-            # 로케일 디코딩 금지(#166). ⚠ `errors`는 **기본(strict)로 둔다** — 여기
-            # 나오는 것은 라벨이 아니라 **경로**라, 뭉개면 있지도 않은 파일을 가리킨다.
-            # 깨지면 아래 `except`가 빈 집합을 내고 판정을 포기하는 편이 맞다.
-            encoding="utf-8",
-            timeout=20,
-        )
-    except (OSError, subprocess.SubprocessError):
+        # A Git descendant can keep a Windows pipe open after timeout. A temporary
+        # file avoids waiting for pipe reader threads during MCP stdio shutdown.
+        with tempfile.TemporaryFile() as output:
+            proc = subprocess.run(
+                ["git", "-C", str(kdir), "ls-files", "--others", "--exclude-standard", "-z"],
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                timeout=20,
+            )
+            output.seek(0)
+            # Paths must decode strictly; replacing characters invents other paths (#166).
+            names = output.read().decode("utf-8")
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
         return frozenset()  # git 없음·저장소 아님 — 판정 못 하면 아무 말도 하지 않는다
     if proc.returncode != 0:
         return frozenset()
-    return frozenset(kdir / name for name in proc.stdout.split("\0") if name)
+    return frozenset(kdir / name for name in names.split("\0") if name)
 
 
 def _redundant_copies(kdir: Path, paths: Iterable[Path]) -> dict[Path, Path]:
