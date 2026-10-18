@@ -129,7 +129,8 @@ def check_constraints(
                      집중구가 생명력 +84·DPS +378로 정상 계산됐다).
 
       axes         = {"build_spec": {…compute_pob에 주는 그 스펙…},
-                      "anointed_items"?, "quality_checked"?, "slot_attack_deltas"?}
+                      "anointed_items"?, "quality_checked"?, "slot_attack_deltas"?,
+                      "gem_level_measurement"?: {"build_spec": {…같은 스펙…}, "stats": {…}}}
                      **획득 공간의 축 완전성** — 젬 레벨·성유·아이템 부여 스킬·
                      호신부/플라스크·품질·슬롯별 공격 기여를 covered/empty/unmeasured로.
                      `multipliers`가 스탯 공간을 보는 것과 짝이다. 실측 2026-08-05:
@@ -242,6 +243,7 @@ def check_constraints(
             anointed_items=tuple(axes.get("anointed_items") or ()),
             quality_checked=bool(axes.get("quality_checked", False)),
             slot_attack_deltas=axes.get("slot_attack_deltas"),
+            gem_level_measurement=axes.get("gem_level_measurement"),
         )
         out["axes"] = {
             "axes": [

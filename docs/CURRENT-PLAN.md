@@ -22,6 +22,7 @@ M5(3층 제안) — 반사실 캠페인의 창의 층. **무인 라운드 배치
 
 ```mermaid
 flowchart TD
+  LANE[M5 proposal rounds<br/>active]
   CONTRACT[S1 제안 계약 검증기<br/>done]
   FLOW[S2 전개기 + 출처 분리 저장<br/>done]
   ROUND[S3 라운드 러너 brief/measure/digest<br/>done]
@@ -68,9 +69,10 @@ flowchart TD
   CODEX[S44 Codex 연결·스킬·공통 검사·재개<br/>done]
   TRADE[S45 거래소 검색 전용 스킬<br/>done]
   READY[S46 최적화 근거·완료 판정 수정<br/>done]
-  REBUILD[S47 젬링 재최적화·누락 대조<br/>active]
+  REBUILD[S47 젬링 재최적화·누락 대조<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
+  LANE --> CONTRACT
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN --> NARROW --> CPL --> FULL
   WIDEN --> CFG --> CPL
@@ -171,19 +173,16 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S44 | Codex MCP 설정 생성기(기동 60초·도구 1,800초), PoE 스킬 7종, 공통 필수 절차 검사, 전체 `spec.json` 보존·재개, 최고 레벨 점유 조회. 단위 **1,221 통과·34 skip**, PoB 통합 **71 통과**. 실제 Codex 발견 7종·도구 48개 및 stdio 조회·거부 검증. Ruff·mypy·import-linter 통과 | done |
 | S45 | `poe2-overlay`를 참고한 AI 에이전트 중심 `trade-search`. 원형 query JSON·공개 카탈로그·단발 search/fetch·구조화 결과, Codex/Claude 등록. 표준 라이브러리 실행기, 호스트별 캐시·공유 잠금·헤더 기반 제한. 전체 단위·PoB 통합 **1,341 통과·34 skip**. 후속 Windows 출력 회귀 검사를 포함한 관련 단위/등록 **56 통과**. Ruff·mypy·import-linter·스킬 검증 통과. 글로벌·카카오 무인증 검색→상세 실측 성공. 독립 에이전트의 조건 구성·링크 왕복 및 코드 리뷰 완료 | done |
-| S46 | 중첩 출처·범위/종료·추천 거부·실제 비교 재검증·과거 탐색 이력 보존, 희귀 렌더 일치·제작 한도·합산 접사/타락 원천, 비활성 상태, 고유 주얼 제한·연쇄 예산, 룬 반복/교체, 점화 손실을 놓친 무료 노드 판정, 5접사 주얼 렌더, 명시 제외 노드의 묶음·경유 재진입을 수정했다. 최종 v7는 단위1,428·PoB통합81, 합계1,509 통과·34 skip, 399.281초. 실행 전후 Python 소스·시험·Lua 어댑터·판 규칙322개 해시 일치, Ruff·mypy(152파일)·의존 계약 통과. [원본 기반 휴대 fixture](../tests/unit/gemling_20261012_readiness.json), [합산 접사 fixture](../tests/unit/gemling_20261019_merged_affixes.json), BACKLOG #168~#177. 이전 v6의 가짜 함수 인자2실패도 보완 후 전량 재실행했다 | done |
-| S47 | 실제 장비·트리·주얼·보조젬·전직·성유·룬 비교를 최종 문맥에 합성·재검증 중. 수정 전/후 측정과 미지원 한계를 구분하며, 최종 추천 계약 충족·감사표·출고는 아직 미완료 | active |
+| S46 | 추천 계약·중첩 출처·현재 입력/실제 비교 결박, 희귀 실제 렌더·제작/심연 한도·합산 접사, 룬 재평가/교체·5접사 주얼, 점화 손실을 놓친 자유석·제외노드 경유, 실효 젬 레벨 축 오진을 수정했다. BACKLOG #168~#178. 최종 v10 단위1,444·PoB통합81, 합계1,525통과·34skip, 306.902초. 전후323개 소스/시험/Lua/판 규칙 해시 일치. [원본 fixture](../tests/unit/gemling_20261012_readiness.json), [실효 레벨 fixture](../tests/unit/gemling_20261019_gem_level.json), [PR #145](https://github.com/skerfolg/poe2-ai-wiki/pull/145). v9의 시험 모형3실패는 실제 반환 구조에 맞춰 수정 후 전량 재검증 | done |
+| S47 | 고유·희귀·룬·일반0점 트리·주얼·보조·전직을 실제 재최적화했다. 최종 같은 입력의 장비60/주얼20/트리24/보조8/전직2 대안을 재측정하고 선언 범위의 strict 추천 조립은 ready_with_exceptions. 663개 지표 재입력 일치·uncached XML6회 일치, 일반123+전직8/주얼4/룬17/Spirit97 검증, 한국어29행 결함대조와 수행·누락 목록 완료. 원본 추천은 철회 유지. 미파싱·상류#132·첫팩/전파·실전회복·가격은 미해결로 공개한 조건부 연구 빌드이며 전역 최적성/무개입 성공 인증은 아님 | done |
 
 ## Canonical Next Step
 
-The only next executable step is: **S47 — 실제 대안 측정 결과를 최종 빌드 문맥에 합성하고, 선언한 최적화 계약으로 재검증한다.**
+The only next executable step is: **S7 — 에이전트 판정 배치 재개 조건을 확인한다.**
 
-사용자 지시(2026-10-18)에 따른 부수 작업이다. M5의 기존 상태는 보존한다.
-S46의 #168~#177은 v7 전체 검증을 마쳤다. 실제 트리 재탐색에서 발견한 명시 제외 노드 재진입도 수정했으며, 위반 트리의 높은 수치는 채택하지 않는다. 실제 과거 스펙 및 부분 도장 우회는
-추천을 거부하며, 충분한 증거/명시적 한계의 성공 경로도 검사했다. S47의 고유·희귀·
-트리·주얼·전직·보조젬·룬 실측은 별도 작업이며, 감사표의 해결/미완료를 비교하고
-현재 문맥의 출고 근거를 닫아야 한다. 기존 추천 철회와 상류 비결정성 #132의 미해결
-상태는 유지한다. 설계 파서 자체의 보완이나 전역 최적성은 S46 완료에 포함하지 않는다.
+Baseline의 첫 미종결 S7으로 돌린다. 기존 blocked 상태는 유지하며, 재개 조건 확인 전 판정 배치를 실행하지 않는다. 사용자 승인 부수 작업 S46/S47은 코드 수정·실제 재현·선언한 범위의 조건부 빌드 출고와 한국어 누락 대조까지 끝났다. 전체 M5 레인/버전을 닫은 것은 아니므로 HISTORY-MAP의 레인 종결은 만들지 않는다.
+
+PR #145는 검토용 초안으로 미병합이다. 사용자가 머지하면 이 세션이 로컬 main을 fast-forward로 동기화할 책임을 유지한다. 새 도구는 fresh MCP로 검증했고 기존 데스크톱 연결은 재시작이 필요하다. 상류#132·전파/실전 회복·조달·설계 파서 스키마는 미해결 범위에 남긴다.
 
 사용자 지시(2026-10-05)에 따른 레인 밖 S45는 구현·검증을 마쳤다. M5 측정·판정 상태는
 보존했다. 새 작업에서 `trade-search`를 발견하며, 기존 작업에서도 포함된 실행기를 직접 쓸 수 있다.
@@ -229,7 +228,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| `codex/gemling-optimization-readiness` | engine verified; build active | S46 최종 v7 전량 검증 완료, S47 현재 문맥 재검증 진행. 커밋/PR/머지는 별도 단계이며 이 기록은 빌드 추천 완료가 아님 |
+| `codex/gemling-optimization-readiness` | implementation verified; PR draft | S46/S47 조건부 산출물까지 완료. PR #145 검토/사용자 머지 대기, 이후 로컬 main 동기화 책임 유지. 기존 worktree와 다른 세션 브랜치는 정리하지 않음 |
 | `var/pytest-*review*`·`var/pytest-*combined*`·검증 스크립트 | disposable | 단위·통합 검증용 파생물. 사용자 전달 감사표·원본/재현 기록은 보존하고 정본 회귀는 추적되는 tests 파일을 사용 |
 | `codex/trade-search-skill` | PR open | S45 구현·전체 검사 완료, [PR #144](https://github.com/skerfolg/poe2-ai-wiki/pull/144). `poe2-overlay`는 읽기 전용 참고. 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
 | `var/live/trade-search/` | disposable | 거래소 호스트별 공개 카탈로그·제한 상태·검증 자료. 파생물이며 인증정보는 저장하지 않음 |
@@ -239,6 +238,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | `var/pytest-codex-*`·`var/codex-protocol/`·`var/codex-native-check.py` | disposable | S44 검증용 파생물. 정본 아님, gitignore |
 | CI 환경 가드 규약 | enforced | `tests/unit/test_integration_guards.py` — PoB 쓰는 통합 시험에 `skipif` 강제(내 시험이 CI를 깨뜨린 뒤 도입) |
 | `artifacts/ingest-raw/proposals/0-5/` | active | 데이터 repo — 제안·전개·측정(파생). 정본 아님, 유지 |
+| `C:/Users/KSK/Documents/poe2-ai-wiki/var/worktrees/pok-desktop-runtime` | retain | 기존 다른 작업의 worktree. 이번 S46/S47에서 생성·수정·삭제하지 않았으며 해당 작업이 정리 책임을 가진다 |
 | `artifacts/ingest-raw/counterfactual/0-5/removals-pre87/` | keep | #87 수정 전 1차분 — 대조·감사용 보관 |
 | scratchpad `m4final`·`m4v2`·`m4v3` | disposable | 집계 대조용 임시 — 레인 종료 시 폐기 |
 | worktree `.claude/worktrees/*` (arc-measure·ecstatic-benz·zealous-dewdney) | **소멸** | 2026-08-24 확인: `.claude/worktrees` **디렉터리 자체가 없다**. 표만 남아 있었다 |
@@ -257,7 +257,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
-| S46 주요 수정 검증·Canonical Next Step을 S47로 전환 | 사용자 지시의 실제 결함 수정판 전량 검증 완료 후 좁은 연동 보완을 확인 중. M5의 첫 미종결 S7은 기존 사유로 blocked를 유지하고, 이번 승인된 부수 작업 S47의 빌드 합성·재검증과 그 과정의 결함 검증을 먼저 마친다. HISTORY의 최종 묶음 종료는 별도 처리 | 2026-10-18 |
+| S46/S47 종결·Canonical Next Step을 첫 미종결 S7으로 복귀 | 사용자 지시 부수 작업의 수정·실측·재입력·한국어 대조를 완료. M5 자체는 active, S7은 기존 blocked 유지. 이 부수 작업용 순서 override는 종료 | 2026-10-19 |
 | S45 — 검색 범위와 실행 경계 | 사용자 요청 「검색 자체만, 주 사용자는 AI 에이전트」. `skills/trade-search/` 내부의 독립 실행기를 사용하며 기존 엔진·MCP 모듈 경계는 바꾸지 않는다. 원형 파라미터와 검색 결과를 반환하고 거래 동작은 구현하지 않는다. 기존 M5 레인 상태를 보존하는 사용자 지정 부수 작업으로 S45 우선 실행 | 2026-10-05 |
 | S45 — 검증 범위와 참고 구현의 차이 | 글로벌·카카오 search/fetch는 무인증으로 실측 성공. 로그인 필수라는 참고 스킬의 가정을 복사하지 않았다. 로그인 검색은 미검증. 예제는 출처 미지정 능력치를 `pseudo` 합산으로 표현하며 explicit 접사로 몰래 좁히지 않는다. 실측 결과·독립 시험은 `var/live/trade-search/research/`·`var/trade-forward-test/` 파생물에 남겼다 | 2026-10-05 |
 | S45 — 실사용에서 확인한 언어·매물 형식 | 사용자 확인: 글로벌/카카오는 같은 거래 서버의 언어 선택이며 계정 서버를 별도로 묻지 않는다. 금단의 의식 장갑 검색은 카카오 무인증 search/fetch 성공(131건 중 10건 상세). 실제 `explicitMods`가 문자열 대신 `{description,domain,hash,mods}` 객체여서 문구를 버리던 투영을 수정하고 회귀 검증; 관련 단위/등록 **55 통과**. 현재 표시 ES·투사체 +2·룬 홈 2칸도 10건 전부 대조. 결과는 `var/live/trade-search/gloves-projectile2-es250-2s.*.json` | 2026-10-05 |

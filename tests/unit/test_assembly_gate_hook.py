@@ -83,7 +83,9 @@ def boundaries(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[Any]]:
     monkeypatch.setattr(
         axes,
         "check_axes",
-        lambda spec: SimpleNamespace(empty_axes=(), unmeasured_axes=(), notes=()),
+        lambda spec, *, gem_level_measurement=None: SimpleNamespace(
+            empty_axes=(), unmeasured_axes=(), notes=()
+        ),
     )
     monkeypatch.setattr(corpus, "compare_build_spec", lambda spec: {})
     monkeypatch.setattr(antagonists, "report_for_spec", lambda *a: [])
@@ -99,7 +101,7 @@ def boundaries(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[Any]]:
             path=Path("unused"),
             build_code="test-code",
             duplicates=(),
-            result=object(),
+            result=SimpleNamespace(stats={"Life": 100}),
             optimization_readiness={"status": "not_ready", "recommendation_ready": False},
         )
 

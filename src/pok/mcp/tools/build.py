@@ -984,7 +984,10 @@ def assemble_pob(
     # 모든 빌드가 통과하는 이 지점(출고)에 붙인다. 위반이 아니라 보고다(AD-3).
     from pok.engine.constraints.axes import check_axes
 
-    axes_report = check_axes(build_spec)
+    axes_report = check_axes(
+        build_spec,
+        gem_level_measurement={"build_spec": build_spec, "stats": built.result.stats},
+    )
     # 같은 원리로 **트리 대조**도 여기 얹는다 (#67 6차). 설계 시점(connect_anchors)에
     # 이미 붙지만, 그 도구를 안 거치고 노드 목록을 손으로 써서 바로 조립하는 경로가
     # 있다. 트리가 산출물에 들어가는 지점은 여기뿐이라 여기가 마지막 관문이다.
