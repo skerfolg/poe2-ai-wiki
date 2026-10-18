@@ -59,8 +59,19 @@ def connect_anchors(
 
 def _with_item(spec: dict[str, Any], slot: str, text: str) -> dict[str, Any]:
     """슬롯 텍스트를 갈아 끼운 스펙 사본 — 도장을 **적용 후** 문맥에 찍기 위해서다."""
+    if slot.startswith("Jewel@"):
+        node_id = int(slot.split("@", 1)[1])
+        jewels = [dict(j) for j in (spec.get("jewels") or []) if j.get("socket_node_id") != node_id]
+        jewels.append({"socket_node_id": node_id, "text": text})
+        return {**spec, "jewels": jewels}
     items = [dict(i) for i in (spec.get("items") or []) if str(i.get("slot")) != slot]
-    items.append({"slot": slot, "text": text})
+    old: dict[str, Any] = next(
+        (i for i in (spec.get("items") or []) if str(i.get("slot")) == slot), {}
+    )
+    replacement: dict[str, Any] = {"slot": slot, "text": text}
+    if "active" in old:
+        replacement["active"] = old["active"]
+    items.append(replacement)
     return {**spec, "items": items}
 
 
@@ -70,16 +81,25 @@ def _stamp(
     *,
     tool: str,
     weights: dict[str, float] | None = None,
+    search_evidence: dict[str, Any] | None = None,
+    preserve_existing: bool = True,
 ) -> dict[str, Any]:
     """`derived_from` 한 칸 — 생산자가 **자동으로** 박는다 (#58 ③).
 
     수동이면 안 지켜진다(보고자: "제가 이번에 증명했습니다"). 기존 도장은 보존하고
     이 축만 덮어쓴다 — 트리를 다시 돌렸다고 장비 출처가 사라지면 안 된다.
+    개별 장비를 반환하는 생산자는 preserve_existing=False로 자기 도장만 낸다.
+    전체 빌드의 출처를 장비 하나의 출처로 복제하면 그 장비를 만든 실행처럼 보인다.
     """
+    from pok.engine.optimization_readiness import with_utility_history
     from pok.engine.provenance import stamp
 
-    existing = dict(spec_after.get("derived_from") or {})
-    existing[component] = stamp(spec_after, component, tool=tool, weights=weights)
+    existing = dict(spec_after.get("derived_from") or {}) if preserve_existing else {}
+    if component in ("items", "jewels") and search_evidence is not None:
+        search_evidence = with_utility_history(search_evidence, existing.get(component))
+    existing[component] = stamp(
+        spec_after, component, tool=tool, weights=weights, search_evidence=search_evidence
+    )
     return existing
 
 
@@ -185,6 +205,30 @@ def optimize_tree(
         required_anchors=tuple(required_anchors or ()),
         time_budget_s=time_budget_s,
     )
+    search_evidence = {
+        "scope": {
+            "jewel_templates_used": bool(jewel_templates),
+            "cluster_scan": bool(cluster_include),
+            "required_anchors": list(required_anchors or []),
+            "jewel_sockets": [j.socket_node_id for j in out.spec.jewels],
+        },
+        "settings": {
+            "base_general": out.budget.base_general if out.budget else None,
+            "point_budget": point_budget,
+            "candidate_radius": candidate_radius,
+            "max_candidates_per_round": max_candidates_per_round,
+            "time_budget_s": time_budget_s,
+        },
+        "termination": {
+            "reason": out.termination_reason,
+            "converged": out.termination_reason == "no_positive_candidate",
+        },
+        "unresolved": [],
+    }
+    jewels = [
+        {"socket_node_id": j.socket_node_id, "text": j.text, "allocates": list(j.allocates)}
+        for j in out.spec.jewels
+    ]
     return {
         # 후보 반경 **밖**의 관련 뭉치 — 효과 문구째로 낸다. 점수만 내면 두 축을
         # 동시에 봐야 보이는 조합(「힘 소진」 + 「지배」 성유)을 영원히 못 찾는다.
@@ -223,7 +267,8 @@ def optimize_tree(
             }
             for s in out.steps
         ],
-        "jewels": [{"socket_node_id": j.socket_node_id, "text": j.text} for j in out.spec.jewels],
+        "jewels": jewels,
+        "attribute_choices": dict(out.spec.attribute_choices),
         # connect_anchors와 같은 이유로 자동 부착 — 최적화가 끝난 트리에서
         # 「표본 전원이 찍는 목적지」가 빠져 있으면 여기서 드러난다(철칙 5).
         "corpus": compare_tree(
@@ -235,11 +280,18 @@ def optimize_tree(
         # 이 트리가 **어느 문맥에서 나왔나** — 스펙에 그대로 옮겨 두면 다음 세션의
         # `compute_pob`이 낡음을 문장으로 알려 준다(#58 ③)
         "derived_from": _stamp(
-            {**build_spec, "tree_nodes": list(out.spec.tree_nodes)},
+            {
+                **build_spec,
+                "tree_nodes": list(out.spec.tree_nodes),
+                "attribute_choices": dict(out.spec.attribute_choices),
+                "jewels": jewels,
+            },
             "tree",
             tool="optimize_tree",
             weights=dict(weights),
+            search_evidence=search_evidence,
         ),
+        "search_evidence": search_evidence,
         "pruned_branches": [
             {
                 "endpoint": p.endpoint_id,
@@ -329,8 +381,9 @@ def measure_tree_slack(
     - **묶음 보호**: 반경 주얼(「반경 내 …」)이 값을 매기는 노터블은 개별로 재면 각각이
       작아 먼저 쓸려나간다 — 실측: 각 4%씩인 15개가 모여 60%인데 그것부터 헐렸다.
       스펙의 반경 주얼을 읽어 자동으로 보호 대상에 넣는다(`guarded_by_radius_jewels`).
-    - **전 축 보고**: 가중치에 없는 축도 항상 낸다. DPS·생명력만 보고 깎았더니 방어
-      소형 9개가 「손실 0」으로 판정돼 **EHP가 22% 조용히 빠졌다**.
+    - **관측 축 보고**: 가중치에 없는 피해 유형·방어·회복 축도 함께 낸다.
+      DPS·생명력만 보고 깎았더니 방어 소형 9개가 「손실 0」으로 판정돼
+      **EHP가 22% 조용히 빠졌다**.
 
     ⛔ 무엇을 지킬지·얼마를 깎을지는 판정하지 않는다(철칙 3). 비용표와 판단 재료만 낸다.
     비싸다 — 제거 가능 노드 하나당 PoB 1회다(보통 20~40회).
@@ -394,6 +447,7 @@ def measure_tree_slack(
         "verdict": report.verdict,
         "guarded_by_radius_jewels": sorted(guarded & allocated),
         "floating_nodes": sorted(floating),
+        "reported_axes": sorted({k for cost in report.costs for k in cost.deltas}),
         "costs": [
             {
                 "node_id": c.node_id,
@@ -507,6 +561,7 @@ def optimize_items(
     max_candidates_per_slot: int | None = None,
     jewel_sockets: list[int] | None = None,
     max_chain: int = 4,
+    max_chain_measures_per_round: int = 10,
 ) -> dict[str, Any]:
     """아이템 그리디 최적화 — `optimize_tree`의 아이템판 (사용자 지시 2026-08-06).
 
@@ -545,7 +600,10 @@ def optimize_items(
     전 스탯을 주므로 비용 0), 가중 축 0 · 방어 양수인 후보를 `defensive_only`로 실어
     보낸다 — 채택은 여전히 가중치가 정하되(AD-3) **안 보이지는 않게** 한다.
     실측 2026-08-09(허리띠 20종·딜 가중): 채택 가능 **0건**인데 12종이 EHP를 올렸다.
-    방어를 실제로 반영하려면 `weights`에 `TotalEHP` 같은 축을 함께 준다.
+    후보별 `unscored_candidates`는 가중치 밖의 실제 통계 변화를 보존하므로 EHP가
+    그대로인 이동·회피·초과 저항 후보도 보인다. `unscored_summary`는 전체 건수와
+    생략 후보를 보존한다. 가중치를 바꿀지, 다른 접사를 재배분할지는 호출자가
+    목적에 맞게 판단한다. 수렴은 주어진 가중치·탐색 범위에 한정된다.
     """
     from pok.engine.items import optimize_items as _optimize
 
@@ -559,14 +617,20 @@ def optimize_items(
         max_candidates_per_slot=max_candidates_per_slot,
         jewel_sockets=tuple(jewel_sockets or ()),
         max_chain=max_chain,
+        max_chain_measures_per_round=max_chain_measures_per_round,
     )
     return {
         "spec": {
             **result.spec,
             "derived_from": _stamp(
-                result.spec, "items", tool="optimize_items", weights=dict(weights)
+                result.spec,
+                "items",
+                tool="optimize_items",
+                weights=dict(weights),
+                search_evidence=result.search_evidence,
             ),
         },
+        "search_evidence": result.search_evidence,
         "steps": [
             {"slot": s.slot, "adopted": s.adopted, "deltas": s.deltas, "replaced": s.replaced}
             for s in result.steps
@@ -590,6 +654,7 @@ def optimize_items(
                 "delta_chain": c.delta_chain,
                 "synergy": c.synergy,
                 "blocked": c.blocked,
+                "legality_violations": list(c.legality_violations),
             }
             for c in result.chains
         ],
@@ -617,6 +682,9 @@ def optimize_items(
             }
             for a in result.unscored_axes
         ],
+        # 후보별 전체 통계의 미채점 변화. 이동·회피·저항 여유는 EHP 불변이어도 남긴다.
+        "unscored_candidates": list(result.unscored_candidates),
+        "unscored_summary": result.unscored_summary,
         "notes": list(result.notes),
     }
 
@@ -681,6 +749,7 @@ def optimize_rare(
             "rares",
             tool="optimize_rare",
             weights=dict(weights),
+            preserve_existing=False,
         ),
         # **PoB 명세**(모드 id) — 문구가 아니다(#34 A). `text`는 이 명세를 PoB에
         # 태워 되받은 정본이고, `pob_rendered: false`면 아직 우리가 쓴 문구다.
@@ -770,11 +839,13 @@ def optimize_runes(
             "runes",
             tool="optimize_runes",
             weights=dict(weights),
+            preserve_existing=False,
         ),
         "chosen": [{"id": r.label, "name": r.name, "lines": list(r.lines)} for r in fill.chosen],
         "text": fill.text,
         "delta": fill.delta,
         "measured": [{"id": rid, "delta": d} for rid, d in fill.measured],
+        "selection_steps": list(fill.selection_steps),
     }
 
 

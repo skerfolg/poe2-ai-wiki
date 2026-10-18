@@ -118,6 +118,164 @@ def test_saved_spec_without_source_is_reusable(recorded_assembly: Mock) -> None:
     assert saved["attribute_choices"] == {"4739": "int"}
 
 
+def test_exploration_keeps_legality_separate_from_readiness(recorded_assembly: Mock) -> None:
+    built = assemble(BuildSpec(class_name="Mercenary", ascendancy="Mercenary3"), "exploration")
+    manifest = json.loads((built.path / "manifest.json").read_text(encoding="utf-8"))
+    validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
+    assert built.is_legal and manifest["legal"] is True
+    assert manifest["purpose"] == validation["purpose"] == "exploration"
+    assert built.optimization_readiness == manifest["optimization_readiness"]
+    assert validation["optimization_readiness"]["status"] == "not_ready"
+    assert validation["optimization_readiness"]["recommendation_ready"] is False
+
+
+def test_final_without_contract_is_refused_before_calculation(recorded_assembly: Mock) -> None:
+    from pok.engine.optimization_readiness import OptimizationNotReadyError
+
+    with pytest.raises(OptimizationNotReadyError) as caught:
+        assemble(
+            BuildSpec(class_name="Mercenary", ascendancy="Mercenary3"),
+            "final",
+            purpose="recommendation",
+        )
+    assert caught.value.report["blockers"][0]["code"] == "contract_missing"
+    recorded_assembly.assert_not_called()
+
+
+def test_prior_partial_search_history_does_not_pass_larger_recommendation(
+    recorded_assembly: Mock,
+) -> None:
+    from copy import deepcopy
+
+    from pok.engine.assemble import _runtime_spec_data
+    from pok.engine.optimization_readiness import (
+        OptimizationNotReadyError,
+        measured_review_receipt,
+    )
+    from pok.engine.provenance import missing_procedures, stamp
+
+    spec = BuildSpec(
+        class_name="Mercenary",
+        ascendancy="Mercenary3",
+        items=(ItemSpec(slot="Ring 1", text="Original"),),
+    )
+    source = _runtime_spec_data(spec)
+    source["derived_from"] = {
+        "items": stamp(
+            source,
+            "items",
+            tool="optimize_items",
+            search_evidence={
+                "scope": {"slots": ["Ring 1", "Ring 2", "Amulet"]},
+                "settings": {"max_rounds": 3},
+                "termination": {"reason": "no_positive_candidate", "converged": True},
+                "unresolved": [],
+            },
+        )
+    }
+    variant = deepcopy(source)
+    variant["items"][0]["text"] = "Measured alternative"
+    source["derived_from"]["items"] = measured_review_receipt(
+        source,
+        {"ring": variant},
+        {"ring": {"Life": 110}},
+        component="items",
+        stats=["Life"],
+        baseline_stats={"Life": 100},
+        unresolved=[],
+    )
+    source["optimization_contract"] = {
+        "version": 1,
+        "required_components": {
+            "items": {
+                "scope": {
+                    "slots": [
+                        "Weapon 1",
+                        "Helmet",
+                        "Gloves",
+                        "Boots",
+                        "Belt",
+                        "Amulet",
+                        "Ring 1",
+                        "Ring 2",
+                        "Body Armour",
+                    ]
+                },
+                "allowed_termination_reasons": ["variants_evaluated"],
+            },
+        },
+    }
+    assert missing_procedures(source) == []
+    with pytest.raises(OptimizationNotReadyError) as caught:
+        assemble(spec, "old-three-is-not-nine", spec_data=source, purpose="recommendation")
+    assert "scope_missing" in {row["code"] for row in caught.value.report["blockers"]}
+    recorded_assembly.assert_not_called()
+    source["optimization_contract"]["required_components"]["items"]["scope"]["slots"] = ["Ring 1"]
+    built = assemble(spec, "current-one-reviewed", spec_data=source, purpose="recommendation")
+    saved = json.loads((built.path / "spec.json").read_text(encoding="utf-8"))
+    manifest = json.loads((built.path / "manifest.json").read_text(encoding="utf-8"))
+    assert saved["derived_from"] == source["derived_from"]
+    assert manifest["optimization_readiness"]["status"] == "ready"
+    assert not manifest.get("skipped_procedures")
+
+
+@pytest.mark.parametrize("with_exception", [False, True])
+def test_ready_recommendation_persists_its_contract_and_machine_status(
+    recorded_assembly: Mock,
+    with_exception: bool,
+) -> None:
+    from pok.engine.assemble import _runtime_spec_data
+    from pok.engine.optimization_readiness import optimization_readiness
+    from pok.engine.provenance import stamp
+
+    spec = BuildSpec(class_name="Mercenary", ascendancy="Mercenary3")
+    source = _runtime_spec_data(spec)
+    source["optimization_contract"] = {
+        "version": 1,
+        "required_components": {
+            "tree": {
+                "scope": {"candidate_nodes": [1, 2]},
+                "allowed_termination_reasons": ["no_improvement"],
+            }
+        },
+    }
+    source["derived_from"] = {
+        "tree": stamp(
+            source,
+            "tree",
+            tool="evaluate_tree",
+            search_evidence={
+                "scope": {"candidate_nodes": [1, 2]},
+                "settings": {},
+                "termination": {"reason": "no_improvement", "converged": True},
+                "unresolved": [],
+            },
+        )
+    }
+    if with_exception:
+        source["optimization_contract"]["required_components"]["tree"]["scope"][
+            "candidate_nodes"
+        ].append(3)
+        issue = optimization_readiness(source)["blockers"][0]
+        source["optimization_contract"]["exceptions"] = [
+            {"issue_id": issue["issue_id"], "reason": "This specific candidate is excluded."}
+        ]
+    built = assemble(spec, "ready-final", spec_data=source, purpose="recommendation")
+    saved = json.loads((built.path / "spec.json").read_text(encoding="utf-8"))
+    validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
+    manifest = json.loads((built.path / "manifest.json").read_text(encoding="utf-8"))
+    assert saved["optimization_contract"] == source["optimization_contract"]
+    status = "ready_with_exceptions" if with_exception else "ready"
+    assert validation["optimization_readiness"]["status"] == status
+    if with_exception:
+        limitation = built.optimization_readiness["qualification"]["known_limitations"][0]
+        assert limitation["expected"] == [3]
+    assert manifest["optimization_readiness"] == built.optimization_readiness
+    assert manifest["purpose"] == "recommendation"
+    with pytest.raises(ValueError, match="strict=True"):
+        assemble(spec, "invalid-final", spec_data=source, purpose="recommendation", strict=False)
+
+
 @pytest.mark.parametrize("changed", ["level", "items", "config"])
 def test_stale_source_is_rejected_before_measurement(recorded_assembly: Mock, changed: str) -> None:
     source = {"class_name": "Witch", "ascendancy": "Witch1"}

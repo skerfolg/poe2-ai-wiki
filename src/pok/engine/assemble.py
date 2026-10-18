@@ -27,6 +27,7 @@ from pok.engine.decisions import (
 )
 from pok.engine.integrity import spec_integrity
 from pok.engine.legality import ItemLegalityChecker, LegalityReport
+from pok.engine.optimization_readiness import OptimizationNotReadyError, optimization_readiness
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob import codec
 from pok.pob.buildxml import BuildSpec, spec_from_dict, to_xml
@@ -44,6 +45,7 @@ class AssembledBuild:
     result: PobResult
     item_reports: dict[str, LegalityReport]  # slot → 판정
     duplicates: tuple[str, ...]  # 같은 content_hash의 기존 build-id들
+    optimization_readiness: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     @property
     def is_legal(self) -> bool:
@@ -99,8 +101,12 @@ def assemble(
     strict: bool = True,
     use_cache: bool = True,
     spec_data: dict[str, Any] | None = None,
+    purpose: str = "exploration",
 ) -> AssembledBuild:
     """조립→검증→계산→기록. strict=True(기본)면 비합법 아이템에서 즉시 거부.
+
+    purpose='recommendation'은 별도의 optimization_contract 증거 판정도 통과해야
+    한다. 기본 exploration은 미완료 탐색을 보존하지만 추천 준비도는 별도로 기록한다.
 
     strict=False는 진단 목적(비합법을 알면서 스탯을 보고 싶을 때)만 —
     기록물 validation.json에 비합법 사실이 그대로 남는다.
@@ -111,6 +117,12 @@ def assemble(
     생략하면 BuildSpec의 기본값까지 포함한 재사용 가능한 스펙을 기록한다.
     """
     saved_spec = _resume_spec_data(spec, spec_data)
+    readiness = optimization_readiness(saved_spec, purpose=purpose)
+    if purpose == "recommendation":
+        if not strict:
+            raise ValueError("purpose='recommendation'에는 strict=True가 필요하다")
+        if not readiness["recommendation_ready"]:
+            raise OptimizationNotReadyError(readiness)
     chk = checker or ItemLegalityChecker(knowledge_dir())
     item_reports: dict[str, LegalityReport] = {}
     targets = [(item.slot, item.text) for item in spec.items] + [
@@ -142,6 +154,8 @@ def assemble(
     build_code = codec.encode(xml)
     build_id = new_build_id(slug)
     validation: dict[str, Any] = {
+        "purpose": purpose,
+        "optimization_readiness": readiness,
         "stats": result.stats,  # PoB 실측 전부 — floor 판정은 소비자(스킬) 몫
         "meta": result.meta,
         "tree": {
@@ -176,6 +190,8 @@ def assemble(
         + "\n",
     }
     manifest: dict[str, Any] = {
+        "purpose": purpose,
+        "optimization_readiness": readiness,
         "pob_commit": pinned_commit(),
         "class": spec.class_name,
         "ascendancy": spec.ascendancy,
@@ -269,6 +285,7 @@ def assemble(
         result=result,
         item_reports=item_reports,
         duplicates=dups,
+        optimization_readiness=readiness,
     )
 
 

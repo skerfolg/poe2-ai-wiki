@@ -37,7 +37,9 @@
 ### 1. 스펙을 만든다 (기억이 아니라 값으로)
 
 `build_spec` dict를 세운다. 장비는 **KB에서 가져온 실제 문구**로 채운다:
-- 유니크 → `get_entry(<id>).data.explicits` 그대로
+- 유니크 → `optimize_items`가 반환한 실제 아이템 문구 또는 PoB 정본의 선택 변형을
+  렌더한 문구. `get_entry`로 변형·롤·조건을 확인한다. `explicits`의 랜덤 옵션
+  플레이스홀더를 완성 아이템 문구로 복사하지 않는다.
 - 희귀 → `optimize_rare`가 낸 `text` 그대로 (⚠ `unmeasurable`을 함께 읽을 것 — 그
   조립은 PoB가 못 재는 축을 뺀 **바닥값**이다)
 - 룬 → **`optimize_runes`가 낸 `text`를 그대로.** 손으로 `{rune}` 줄만 적으면 증폭이
@@ -46,8 +48,19 @@
 ### 2. 조립한다
 
 ```
-assemble_pob(build_spec=..., slug="<빌드 이름>")
+assemble_pob(build_spec=..., slug="<빌드 이름>", purpose="exploration")
 ```
+
+비교·수정 중에는 위 탐색 목적을 쓴다. **최종 추천을 출고할 때는
+`purpose="recommendation"`으로 다시 조립한다.** 이 호출은
+`build_spec.optimization_contract`의 요구 범위·설정·종료 기준과 생산자가 기록한
+실제 증거를 검사하며, 부족하면 계산·저장 전에 거부한다. 계약은 이번 사용자 요청에
+맞춰 설계 때 정한다. 호출 도장 하나나 슬롯 몇 개의 비교를 전체 최적화로 바꾸지 않는다.
+
+현재 구성의 대안 재검토는 `evaluate_delta(..., review_component="items"|"jewels"|
+"tree"|"supports"|"ascendancy")`를 쓴다. 반환 `derived_from`은 **기준 스펙**에만
+연결한다. 대안을 채택했으면 새 기준으로 다시 평가한다. 실제 입력 차이·성공 측정에서
+범위가 만들어지므로, 출처나 재검증 경로를 수동으로 만들어 낡은 기록을 지우지 않는다.
 
 거부당하면 **사유를 고치고 다시** — 되감기가 아니라 그게 루프다. 자주 나오는 것:
 - `베이스 미확인: '…'` → 그 베이스는 실재하지 않는다. KB에서 실제 이름을 찾을 것
@@ -69,6 +82,10 @@ assemble_pob(build_spec=..., slug="<빌드 이름>")
 
 `artifacts/builds/<id>/validation.json`에 실측 스탯·적법성·트리 판정이 남는다.
 **보고에 인용하는 수치는 여기서 가져온다.** 세션 기억이나 탐색 단계 출력이 아니다.
+최종 추천은 `purpose`와 `optimization_readiness`도 함께 확인한다. `ok:true`인
+탐색 조립은 추천 완료가 아니다. `ready_with_exceptions`이면 수용한 정확한 한계와
+미수행 항목을 보고서에 남긴다. `ready`도 선언한 탐색 범위의 충족이며 전역 최적이나
+인게임 검증을 뜻하지 않는다.
 `item_sockets`에는 PoB가 아이템별로 읽은 칸 수·예산(베이스/유니크 + **트리 부여**)이
 그대로 남고, 막지 않은 `warnings`도 함께 남는다(#120) — `strict=False`로 진단만 했을
 때도 남으므로 "알고도 넘겼다"가 기록에 보인다.

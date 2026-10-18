@@ -12,7 +12,13 @@ from pathlib import Path
 import pytest
 
 from pok.engine.tree.graph import TreeGraph
-from pok.engine.tree.trim import REPORTED_AXES, SlackReport, radius_bundles, removable_nodes
+from pok.engine.tree.trim import (
+    REPORTED_AXES,
+    SlackReport,
+    measure_slack,
+    radius_bundles,
+    removable_nodes,
+)
 
 
 @pytest.fixture(scope="module")
@@ -75,3 +81,37 @@ def test_floating_nodes_do_not_block_removal(graph: TreeGraph) -> None:
     allocated = {start, *nb, 999999}
     got = removable_nodes(graph, allocated, start, protect=set(), floating={999999})
     assert got, "고립 취급 때문에 제거 후보가 사라졌다"
+
+
+@pytest.mark.parametrize("axis", ["IgniteDPS", "PhysicalMaximumHitTaken", "ManaRegen"])
+def test_hit_damage_unchanged_does_not_make_other_losses_free(graph: TreeGraph, axis: str) -> None:
+    start = graph.start_of("Witch")
+    leaf = min(graph.adj[start])
+
+    def measure(nodes: set[int]) -> dict[str, float]:
+        return {"CombinedDPS": 100.0, "Life": 4000.0, axis: 100.0 if leaf in nodes else 75.0}
+
+    result = measure_slack(
+        graph,
+        {start, leaf},
+        start,
+        measure,
+        protect={start},
+        floating=set(),
+        weights={"CombinedDPS": 1.0},
+    )
+    assert result.removable == 1
+    assert result.free == 0
+    assert result.costs[0].deltas[axis] == -0.25
+
+
+@pytest.mark.parametrize("fail_baseline", [True, False])
+def test_failed_measurement_is_not_a_free_node(graph: TreeGraph, fail_baseline: bool) -> None:
+    start = graph.start_of("Witch")
+    leaf = min(graph.adj[start])
+
+    def measure(nodes: set[int]) -> dict[str, float]:
+        return {} if fail_baseline or leaf not in nodes else {"CombinedDPS": 100.0}
+
+    with pytest.raises(ValueError, match="측정값이 없어"):
+        measure_slack(graph, {start, leaf}, start, measure, protect={start}, floating=set())

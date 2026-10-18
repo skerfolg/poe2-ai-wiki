@@ -41,6 +41,61 @@ needs_pob_snapshot = pytest.mark.skipif(
 SPEC = {"class_name": "Sorceress", "ascendancy": "Sorceress1", "items": []}
 
 
+def test_unique_jewels_replace_occupied_sockets_and_record_exhaustion(monkeypatch):
+    """The Gemling's two occupied Ruby sockets used to skip all unique comparisons."""
+    import pok.engine.items as module
+
+    visited = []
+
+    def pool(slot, root=None):
+        visited.append(slot)
+        return [ItemCandidate("unique-jewel", slot, "better jewel", "unique-kb")]
+
+    def compute(spec):
+        return {"Life": 100 + 10 * sum(j["text"] == "better jewel" for j in spec["jewels"])}
+
+    monkeypatch.setattr(module, "enumerate_slot_uniques", pool)
+    spec = {
+        **SPEC,
+        "tree_nodes": [11, 22],
+        "jewels": [
+            {"socket_node_id": 11, "text": "old ruby"},
+            {"socket_node_id": 22, "text": "old ruby"},
+        ],
+    }
+    result = optimize_items(
+        spec, ["Jewel"], {"Life": 1}, jewel_sockets=(11, 22), max_rounds=3, compute=compute
+    )
+    assert {"Jewel@11", "Jewel@22"} <= set(visited)
+    assert all(j["text"] == "better jewel" for j in result.spec["jewels"])
+    assert result.search_evidence["termination"]["reason"] == "no_positive_candidate"
+    assert result.search_evidence["termination"]["rounds_evaluated"] == 3
+    assert result.search_evidence["scope"]["jewel_sockets"] == [11, 22]
+
+
+def test_partial_item_search_records_limit_not_convergence(monkeypatch):
+    import pok.engine.items as module
+
+    monkeypatch.setattr(
+        module,
+        "enumerate_slot_uniques",
+        lambda slot, root=None: [ItemCandidate("improvement", slot, "better", "unique-kb")],
+    )
+    result = optimize_items(
+        SPEC,
+        ["Helmet"],
+        {"Life": 1},
+        max_rounds=1,
+        max_chain=1,
+        compute=lambda s: {"Life": 100 + 10 * len(s.get("items", []))},
+    )
+    evidence = result.search_evidence
+    assert evidence["scope"]["slots"] == ["Helmet"]
+    assert evidence["settings"]["max_chain"] == 1
+    assert evidence["termination"]["reason"] == "round_limit"
+    assert evidence["termination"]["converged"] is False
+
+
 def test_rolls_resolve_by_policy() -> None:
     """만점 롤 가정 비교가 결론을 뒤집은 실측이 있다 — 정책이 명시돼야 한다."""
     assert resolve_rolls("(60-100)% increased Energy Shield", "mid") == (
@@ -434,3 +489,24 @@ def test_호출자_라벨_후보는_갭_표식이_기본값이다() -> None:
     """
     c = ItemCandidate(label="x", slot="Amulet", text="", source="rare-template")
     assert c.pob_unmeasurable is False and c.unparsed == ()
+
+
+def test_replacement_preserves_inactive_slot_without_old_item_metadata() -> None:
+    from pok.engine.items import _replace_slot
+    from pok.mcp.tools.tree import _with_item
+
+    spec = {
+        "items": [
+            {
+                "slot": "Flask 1",
+                "text": "old",
+                "active": False,
+                "substitutes": ["old effect"],
+                "derived_from": {"old": {}},
+            }
+        ]
+    }
+    for replace in (_replace_slot, _with_item):
+        assert replace(spec, "Flask 1", "new")["items"] == [
+            {"slot": "Flask 1", "text": "new", "active": False}
+        ]

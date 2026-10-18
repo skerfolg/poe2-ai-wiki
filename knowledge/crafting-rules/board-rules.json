@@ -103,5 +103,20 @@
       "groups": 37,
       "modifiers": 188
     }
+  },
+  "special_affix_caps": {
+    "verification": "GAME_DATA",
+    "limits": {
+      "crafted": 1,
+      "desecrated": 1
+    },
+    "rule": "From 0.5.0, Crafted and Desecrated modifiers have separate default limits of one each. A verified additional-limit supplier on the item increases only the corresponding limit. PoB Crafted: true is an editor flag, not the origin of every affix.",
+    "exceptions": "For example modifier.astrids-creativity: Can have 1 additional Crafted Modifier. No additional Desecrated supplier has been confirmed.",
+    "source": {
+      "src": "official",
+      "ref": "https://www.pathofexile.com/forum/view-thread/3932540",
+      "section": "Item Changes",
+      "patch": "0.5.0"
+    }
   }
 }

@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from pok.engine.valuation import (
     MOVEMENT_AXIS,
     MOVEMENT_SATURATION_PCT,
@@ -14,6 +16,27 @@ from pok.engine.valuation import (
     movement_gain,
     movement_value,
 )
+
+
+def test_known_utility_observations_keep_tempo_loot_recovery_but_not_cost() -> None:
+    from pok.engine.valuation import observed_stat_delta, observed_utility_gains
+
+    base = {
+        key: 1.0
+        for key in (
+            "Speed",
+            "HitSpeed",
+            "LateLootRarityMod",
+            "LifeRegen",
+            "ManaRegen",
+            "AreaOfEffectMod",
+            "ManaCost",
+        )
+    }
+    changes = observed_stat_delta({key: 2.0 for key in base}, base)
+    gains = observed_utility_gains(changes)
+    assert set(gains) == set(base) - {"ManaCost"}
+    assert "Speed" not in observed_utility_gains(changes, ["Speed"])
 
 
 def test_early_investment_is_worth_more_than_late() -> None:
@@ -56,13 +79,13 @@ def test_other_axes_pass_through_unchanged() -> None:
     """곡선이 없는 축은 **델타 그대로**다 — 게이트는 양방향으로 잠근다."""
     assert axis_gain("CombinedDPS", 1234.5) == 1234.5
     assert axis_gain("TotalEHP", -50.0) == -50.0
-    # 이동속도는 PoB에서 **비율**로 온다(방랑벽 0.200 = +20%p)
-    assert axis_gain(MOVEMENT_AXIS, 0.20, 0.0) < 0.20
-    assert axis_gain(MOVEMENT_AXIS, 0.20, 0.60) < axis_gain(MOVEMENT_AXIS, 0.20, 0.0)
+    # 실측 기본 배율은1.0, +60% 상태는1.6이다. delta만 +0.2=20%p다.
+    assert axis_gain(MOVEMENT_AXIS, 0.20, 1.0) < 0.20
+    assert axis_gain(MOVEMENT_AXIS, 0.20, 1.60) < axis_gain(MOVEMENT_AXIS, 0.20, 1.0)
 
 
 def test_scoring_reads_the_baseline_when_given_one() -> None:
-    """`base`를 안 주면 **0에서 더하는 것으로 친다** — 곡선은 걸리되 값이 낙관적이다.
+    """`base`를 안 주면 **중립 배율1에서 더하는 것으로 친다**.
 
     "이미 60%인 빌드"와 "0인 빌드"를 같은 값으로 재면 이 결함(#25)이 그대로 남는다.
     """
@@ -79,7 +102,49 @@ def test_scoring_reads_the_baseline_when_given_one() -> None:
     weights = {MOVEMENT_AXIS: 1.0}
     bare = result.score(weights)
     assert bare < 0.20, "곡선은 baseline 없이도 걸린다"
-    assert result.score(weights, {MOVEMENT_AXIS: 0.60}) < bare, "이미 빠르면 값이 더 준다"
+    assert result.score(weights, {MOVEMENT_AXIS: 1.60}) < bare, "이미 빠르면 값이 더 준다"
+    assert bare == pytest.approx(result.score(weights, {MOVEMENT_AXIS: 1.0}))
+    assert result.score(weights, {MOVEMENT_AXIS: 0.0}) == pytest.approx(0.20)
+
+
+def test_actual_pob_multipliers_are_normalized_from_one() -> None:
+    """fresh MCP: no modifier1.0, increased30%=1.3, reduced20%=0.8, +60%=1.6."""
+    assert axis_gain(MOVEMENT_AXIS, 1.3 - 1.0, 1.0) == pytest.approx(0.1896361676485673)
+    assert axis_gain(MOVEMENT_AXIS, 0.8 - 1.0, 1.0) == pytest.approx(-0.20)
+    early = axis_gain(MOVEMENT_AXIS, 0.01, 1.0)
+    saturated = axis_gain(MOVEMENT_AXIS, 0.01, 1.6)
+    assert 0.10 < saturated / early < 0.18
+
+
+def test_slowed_and_zero_multiplier_are_not_clamped_to_neutral() -> None:
+    assert axis_gain(MOVEMENT_AXIS, 0.1, 0.8) == pytest.approx(0.1)
+    assert axis_gain(MOVEMENT_AXIS, 0.2, 0.0) == pytest.approx(0.2)
+    assert axis_gain(MOVEMENT_AXIS, 0.3, 0.8) == pytest.approx(0.2850406068278632)
+    assert axis_gain(MOVEMENT_AXIS, -0.3, 1.3) == pytest.approx(-0.1896361676485673)
+    assert axis_gain(MOVEMENT_AXIS, 0.2) == pytest.approx(axis_gain(MOVEMENT_AXIS, 0.2, 1.0))
+    assert axis_gain(MOVEMENT_AXIS, 0.2, 0.0) > axis_gain(MOVEMENT_AXIS, 0.2)
+
+
+def test_final_build_movement_opportunity_is_not_scored_as_already_plus128_percent() -> None:
+    """실제 최종 배율1.283에서 +30%p를 기존 +128.3% 출발점처럼 축소하면 순위가 뒤집힌다."""
+    from pok.engine.items import CandidateResult, ItemCandidate
+
+    def candidate(label: str, delta: dict[str, float]) -> CandidateResult:
+        return CandidateResult(
+            candidate=ItemCandidate(label, "Boots", "…", "unique-kb"),
+            delta_now=delta,
+            scaling_axes=(),
+            delta_probed=None,
+            probe=None,
+            floor_violations=(),
+        )
+
+    movement = candidate("movement", {MOVEMENT_AXIS: 0.30})
+    damage = candidate("damage", {"IgniteDPS": 1000.0})
+    weights = {MOVEMENT_AXIS: 20000.0, "IgniteDPS": 1.0}
+    baseline = {MOVEMENT_AXIS: 1.283, "IgniteDPS": 100000.0}
+    assert movement.score(weights, baseline) > damage.score(weights, baseline)
+    assert movement.delta_now == {MOVEMENT_AXIS: 0.30}, "실제 델타를 점수곡선으로 덮지 않는다"
 
 
 def test_unscored_axes_compress_by_family_not_by_size() -> None:

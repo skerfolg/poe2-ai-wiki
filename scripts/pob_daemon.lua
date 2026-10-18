@@ -14,6 +14,9 @@ package.preload['lua-utf8'] = function()
   return setmetatable({}, { __index = string })
 end
 
+local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
+local craftItem = dofile(adapterDir .. "pob_item_craft.lua")
+local lateUtilityStats = dofile(adapterDir .. "pob_late_utility.lua")
 dofile("HeadlessWrapper.lua")
 
 local function jesc(s)
@@ -183,7 +186,9 @@ local function emit()
     return
   end
   build.calcsTab:BuildOutput()
-  local out = build.calcsTab.mainOutput
+  local out = {}
+  for key, value in pairs(build.calcsTab.mainOutput) do out[key] = value end
+  for key, value in pairs(lateUtilityStats(build.calcsTab.mainEnv)) do out[key] = value end
 
   local points, asc, secAsc = build.spec:CountAllocNodes()
   -- ⚠ 다중 반환은 **인자 목록 끝에서만** 펼쳐진다 — 뒤에 인자를 더하면 조용히 잘린다.
@@ -272,7 +277,11 @@ local function respond_item(raw)
   -- `Craft()`는 explicitModLines를 통째로 지우고 모드 id에서 다시 만든다(L1704) —
   -- `{custom}` 없는 손기입 줄은 사라지므로 `Crafted: true`인 명세에만 건다.
   if item.Craft and raw:match("Crafted:%s*true") then
-    pcall(function() item:Craft() end)
+    local okCraft, why = pcall(function() craftItem(item) end)
+    if not okCraft then
+      print("POK_ERR:" .. jesc(tostring(why)))
+      return
+    end
   end
   if item.UpdateRunes then pcall(function() item:UpdateRunes() end) end
   local okBuild, built = pcall(function() return item:BuildRaw() end)
@@ -303,6 +312,14 @@ local function respond_power(statCsv)
   local wanted = {}
   for s in statCsv:gmatch("[^,]+") do wanted[#wanted + 1] = s end
   if #wanted == 0 then wanted = { "CombinedDPS", "TotalEHP" } end
+  -- GetMiscCalculator returns output only, not each candidate's final modDB.
+  -- Reading mainEnv here would reuse the baseline and fabricate zero deltas.
+  for _, stat in ipairs(wanted) do
+    if stat:match("^LateLootRarity") then
+      print("POK_ERR:" .. stat .. " is unavailable in POWER; use full XML or TREE computation")
+      return
+    end
+  end
 
   build.calcsTab:BuildOutput()
   local base = build.calcsTab.mainOutput

@@ -174,6 +174,7 @@ class OptimizeResult:
     jewel_placements: tuple[Placement, ...] = ()
     # `point_budget` 회계 원장 (#161) — 기반·앵커·그리디·총·초과를 **갈라서** 낸다.
     budget: BudgetLedger | None = None
+    termination_reason: str = "unknown"
 
     @property
     def wasted_points(self) -> int:
@@ -212,6 +213,7 @@ def _power_ranked(
     budget: int,
     banned: set[int],
     slice_size: int,
+    exclude_nodes: frozenset[int] = frozenset(),
 ) -> list[int]:
     """PoB `POWER`로 **트리 전체**를 훑어 포인트당 상위 후보를 낸다 (#77 대응).
 
@@ -232,7 +234,7 @@ def _power_ranked(
     for nid, deltas in power.items():
         if nid in tree_now or nid in banned or nid not in graph.nodes:
             continue
-        path = graph.shortest_path(tree_now, nid)
+        path = graph.shortest_path(tree_now, nid, exclude_nodes=exclude_nodes)
         if not path or len(path) > budget:
             continue
         gain = max(deltas.get("CombinedDPS", 0.0), 0.0)
@@ -321,6 +323,13 @@ def optimize_tree(
     pruned: list[Pruned] = []
     # 죽음이 실증된 끝단(재채택 금지 — 종료 보장) + 호출자가 설계 판단으로 뺀 노드
     banned: set[int] = set(exclude_nodes)
+    # 가지치기 끝단은 재선택만 금지한다. 사용자 제외는 모든 경로에서 금지한다 (#177).
+    excluded = frozenset(exclude_nodes)
+    conflicts = excluded.intersection((*spec.tree_nodes, *required_anchors))
+    if conflicts:
+        raise ValueError(
+            f"exclude_nodes conflicts with base tree or required_anchors: {sorted(conflicts)}"
+        )
     free_zones = [
         ((float(r["center"][0]), float(r["center"][1])), float(r["radius"]))
         for r in unconnected_regions
@@ -350,7 +359,7 @@ def optimize_tree(
     #    셈법은 `compute_pob`의 `points`와 같다(`point_split` — 전직·미지 노드는 일반이 아니다).
     base_general = int(graph.point_split(spec.ascendancy, spec.tree_nodes)["general"])
     spec, anchor_notes, anchor_cost = _seed_anchors(
-        spec, graph, required_anchors, max(0, point_budget - base_general)
+        spec, graph, required_anchors, max(0, point_budget - base_general), exclude_nodes=excluded
     )
     current = spec
     # 전직 포인트는 **빼지 않는다** — 인게임에서 별도 풀이라 일반 트리를 갉으면 안 된다(#68).
@@ -409,6 +418,7 @@ def optimize_tree(
     # (실측 2026-08-12: 진행 표시도 없이 45분째 돌던 실행을 죽였다). 상한이 없으면
     # 세션이 통째로 멈추고, 그 사이 무엇이 되고 있는지 알 방법도 없다.
     started = time.monotonic()
+    timed_out = False
 
     def out_of_time() -> bool:
         return time_budget_s is not None and (time.monotonic() - started) >= time_budget_s
@@ -425,6 +435,7 @@ def optimize_tree(
             rejected = 0
             while budget > 0:
                 if out_of_time():
+                    timed_out = True
                     break
                 tree_now = set(current.tree_nodes) | start_nodes(graph, current)
                 if power_candidates:
@@ -434,7 +445,7 @@ def optimize_tree(
                     #   순위**만 쓴다 — 경로 비용이 빠져 있어서다(전직 8종 실측:
                     #   총량 0.808 · 포인트당 0.954).
                     cands = _power_ranked(
-                        daemon, graph, current, tree_now, budget, banned, slice_size
+                        daemon, graph, current, tree_now, budget, banned, slice_size, excluded
                     )
                 else:
                     cands = [
@@ -447,6 +458,7 @@ def optimize_tree(
                                 # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
                                 # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
                                 ascendancy_name=current.ascendancy,
+                                exclude_nodes=excluded,
                             ),
                             reachable_cost,
                         )
@@ -462,6 +474,8 @@ def optimize_tree(
                     stats=measure,
                     daemon=daemon,
                     jewel_templates=jewel_templates,
+                    jewel_rejections=jewel_notes,
+                    exclude_nodes=excluded,
                     # 템플릿 선택도 같은 정책으로 — 기준은 이번 라운드의 실측 스탯
                     jewel_score=functools.partial(objective.score, base_stats=base.stats),
                 )
@@ -492,6 +506,7 @@ def optimize_tree(
                     include=cluster_include,
                     exclude=cluster_exclude,
                     limit=slice_size,
+                    exclude_nodes=excluded,
                 ):
                     affordable.append((score_bd, _as_node_delta(bd)))
                 affordable.sort(key=lambda x: -x[0])
@@ -537,7 +552,9 @@ def optimize_tree(
                 best_solution = _better(objective, best_solution, cand)
             pruned.extend(newly_pruned)
             banned.update(p.endpoint_id for p in newly_pruned)
-            if refund == 0 or out_of_time():
+            if out_of_time():
+                timed_out = True
+            if refund == 0 or timed_out:
                 break  # 죽은 가지 없음 — 안정 (또는 시간 상한)
             budget += refund  # 환급 포인트를 온전한 묶음에 재투자 (다음 루프)
         # 실측으로 가장 나은 해 반환 (동가치면 포인트 적게 쓴 쪽 — 스텁·죽은 끝단 배제)
@@ -559,7 +576,7 @@ def optimize_tree(
             final = daemon.compute_build(current)
     # 후보 반경 **밖**의 뭉치를 함께 낸다 — 그리디가 구조적으로 못 보는 것이다(제안 A).
     far, notes = _scan_far_clusters(
-        graph, current, cluster_include, cluster_exclude, candidate_radius
+        graph, current, cluster_include, cluster_exclude, candidate_radius, exclude_nodes=excluded
     )
     notes = (*budget_notes, *anchor_notes, *notes, *_target_notes(objective, final.stats))
     # 템플릿 결함은 **입력의 문제**라 소켓을 하나도 안 찍었어도 알린다 — 안 그러면
@@ -616,6 +633,17 @@ def optimize_tree(
         ascendancy_points=anchor_cost.ascendancy,
         jewel_placements=tuple(jewel_rows),
         budget=ledger,
+        termination_reason=(
+            "over_budget"
+            if ledger.over_budget
+            else "time_limit"
+            if timed_out
+            else "point_budget"
+            if total_general >= point_budget
+            else "no_positive_candidate"
+            if rejected
+            else "no_affordable_candidates"
+        ),
     )
 
 
@@ -728,7 +756,12 @@ class AnchorCost(NamedTuple):
 
 
 def _seed_anchors(
-    spec: BuildSpec, graph: TreeGraph, anchors: tuple[int, ...], budget: int
+    spec: BuildSpec,
+    graph: TreeGraph,
+    anchors: tuple[int, ...],
+    budget: int,
+    *,
+    exclude_nodes: frozenset[int] = frozenset(),
 ) -> tuple[BuildSpec, tuple[str, ...], AnchorCost]:
     """필수 앵커를 트리에 먼저 연결하고, 그 결과를 **보호 대상 기준선**으로 만든다.
 
@@ -756,7 +789,7 @@ def _seed_anchors(
     asc_added: list[int] = []  # added의 부분집합 — 전직 노드만
     unreachable: list[int] = []
     for node_id in anchors:
-        path = graph.shortest_path(tree, node_id)
+        path = graph.shortest_path(tree, node_id, exclude_nodes=exclude_nodes)
         if path is None:
             unreachable.append(node_id)
             continue
@@ -865,6 +898,8 @@ def _far_destination_bundles(
     exclude: tuple[str, ...],
     budget: int,
     limit: int,
+    *,
+    exclude_nodes: frozenset[int] = frozenset(),
 ) -> list[dict[str, Any]]:
     """긴 점프의 후보 — **축마다 하나씩**, 반경 밖의 목적지를 모은 묶음 (#70).
 
@@ -888,7 +923,7 @@ def _far_destination_bundles(
     같은 값이면 같이 지거나 같이 이긴다.
     """
     tree = set(spec.tree_nodes) | start_nodes(graph, spec)
-    far = graph.distances_from(tree, _MAX_REACH * 8)  # 거리 순서를 얻으려는 1회 BFS
+    far = graph.distances_from(tree, _MAX_REACH * 8, exclude_nodes=exclude_nodes)
     per_axis: list[list[dict[str, Any]]] = []
     for word, weight in include:
         cands = sorted(
@@ -914,7 +949,7 @@ def _far_destination_bundles(
         grown, picked, spent = set(tree), [], 0
         sizes: list[dict[str, Any]] = []
         for nid in cands:
-            path = graph.shortest_path(grown, nid)
+            path = graph.shortest_path(grown, nid, exclude_nodes=exclude_nodes)
             if path is None or spent + len(path) > budget:
                 continue
             grown.update(path)
@@ -961,24 +996,26 @@ def _bundle_candidates(
     include: tuple[tuple[str, float], ...],
     exclude: tuple[str, ...],
     limit: int,
+    exclude_nodes: frozenset[int] = frozenset(),
 ) -> list[tuple[float, BundleDelta]]:
     """이번 라운드의 **먼 뭉치 후보** — 노드 후보와 같은 저울에 올릴 (점수, 묶음) 목록.
 
     점수는 `Objective.score`를 그대로 쓴다. 엔진이 뭉치용 새 휴리스틱을 만들면 그게
     곧 판단이고, 판단은 해석 층의 몫이다(AD-3).
 
-    ⛔ `evaluate_bundles`(deltas.py)는 **호출만** 한다 — 반사실 하네스 세션이 그 모듈을
-       작업 중이라 인터페이스를 건드리지 않는다(2026-08-13 조율).
-
     이미 트리에 들어온 뭉치는 `_scan_far_clusters`가 걸러 낸다(닿는 것은 「먼 뭉치」가
     아니다) — 채택분을 따로 기억할 필요가 없다.
     """
     if not include:
         return []  # 관련성 필터 없는 밀집도는 쓰레기다 — 스캔하지 않는다
-    bundles = _far_destination_bundles(spec, graph, include, exclude, budget, limit)
+    bundles = _far_destination_bundles(
+        spec, graph, include, exclude, budget, limit, exclude_nodes=exclude_nodes
+    )
     if not bundles:
         return []
-    measured = evaluate_bundles(spec, graph, bundles, stats=stats, daemon=daemon)
+    measured = evaluate_bundles(
+        spec, graph, bundles, stats=stats, daemon=daemon, exclude_nodes=exclude_nodes
+    )
     return [
         (score, bd)
         for bd in measured
@@ -992,6 +1029,8 @@ def _scan_far_clusters(
     include: tuple[tuple[str, float], ...],
     exclude: tuple[str, ...],
     candidate_radius: int,
+    *,
+    exclude_nodes: frozenset[int] = frozenset(),
 ) -> tuple[tuple[Cluster, ...], tuple[str, ...]]:
     """지금 트리에서 **닿지 않는** 관련 뭉치만 남긴다.
 
@@ -1008,14 +1047,24 @@ def _scan_far_clusters(
             "전부 반경 밖이었다)",
         )
     tree_now = set(spec.tree_nodes) | start_nodes(graph, spec)
-    near = {nid for nid, _, _ in graph.candidates(tree_now, max_dist=candidate_radius)}
+    near = {
+        nid
+        for nid, _, _ in graph.candidates(
+            tree_now, max_dist=candidate_radius, exclude_nodes=exclude_nodes
+        )
+    }
     clusters = find_clusters(
         graph,
         include=include,
         exclude=exclude,
         for_ascendancy=spec.ascendancy,
     )
-    far = tuple(c for c in clusters if not all(h.node_id in near for h in c.hits))
+    # 안내용 목록도 명시 제외를 지킨다. 실제 경로/측정은 위의 별도 관문을 거친다.
+    clusters = [
+        dataclasses.replace(c, hits=tuple(h for h in c.hits if h.node_id not in exclude_nodes))
+        for c in clusters
+    ]
+    far = tuple(c for c in clusters if c.hits and not all(h.node_id in near for h in c.hits))
     if not far:
         return (), ("밀집도 스캔: 후보 반경 밖에 관련 뭉치 없음 — 그리디가 이미 다 보고 있다",)
     return far, ()

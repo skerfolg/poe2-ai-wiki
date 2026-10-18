@@ -69,6 +69,22 @@ def test_check_constraints_빈_입력_거부() -> None:
     assert check_constraints()["ok"] is False
 
 
+def test_axes_uses_same_spec_oracle_gem_level() -> None:
+    spec = {
+        "skills": [{"gems": [{"name": "Perfect Strike", "level": 20}]}],
+        "items": [{"slot": "Amulet", "text": "+3 to Level of all Melee Skills"}],
+    }
+    out = check_constraints(
+        axes={
+            "build_spec": spec,
+            "gem_level_measurement": {"build_spec": spec, "stats": {"GemLevel": 23}},
+        }
+    )
+    axis = next(row for row in out["axes"]["axes"] if row["key"] == "gem_level")
+    assert axis["state"] == "covered"
+    assert "실효 23" in axis["detail"]
+
+
 def test_evaluate_objective_사전식() -> None:
     out = evaluate_objective(
         targets=[

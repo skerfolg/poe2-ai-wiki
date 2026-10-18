@@ -184,8 +184,17 @@ class TreeGraph:
             raise ValueError(f"알 수 없는 클래스: {class_name!r}")
         return CLASS_START[class_name]
 
-    def shortest_path(self, sources: set[int], target: int) -> list[int] | None:
-        """다중 소스 → target 최단 경로 (소스 자신은 제외한 새 노드들만 반환)."""
+    def shortest_path(
+        self,
+        sources: set[int],
+        target: int,
+        *,
+        exclude_nodes: collections.abc.Set[int] = frozenset(),
+    ) -> list[int] | None:
+        """다중 소스 → target 최단 경로. 명시 제외 노드는 목적지·경유지 모두 금지한다."""
+        if target in exclude_nodes:
+            return None
+        sources = sources - exclude_nodes
         if target in sources:
             return []
         prev: dict[int, int | None] = {s: None for s in sources}
@@ -193,7 +202,7 @@ class TreeGraph:
         while q:
             cur = q.popleft()
             for nb in self.adj[cur]:
-                if nb not in prev:
+                if nb not in prev and nb not in exclude_nodes:
                     prev[nb] = cur
                     if nb == target:
                         path: list[int] = []
@@ -387,8 +396,15 @@ class TreeGraph:
         )
         return allocated, paths
 
-    def distances_from(self, sources: set[int], max_dist: int) -> dict[int, int]:
+    def distances_from(
+        self,
+        sources: set[int],
+        max_dist: int,
+        *,
+        exclude_nodes: collections.abc.Set[int] = frozenset(),
+    ) -> dict[int, int]:
         """소스 집합에서 각 노드까지의 BFS 거리 (연결 비용 추정용)."""
+        sources = sources - exclude_nodes
         dist = {s: 0 for s in sources}
         q = collections.deque(sources)
         while q:
@@ -396,7 +412,7 @@ class TreeGraph:
             if dist[cur] >= max_dist:
                 continue
             for nb in self.adj[cur]:
-                if nb not in dist:
+                if nb not in dist and nb not in exclude_nodes:
                     dist[nb] = dist[cur] + 1
                     q.append(nb)
         return dist
@@ -407,6 +423,8 @@ class TreeGraph:
         max_dist: int,
         kinds: tuple[str, ...] = ("notable", "keystone", "jewel-socket"),
         ascendancy_name: str | None = None,
+        *,
+        exclude_nodes: collections.abc.Set[int] = frozenset(),
     ) -> list[tuple[int, TreeNode, int]]:
         """near 집합에서 max_dist 안의 후보 노드 (거리 오름차순). 가치 판단은 하지 않는다.
 
@@ -420,7 +438,7 @@ class TreeGraph:
         후보다 — 전직 제약이 아니라서 `locked_to` 대조로는 걸러지지 않는다.
         """
         allowed = self.resolve_ascendancy(ascendancy_name)
-        dist = self.distances_from(near, max_dist)
+        dist = self.distances_from(near, max_dist, exclude_nodes=exclude_nodes)
         out = [
             (nid, self.nodes[nid], d)
             for nid, d in dist.items()

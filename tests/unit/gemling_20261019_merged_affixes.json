@@ -1,0 +1,27 @@
+{
+  "origin": "Native pok.pob.roundtrip.build_items outputs from actual 2026-10-19 Gemling empty-prefix comparison; rendered lines coalesce declared flat and hybrid affixes.",
+  "source_files": {
+    "body-add-hybrid-armour-life": {
+      "name": "rare-empty-prefix-opportunities-body-add-hybrid-armour-life.item.txt",
+      "sha256": "cd17a16d606f7f0028e4730f807f21f9aedaf57594063f8fae0ec69be3937d56"
+    },
+    "body-ruin-plus-hybrid": {
+      "name": "rare-empty-prefix-opportunities-body-ruin-plus-hybrid.item.txt",
+      "sha256": "4d9740a632b8e0f5950576f5fdec9c323a5c20fa815a37ded6e9d3362b920487"
+    },
+    "helmet-add-hybrid-armour-life": {
+      "name": "rare-empty-prefix-opportunities-helmet-add-hybrid-armour-life.item.txt",
+      "sha256": "4f732c66ea8339bf9d9d8800e83f89402b0c2cd649075492051aa27a47638aea"
+    },
+    "ring-mana-corruption": {
+      "name": "gear-final2.request.json",
+      "item_text_sha256": "25ede580c4e750de9a39cbc84537c5bd3e5fe2486350c828aa82d01d989a0e99"
+    }
+  },
+  "items": {
+    "body-add-hybrid-armour-life": "Rarity: RARE\nEngineered Body Armour\nWarlord Cuirass\nArmour: 839\nCrafted: true\nPrefix: {range:0.5}IncreasedLife13\nPrefix: {range:0.5}EssenceIncreasedLifePercent1\nPrefix: {range:0.5}LocalIncreasedArmourAndLife6\nSuffix: {range:0.5}FireResist8\nSuffix: {range:0.5}Strength8\nSuffix: {range:0.5}ChaosResist6\nQuality: 20\nSockets: S S S S\nRune: Soul Core of Jiquani\nRune: Perfect Body Rune\nRune: Greater Body Rune\nRune: Perfect Robust Rune\nLevelReq: 80\nImplicits: 6\n{enchant}{rune}+135 to maximum Life\n{enchant}{rune}Bonded: +40 to maximum Life\n{enchant}{rune}3% increased maximum Life\n{enchant}{rune}Bonded: +40 to maximum Mana\n{enchant}{rune}+15 to Strength\n{range:0.5}+(15-25)% of Armour also applies to Elemental Damage\n41% increased Armour\n+253 to maximum Life\n9% increased maximum Life\n+32 to Strength\n+43% to Fire Resistance\n+26% to Chaos Resistance\n{custom}{range:0.5}+(13-19)% to Chaos Resistance\nCorrupted",
+    "body-ruin-plus-hybrid": "Rarity: RARE\nEngineered Body Armour\nWarlord Cuirass\nArmour: 839\nCrafted: true\nPrefix: {range:0.5}IncreasedLife13\nPrefix: {range:0.5}EssencePhysicalDamageTakenAsChaos1\nPrefix: {range:0.5}LocalIncreasedArmourAndLife6\nSuffix: {range:0.5}FireResist8\nSuffix: {range:0.5}Strength8\nSuffix: {range:0.5}ChaosResist6\nQuality: 20\nSockets: S S S S\nRune: Soul Core of Jiquani\nRune: Perfect Body Rune\nRune: Greater Body Rune\nRune: Perfect Robust Rune\nLevelReq: 80\nImplicits: 6\n{enchant}{rune}+135 to maximum Life\n{enchant}{rune}Bonded: +40 to maximum Life\n{enchant}{rune}3% increased maximum Life\n{enchant}{rune}Bonded: +40 to maximum Mana\n{enchant}{rune}+15 to Strength\n{range:0.5}+(15-25)% of Armour also applies to Elemental Damage\n41% increased Armour\n+253 to maximum Life\n+32 to Strength\n+43% to Fire Resistance\n+26% to Chaos Resistance\n13% of Physical Damage from Hits taken as Chaos Damage\n{custom}{range:0.5}+(13-19)% to Chaos Resistance\nCorrupted",
+    "helmet-add-hybrid-armour-life": "Rarity: RARE\nEngineered Helmet\nImperial Greathelm\nArmour: 1153\nCrafted: true\nPrefix: {range:0.5}IncreasedLife10\nPrefix: {range:0.5}LocalIncreasedPhysicalDamageReductionRatingPercent7\nPrefix: {range:0.5}LocalIncreasedArmourAndLife6\nSuffix: {range:0.5}ColdResist8\nSuffix: {range:0.5}FireResist8\nSuffix: {range:0.5}LightningResist8\nQuality: 20\nSockets: S S S\nRune: Emergent Vigour\nRune: Perfect Body Rune\nRune: Greater Body Rune\nLevelReq: 80\nImplicits: 5\n{enchant}{rune}+135 to maximum Life\n{enchant}{rune}Bonded: +40 to maximum Life\n{enchant}{rune}Bonded: +40 to maximum Mana\n{enchant}{rune}Bonded: +20 to Spirit\n{enchant}{rune}+1 to maximum Life per 8 Armour on Equipped Helmet\n137% increased Armour\n+208 to maximum Life\n+43% to Fire Resistance\n+43% to Cold Resistance\n+43% to Lightning Resistance\n{custom}{range:0.5}(15-25)% increased Armour\nCorrupted",
+    "ring-mana-corruption": "Rarity: RARE\nEngineered Ring 2\nVitalic Ring\nCrafted: true\nPrefix: {range:0.5}IncreasedMana12\nPrefix: {range:0.5}IncreasedLife8\nPrefix: {range:0.5}AddedFireDamage9\nSuffix: {range:0.5}ColdResist8\nSuffix: {range:0.5}FireResist8\nSuffix: {range:0.5}ManaRegeneration6\nItem Level: 86\nLevelReq: 65\nImplicits: 1\n{range:0.5}(4-6)% increased maximum Life\nAdds 27 to 41 Fire damage to Attacks\n+110 to maximum Life\n+172 to maximum Mana\n+43% to Fire Resistance\n+43% to Cold Resistance\n65% increased Mana Regeneration Rate\n{custom}{range:0.5}(20-30)% increased Mana Regeneration Rate\nCorrupted"
+  }
+}

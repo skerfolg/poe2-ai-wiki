@@ -41,6 +41,35 @@ _ENUM = re.compile(r"\(([^()]*/[^()]*)\)")
 # poe2db:normal = 일반 모드 풀(화폐 크래프팅으로 붙는 풀)의 poe2db 표지.
 _CRAFT_EQUIVALENT = ("crafting-currency", "poe2db:normal")
 
+
+def special_affix_origin(data: dict[str, Any]) -> str | None:
+    """The separately limited origin, not PoB's ``Crafted: true`` editor flag (#173).
+
+    A guaranteed modifier that also naturally spawns is not necessarily crafted.
+    Exclusive currency grants and Desecrated records have an unambiguous origin.
+    """
+    if data.get("affix_type") not in {"prefix", "suffix"}:
+        return None
+    if "desecrated" in (data.get("origins") or []):
+        return "desecrated"
+    if data.get("granted_by") and not any(
+        float(weight) > 0 for weight in (data.get("spawn_weights") or {}).values()
+    ):
+        return "crafted"
+    return None
+
+
+def special_affix_limits(rules: dict[str, Any]) -> dict[str, int]:
+    """Read independent origin budgets from the canonical patch rules."""
+    return {
+        kind: int(limit)
+        for kind, limit in rules.get("special_affix_caps", {}).get("limits", {}).items()
+        if kind in {"crafted", "desecrated"}
+    }
+
+
+_ADDITIONAL_SPECIAL = re.compile(r"Can have (\d+) additional (Crafted|Desecrated) Modifiers?", re.I)
+
 # 접미어 효과 접두 (주얼) — 인게임 표시 접미 수치는 이 효과가 이미 곱해진 최종값이다.
 # PoB는 이 줄을 계산에 반영하지 않으므로(실측 2026-07-31: 효과 줄 유무 DPS 동일
 # 51,792.2 vs 수동 1.6배 반영 59,000.7) 접미 수치를 최종 표시값으로 합성하는 것이
@@ -83,6 +112,7 @@ _SPEC_LINE_PREFIXES = (
     "rune:",
     "radius:",
     "requires:",
+    "requires level ",
     "--",
     # `BuildRaw()`가 쓰는 나머지 스펙 줄 (#34). 이게 없어서 **검사기가 자기 도구의
     # 출력을 거부했다** — 실측 2026-08-09: 명세로 생성한 목걸이에서 스펙 줄 10개가
@@ -125,6 +155,34 @@ _MOD_DECORATION = re.compile(
     r"\{(?:enchant|fractured|desecrated|mutated|crafted|unscalable)\})+",
     re.I,
 )
+
+
+def _selected_unique_lines(lines: list[str]) -> list[str]:
+    """PoB Item.lua의 변형 선택과 표시 접두를 반영해 실제 모드만 검사한다."""
+    variants = sum(line.startswith("Variant:") for line in lines)
+    headers = dict(line.split(":", 1) for line in lines if ":" in line and not line.startswith("{"))
+    selected: set[int] = set()
+    if variants:
+
+        def select(header: str) -> int:
+            value = int(headers.get(header, variants))
+            if value < 1:
+                raise ValueError("variant index must be positive")
+            return min(variants, value)
+
+        selected.add(select("Selected Variant"))
+        for suffix in ("", " Two", " Three", " Four", " Five"):
+            if "Has Alt Variant" + suffix in headers:
+                selected.add(select("Selected Alt Variant" + suffix))
+    result = []
+    for line in lines:
+        tag = re.search(r"\{variant:([\d,]+)\}", line)
+        if tag and selected and not selected.intersection(map(int, tag.group(1).split(","))):
+            continue
+        result.append(_MOD_DECORATION.sub("", line).strip())
+    return result
+
+
 # 촉매 — `Item.lua:14`의 목록 순서가 곧 `catalystTags`(L20~)의 인덱스다.
 # 배율은 `(100 + quality)/100`이고 **모드 태그가 촉매 태그와 겹칠 때만** 걸린다(L32~57).
 _CATALYST_TAGS: dict[str, frozenset[str]] = {
@@ -419,9 +477,13 @@ class ItemLegalityChecker:
         self._bases: dict[str, dict[str, Any]] = {}
         self._uniques: dict[str, dict[str, Any]] = {}  # 유니크 이름 → 레코드
         self._mods: dict[str, list[dict[str, Any]]] = {}  # 정규화 텍스트 → 후보 레코드들
+        # Native Craft keeps corruption outcomes as {custom}; do not mix these
+        # with normal affix matching/counts or mistake overlapping text for Desecrated.
+        self._custom_corruptions: dict[str, list[dict[str, Any]]] = {}
         # PoB 모드 키 → 레코드. **선언형 아이템 텍스트**(`Prefix: <key>`)를 되짚는다 —
         # 그 형식이 검사에서 통째로 빠져 있었다(백로그 #60).
         self._by_pob_key: dict[str, dict[str, Any]] = {}
+        self._runes_by_name: dict[str, dict[str, Any]] = {}
         #: 연속 줄 묶음 → 모드 (하이브리드 접사, #118). 키는 정규화 텍스트를 개행으로 이은 것.
         self._multi: dict[str, list[dict[str, Any]]] = {}
         # 고유 주얼 전략 모듈용 색인 (2026-07-31, 사용자 확립 "주얼별 전략 모듈")
@@ -429,6 +491,9 @@ class ItemLegalityChecker:
         self._notables: dict[str, dict[str, Any]] = {}  # 본 트리+어센 노터블 (Megalomaniac)
         self._skills: set[str] = set()  # KB Skill 표시명 (Prism of Belief)
         for r in kb.records.values():
+            if r.type == "Modifier" and r.raw.get("data", {}).get("affix_type") == "corrupted":
+                for text in _mod_texts(r.raw["data"]):
+                    self._custom_corruptions.setdefault(_norm(text), []).append(r.raw)
             if r.type == "Item" and r.raw.get("data", {}).get("rarity") == "unique":
                 self._uniques[r.name_en.lower()] = r.raw  # 유니크 우선 (category도 가질 수 있다)
             elif r.type == "Item" and r.raw.get("data", {}).get("category"):
@@ -441,6 +506,8 @@ class ItemLegalityChecker:
                 # rune은 `texts`가 없고 슬롯별 `per_slot`을 쓴다 — 그래서 origin만
                 # 넣으면 색인이 비고, 실제로 룬 16줄이 전부 UNKNOWN이었다(2026-08-05).
                 texts = _mod_texts(r.raw["data"])
+                if "rune" in r.raw["data"].get("origins", []):
+                    self._runes_by_name[r.name_en.lower()] = r.raw
                 for text in texts:
                     self._mods.setdefault(_norm(text), []).append(r.raw)
                 # ⛔ **두 줄짜리 한 모드**(하이브리드)를 묶음으로도 색인한다 (#118).
@@ -565,6 +632,64 @@ class ItemLegalityChecker:
                 i += 1
         return claims
 
+    def _merged_declared_verdict(
+        self,
+        line: str,
+        declared: Sequence[dict[str, Any]],
+        base: dict[str, Any] | None,
+        ilvl: int,
+    ) -> LineVerdict | None:
+        """Validate native flat/hybrid coalescing without discarding affix checks.
+
+        Craft renders flat Life + hybrid Life, and Armour% + hybrid Armour%, as
+        one total. A total cannot be checked against the hybrid tier alone. Only
+        these observed additive shapes are supported here; tagged custom/rune
+        lines and other arithmetic continue through the ordinary checker.
+        """
+        if line != _MOD_DECORATION.sub("", line).strip():
+            return None
+        shape = _norm(line)
+        if shape not in {"+# to maximum life", "#% increased armour"}:
+            return None
+        contributors: dict[str, tuple[dict[str, Any], str]] = {}
+        for rec in declared:
+            matching = [text for text in _mod_texts(rec["data"]) if _norm(text) == shape]
+            if not matching:
+                continue
+            rid = str(rec["id"])
+            # Repeating a declaration cannot manufacture another contribution.
+            if rid in contributors or len(matching) != 1:
+                return None
+            contributors[rid] = (rec, matching[0])
+        if len(contributors) < 2:
+            return None
+
+        low = high = 0.0
+        conditional: list[str] = []
+        for rid, (_, source) in contributors.items():
+            # Each source must itself satisfy its tier, item level and base/route.
+            verdict = self._check_line(source, base, ilvl, only_ids=frozenset({rid}))
+            if verdict.status not in {"LEGAL", "CONDITIONAL"}:
+                return LineVerdict(
+                    line, "ILLEGAL", reason=f"합산 접사 기여 모드 {rid}: {verdict.reason}"
+                )
+            if verdict.status == "CONDITIONAL":
+                conditional.append(verdict.reason)
+            token = _NUM.findall(source)[0]
+            span = _RANGE.fullmatch(token)
+            low += float(span[1]) if span else float(token)
+            high += float(span[2]) if span else float(token)
+        total_source = _NUM.sub(f"({low:g}-{high:g})", line)
+        ok, why = _values_in_range(line, [total_source])
+        reason = f"선언 접사의 합산 범위 [{low:g}, {high:g}]: {', '.join(contributors)}"
+        if not ok:
+            return LineVerdict(line, "ILLEGAL", reason=f"{reason} — {why}")
+        if conditional:
+            return LineVerdict(line, "CONDITIONAL", reason=reason + " / " + "; ".join(conditional))
+        # All original declarations remain in matched: counts, groups and the
+        # independent crafted/Desecrated limits still run over every contributor.
+        return LineVerdict(line, "LEGAL", reason=reason)
+
     def check(self, item_text: str) -> LegalityReport:
         rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(item_text)
         if rarity == "unique":
@@ -585,6 +710,7 @@ class ItemLegalityChecker:
             )
         verdicts: list[LineVerdict] = []
         matched: dict[str, dict[str, Any]] = {}  # modifier id → record (하이브리드 중복 제거)
+        special_overrides: dict[str, str] = {}
         # 접미어 효과 접두가 있으면(그 줄 자체는 접두로 정상 검사) 접미 상한을 확장한다
         suffix_effect = next(
             (float(m.group(1)) for ln in mod_lines if (m := _SUFFIX_EFFECT.match(ln))), 0.0
@@ -623,6 +749,15 @@ class ItemLegalityChecker:
             )
             matched[str(record["id"])] = record
             declared_records.append(record)
+        for line in item_text.splitlines():
+            if not line.lower().startswith(("prefix:", "suffix:")):
+                continue
+            declared = _declared_affixes(line)
+            record = self._by_pob_key.get(declared[0][1].lower()) if declared else None
+            if record:
+                for origin in ("crafted", "desecrated"):
+                    if "{" + origin + "}" in line.lower():
+                        special_overrides[str(record["id"])] = origin
         # ⛔ **연속 줄 묶음을 먼저, 긴 것부터 소비한다** (#118). 하이브리드(두 줄짜리 한
         #    모드)의 첫 줄은 동명 단독 접사와 텍스트가 같아, 줄 단위로만 매칭하면
         #    단독 쪽이 잡혀 ①없는 group 충돌 ②접사 수 +1이 생긴다. 실측 2026-08-23:
@@ -633,7 +768,13 @@ class ItemLegalityChecker:
         #    후보가 하나로 좁혀져, 탐욕 하이브리드 매칭도 이중 계수도 일어나지 않는다.
         claims |= self._claim_declared(mod_lines, declared_records)
         declared_implicits = _declared_implicit_count(item_text)
+        anoint_count = 0
         for idx, line in enumerate(mod_lines):
+            anoint = self._anoint_verdict(line, (base or {}).get("data", {}).get("category"))
+            if anoint is not None:
+                anoint_count += 1
+                verdicts.append(anoint)
+                continue
             # 임플리싯 대조는 **`Implicits: N`이 지목한 줄**에서만 최종이다 (#158). 그 밖의 줄은
             # 문구가 임플리싯과 같아도 **범위 안일 때만** 임플리싯으로 보고, 범위 밖이면 명시 접사
             # 풀에서 다시 본다 — 접사로 맞으면 그것이 답이고, 아니면 임플리싯 사유를 낸다.
@@ -646,6 +787,20 @@ class ItemLegalityChecker:
             if found is not None and (in_implicit_block or found.status == "LEGAL"):
                 verdicts.append(found)
                 continue
+            # Native coalescing produces one untagged explicit row. Repeated rows
+            # must not each consume the same declared contribution budget. Scaled
+            # catalyst/jewel effects remain outside this narrow additive repair.
+            if (
+                not in_implicit_block
+                and not catalyst
+                and not suffix_effect
+                and not prefix_effect
+                and sum(_norm(other) == _norm(line) for other in mod_lines) == 1
+            ):
+                merged = self._merged_declared_verdict(line, declared_records, base, ilvl)
+                if merged is not None:
+                    verdicts.append(merged)
+                    continue
             verdict = self._check_line(
                 line,
                 base,
@@ -668,6 +823,12 @@ class ItemLegalityChecker:
                     for m in cands
                     if m["id"] == verdict.modifier_id
                 )
+                # Explicit in-game origin tags also distinguish naturally rollable
+                # affixes; the editor's item-level Crafted header does not.
+                if matched[verdict.modifier_id]["data"].get("affix_type") in {"prefix", "suffix"}:
+                    for origin in ("crafted", "desecrated"):
+                        if "{" + origin + "}" in line.lower():
+                            special_overrides[verdict.modifier_id] = origin
         # 접사 수·group 배타 (매칭된 모드 기준 — UNKNOWN 줄은 여기 안 들어간다)
         category = (base or {}).get("data", {}).get("category")
         caps, total_cap, cap_label = self._affix_limits(rarity, category)
@@ -689,6 +850,20 @@ class ItemLegalityChecker:
         # 안 잡힌다 — 실측: 한 목걸이에 스펠 +3과 투사체 +3이 동시에 LEGAL이었다.
         # 규칙은 하드코딩하지 않고 판 규칙 정본에서 읽는다(범위 조정도 그 파일에서).
         errors.extend(self._family_exclusion_errors(matched))
+        limits = special_affix_limits(self._rules)
+        extra = self._additional_special_limits(item_text, mod_lines, sockets, rune_effect)
+        for origin, limit in limits.items():
+            used = [
+                rid
+                for rid, rec in matched.items()
+                if special_overrides.get(rid, special_affix_origin(rec["data"])) == origin
+            ]
+            allowed = limit + extra.get(origin, 0)
+            if len(used) > allowed:
+                errors.append(
+                    f"{origin} {len(used)}개 — 한도 {allowed} 초과 "
+                    f"(기본 {limit} + 검증된 룬 공급 {extra.get(origin, 0)}): {', '.join(used)}"
+                )
         cap_errors = False
         for affix, n in counts.items():
             if n > caps[affix]:
@@ -710,7 +885,55 @@ class ItemLegalityChecker:
             )
         # 룬도 같은 계열이다 — 선언이 없으면 모드는 들어가고 **증폭만** 빠진다(3.00배).
         errors.extend(needs_rune_declaration(item_text))
+        if anoint_count > 1:
+            errors.append("성유 중복 — 목걸이당 Allocates 부여는 1개만 허용(anoint-rules)")
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+
+    def _additional_special_limits(
+        self, item_text: str, mod_lines: list[str], sockets: int, rune_effect: float
+    ) -> dict[str, int]:
+        """Only a named, socketed KB supplier can expand the origin budget (#173).
+
+        Unparsed-by-PoB effects still exist. Conversely an arbitrary custom line,
+        another rune's name, or repeated effect text cannot manufacture capacity.
+        """
+        names = re.findall(r"^Rune:\s*(.+)$", item_text, re.M | re.I)
+        if not names or len(names) > sockets:
+            return {}
+        supplied: dict[str, int] = {}
+        for name in names:
+            rec = self._runes_by_name.get(name.strip().lower())
+            if not rec:
+                continue
+            for text in set(_mod_texts(rec["data"])):
+                if match := _ADDITIONAL_SPECIAL.fullmatch(text):
+                    kind = match[2].lower()
+                    supplied[kind] = supplied.get(kind, 0) + int(match[1])
+        written: dict[str, int] = {}
+        for line in mod_lines:
+            body = _MOD_DECORATION.sub("", line).strip()
+            if not _RUNE_PREFIX.match(body):
+                continue
+            body = _RUNE_PREFIX.sub("", body).strip()
+            if match := _ADDITIONAL_SPECIAL.fullmatch(body):
+                kind = match[2].lower()
+                written[kind] = written.get(kind, 0) + int(match[1])
+        return {
+            kind: min(written.get(kind, 0), math.floor(amount * (1 + rune_effect / 100)))
+            for kind, amount in supplied.items()
+        }
+
+    def _anoint_verdict(self, line: str, category: str | None) -> LineVerdict | None:
+        body = _MOD_DECORATION.sub("", line).strip()
+        match = re.fullmatch(r"Allocates (.+)", body)
+        if match is None or category != "amulet":
+            return None
+        notable = self._notables.get(match.group(1).lower())
+        if notable is None:
+            return LineVerdict(line, "UNKNOWN", reason="성유 노터블이 KB에 없음")
+        if notable["data"].get("acquisition") != "anointable":
+            return LineVerdict(line, "ILLEGAL", reason="성유로 부여할 수 없는 노터블")
+        return LineVerdict(line, "LEGAL", str(notable["id"]), "실존하는 성유 부여 노터블")
 
     def _rune_hint(self, mod_lines: list[str]) -> list[str]:
         """접사 칸이 넘쳤을 때, **룬으로도 붙는 줄**이 섞여 있으면 그렇게 말해 준다.
@@ -778,9 +1001,13 @@ class ItemLegalityChecker:
         # `variant:`를 넣어 뒀는데도 유니크 경로가 그걸 안 타서 `Variant:` 두 줄이
         # UNKNOWN으로 찍혔다. `item.the-unborn-lich`는 **변형 12종**이고 변형을 적어야
         # 어느 스킬을 부여받는지 정해지는데, 적으면 비적법이 됐다(§0 ⑤).
+        try:
+            active_lines = _selected_unique_lines(lines[3:])
+        except ValueError:
+            return LegalityReport(verdicts=(), errors=("유니크 변형 번호 형식이 잘못됨",))
         mod_lines = [
             ln
-            for ln in lines[3:]
+            for ln in active_lines
             if not ln.lower().startswith(_SPEC_LINE_PREFIXES) and ln.lower() not in _SPEC_MARKERS
         ]
         special = {
@@ -798,7 +1025,13 @@ class ItemLegalityChecker:
         ]
         known = [_norm(t) for t in ranged]
         verdicts: list[LineVerdict] = []
+        anoint_count = 0
         for ln in mod_lines:
+            anoint = self._anoint_verdict(ln, rec["data"].get("category"))
+            if anoint is not None:
+                anoint_count += 1
+                verdicts.append(anoint)
+                continue
             if _norm(ln) not in known:
                 # **유니크에도 룬 소켓이 있다.** 고정 모드에 없다고 UNKNOWN으로 끝내면
                 # 유니크 무기·방어구의 룬 계획이 조립 게이트를 통과하지 못한다 —
@@ -817,7 +1050,12 @@ class ItemLegalityChecker:
                 if ok
                 else LineVerdict(ln, "ILLEGAL", rec["id"], f"롤 범위 밖: {why}")
             )
-        return LegalityReport(verdicts=tuple(verdicts))
+        errors = (
+            ("성유 중복 — 목걸이당 Allocates 부여는 1개만 허용(anoint-rules)",)
+            if anoint_count > 1
+            else ()
+        )
+        return LegalityReport(verdicts=tuple(verdicts), errors=errors)
 
     def _family_exclusion_errors(self, matched: dict[str, dict[str, Any]]) -> list[str]:
         """group을 넘어 배타인 계열 검사 — 규칙은 `board-rules.json::family_exclusion`."""
@@ -1104,6 +1342,59 @@ class ItemLegalityChecker:
         # 보존한다, L1698). "KB에 없다"와 섞으면 진짜 미수록 신호가 묽어진다.
         if "{custom}" in line.lower():
             body = _MOD_DECORATION.sub("", _CUSTOM_PREFIX.sub("", line, count=1), count=1).strip()
+            if any("{" + origin + "}" in line.lower() for origin in ("crafted", "desecrated")):
+                return self._check_line(
+                    body,
+                    base,
+                    ilvl,
+                    only_ids=only_ids,
+                    suffix_effect=suffix_effect,
+                    prefix_effect=prefix_effect,
+                    sockets=sockets,
+                    rune_effect=rune_effect,
+                    catalyst=catalyst,
+                    catalyst_quality=catalyst_quality,
+                )
+            candidates = self._mods.get(_norm(body), [])
+            for rec in self._custom_corruptions.get(_norm(body), []):
+                data = rec["data"]
+                if (
+                    int(data.get("ilvl", 1)) <= ilvl
+                    and (base is None or _fits_base(data, base))
+                    and _values_in_range(body, data.get("texts", []))[0]
+                ):
+                    # A compatible corruption is a real alternative acquisition
+                    # route. It occupies no prefix/suffix or Desecrated budget.
+                    return LineVerdict(
+                        line,
+                        "CONDITIONAL",
+                        reason=f"검증된 타락 모드 범위·베이스: {rec['id']} — 타락 획득 경로 필요",
+                    )
+            special = [c for c in candidates if special_affix_origin(c["data"])]
+            ordinary = [
+                c
+                for c in candidates
+                if c["data"].get("affix_type") in {"prefix", "suffix"}
+                and not special_affix_origin(c["data"])
+                and (base is None or _fits_base(c["data"], base))
+                and _values_in_range(body, c["data"].get("texts", []))[0]
+            ]
+            if special and not ordinary:
+                # optimize_rare represents KB Desecrated affixes as {custom} because
+                # they have no native PoB key. That syntax must not erase their
+                # origin, affix slot, group, value, or item-level checks (#173).
+                return self._check_line(
+                    body,
+                    base,
+                    ilvl,
+                    only_ids=frozenset(str(c["id"]) for c in special),
+                    suffix_effect=suffix_effect,
+                    prefix_effect=prefix_effect,
+                    sockets=sockets,
+                    rune_effect=rune_effect,
+                    catalyst=catalyst,
+                    catalyst_quality=catalyst_quality,
+                )
             return LineVerdict(
                 line,
                 "CONDITIONAL",
@@ -1438,15 +1729,22 @@ def _values_in_range(
     촉매 20%면 3.6이고, 내림이면 3 · 반올림이면 4다. 확정 전까지 **양쪽을 다 계산해
     호출자가 `CONDITIONAL`로 가를 수 있게** 한다.
     """
-    line_nums = [float(n) for n in re.findall(r"\d+(?:\.\d+)?", line)]
+    # PoB raw preserves roll ranges. Both endpoints must fit the same tier;
+    # counting their two numbers as two separate stats rejects our own output.
+    line_ranges = []
+    for token in _NUM.findall(line):
+        span = _RANGE.fullmatch(token)
+        line_ranges.append(
+            (float(span.group(1)), float(span.group(2))) if span else (float(token), float(token))
+        )
     for text in texts:
         if _norm(text) != _norm(line):
             continue
         spans = list(_NUM.finditer(text))
-        if len(spans) != len(line_nums):
+        if len(spans) != len(line_ranges):
             continue
         fit = True
-        for span, v in zip(spans, line_nums, strict=True):
+        for span, (v_min, v_max) in zip(spans, line_ranges, strict=True):
             m = _RANGE.fullmatch(span.group())
             if m:
                 lo, hi = float(m.group(1)), float(m.group(2)) * hi_scale
@@ -1454,7 +1752,7 @@ def _values_in_range(
                 # PoB는 내림(`ItemTools.lua:48` floorSymmetric)이라 기본은 내림 쪽이다.
                 if round_up:
                     hi = math.floor(hi + 0.5)
-                if not lo <= v <= hi + 1e-9:
+                if not lo <= v_min <= v_max <= hi + 1e-9:
                     fit = False
                     break
             else:
@@ -1464,7 +1762,9 @@ def _values_in_range(
                 scaled_v = float(span.group()) * hi_scale
                 if round_up:
                     scaled_v = math.floor(scaled_v + 0.5)
-                if abs(scaled_v - v) > 1e-9 and float(span.group()) != v:
+                if v_min != v_max or (
+                    abs(scaled_v - v_min) > 1e-9 and float(span.group()) != v_min
+                ):
                     fit = False
                     break
         if fit:
@@ -1473,7 +1773,7 @@ def _values_in_range(
     #    촉매로 넓힌 거부에 「접미어 효과」라고 적히면 사용자가 엉뚱한 곳을 본다
     #    (거짓 거부 자체보다 **어디를 봐야 하는지 잘못 알려주는 것**이 더 비싸다).
     scaled = f" ({scale_label} 확장 포함)" if hi_scale > 1 else ""
-    return False, f"수치 {line_nums} 가 티어 범위 밖{scaled}"
+    return False, f"수치 {line_ranges} 가 티어 범위 밖{scaled}"
 
 
 def _custom_hint(mods: dict[str, list[dict[str, Any]]], line: str) -> str:

@@ -1,0 +1,748 @@
+{
+  "provenance": {
+    "source_artifact": "artifacts/builds/20261012-gemling-chaos-ignite-perfect-strike/spec.json",
+    "source_sha256": "8e5263ab2012ae4407fb10921591f4c194c7c7dc353a5e9d149452271dade6d9",
+    "source_date": "2026-10-12",
+    "purpose": "Portable evidence regression, no game data query or PoB calculation"
+  },
+  "source_spec": {
+    "class_name": "Mercenary",
+    "ascendancy": "Mercenary3",
+    "level": 100,
+    "tree_nodes": [
+      1200,
+      1433,
+      1442,
+      2617,
+      3601,
+      4140,
+      5710,
+      6015,
+      6529,
+      7721,
+      7960,
+      8554,
+      11525,
+      11641,
+      13326,
+      14429,
+      14654,
+      16168,
+      18448,
+      22616,
+      23382,
+      23930,
+      24430,
+      25374,
+      27726,
+      28510,
+      28982,
+      29611,
+      30141,
+      31238,
+      31326,
+      32416,
+      32474,
+      33722,
+      34882,
+      35426,
+      36822,
+      38300,
+      38323,
+      39594,
+      39716,
+      41768,
+      42350,
+      44733,
+      45248,
+      45969,
+      47191,
+      47263,
+      47931,
+      48552,
+      48631,
+      50629,
+      51248,
+      52669,
+      53030,
+      53108,
+      53294,
+      53329,
+      54232,
+      55188,
+      55190,
+      57373,
+      58295,
+      58591,
+      59093,
+      59779,
+      61438,
+      64724,
+      56910,
+      14926,
+      50609,
+      48530,
+      4623,
+      48524,
+      16311,
+      32600,
+      31290,
+      37609,
+      21213,
+      20303,
+      8406,
+      48305,
+      6898,
+      30704,
+      22045,
+      13505,
+      63209,
+      36602,
+      18465,
+      17655,
+      19873,
+      28950,
+      43893,
+      55101,
+      58016,
+      58528,
+      45363,
+      55478,
+      48006,
+      26739,
+      7777,
+      47150,
+      44836,
+      38779,
+      44605,
+      32549,
+      29098,
+      3218,
+      53443,
+      5088,
+      16596,
+      38535,
+      61835,
+      55888,
+      50216,
+      1170,
+      41126,
+      64443,
+      9884,
+      38696,
+      54868,
+      14265,
+      32845,
+      31746,
+      41012,
+      11392,
+      9918,
+      21017,
+      55789,
+      41665,
+      50562
+    ],
+    "skills": [
+      {
+        "gems": [
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemPerfectStrike",
+            "name": "Perfect Strike",
+            "level": 20,
+            "quality": 20,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 2,
+            "corrupted": false,
+            "corrupt_level": 0
+          },
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemDeadlyIgnitesSupportTwo",
+            "name": "Searing Flame II",
+            "level": 1,
+            "quality": 0,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 1,
+            "corrupted": false,
+            "corrupt_level": 0
+          },
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemIgniteSupportThree",
+            "name": "Ignite III",
+            "level": 1,
+            "quality": 0,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 1,
+            "corrupted": false,
+            "corrupt_level": 0
+          },
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemIgniteDurationSupportTwo",
+            "name": "Eternal Flame II",
+            "level": 1,
+            "quality": 0,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 1,
+            "corrupted": false,
+            "corrupt_level": 0
+          },
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemAddedFireDamageSupport",
+            "name": "Fire Attunement",
+            "level": 1,
+            "quality": 0,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 1,
+            "corrupted": false,
+            "corrupt_level": 0
+          },
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemDiallasDesireSupport",
+            "name": "Diallas",
+            "level": 1,
+            "quality": 0,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 1,
+            "corrupted": false,
+            "corrupt_level": 0
+          }
+        ],
+        "slot": "Weapon 1",
+        "enabled": true,
+        "main_active_skill": 1
+      },
+      {
+        "gems": [
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemCastOnElementalAilment",
+            "name": "Cast on Elemental Ailment",
+            "level": 20,
+            "quality": 20,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 1,
+            "corrupted": false,
+            "corrupt_level": 0
+          },
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemContagion",
+            "name": "Contagion",
+            "level": 1,
+            "quality": 20,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 1,
+            "corrupted": false,
+            "corrupt_level": 0
+          }
+        ],
+        "slot": "Weapon 1",
+        "enabled": true,
+        "main_active_skill": 1
+      },
+      {
+        "gems": [
+          {
+            "gem_id": "Metadata/Items/Gems/SkillGemTimeOfNeed",
+            "name": "Time of Need",
+            "level": 20,
+            "quality": 20,
+            "enabled": true,
+            "stages": null,
+            "stat_set_index": 1,
+            "corrupted": false,
+            "corrupt_level": 0
+          }
+        ],
+        "slot": "Weapon 1",
+        "enabled": true,
+        "main_active_skill": 1
+      }
+    ],
+    "items": [
+      {
+        "slot": "Ring 1",
+        "text": "Rarity: UNIQUE\nBlackflame\nAmethyst Ring\n+10% to Chaos Resistance\n22% increased Mana Regeneration Rate\nIgnite you inflict deals Chaos Damage instead of Fire Damage\n90% increased Ignite Magnitude\n60% reduced Ignite Duration on Enemies\nWithered you inflict also increases Fire Damage taken\nWithered does not expire on Enemies Ignited by you",
+        "substitutes": []
+      },
+      {
+        "slot": "Weapon 1",
+        "text": "Rarity: RARE\nEngineered Weapon 1\nIronwood Greathammer\nCrafted: true\nPrefix: {range:0.5}LocalIncreasedPhysicalDamagePercent8\nPrefix: {range:0.5}LocalAddedFireDamageTwoHand10\nPrefix: {range:0.5}WeaponElementalDamageOnTwohandWeapon6\nSuffix: {range:0.5}GlobalMeleeSkillGemLevelTwoHandWeapon5\nSuffix: {range:0.5}LocalIncreasedAttackSpeed8\nSuffix: None\nQuality: 20\nLevelReq: 77\nImplicits: 1\n{range:0.5}Causes (30-50)% increased Stun Buildup\n175% increased Physical Damage\nAdds 146 to 221 Fire Damage\n130% increased Elemental Damage with Attacks\n27% increased Attack Speed\n+5 to Level of all Melee Skills\n{custom}{range:0.5}(40-50)% increased Elemental Damage with Attacks\nCorrupted\nSockets: S S S S\nRune: Farrul's Rune of the Hunt\nRune: Soul Core of Citaqualotl\nRune: Perfect Iron Rune\nRune: Greater Iron Rune\n{rune}50% increased Attack Damage against Rare or Unique Enemies\n{rune}30% increased Elemental Damage with Attacks\n{rune}20% increased Physical Damage\n{rune}18% increased Physical Damage",
+        "derived_from": {
+          "rares": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:0538d8af7372",
+            "items_desc": "2슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "IgniteDPS": 1,
+              "Speed": 50000
+            }
+          },
+          "runes": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:0ff090de246e",
+            "items_desc": "2슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_runes",
+            "weights": {
+              "IgniteDPS": 1
+            }
+          }
+        },
+        "substitutes": []
+      },
+      {
+        "slot": "Helmet",
+        "text": "Rarity: RARE\nEngineered Helmet\nImperial Greathelm\nArmour: 969\nCrafted: true\nPrefix: {range:0.5}IncreasedLife10\nPrefix: {range:0.5}LocalIncreasedPhysicalDamageReductionRatingPercent7\nPrefix: None\nSuffix: {range:0.5}ColdResist8\nSuffix: {range:0.5}FireResist8\nSuffix: {range:0.5}LightningResist8\nQuality: 20\nLevelReq: 80\nImplicits: 0\n96% increased Armour\n+162 to maximum Life\n+43% to Fire Resistance\n+43% to Cold Resistance\n+43% to Lightning Resistance\n{custom}{range:0.5}(15-25)% increased Armour\nCorrupted\nSockets: S S S\nRune: Emergent Vigour\nRune: Perfect Body Rune\nRune: Greater Body Rune\n{rune}+1 to maximum Life per 8 Armour on Equipped Helmet\n{rune}+75 to maximum Life\n{rune}+60 to maximum Life",
+        "derived_from": {
+          "rares": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:adaa5a1ac2fe",
+            "items_desc": "3슬롯",
+            "tree_sig": "sha1:93b5932647e7",
+            "tree_desc": "8노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "Life": 1,
+              "Armour": 0.05,
+              "FireResist": 10,
+              "ColdResist": 10,
+              "LightningResist": 10
+            }
+          },
+          "runes": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:1d5423dfce0a",
+            "items_desc": "13슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_runes",
+            "weights": {
+              "Life": 1,
+              "Armour": 0.1
+            }
+          }
+        },
+        "substitutes": []
+      },
+      {
+        "slot": "Body Armour",
+        "text": "Rarity: RARE\nEngineered Body Armour\nWarlord Cuirass\nArmour: 595\nCrafted: true\nPrefix: {range:0.5}IncreasedLife13\nPrefix: {range:0.5}EssenceIncreasedLifePercent1\nPrefix: None\nSuffix: {range:0.5}FireResist8\nSuffix: {range:0.5}Strength8\nSuffix: {range:0.5}ChaosResist6\nQuality: 20\nLevelReq: 80\nImplicits: 1\n{range:0.5}+(15-25)% of Armour also applies to Elemental Damage\n+207 to maximum Life\n9% increased maximum Life\n+32 to Strength\n+43% to Fire Resistance\n+26% to Chaos Resistance\n{custom}{range:0.5}+(13-19)% to Chaos Resistance\nCorrupted\nSockets: S S S S\nRune: Soul Core of Jiquani\nRune: Perfect Body Rune\nRune: Greater Body Rune\nRune: Perfect Robust Rune\n{rune}3% increased maximum Life\n{rune}+75 to maximum Life\n{rune}+60 to maximum Life\n{rune}+15 to Strength",
+        "derived_from": {
+          "rares": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:28e2675c49d8",
+            "items_desc": "3슬롯",
+            "tree_sig": "sha1:93b5932647e7",
+            "tree_desc": "8노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "Life": 1,
+              "Armour": 0.05,
+              "ChaosResist": 12,
+              "Str": 8,
+              "FireResist": 10
+            }
+          },
+          "runes": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:afbfd247f70c",
+            "items_desc": "9슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_runes",
+            "weights": {
+              "Life": 1,
+              "Armour": 0.1
+            }
+          }
+        },
+        "substitutes": []
+      },
+      {
+        "slot": "Gloves",
+        "text": "Rarity: RARE\nEngineered Gloves\nTitan Mitts\nArmour: 442\nCrafted: true\nPrefix: {range:0.5}IncreasedLife9\nPrefix: {range:0.5}LocalIncreasedPhysicalDamageReductionRating7__\nPrefix: None\nSuffix: {range:0.5}ColdResist8\nSuffix: {range:0.5}LightningResist8\nSuffix: {range:0.5}Strength8\nQuality: 20\nLevelReq: 65\nImplicits: 0\n+175 to Armour\n+135 to maximum Life\n+32 to Strength\n+43% to Cold Resistance\n+43% to Lightning Resistance\n{custom}{range:0.5}(15-25)% increased Armour\nCorrupted\nSockets: S S S\nRune: Perfect Body Rune\nRune: Greater Body Rune\nRune: Perfect Robust Rune\n{rune}+75 to maximum Life\n{rune}+60 to maximum Life\n{rune}+15 to Strength",
+        "derived_from": {
+          "rares": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:4b65bdb9d671",
+            "items_desc": "5슬롯",
+            "tree_sig": "sha1:93b5932647e7",
+            "tree_desc": "8노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "Life": 1,
+              "Armour": 0.05,
+              "Str": 8,
+              "ColdResist": 10,
+              "LightningResist": 10
+            }
+          },
+          "runes": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:3ba50d2db436",
+            "items_desc": "13슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_runes",
+            "weights": {
+              "Life": 1,
+              "Armour": 0.1
+            }
+          }
+        },
+        "substitutes": []
+      },
+      {
+        "slot": "Boots",
+        "text": "Rarity: RARE\nEngineered Boots\nMonument Greaves\nArmour: 468\nCrafted: true\nPrefix: {range:0.5}MovementVelocity6\nPrefix: {range:0.5}IncreasedLife9\nPrefix: {range:0.5}LocalIncreasedPhysicalDamageReductionRatingPercent7\nSuffix: {range:0.5}ColdResist8\nSuffix: {range:0.5}LightningResist8\nSuffix: {range:0.5}ChaosResist6\nQuality: 20\nLevelReq: 65\nImplicits: 0\n35% increased Movement Speed\n96% increased Armour\n+135 to maximum Life\n+43% to Cold Resistance\n+43% to Lightning Resistance\n+26% to Chaos Resistance\nSockets: S S S\nRune: Perfect Body Rune\nRune: Greater Body Rune\nRune: Perfect Robust Rune\n{rune}+75 to maximum Life\n{rune}+60 to maximum Life\n{rune}+15 to Strength",
+        "derived_from": {
+          "rares": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:a0917393ee98",
+            "items_desc": "5슬롯",
+            "tree_sig": "sha1:93b5932647e7",
+            "tree_desc": "8노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "Life": 1,
+              "Armour": 0.05,
+              "MovementSpeedMod": 2000,
+              "ChaosResist": 12,
+              "ColdResist": 10,
+              "LightningResist": 10
+            }
+          },
+          "runes": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:98bd1ee4a90f",
+            "items_desc": "13슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_runes",
+            "weights": {
+              "Life": 1,
+              "Armour": 0.1
+            }
+          }
+        },
+        "substitutes": []
+      },
+      {
+        "slot": "Amulet",
+        "text": "Rarity: RARE\nEngineered Amulet\nAmber Amulet\nCrafted: true\nPrefix: {range:0.5}MaximumLifeIncrease3\nPrefix: {range:0.5}IncreasedMana13\nPrefix: {range:0.5}IncreasedLife9\nSuffix: {range:0.5}LifeRegeneration10__\nSuffix: {range:0.5}ManaRegeneration6\nSuffix: {range:0.5}AllAttributes9_\nLevelReq: 65\nImplicits: 1\n{range:0.5}+(10-15) to Strength\n+135 to maximum Life\n8% increased maximum Life\n+185 to maximum Mana\n+24 to all Attributes\n31.1 Life Regeneration per second\n65% increased Mana Regeneration Rate\n{custom}{range:0.5}+(10-15) to Strength\nCorrupted",
+        "derived_from": {
+          "rares": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:5a77624292d2",
+            "items_desc": "7슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "Life": 1,
+              "ManaRegen": 20,
+              "LifeRegen": 20,
+              "Armour": 0.03,
+              "Str": 1
+            }
+          }
+        },
+        "substitutes": []
+      },
+      {
+        "slot": "Ring 2",
+        "text": "Rarity: RARE\nEngineered Ring 2\nVitalic Ring\nCrafted: true\nPrefix: {range:0.5}IncreasedMana12\nPrefix: {range:0.5}IncreasedLife8\nPrefix: {range:0.5}EssenceIncreasedManaPercent1\nSuffix: {range:0.5}LifeRegeneration7\nSuffix: {range:0.5}FireResist8\nSuffix: {range:0.5}ManaRegeneration6\nLevelReq: 65\nImplicits: 1\n{range:0.5}(4-6)% increased maximum Life\n+110 to maximum Life\n+172 to maximum Mana\n5% increased maximum Mana\n+43% to Fire Resistance\n15.6 Life Regeneration per second\n65% increased Mana Regeneration Rate\n{custom}{range:0.5}(20-30)% increased Mana Regeneration Rate\nCorrupted",
+        "derived_from": {
+          "rares": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:e5d111839a6a",
+            "items_desc": "7슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "Life": 1,
+              "FireResist": 10,
+              "ManaRegen": 20,
+              "LifeRegen": 20,
+              "Str": 1
+            }
+          }
+        },
+        "substitutes": []
+      },
+      {
+        "slot": "Belt",
+        "text": "Rarity: RARE\nEngineered Belt\nFine Belt\nCharm Slots: 2\nCrafted: true\nPrefix: {range:0.5}IncreasedLife10\nPrefix: {range:0.5}IncreasedMana9\nPrefix: {range:0.5}IncreasedPhysicalDamageReductionRating10\nSuffix: {range:0.5}LifeRegeneration9\nSuffix: {range:0.5}ManaRegeneration6\nSuffix: {range:0.5}Strength9\nItem Level: 86\nLevelReq: 64\nImplicits: 1\n{range:0.5}Has (1-3) Charm Slot\n+332 to Armour\n+162 to maximum Life\n+115 to maximum Mana\n+35 to Strength\n26.1 Life Regeneration per second\n65% increased Mana Regeneration Rate\n{custom}{range:0.5}+(10-15) to Strength\nCorrupted",
+        "derived_from": {
+          "rares": {
+            "config": {},
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:0dbaddebebbb",
+            "items_desc": "7슬롯",
+            "tree_sig": "sha1:a0eb037b6316",
+            "tree_desc": "68노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "Life": 1,
+              "ManaRegen": 20,
+              "LifeRegen": 20,
+              "Armour": 0.03,
+              "Str": 1
+            }
+          }
+        },
+        "substitutes": []
+      }
+    ],
+    "config": {
+      "enemyLevel": 82,
+      "enemyIsBoss": "Pinnacle",
+      "enemyFireResist": 50,
+      "enemyColdResist": 50,
+      "enemyLightningResist": 50,
+      "enemyChaosResist": 30,
+      "enemyFirePen": 0,
+      "enemyColdPen": 0,
+      "enemyLightningPen": 0
+    },
+    "attribute_choices": {
+      "1200": "str",
+      "1433": "str",
+      "4140": "str",
+      "6015": "str",
+      "8406": "str",
+      "14654": "str",
+      "16168": "str",
+      "18448": "str",
+      "22616": "str",
+      "23382": "str",
+      "25374": "str",
+      "28510": "str",
+      "28982": "str",
+      "29611": "str",
+      "30141": "str",
+      "31238": "str",
+      "32474": "str",
+      "33722": "str",
+      "35426": "str",
+      "38323": "str",
+      "41768": "str",
+      "42350": "str",
+      "44733": "str",
+      "45969": "str",
+      "47263": "str",
+      "47931": "str",
+      "48305": "str",
+      "48552": "str",
+      "48631": "str",
+      "54232": "str",
+      "58295": "str",
+      "59093": "str",
+      "61438": "str"
+    },
+    "derived_from": {
+      "tree": {
+        "config": {
+          "enemyLevel": 82,
+          "enemyIsBoss": "Pinnacle",
+          "enemyFireResist": 50,
+          "enemyColdResist": 50,
+          "enemyLightningResist": 50,
+          "enemyChaosResist": 30,
+          "enemyFirePen": 0,
+          "enemyColdPen": 0,
+          "enemyLightningPen": 0
+        },
+        "skills_sig": "sha1:5769269a3a14",
+        "skills_desc": "1(Perfect Strike[모드 2])",
+        "items_sig": "sha1:3d1bcbe9c081",
+        "items_desc": "9슬롯",
+        "tree_sig": "sha1:7e70cbeb437a",
+        "tree_desc": "131노드",
+        "tool": "optimize_tree",
+        "weights": {
+          "IgniteDPS": 1
+        }
+      }
+    },
+    "jewels": [
+      {
+        "socket_node_id": 55190,
+        "text": "Rarity: RARE\nEngineered Jewel@55190\nRuby\nCrafted: true\nPrefix: {range:0.5}JewelIgniteEffect\nPrefix: {range:0.5}JewelMaceDamage\nSuffix: None\nSuffix: None\nLevelReq: 0\nImplicits: 0\n10% increased Ignite Magnitude\n11% increased Damage with Maces\n{custom}{range:0.5}+(4-6) to Dexterity\nCorrupted",
+        "derived_from": {
+          "tree": {
+            "config": {
+              "enemyLevel": 82,
+              "enemyIsBoss": "Pinnacle",
+              "enemyFireResist": 50,
+              "enemyColdResist": 50,
+              "enemyLightningResist": 50,
+              "enemyChaosResist": 30,
+              "enemyFirePen": 0,
+              "enemyColdPen": 0,
+              "enemyLightningPen": 0
+            },
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:0538d8af7372",
+            "items_desc": "2슬롯",
+            "tree_sig": "sha1:ae14eb82dcda",
+            "tree_desc": "117노드",
+            "tool": "optimize_tree",
+            "weights": {
+              "IgniteDPS": 1,
+              "Life": 30,
+              "LifeRegen": 100,
+              "Armour": 0.3,
+              "HitChance": 500
+            }
+          },
+          "rares": {
+            "config": {
+              "enemyLevel": 82,
+              "enemyIsBoss": "Pinnacle",
+              "enemyFireResist": 50,
+              "enemyColdResist": 50,
+              "enemyLightningResist": 50,
+              "enemyChaosResist": 30,
+              "enemyFirePen": 0,
+              "enemyColdPen": 0,
+              "enemyLightningPen": 0
+            },
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:a49bfd719178",
+            "items_desc": "3슬롯",
+            "tree_sig": "sha1:6c3c1efec49b",
+            "tree_desc": "114노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "IgniteDPS": 1,
+              "Life": 10
+            }
+          }
+        },
+        "allocates": []
+      },
+      {
+        "socket_node_id": 7960,
+        "text": "Rarity: RARE\nEngineered Jewel@55190\nRuby\nCrafted: true\nPrefix: {range:0.5}JewelIgniteEffect\nPrefix: {range:0.5}JewelMaceDamage\nSuffix: None\nSuffix: None\nLevelReq: 0\nImplicits: 0\n10% increased Ignite Magnitude\n11% increased Damage with Maces\n{custom}{range:0.5}+(4-6) to Dexterity\nCorrupted",
+        "derived_from": {
+          "tree": {
+            "config": {
+              "enemyLevel": 82,
+              "enemyIsBoss": "Pinnacle",
+              "enemyFireResist": 50,
+              "enemyColdResist": 50,
+              "enemyLightningResist": 50,
+              "enemyChaosResist": 30,
+              "enemyFirePen": 0,
+              "enemyColdPen": 0,
+              "enemyLightningPen": 0
+            },
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:0538d8af7372",
+            "items_desc": "2슬롯",
+            "tree_sig": "sha1:ae14eb82dcda",
+            "tree_desc": "117노드",
+            "tool": "optimize_tree",
+            "weights": {
+              "IgniteDPS": 1,
+              "Life": 30,
+              "LifeRegen": 100,
+              "Armour": 0.3,
+              "HitChance": 500
+            }
+          },
+          "rares": {
+            "config": {
+              "enemyLevel": 82,
+              "enemyIsBoss": "Pinnacle",
+              "enemyFireResist": 50,
+              "enemyColdResist": 50,
+              "enemyLightningResist": 50,
+              "enemyChaosResist": 30,
+              "enemyFirePen": 0,
+              "enemyColdPen": 0,
+              "enemyLightningPen": 0
+            },
+            "skills_sig": "sha1:2a6df745da60",
+            "skills_desc": "1(Perfect Strike[모드 2])",
+            "items_sig": "sha1:a49bfd719178",
+            "items_desc": "3슬롯",
+            "tree_sig": "sha1:6c3c1efec49b",
+            "tree_desc": "114노드",
+            "tool": "optimize_rare",
+            "weights": {
+              "IgniteDPS": 1,
+              "Life": 10
+            }
+          }
+        },
+        "allocates": []
+      }
+    ],
+    "main_socket_group": 1
+  },
+  "partial_items_stamp": {
+    "config": {
+      "enemyLevel": 82,
+      "enemyIsBoss": "Pinnacle",
+      "enemyFireResist": 50,
+      "enemyColdResist": 50,
+      "enemyLightningResist": 50,
+      "enemyChaosResist": 30,
+      "enemyFirePen": 0,
+      "enemyColdPen": 0,
+      "enemyLightningPen": 0
+    },
+    "skills_sig": "sha1:5769269a3a14",
+    "skills_desc": "1(Perfect Strike[모드 2])",
+    "items_sig": "sha1:990904a26aba",
+    "items_desc": "9슬롯",
+    "tree_sig": "sha1:7e70cbeb437a",
+    "tree_desc": "131노드",
+    "tool": "optimize_items",
+    "weights": {
+      "IgniteDPS": 1
+    }
+  },
+  "original_delivery_all_pass": true
+}

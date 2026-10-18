@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from pok.engine.rares import base_category, enumerate_base_affixes, optimize_rare
 
 SPEC = {"class_name": "Sorceress", "ascendancy": "Sorceress1", "items": []}
@@ -70,7 +72,9 @@ def test_optimize_rare_respects_affix_caps_and_scores() -> None:
     assert sum(r.option.affix_type == "suffix" for r in out.chosen) <= 3
     # 출력은 **명세**다 — 문구를 우리가 쓰지 않는다(#34 A). 값·티어·롤은 PoB가 만든다.
     assert "Crafted: true" in out.spec_text, out.spec_text
-    assert "Prefix: {range:" in out.spec_text, out.spec_text
+    # The fake oracle rewards Spell Damage only once; a redundant prefix is now
+    # rejected when the same gain came from the corruption selected first.
+    assert "Suffix: {range:" in out.spec_text, out.spec_text
     # ⚠ `Item Level:`은 더 이상 쓰지 않는다 — PoB 정본(`BuildRaw`)에 그 줄이 없고
     # 검사기는 `LevelReq:`에서 역산한다(실측 2026-08-09). 옛 단서를 남겨 두면 다음
     # 세션이 "왜 없지"로 되돌아온다.
@@ -285,7 +289,9 @@ def test_trial_and_final_use_the_same_yardstick() -> None:
     from pok.engine.rares import optimize_rare as fn
 
     source = inspect.getsource(fn)
-    assert source.count("include_corrupted=False") == 2, "시험·최종이 같은 기준이어야 한다"
+    assert source.count('r.option.affix_type != "corrupted"') == 2, (
+        "시험·최종 렌더 문구의 적법성은 같은 훼손 제외 기준이어야 한다"
+    )
 
 
 def test_jewel_cap_follows_the_season_override() -> None:
@@ -350,3 +356,124 @@ def test_radius_jewel_declares_or_says_it_will_read_zero() -> None:
             SPEC, "Jewel", "Time-Lost Sapphire", {"CombinedDPS": 1.0},
             compute=lambda s: {"CombinedDPS": 100.0}, render_with_pob=False, radius="아주 큼",
         )  # fmt: skip
+
+
+def _rendering_fixture(monkeypatch: pytest.MonkeyPatch, *, drop_in_combination: bool) -> None:
+    from types import SimpleNamespace
+
+    from pok.engine import rares
+
+    pool = [
+        rares.AffixOption("first", "prefix", "GAIN 100", "a", 1, pob_key="First"),
+        rares.AffixOption("second", "prefix", "GAIN 50", "b", 1, pob_key="Second"),
+    ]
+    monkeypatch.setattr(rares, "enumerate_base_affixes", lambda *a, **k: pool)
+    monkeypatch.setattr(rares, "base_record", lambda *a: {"data": {}})
+    monkeypatch.setattr(rares, "_affix_caps", lambda *a: (3, 3, 5, "test"))
+    monkeypatch.setattr(
+        rares,
+        "_checker",
+        lambda *a: SimpleNamespace(
+            check=lambda text: SimpleNamespace(is_legal=True, errors=(), verdicts=())
+        ),
+    )
+
+    def render(specs: dict[str, str], root: Any) -> dict[str, str]:
+        output = {}
+        for label, declaration in specs.items():
+            lines = ["Rarity: RARE", "Rendered", "Ruby"]
+            if "First" in declaration and drop_in_combination:
+                lines.append("GAIN 100")
+            if "Second" in declaration and not (drop_in_combination and "First" in declaration):
+                lines.append("GAIN 50")
+            # Actual rendered requirements/defence differ from the source declaration.
+            lines += ["FINAL LIFE 10", "FINAL REQ 20"]
+            output[label] = "\n".join(lines)
+        return output
+
+    monkeypatch.setattr(rares, "_render_many_with_pob", render)
+
+
+def _rendering_compute(spec: dict[str, Any]) -> dict[str, float]:
+    text = "\n".join(str(i.get("text", "")) for i in spec.get("items") or [])
+    gain = sum(float(line.split()[1]) for line in text.splitlines() if line.startswith("GAIN "))
+    return {
+        "CombinedDPS": 100 + gain,
+        "Life": 10 if "FINAL LIFE" in text else 100,
+        "Str": 5,
+        "ReqStr": 20 if "FINAL REQ" in text else 0,
+    }
+
+
+def test_rendered_zero_gain_is_not_ranked_or_chosen(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Pre-render +100 disappears: it must not outrank the surviving +50 candidate."""
+    _rendering_fixture(monkeypatch, drop_in_combination=False)
+    out = optimize_rare(
+        SPEC,
+        "Weapon 1",
+        "Ruby",
+        {"CombinedDPS": 1},
+        floors={"Life": 50},
+        compute=_rendering_compute,
+    )
+    assert [r.option.label for r in out.chosen] == ["second"]
+    assert next(r for r in out.table if r.option.label == "first").delta == {"CombinedDPS": 0}
+    assert out.delta == {"CombinedDPS": 50}
+    assert out.floor_violations == ("Life 10 < 바닥선 50",)
+    assert out.req_shortfall == {"str": 15}
+    assert out.pob_rendered
+    assert _rendering_compute({"items": [{"text": out.text}]})["CombinedDPS"] == 150
+
+
+def test_rendered_combination_must_improve_before_adoption(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A real Ruby regression: an individually useful affix is dropped by combined Craft."""
+    _rendering_fixture(monkeypatch, drop_in_combination=True)
+    out = optimize_rare(SPEC, "Weapon 1", "Ruby", {"CombinedDPS": 1}, compute=_rendering_compute)
+    assert [r.option.label for r in out.chosen] == ["first"]
+    assert next(r for r in out.table if r.option.label == "second").delta == {"CombinedDPS": 50}
+    assert "Second" not in out.spec_text
+    assert out.delta == {"CombinedDPS": 100}
+    assert any("추가 이득이 없어 제외" in note for note in out.notes)
+
+
+def test_producer_applies_independent_origin_budgets_before_text_matching(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from pok.engine import rares
+
+    pool = [
+        rares.AffixOption("crafted-a", "prefix", "GAIN 100", "a", 1, origin="essence"),
+        rares.AffixOption("crafted-b", "prefix", "GAIN 90", "b", 1, origin="essence"),
+        rares.AffixOption("desecrated-a", "suffix", "GAIN 80", "c", 1, origin="desecrated"),
+        rares.AffixOption("desecrated-b", "suffix", "GAIN 70", "d", 1, origin="desecrated"),
+        rares.AffixOption("ordinary", "prefix", "GAIN 60", "e", 1),
+        rares.AffixOption("corrupted", "corrupted", "GAIN 50", "f", 1, origin="corrupted"),
+    ]
+    monkeypatch.setattr(rares, "enumerate_base_affixes", lambda *a, **k: pool)
+    monkeypatch.setattr(rares, "base_record", lambda *a: {"data": {}})
+    monkeypatch.setattr(rares, "_affix_caps", lambda *a: (3, 3, 6, "test"))
+    monkeypatch.setattr(
+        rares,
+        "_checker",
+        lambda *a: SimpleNamespace(
+            check=lambda text: SimpleNamespace(is_legal=True, errors=(), verdicts=())
+        ),
+    )
+    out = optimize_rare(
+        SPEC,
+        "Body Armour",
+        "Warlord Cuirass",
+        {"CombinedDPS": 1},
+        compute=_rendering_compute,
+        render_with_pob=False,
+    )
+    assert [r.option.label for r in out.chosen] == [
+        "crafted-a",
+        "desecrated-a",
+        "ordinary",
+        "corrupted",
+    ]
+    assert out.delta == {"CombinedDPS": 290}
+    assert any("제작 출처 한도 초과" in note for note in out.notes)

@@ -21,16 +21,17 @@
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-GEM_LEVEL_CAP = 20  # 기본 최고 레벨 — 접미(+N to Level of …)로 넘길 수 있다
 _ATTACK_MOD = re.compile(
     r"adds? \d+ to \d+|increased .*damage|% of damage|extra damage|critical", re.I
 )
 _GRANTS_SKILL = re.compile(r"grants? (?:level \d+ )?skill|스킬 부여", re.I)
+_LEVEL_SUPPLY = re.compile(r"^(?:\{[^}]*\})*\+\d+ to (?:the )?Level of .+$", re.I)
 
 
 @dataclass(frozen=True)
@@ -55,12 +56,129 @@ class AxesReport:
         return tuple(a.label for a in self.axes if a.state == "unmeasured")
 
 
-def _gem_levels(build_spec: Mapping[str, Any]) -> list[tuple[str, int]]:
-    out: list[tuple[str, int]] = []
-    for group in build_spec.get("skills") or []:
-        for gem in group.get("gems") or []:
-            out.append((str(gem.get("name", "?")), int(gem.get("level", 0) or 0)))
-    return out
+def _main_gem(build_spec: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """Resolve the selected active effect, not the highest-level gem in any group."""
+    from pok.kb.skill_facts import gem_effects, skill_gates
+
+    groups = list(build_spec.get("skills") or [])
+    index = build_spec.get("main_socket_group", 1)
+    if isinstance(index, bool) or not isinstance(index, int) or not 1 <= index <= len(groups):
+        return None
+    group = groups[index - 1]
+    if not group.get("enabled", True):
+        return None
+    pointer = group.get("main_active_skill", 1)
+    if isinstance(pointer, bool) or not isinstance(pointer, int):
+        return None
+    gates, effects = skill_gates(), gem_effects()
+    active: list[Mapping[str, Any]] = []
+    for gem in group.get("gems") or []:
+        if not gem.get("enabled", True):
+            continue
+        gem_id = gem.get("gem_id")
+        if not gem_id:
+            name = str(gem.get("name", "")).casefold()
+            ids = {
+                g.gem_id
+                for g in gates.values()
+                if name in {g.name.casefold(), g.name_ko.casefold()} and g.gem_id
+            }
+            if len(ids) != 1:
+                return None
+            gem_id = next(iter(ids))
+        effect_ids = effects.get(str(gem_id), ())
+        if not effect_ids or any(effect not in gates for effect in effect_ids):
+            return None
+        active.extend(gem for effect in effect_ids if not gates[effect].is_support)
+    return active[pointer - 1] if 1 <= pointer <= len(active) else None
+
+
+def _level_suppliers(build_spec: Mapping[str, Any]) -> list[str]:
+    """Rendered, active supply candidates; wording alone does not prove applicability."""
+    allocated = set(build_spec.get("tree_nodes") or [])
+    candidates = list(build_spec.get("items") or []) + [
+        jewel
+        for jewel in build_spec.get("jewels") or []
+        if jewel.get("socket_node_id") in allocated
+    ]
+    return [
+        f"{item.get('slot', 'jewel@' + str(item.get('socket_node_id')))}: {line.strip()}"
+        for item in candidates
+        if item.get("active", True)
+        for line in str(item.get("text", "")).splitlines()
+        if _LEVEL_SUPPLY.fullmatch(line.strip())
+    ]
+
+
+def _gem_level_axis(
+    build_spec: Mapping[str, Any], measurement: Mapping[str, Any] | None
+) -> AxisStatus:
+    suppliers = _level_suppliers(build_spec)
+    supply_note = (
+        "실물 +레벨 공급 후보: " + "; ".join(suppliers)
+        if suppliers
+        else "활성 실물의 +레벨 공급 문구가 확인되지 않았다"
+    )
+    gem = _main_gem(build_spec)
+    if gem is None:
+        return AxisStatus(
+            "gem_level", "젬 레벨", "unmeasured", "활성 주력 젬을 식별하지 못했다 — " + supply_note
+        )
+    level, corrupt = gem.get("level", 20), gem.get("corrupt_level", 0)
+    if (
+        any(isinstance(v, bool) or not isinstance(v, int) for v in (level, corrupt))
+        or level <= 0
+        or corrupt < 0
+    ):
+        return AxisStatus("gem_level", "젬 레벨", "unmeasured", "주력 입력 레벨이 유효하지 않다")
+    if corrupt and not gem.get("corrupted", False):
+        return AxisStatus(
+            "gem_level", "젬 레벨", "unmeasured", "corrupt_level과 corrupted 입력이 불일치한다"
+        )
+    input_level = level + corrupt
+    detail = f"주력 {gem.get('name', '?')}: 입력 기본 {level}, 타락 추가 {corrupt}. {supply_note}. "
+    if not measurement or measurement.get("build_spec") != build_spec:
+        return AxisStatus(
+            "gem_level",
+            "젬 레벨",
+            "unmeasured",
+            detail + "동일 스펙의 오라클 GemLevel 미제공 — "
+            "기본 레벨만으로 장비 채택·미사용을 단정하지 않는다",
+        )
+    stats = measurement.get("stats")
+    effective = stats.get("GemLevel") if isinstance(stats, Mapping) else None
+    if (
+        isinstance(effective, bool)
+        or not isinstance(effective, int | float)
+        or not math.isfinite(effective)
+        or effective <= 0
+    ):
+        return AxisStatus(
+            "gem_level", "젬 레벨", "unmeasured", detail + "유효한 오라클 GemLevel이 없다"
+        )
+    detail += f"오라클 실효 {effective:g}, 입력 대비 {effective - input_level:+g}. "
+    if effective > input_level:
+        return AxisStatus(
+            "gem_level",
+            "젬 레벨",
+            "covered",
+            detail + "주력 추가 레벨 적용이 관측됐다. "
+            "특정 장비별 인과·기여량은 이 값만으로 확정하지 않는다",
+        )
+    if effective < input_level:
+        return AxisStatus(
+            "gem_level",
+            "젬 레벨",
+            "unmeasured",
+            detail + "입력보다 낮아 상한·감소·선택 문맥의 추가 확인이 필요하다",
+        )
+    return AxisStatus(
+        "gem_level",
+        "젬 레벨",
+        "empty",
+        detail + "현재 모델에서 주력의 순 추가 레벨이 관측되지 않았다 — "
+        "비주력 공급·상쇄 여부나 장비 미사용을 단정하지 않는다",
+    )
 
 
 def _item_texts(build_spec: Mapping[str, Any]) -> dict[str, str]:
@@ -76,6 +194,7 @@ def check_axes(
     anointed_items: Sequence[str] = (),
     quality_checked: bool = False,
     slot_attack_deltas: Mapping[str, float] | None = None,
+    gem_level_measurement: Mapping[str, Any] | None = None,
 ) -> AxesReport:
     """획득 공간의 축을 열거하고 각각 covered/empty/unmeasured로 판정한다.
 
@@ -85,36 +204,13 @@ def check_axes(
     - `slot_attack_deltas`: 슬롯별 공격 기여 실측 {슬롯: 델타}. **측정에는 PoB가
       필요해서** 스펙만으로는 못 낸다 — 안 주면 unmeasured로 낸다(없다고 단정하지
       않는다).
+    - `gem_level_measurement`: {build_spec, stats} — 동일 입력의 compute_pob 결과.
+      입력 기본레벨·실물 공급 후보·주력 실효레벨을 구분하며 장비별 인과는 추론하지 않는다.
     """
     axes: list[AxisStatus] = []
     items = _item_texts(build_spec)
 
-    # ① 젬 레벨 — +5가 1.28x였다. 축 존재를 몰랐던 게 아니라 열거를 안 했다
-    gems = _gem_levels(build_spec)
-    if not gems:
-        axes.append(AxisStatus("gem_level", "젬 레벨", "empty", "스킬이 없다"))
-    else:
-        over = [(n, lv) for n, lv in gems if lv > GEM_LEVEL_CAP]
-        if over:
-            detail = (
-                f"기본 캡({GEM_LEVEL_CAP}) 초과 {len(over)}건 — +레벨 접미·장비를 이미 쓴다: "
-                + ", ".join(f"{n}={lv}" for n, lv in over[:4])
-            )
-            axes.append(AxisStatus("gem_level", "젬 레벨", "covered", detail))
-        else:
-            # 캡 이하 = **+레벨 장비 축이 통째로 미사용**이다. "20이면 최대"가 함정이다 —
-            # 목걸이 접미 +3·장갑 +2로 캡을 넘기는 축이 있고, 실측 +5가 1.28x였다.
-            # 세션 생성본이 정확히 이 상태(전부 20)로 출고됐다.
-            top = max(lv for _, lv in gems)
-            axes.append(
-                AxisStatus(
-                    "gem_level",
-                    "젬 레벨",
-                    "empty",
-                    f"최고 {top}레벨 — 기본 캡({GEM_LEVEL_CAP})을 넘기는 +레벨 접미"
-                    f"(목걸이 +3·장갑 +2)가 미사용이다 (실측: +5가 1.28x)",
-                )
-            )
+    axes.append(_gem_level_axis(build_spec, gem_level_measurement))
 
     # ② 성유 — 큐에 방치됐던 축
     amulets = [slot for slot in items if "amulet" in slot.lower()]

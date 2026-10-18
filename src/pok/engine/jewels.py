@@ -31,6 +31,49 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Collection, Iterable
+
+
+def _unique_identity(text: str) -> tuple[str, int | None] | None:
+    """Read the native unique name and explicit limit without inventing missing rules."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) < 2 or lines[0].casefold() != "rarity: unique":
+        return None
+    limit = next(
+        (int(m[1]) for line in lines if (m := re.fullmatch(r"Limited to:\s*(\d+)", line, re.I))),
+        None,
+    )
+    return lines[1], limit
+
+
+def unique_limit_rejection(
+    text: str,
+    socket_node_id: int,
+    jewels: Iterable[tuple[int, str]],
+    allocated: Collection[int],
+) -> str | None:
+    """Shared native Limited-to check; a replacement excludes its own socket."""
+    candidate = _unique_identity(text)
+    if candidate is None:
+        return None
+    name, limit = candidate
+    limits = [] if limit is None else [limit]
+    count = 0
+    for socket, existing_text in jewels:
+        if socket == socket_node_id or socket not in allocated:
+            continue
+        current = _unique_identity(existing_text)
+        if current is not None and current[0].casefold() == name.casefold():
+            count += 1
+            if current[1] is not None:
+                limits.append(current[1])
+    if limits and count >= min(limits):
+        return (
+            f"고유 주얼 템플릿 제외: {name} — Limited to: {min(limits)}, "
+            f"다른 할당 소켓에 이미 {count}개 장착 (교체 소켓 {socket_node_id} 제외)"
+        )
+    return None
+
 
 # PoB가 읽는 반경 라벨. 실효 반경은 `tree.clusters.JEWEL_RADII` 참고(표기의 1.2배).
 RADIUS_LABELS: tuple[str, ...] = ("Small", "Medium", "Large", "Very Large")

@@ -26,16 +26,30 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterator, Mapping
+from copy import deepcopy
 from typing import Any
 
 # 도장에 담기는 축들. 각 축은 (키, 만드는 함수)이고 `_OWN_AXIS`로 자기 축을 뺀다.
 _AXES = ("config", "skills", "items", "tree")
+_CONTEXT_VERSION = 2
+# 기존 서명은 구도장의 실제 차이를 계속 읽기 위해 유지한다. 새 축이 없는 구도장은
+# 무효가 아니라 검증 범위가 부족한 기록이다. 서로 다른 버전의 해시를 비교하지 않는다.
+_DETAIL_AXES = (
+    "skills_details",
+    "item_substitutes",
+    "item_activity",
+    "jewels",
+    "character",
+    "attribute_choices",
+)
 # 컴포넌트 → 그 산출물 자신에 해당하는 축 (그 축은 비교에서 뺀다).
 #
 # ⚠ 룬·희귀는 여기 없다. 둘 다 결과가 **아이템 텍스트**로 들어가므로, 도장을
 # **적용 후 스펙**에 찍으면 그 순간엔 일치하고 나중에 장비가 바뀌면 낡는다 —
 # 그게 맞는 동작이다. 여기 넣으면 "무기를 바꿨는데 룬 계획은 멀쩡"이 된다.
 _OWN_AXIS = {"tree": "tree", "items": "items"}
+_AXIS_PARENT = {"skills_details": "skills", "item_substitutes": "items", "item_activity": "items"}
 
 
 def _digest(payload: Any) -> str:
@@ -46,8 +60,7 @@ def _digest(payload: Any) -> str:
 def _skills_view(spec: dict[str, Any]) -> tuple[Any, str]:
     """스킬 구성 → (해시 대상, 사람이 읽을 요약).
 
-    무엇이 목적함수를 바꾸는가만 담는다: 어떤 젬을 어느 **모드**로, 어느 그룹을
-    주력으로. 레벨·품질은 축을 바꾸지 않으므로 뺀다(바뀔 때마다 빨개지면 안 읽힌다).
+    구도장과 비교하는 서명이다. 레벨·품질 등 계산 입력은 별도 v2 서명으로 보완한다.
     """
     groups = list(spec.get("skills") or [])
     payload = [
@@ -88,12 +101,73 @@ def _tree_view(spec: dict[str, Any]) -> tuple[Any, str]:
     return nodes, f"{len(nodes)}노드"
 
 
+def _detail_views(spec: dict[str, Any]) -> dict[str, tuple[Any, str]]:
+    """계산에 들어가지만 구도장에서 빠졌던 입력. 출처·표시명은 서명하지 않는다."""
+    groups = list(spec.get("skills") or [])
+    gem_defaults = {
+        "level": 20,
+        "quality": 0,
+        "enabled": True,
+        "stages": None,
+        "corrupted": False,
+        "corrupt_level": 0,
+    }
+    skills = [
+        {
+            "slot": group.get("slot", "Weapon 1"),
+            "enabled": group.get("enabled", True),
+            "gems": [
+                {key: gem.get(key, default) for key, default in gem_defaults.items()}
+                for gem in (group.get("gems") or [])
+            ],
+        }
+        for group in groups
+    ]
+    jewels = sorted(
+        (
+            int(jewel["socket_node_id"]),
+            str(jewel.get("text", "")),
+            sorted(int(n) for n in (jewel.get("allocates") or [])),
+        )
+        for jewel in (spec.get("jewels") or [])
+    )
+    substitutes = sorted(
+        (str(item.get("slot", "")), list(item.get("substitutes") or []))
+        for item in (spec.get("items") or [])
+        if item.get("substitutes")
+    )
+    activity = sorted(
+        (str(item.get("slot", "")), item.get("active", True)) for item in (spec.get("items") or [])
+    )
+    character = {
+        "class_name": spec.get("class_name", ""),
+        "ascendancy": spec.get("ascendancy", ""),
+        "level": spec.get("level", 90),
+    }
+    choices = sorted(
+        (int(node), str(choice))
+        for node, choice in dict(spec.get("attribute_choices") or {}).items()
+    )
+    return {
+        "skills_details": (skills, f"{len(groups)}그룹의 레벨·품질·활성·단계·부패·슬롯"),
+        "item_substitutes": (substitutes, f"{len(substitutes)}슬롯 대리 측정"),
+        "item_activity": (activity, f"{len(activity)}슬롯 활성 설정"),
+        "jewels": (jewels, f"{len(jewels)}주얼의 소켓·문구·부여 노드"),
+        "character": (
+            character,
+            f"{character['class_name']}/{character['ascendancy']} L{character['level']}",
+        ),
+        "attribute_choices": (choices, f"{len(choices)}개 능력치 선택"),
+    }
+
+
 def derivation_context(spec: dict[str, Any]) -> dict[str, Any]:
     """지금 이 스펙의 문맥 — 도장을 찍을 때도, 낡음을 판정할 때도 같은 함수를 쓴다."""
     skills_payload, skills_desc = _skills_view(spec)
     items_payload, items_desc = _items_view(spec)
     tree_payload, tree_desc = _tree_view(spec)
     return {
+        "context_version": _CONTEXT_VERSION,
         # 작은 것은 **값 그대로** — diff가 바로 문장이 된다
         "config": dict(spec.get("config") or {}),
         "skills_sig": _digest(skills_payload),
@@ -102,6 +176,11 @@ def derivation_context(spec: dict[str, Any]) -> dict[str, Any]:
         "items_desc": items_desc,
         "tree_sig": _digest(tree_payload),
         "tree_desc": tree_desc,
+        **{
+            key: value
+            for axis, (payload, desc) in _detail_views(spec).items()
+            for key, value in ((f"{axis}_sig", _digest(payload)), (f"{axis}_desc", desc))
+        },
     }
 
 
@@ -111,10 +190,13 @@ def stamp(
     *,
     tool: str,
     weights: dict[str, float] | None = None,
+    search_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """산출 직후의 문맥을 도장으로 만든다 — 생산자가 부른다(사람이 쓰지 않는다).
 
     `spec`은 **산출을 반영한 뒤**의 스펙이어야 한다. 그래야 자기 축이 자기와 같다.
+    `search_evidence`는 생산자가 기록한 scope/settings/termination/unresolved 등이다.
+    이 함수는 탐색의 충분함을 판단하지 않고 기록을 보존한다.
     """
     out = dict(derivation_context(spec))
     out["tool"] = tool
@@ -122,6 +204,8 @@ def stamp(
         # weights는 스펙에 없으므로 비교 대상이 아니다 — **무엇을 상대로 최적화했나**를
         # 남기는 것이 목적이다(점화 빌드에서 `CombinedDPS` 단독은 함정이었다).
         out["weights"] = dict(weights)
+    if search_evidence is not None:
+        out["search_evidence"] = deepcopy(dict(search_evidence))
     return out
 
 
@@ -134,34 +218,90 @@ def _config_diffs(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
     ]
 
 
+def _stamp_entries(
+    spec: dict[str, Any],
+) -> Iterator[tuple[str, str, dict[str, Any], dict[str, str]]]:
+    """최상위와 개별 장비·주얼의 도장. 표시 경로와 자기 축은 별개다."""
+    owners: list[tuple[str, dict[str, Any], dict[str, str]]] = [("", spec, {})]
+    for collection, identity in (("items", "slot"), ("jewels", "socket_node_id")):
+        for index, owner in enumerate(spec.get(collection) or []):
+            if isinstance(owner, dict):
+                owners.append(
+                    (f"{collection}[{index}].", owner, {identity: str(owner.get(identity, "?"))})
+                )
+    for prefix, owner, identity_fields in owners:
+        marks = owner.get("derived_from")
+        if not isinstance(marks, dict):
+            continue
+        # Older item receipts sometimes store the tool stamp directly. Readiness reads
+        # this shape too; silently skipping it here would skip its freshness checks.
+        if "tool" in marks:
+            yield str(marks.get("tool", "")), f"{prefix}derived_from", marks, identity_fields
+            continue
+        for component, mark in sorted(marks.items()):
+            if isinstance(mark, dict):
+                yield str(component), f"{prefix}derived_from.{component}", mark, identity_fields
+
+
 def stale_components(spec: dict[str, Any]) -> list[dict[str, str]]:
     """스펙에 박힌 도장들과 지금 문맥을 대조 — 낡은 축을 **문장으로** 낸다.
 
     해시 불일치만 알리면 무용하다(보고자 지적): 「무효」라는 말을 읽고도 계승한
     이유가 **무엇이 달라서 무효인지 몰랐기 때문**이었다.
+
+    status=stale는 비교 가능한 입력의 변경, unverified는 도장의 검증 범위 부족이다.
+    어느 쪽도 아이템 불법·빌드 무효 판정이 아니다.
     """
-    stamps = spec.get("derived_from") or {}
-    if not isinstance(stamps, dict):
-        return []
     now = derivation_context(spec)
     out: list[dict[str, str]] = []
-    for component, mark in sorted(stamps.items()):
-        if not isinstance(mark, dict):
-            continue
-        own = _OWN_AXIS.get(str(component))
-        whys = _config_diffs(dict(mark.get("config") or {}), dict(now["config"]))
-        for axis in _AXES:
-            if axis == "config" or axis == own:
-                continue
+    for component, path, mark, identity in _stamp_entries(spec):
+        own = _OWN_AXIS.get(component.removeprefix("optimize_"))
+        whys = (
+            _config_diffs(dict(mark["config"] or {}), dict(now["config"]))
+            if "config" in mark
+            else []
+        )
+        current_version = mark.get("context_version") == _CONTEXT_VERSION
+        axes = (*_AXES, *_DETAIL_AXES) if current_version else _AXES
+        relevant = [a for a in axes if a != "config" and _AXIS_PARENT.get(a, a) != own]
+        for axis in relevant:
             key = f"{axis}_sig"
-            if key in mark and mark[key] != now[key]:
+            if key not in mark:
+                continue
+            if mark[key] != now[key]:
                 whys.append(f"{axis}: {mark.get(f'{axis}_desc', '?')} → {now[f'{axis}_desc']}")
         for why in whys:
-            entry = {"component": str(component), "why": why}
+            entry = {
+                "component": component,
+                "path": path,
+                "status": "stale",
+                "why": why,
+                **identity,
+            }
             tool = str(mark.get("tool") or "")
             if tool:
                 entry["advice"] = f"{tool} 재실행"
             out.append(entry)
+        missing = [a for a in relevant if f"{a}_sig" not in mark]
+        if "config" not in mark:
+            missing.append("config")
+        if not current_version or missing:
+            why = (
+                "구버전 또는 알 수 없는 문맥 도장 — 젬 세부 입력·주얼·능력치 선택·캐릭터·"
+                "대리 측정 문맥의 일치를 확인할 기록이 부족하다(기존 산출물 무효 판정 아님)"
+                if not current_version
+                else f"문맥 서명 누락: {', '.join(missing)}"
+            )
+            out.append(
+                {
+                    "component": component,
+                    "path": path,
+                    "status": "unverified",
+                    "why": why,
+                    "advice": "기존 실행 기록을 확인하거나 현재 문맥에서 재평가한 증거를 남길 것",
+                    **identity,
+                }
+            )
     return out
 
 
@@ -174,12 +314,55 @@ _REQUIRED_PROCEDURES = (
     (
         "items",
         "optimize_items",
-        "유니크 **전수** 열거를 한 번도 안 돌렸다 — 희귀 합성만 보면 빌드가 단조로워진다"
-        "(`skills/build-generation/AGENTS.md` §금지: 「고유 아이템을 후보에서 빠뜨리지 말 것」). "
-        "실측 2026-08-11: 한 회차가 끝까지 안 돌려 검은화염을 포함한 유니크가 후보에 오른 "
-        "적이 없었다. 돌려 보니 `defensive_only`로 EHP +1,032짜리 후보가 근거와 함께 나왔다",
+        "이 스펙에서 유니크 전수 탐색의 실행을 확인할 optimize_items 출처 도장이 없다. "
+        "전체 세션의 미실행을 뜻하지 않으며, 별도 실행 기록과 탐색 범위를 확인해야 한다",
     ),
 )
+
+
+def _execution_receipt_sha256(mark: Mapping[str, Any]) -> str:
+    blob = json.dumps(mark, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def _verified_execution_history(mark: Mapping[str, Any]) -> list[dict[str, Any]]:
+    history = mark.get("execution_history")
+    if not isinstance(history, list):
+        return []
+    return [
+        row
+        for row in history
+        if isinstance(row, dict)
+        and isinstance(row.get("receipt"), dict)
+        and row["receipt"].get("tool") not in (None, "", "evaluate_delta")
+        and row.get("receipt_sha256") == _execution_receipt_sha256(row["receipt"])
+    ]
+
+
+def preserve_execution_history(previous: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Retain immutable earlier producer receipts when a measured review replaces one.
+
+    This is execution history only. Its old context/scope/termination must never
+    satisfy the current optimization contract or clear a stale component.
+    Review receipts are not recursively accumulated, so repeated reviews keep the
+    same original producer evidence and digest without duplicating history.
+    """
+    history = deepcopy(_verified_execution_history(previous))
+    if previous.get("tool") not in (None, "", "evaluate_delta"):
+        digest = _execution_receipt_sha256(previous)
+        if not any(row["receipt_sha256"] == digest for row in history):
+            history.append({"receipt_sha256": digest, "receipt": deepcopy(dict(previous))})
+    return history
+
+
+def _procedure_recorded(mark: Any, tool: str) -> bool:
+    if not isinstance(mark, dict):
+        return False
+    if mark.get("tool") == tool:
+        return True
+    return mark.get("tool") == "evaluate_delta" and any(
+        row["receipt"].get("tool") == tool for row in _verified_execution_history(mark)
+    )
 
 
 def missing_procedures(spec: dict[str, Any]) -> list[dict[str, str]]:
@@ -191,11 +374,18 @@ def missing_procedures(spec: dict[str, Any]) -> list[dict[str, str]]:
     ⚠ 이것이 판정하는 것은 **"흔적이 없다"**이지 "안 돌렸다"가 아니다. 도구를 돌리고
     `derived_from`을 스펙에 안 옮겼으면 여기 걸린다 — 그 경우도 고쳐야 할 것은 맞다
     (다음 세션이 이어받을 때 출처가 없는 것은 같은 문제다).
+    측정 재검증이 보존한 원본 영수증 이력도 실행 흔적으로 인정한다. 과거 탐색 범위를
+    현재 문맥의 전수 완료로 인정하는 것은 아니며 준비도 계약은 별도로 검사한다.
     """
     stamps = spec.get("derived_from") or {}
     marks = stamps if isinstance(stamps, dict) else {}
     return [
-        {"procedure": tool, "why": why, "advice": f"{tool} 실행 후 `derived_from`을 스펙에 옮길 것"}
+        {
+            "procedure": tool,
+            "status": "unverified",
+            "why": why,
+            "advice": f"기존 {tool} 실행 기록을 찾아 `derived_from`에 연결하거나 재평가할 것",
+        }
         for component, tool, why in _REQUIRED_PROCEDURES
-        if component not in marks
+        if not _procedure_recorded(marks.get(component), tool)
     ]

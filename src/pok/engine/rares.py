@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import functools
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,15 @@ from pok.engine.items import (
     resolve_rolls,
 )
 from pok.engine.jewels import RADIUS_LABELS
+
+
+def _special_caps(root: Path | None) -> dict[str, int]:
+    from pok.engine.legality import special_affix_limits
+
+    path = knowledge_dir(root) / "crafting-rules" / "board-rules.json"
+    return (
+        special_affix_limits(json.loads(path.read_text(encoding="utf-8"))) if path.exists() else {}
+    )
 
 
 @dataclass(frozen=True)
@@ -364,8 +374,8 @@ def optimize_rare(
 
     각 접사를 벌거벗은 베이스 위에 **단독으로** 실측해 점수를 매기고(문맥 반영 —
     같은 접사도 빌드마다 델타가 다르다), 상위 접두·접미를 조립해 다시 잰다.
-    단독 점수 그리디라 접사 간 상호작용은 조립 실측에만 반영된다 — 그 한계와
-    합법성 판정이 결과에 그대로 남는다.
+    단독 점수 순서로 시도하되, 매 조립 후보의 최종 렌더 문구를 다시 실측해
+    실제 점수가 증가할 때만 채택한다. 전역 최적해 탐색은 아니다.
 
     접사 한도는 **정본 판 규칙**에서 읽는다(장비 3/3, 주얼 2/2) — 하드코딩 3/3으로
     주얼을 조립하면 못 만드는 아이템이 나온다. 주얼은 `slot="Jewel@<소켓 node_id>"`
@@ -416,11 +426,37 @@ def optimize_rare(
             *radius_lines,
         ]
     )
-    naked_stats = run(_replace_slot(spec, slot, naked))
+    head = [line for line in naked.splitlines() if not line.lower().startswith("item level:")]
+    # 단독 순위와 조립 채택 모두 반환할 문구로 측정한다. Craft가 모드를 버리거나
+    # 다르게 렌더하면 선언/원문 점수로 그 후보를 채택해서는 안 된다.
+    singletons = [AffixReading(option=o, delta={}) for o in pool]
+    render_cache: dict[tuple[str, ...], tuple[str, bool, str]] = {}
+    batches = {"naked": assemble_spec(head, [], roll=roll)}
+    batches.update({str(i): assemble_spec(head, [r], roll=roll) for i, r in enumerate(singletons)})
+    built = _render_many_with_pob(batches, root) if render_with_pob else {}
+    for key, selected in [("naked", []), *((str(i), [r]) for i, r in enumerate(singletons))]:
+        rendered_text = built.get(key, "")
+        labels = tuple(r.option.label for r in selected)
+        render_cache[labels] = (
+            rendered_text or _assemble_text(naked, selected),
+            bool(rendered_text),
+            batches[key],
+        )
+
+    def materialize(selected: Sequence[AffixReading]) -> tuple[str, bool, str]:
+        labels = tuple(r.option.label for r in selected)
+        if labels not in render_cache:
+            declaration = assemble_spec(head, selected, roll=roll)
+            text, ok = _render_with_pob(declaration, root) if render_with_pob else ("", False)
+            render_cache[labels] = (text or _assemble_text(naked, selected), ok, declaration)
+        return render_cache[labels]
+
+    naked_stats = run(_replace_slot(spec, slot, materialize([])[0]))
 
     readings: list[AffixReading] = []
-    for option in pool:
-        measured = run(_replace_slot(spec, slot, f"{naked}\n{option.text}"))
+    for singleton in singletons:
+        option = singleton.option
+        measured = run(_replace_slot(spec, slot, materialize([singleton])[0]))
         delta = {k: round(measured.get(k, 0.0) - naked_stats.get(k, 0.0), 4) for k in measure}
         readings.append(AffixReading(option=option, delta=delta))
 
@@ -433,7 +469,14 @@ def optimize_rare(
     chosen: list[AffixReading] = []
     counts = {"prefix": 0, "suffix": 0, "corrupted": 0}
     caps = {"prefix": cap_pre, "suffix": cap_suf, "corrupted": 1}
+    # This producer creates a new naked base, with no capacity-granting rune.
+    # Supplied items can exceed the default through the checker's KB-backed path.
+    special_caps = _special_caps(root)
+    special_counts = dict.fromkeys(special_caps, 0)
+    skipped_origin_cap: list[str] = []
     skipped_illegal: list[str] = []
+    skipped_no_gain: list[str] = []
+    chosen_stats = naked_stats
     for reading in ranked:
         kind = reading.option.affix_type
         affixes_so_far = counts["prefix"] + counts["suffix"]
@@ -441,6 +484,10 @@ def optimize_rare(
             continue
         # 총한도는 **접두+접미 합**에만 건다(훼손은 접사 칸 밖이다).
         if kind != "corrupted" and affixes_so_far >= cap_total:
+            continue
+        origin = {"essence": "crafted", "desecrated": "desecrated"}.get(reading.option.origin)
+        if origin in special_caps and special_counts[origin] >= special_caps[origin]:
+            skipped_origin_cap.append(reading.option.label)
             continue
         # **조립하면서 검사한다** (백로그 #23). 사후 검사만 하면 반환 `text`를 그대로
         # 못 쓰고 매번 손으로 재조립해야 한다 — 실측 2026-08-09(투구): `legal: false`로
@@ -454,25 +501,37 @@ def optimize_rare(
         if not _checker(root).check(trial).is_legal:
             skipped_illegal.append(reading.option.label)
             continue
+        candidate = [*chosen, reading]
+        legal_text = materialize([r for r in candidate if r.option.affix_type != "corrupted"])[0]
+        if not _checker(root).check(legal_text).is_legal:
+            skipped_illegal.append(reading.option.label)
+            continue
+        candidate_stats = run(_replace_slot(spec, slot, materialize(candidate)[0]))
+        marginal_score = sum(
+            weight * (candidate_stats.get(key, 0.0) - chosen_stats.get(key, 0.0))
+            for key, weight in weights.items()
+        )
+        if marginal_score <= 0:
+            skipped_no_gain.append(reading.option.label)
+            continue
         chosen.append(reading)
+        chosen_stats = candidate_stats
         counts[kind] += 1
+        if origin in special_counts:
+            special_counts[origin] += 1
 
-    assembled = _assemble_text(naked, chosen)
-    # **명세로 다시 낸다**(#34 A) — 문구를 우리가 쓰지 않는 것이 이 결함의 해법이다.
-    head = [line for line in naked.splitlines() if not line.lower().startswith("item level:")]
-    spec_lines = assemble_spec(head, chosen, roll=roll)
-    # ⚠ PoB 부팅은 **초 단위**다(LuaJIT 프로세스 1회). 가짜 오라클로 도는 시험까지
-    # 부팅하면 스위트가 못 끝난다 — 실측: 이걸 무조건 켜 두자 600초를 넘겼다.
-    canonical, rendered = _render_with_pob(spec_lines, root) if render_with_pob else ("", False)
+    final_text, rendered, spec_lines = materialize(chosen)
     base_stats = run(spec)
-    measured = run(_replace_slot(spec, slot, assembled))
+    measured = run(_replace_slot(spec, slot, final_text))
     delta = {k: round(measured.get(k, 0.0) - base_stats.get(k, 0.0), 4) for k in measure}
     violations = tuple(
         f"{k} {measured.get(k, 0.0):g} < 바닥선 {v:g}"
         for k, v in (floors or {}).items()
         if measured.get(k, 0.0) < v
     )
-    report = _checker(root).check(_assemble_text(naked, chosen, include_corrupted=False))
+    report = _checker(root).check(
+        materialize([r for r in chosen if r.option.affix_type != "corrupted"])[0]
+    )
 
     by_origin = {
         o: sum(r.option.origin == o for r in chosen) for o in ("desecrated", "corrupted", "essence")
@@ -485,8 +544,18 @@ def optimize_rare(
         *notes_pre,
         f"접사 풀 {len(pool)}건(출처·그룹별 최고 티어) 전량 단독 실측 — 롤 {roll} 고정",
         f"접사 한도 {cap_pre}접두/{cap_suf}접미·총 {cap_total} — 정본 판 규칙({cap_label})",
-        "단독 점수 그리디 조립 — 접사 간 상호작용은 조립 실측에만 반영된다",
+        "렌더된 단독 점수 순서로 시도하고 조립 문구의 실측 점수가 증가할 때만 채택 "
+        "— 전역 최적해 아님",
     ]
+    if skipped_no_gain:
+        notes.append(f"최종 문구 조립 실측에서 추가 이득이 없어 제외: {skipped_no_gain}")
+    if special_caps:
+        notes.append(
+            f"독립 제작 출처 한도 {special_caps} — 새 베이스에 추가 한도 공급 룬 없음; "
+            "Astrid's Creativity 같은 공급 룬을 붙인 확장 조합은 이 탐색 범위 밖"
+        )
+    if skipped_origin_cap:
+        notes.append(f"제작 출처 한도 초과로 제외: {skipped_origin_cap}")
     if implicit_lines:
         notes.append(f"베이스 암시적 자동 기재: {implicit_lines[0]} — 안 적으면 PoB가 반영 안 한다")
     if rendered:
@@ -503,7 +572,8 @@ def optimize_rare(
     if custom_only:
         notes.append(
             f"모드 id가 없는 접사 {len(custom_only)}건은 `{{custom}}` 줄로 나갔다 — "
-            f"PoB 모드 DB 밖(훼손 계열)이라 **수치는 검증되지 않는다**: {custom_only[:3]}"
+            "PoB 모드 DB 밖이다. KB에서 출처가 확인되는 전용 제작·Desecrated 접사는 "
+            f"수치·ilvl·베이스·한도를 검사하며 임의 custom은 별도 미검증이다: {custom_only[:3]}"
         )
     if all(all(abs(v) < 1e-9 for v in r.delta.values()) for r in readings) and readings:
         notes.append(
@@ -536,7 +606,7 @@ def optimize_rare(
             f"등가 문구로 바꿔 `ItemSpec.substitutes`에 넣으면 **추산**으로는 잴 수 있다"
         )
     return RareOptimizeResult(
-        text=canonical or assembled,
+        text=final_text,
         spec_text=spec_lines,
         pob_rendered=rendered,
         delta=delta,
@@ -567,11 +637,15 @@ def _render_with_pob(spec_text: str, root: Path | None) -> tuple[str, bool]:
     실측 2026-08-09: 명세만 주고 `Craft()`→`BuildRaw()`를 태우니 사용자가 손으로 쓴
     아이템과 **값까지 동일**했다(`+73 to maximum Energy Shield` 등).
     """
+    text = _render_many_with_pob({"rare": spec_text}, root).get("rare", "")
+    return (text, True) if text else ("", False)
+
+
+def _render_many_with_pob(specs: dict[str, str], root: Path | None) -> dict[str, str]:
+    """단독 후보들은 한 번의 PoB 부팅으로 렌더한다."""
     from pok.pob.roundtrip import RoundtripError, build_items
 
     try:
-        built = build_items({"rare": spec_text}, root=root)
+        return build_items(specs, root=root)
     except (RoundtripError, FileNotFoundError, RuntimeError, OSError):
-        return "", False
-    text = built.get("rare", "")
-    return (text, True) if text else ("", False)
+        return {}

@@ -143,6 +143,11 @@ class PobDaemon:
 
         ⚠ 먼저 `compute_build`으로 빌드를 올려 둬야 한다(`compute_tree`와 같다).
         """
+        for stat in stats:
+            if stat.startswith("LateLootRarity"):
+                raise PobRunError(
+                    f"{stat} is unavailable in POWER; use full XML or TREE computation"
+                )
         self.start()
         assert self._proc is not None and self._proc.stdin is not None
         self._proc.stdin.write("POWER\t" + ",".join(stats) + "\n")

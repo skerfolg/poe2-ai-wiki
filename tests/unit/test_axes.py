@@ -7,6 +7,12 @@
 
 from __future__ import annotations
 
+import copy
+import json
+from pathlib import Path
+
+import pytest
+
 from pok.engine.constraints.axes import check_axes
 from pok.pob.buildxml import find_probe_lines, spec_from_dict, strip_probe_tags, to_xml
 
@@ -26,7 +32,7 @@ def test_session_build_state_is_fully_surfaced() -> None:
     """세션 생성본을 넣으면 61배 격차의 성분들이 전부 드러나야 한다."""
     report = check_axes(SESSION_BUILD)
     states = {a.key: a.state for a in report.axes}
-    assert states["gem_level"] == "empty", "전부 20레벨 = +레벨 축 미사용"
+    assert states["gem_level"] == "unmeasured", "입력20은 실효레벨·장비 미사용의 증거가 아니다"
     assert states["anoint"] == "empty", "목걸이가 있는데 성유가 없다"
     assert states["charm"] == "empty" and states["flask"] == "empty"
     assert states["quality"] == "unmeasured" and states["slot_attack"] == "unmeasured"
@@ -37,14 +43,19 @@ def test_covered_axes_stop_warning() -> None:
     """축을 채우면 신호가 꺼져야 한다 — 안 꺼지면 소음이 된다."""
     corrected = {
         **SESSION_BUILD,
-        "skills": [{"gems": [{"name": "Stampede", "level": 25}]}],
+        "skills": [{"gems": [{"name": "Stampede", "level": 20}]}],
         "items": [
             {"slot": "Amulet", "text": "Rarity: RARE\nT\nBase\nAllocates 12345"},
             {"slot": "Charm 1", "text": "Rarity: MAGIC\nT\nBase"},
             {"slot": "Flask 1", "text": "Rarity: MAGIC\nT\nBase"},
         ],
     }
-    report = check_axes(corrected, quality_checked=True, slot_attack_deltas={"Amulet": 120.0})
+    report = check_axes(
+        corrected,
+        quality_checked=True,
+        slot_attack_deltas={"Amulet": 120.0},
+        gem_level_measurement={"build_spec": corrected, "stats": {"GemLevel": 25}},
+    )
     states = {a.key: a.state for a in report.axes}
     for key in ("gem_level", "anoint", "charm", "flask", "quality", "slot_attack"):
         assert states[key] == "covered", f"{key}가 covered여야 한다"
@@ -106,8 +117,9 @@ def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: igno
         path="/tmp/t",
         build_code="X",
         duplicates=(),
+        optimization_readiness={"status": "not_ready", "recommendation_ready": False},
         result=SimpleNamespace(
-            stats={},
+            stats={"GemLevel": 23.0},
             is_tree_legal=True,
             pruned_nodes=(),
             meta={},
@@ -148,4 +160,92 @@ def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: igno
     assert out["ok"] is True
     assert "axes" in out, "부르지 않아도 실려 있어야 한다"
     assert "성유" in out["axes"]["empty"], "목걸이에 성유 없음이 바로 보인다"
+    assert "젬 레벨" not in out["axes"]["empty"]
+    assert "젬 레벨" not in out["axes"]["unmeasured"]
     assert any("61배" in n for n in out["axes"]["notes"])
+
+
+def _level_axis(spec, effective=None, measurement_spec=None):  # type: ignore[no-untyped-def]
+    measurement = (
+        None
+        if effective is None
+        else {
+            "build_spec": spec if measurement_spec is None else measurement_spec,
+            "stats": {"GemLevel": effective},
+        }
+    )
+    return next(
+        a for a in check_axes(spec, gem_level_measurement=measurement).axes if a.key == "gem_level"
+    )
+
+
+def test_actual_gemling_amulet_input20_effective31_is_not_an_empty_axis() -> None:
+    fixture = json.loads(
+        Path(__file__).with_name("gemling_20261019_gem_level.json").read_text(encoding="utf-8")
+    )
+    axis = _level_axis(fixture["build_spec"], fixture["stats"]["GemLevel"])
+    assert axis.state == "covered"
+    assert "+3 to Level of all Melee Skills" in axis.detail
+    assert "입력 기본 20" in axis.detail and "실효 31" in axis.detail
+    assert "특정 장비별 인과" in axis.detail
+
+
+@pytest.mark.parametrize("level", [20, 25])
+def test_input_level_alone_does_not_claim_equipment_adoption(level: int) -> None:
+    spec = copy.deepcopy(SESSION_BUILD)
+    spec["skills"][0]["gems"][0]["level"] = level
+    assert _level_axis(spec).state == "unmeasured"
+    measured = _level_axis(spec, level)
+    assert measured.state == "empty"
+    assert "+레벨 접미·장비를 이미 쓴다" not in measured.detail
+
+
+def test_under_cap_effective_gain_is_still_covered() -> None:
+    spec = copy.deepcopy(SESSION_BUILD)
+    spec["skills"][0]["gems"][0]["level"] = 18
+    assert _level_axis(spec, 20).state == "covered"
+
+
+def test_non_main_high_level_and_inapplicable_supply_are_not_covered() -> None:
+    spec = copy.deepcopy(SESSION_BUILD)
+    spec["skills"].append({"gems": [{"name": "Spark", "level": 25}]})
+    spec["items"][0]["text"] += "\n+3 to Level of all Spell Skills"
+    axis = _level_axis(spec, 20)
+    assert axis.state == "empty"
+    assert "Spell Skills" in axis.detail and "공급 후보" in axis.detail
+
+
+def test_inactive_or_unallocated_supply_is_not_reported_as_active() -> None:
+    spec = copy.deepcopy(SESSION_BUILD)
+    spec["items"][0].update(active=False, text="+3 to Level of all Melee Skills")
+    spec["jewels"] = [{"socket_node_id": 123, "text": "+2 to Level of all Melee Skills"}]
+    axis = _level_axis(spec)
+    assert "활성 실물의 +레벨 공급 문구가 확인되지 않았다" in axis.detail
+
+
+def test_corruption_input_gain_is_not_attributed_to_equipment() -> None:
+    spec = copy.deepcopy(SESSION_BUILD)
+    spec["skills"][0]["gems"][0].update(corrupted=True, corrupt_level=1)
+    assert _level_axis(spec, 21).state == "empty"
+
+
+@pytest.mark.parametrize("effective", [True, float("nan"), float("inf"), 0, -1, "31"])
+def test_invalid_oracle_level_does_not_become_covered(effective) -> None:  # type: ignore[no-untyped-def]
+    assert _level_axis(SESSION_BUILD, effective).state == "unmeasured"
+
+
+def test_mismatched_measurement_spec_or_disabled_main_stays_unmeasured() -> None:
+    changed = copy.deepcopy(SESSION_BUILD)
+    changed["items"][0]["text"] += "\n+3 to Level of all Melee Skills"
+    assert _level_axis(changed, 31, SESSION_BUILD).state == "unmeasured"
+    changed["skills"][0]["enabled"] = False
+    assert _level_axis(changed, 31).state == "unmeasured"
+
+
+def test_main_group_selector_ignores_high_level_other_group() -> None:
+    spec = copy.deepcopy(SESSION_BUILD)
+    spec["skills"][0]["gems"][0]["level"] = 25
+    spec["skills"].append({"gems": [{"name": "Spark", "level": 18}]})
+    spec["main_socket_group"] = 2
+    axis = _level_axis(spec, 20)
+    assert axis.state == "covered" and "주력 Spark" in axis.detail
