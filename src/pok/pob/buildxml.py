@@ -152,6 +152,8 @@ class ItemSpec:
     # ⚠ 원문 그대로 넣으면 파서가 또 떨어뜨린다 — 대상 한정어가 원인이다
     # (예: "10% increased Archon Buff duration" → PoB는 `Archon Buff`를 못 읽는다).
     substitutes: tuple[str, ...] = ()
+    # 장착 상태와 효과 발동을 분리한다. 소모품이 꺼진 기준값도 왕복 보존한다.
+    active: bool = True
 
 
 @dataclass(frozen=True)
@@ -548,7 +550,7 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
 # **읽기(복원)와 쓰기(조립)를 가르는 근거**다. 복원본에는 `derived_from`도, PoB 코드에
 # 없는 능력치 택1 선택도 있을 수 없어 게이트가 그대로 막아 버린다 — 실측 2026-08-27에
 # 복원한 실물 빌드가 막혔다. 계산엔 안 가지만 스펙에 남아야 그 판별이 선다.
-_SPEC_ONLY_KEYS = frozenset({"derived_from", "restored_from"})
+_SPEC_ONLY_KEYS = frozenset({"derived_from", "restored_from", "optimization_contract"})
 
 # **아이템 단위**의 스펙 전용 키 (#152). 희귀 슬롯의 출처 도장 `items[i].derived_from`은
 # 공통 절차 검사(`engine/procedures.py`)와 자동 채움(`engine/autofill.py`)이
@@ -747,15 +749,16 @@ def to_xml(spec: BuildSpec) -> str:
         f'    <Item id="{i}">{escape(strip_probe_tags(_with_substitutes(item)))}</Item>'
         for i, item in enumerate(all_items, start=1)
     )
-    # ⛔ **`active="true"`를 반드시 쓴다** (BACKLOG #98). PoB는
+    # **active 속성을 반드시 쓴다** (BACKLOG #98). PoB는
     #    `active = child.attrib.active == "true"`로 읽으므로(`Classes/ItemsTab.lua:1159`)
     #    속성이 없으면 **전부 비활성**이고, 비활성 플라스크·호신부는
     #    `env.flasks`/`env.charms`에 안 들어간다(`Modules/CalcSetup.lua:1095-1110`).
     #    실측 2026-08-20: 기준 빌드에서 플라스크를 통째로 빼도 DPS·Life·EHP가 전부
     #    Δ 0.0이었다 — 캠페인 2,689벌 전량이 플라스크 없이 측정된 셈이다.
-    #    장착 슬롯은 **항상 활성**이다(비활성 장비를 표현할 자리가 우리 스펙엔 없다).
+    #    기존 입력은 True가 기본이며 명시적으로 꺼 둔 소모품은 False를 보존한다.
     slot_els = "\n".join(
-        f'      <Slot name={quoteattr(item.slot)} itemId="{i}" active="true"/>'
+        f'      <Slot name={quoteattr(item.slot)} itemId="{i}" '
+        f'active="{str(item.active).lower()}"/>'
         for i, item in enumerate(spec.items, start=1)
     )
     items_xml = (

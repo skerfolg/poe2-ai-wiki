@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from pok.pob import codec
-from pok.pob.buildxml import BuildSpec, GemSpec, SkillGroupSpec, to_xml
+from pok.pob.buildxml import BuildSpec, GemSpec, ItemSpec, SkillGroupSpec, to_xml
 from pok.pob.runner import PobRunError, _parse
 
 
@@ -28,6 +28,20 @@ def _spec(**overrides: object) -> BuildSpec:
 
 
 class TestBuildXml:
+    def test_inactive_consumable_round_trip_preserves_default(self) -> None:
+        from pok.pob.restore import spec_from_pob_xml
+
+        items = (
+            ItemSpec(slot="Flask 1", text="Rarity: NORMAL\nUltimate Life Flask", active=False),
+            ItemSpec(slot="Charm 1", text="Rarity: NORMAL\nThawing Charm"),
+        )
+        xml = to_xml(_spec(items=items))
+        slots = {s.get("name"): s.get("active") for s in ET.fromstring(xml).findall(".//Slot")}
+        assert slots == {"Flask 1": "false", "Charm 1": "true"}
+        restored = spec_from_pob_xml(xml).spec
+        assert restored["items"][0]["active"] is False
+        assert restored["items"][1].get("active", True) is True
+
     def test_스파이크_계약_속성이_그대로_들어간다(self) -> None:
         root = ET.fromstring(to_xml(_spec()))
         assert root.tag == "PathOfBuilding2"

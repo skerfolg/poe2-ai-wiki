@@ -14,6 +14,8 @@ package.preload['lua-utf8'] = function()
   return setmetatable({}, { __index = string })
 end
 
+local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
+local craftItem = dofile(adapterDir .. "pob_item_craft.lua")
 dofile("HeadlessWrapper.lua")
 
 local function jesc(s)
@@ -272,7 +274,11 @@ local function respond_item(raw)
   -- `Craft()`는 explicitModLines를 통째로 지우고 모드 id에서 다시 만든다(L1704) —
   -- `{custom}` 없는 손기입 줄은 사라지므로 `Crafted: true`인 명세에만 건다.
   if item.Craft and raw:match("Crafted:%s*true") then
-    pcall(function() item:Craft() end)
+    local okCraft, why = pcall(function() craftItem(item) end)
+    if not okCraft then
+      print("POK_ERR:" .. jesc(tostring(why)))
+      return
+    end
   end
   if item.UpdateRunes then pcall(function() item:UpdateRunes() end) end
   local okBuild, built = pcall(function() return item:BuildRaw() end)

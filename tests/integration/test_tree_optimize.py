@@ -7,7 +7,7 @@ import dataclasses
 import pytest
 
 from pok.common.paths import knowledge_dir
-from pok.engine.tree.deltas import evaluate_node_deltas
+from pok.engine.tree.deltas import evaluate_bundles, evaluate_node_deltas
 from pok.engine.tree.graph import TreeGraph
 from pok.engine.tree.optimize import Objective, optimize_tree
 from pok.pob.buildxml import BuildSpec, GemSpec, SkillGroupSpec
@@ -113,3 +113,56 @@ def test_최적화_소예산(graph: TreeGraph) -> None:
         assert step.score > 0
         assert step.node_delta.deltas
     assert not out.result.pruned_nodes  # 최종 트리 전체 연결
+
+
+def test_explicit_exclusion_blocks_node_and_bundle_oracle_routes(graph: TreeGraph) -> None:
+    """#177: the same positive destination cannot return through a bundle."""
+    excluded = frozenset({51184})
+    assert (
+        evaluate_node_deltas(
+            SPEC,
+            graph,
+            [51184],
+            stats=("CombinedDPS",),
+            exclude_nodes=excluded,
+        )
+        == []
+    )
+    (blocked,) = evaluate_bundles(
+        SPEC,
+        graph,
+        [{"name": "excluded", "nodes": [51184]}],
+        stats=("CombinedDPS",),
+        exclude_nodes=excluded,
+    )
+    assert blocked.path == () and blocked.unreachable == (51184,)
+
+
+def test_excluded_transit_is_not_added_by_node_or_bundle(graph: TreeGraph) -> None:
+    old_path = graph.shortest_path({graph.start_of(SPEC.class_name)}, 51184)
+    assert old_path and len(old_path) > 1
+    excluded = frozenset({old_path[-2]})
+    legal_path = graph.shortest_path(
+        {graph.start_of(SPEC.class_name)},
+        51184,
+        exclude_nodes=excluded,
+    )
+    nodes = evaluate_node_deltas(
+        SPEC,
+        graph,
+        [51184],
+        stats=("CombinedDPS",),
+        exclude_nodes=excluded,
+    )
+    (bundle,) = evaluate_bundles(
+        SPEC,
+        graph,
+        [{"name": "detour", "nodes": [51184]}],
+        stats=("CombinedDPS",),
+        exclude_nodes=excluded,
+    )
+    if legal_path is None:
+        assert nodes == [] and bundle.path == ()
+    else:
+        assert nodes[0].path == tuple(legal_path) == bundle.path
+    assert not excluded.intersection(bundle.path)

@@ -106,6 +106,7 @@ def test_assemble_always_carries_axes_report(monkeypatch) -> None:  # type: igno
         path="/tmp/t",
         build_code="X",
         duplicates=(),
+        optimization_readiness={"status": "not_ready", "recommendation_ready": False},
         result=SimpleNamespace(
             stats={},
             is_tree_legal=True,

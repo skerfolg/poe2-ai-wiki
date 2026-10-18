@@ -21,6 +21,8 @@ package.preload['lua-utf8'] = function()
 end
 
 local inPath = arg and arg[1]
+local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
+local craftItem = dofile(adapterDir .. "pob_item_craft.lua")
 if not inPath then
   print("POK_ERR:입력 파일 인자 누락")
   os.exit(2)
@@ -56,7 +58,12 @@ local function flush()
     -- "크래프트 아이템의 정본은 모드 id"라고 말하는 것이다. 그래서 `Crafted: true`인
     -- 명세에만 건다. 안 그러면 손기입 아이템의 문구를 우리가 날린다(§0 ⑤).
     if item.Craft and raw:match("Crafted:%s*true") then
-      pcall(function() item:Craft() end)
+      local okCraft, why = pcall(function() craftItem(item) end)
+      if not okCraft then
+        print(string.format("POK_ERR_ITEM:%s\t%s", escape(label), escape(why)))
+        label, lines = nil, {}
+        return
+      end
     end
     if item.UpdateRunes then pcall(function() item:UpdateRunes() end) end
     local okBuild, built = pcall(function() return item:BuildRaw() end)

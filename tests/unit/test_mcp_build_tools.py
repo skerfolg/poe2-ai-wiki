@@ -10,6 +10,81 @@ from pok.mcp.tools.build import check_item_legality
 from pok.pob.buildxml import spec_from_dict
 
 
+@pytest.mark.parametrize("missing_stat", [False, True])
+@pytest.mark.parametrize("model_gap", [False, True])
+def test_delta_review_is_produced_only_from_successfully_measured_owners(
+    monkeypatch: pytest.MonkeyPatch,
+    missing_stat: bool,
+    model_gap: bool,
+) -> None:
+    import copy
+
+    from pok.engine.compute import Delta
+    from pok.engine.provenance import stamp
+    from pok.mcp.tools import build
+    from pok.pob.runner import PobResult
+
+    base: dict[str, Any] = {
+        "class_name": "Mercenary",
+        "ascendancy": "Mercenary3",
+        "level": 100,
+        "items": [{"slot": "Weapon 1", "text": "A"}],
+        "skills": [],
+    }
+    base["items"][0]["derived_from"] = {"rares": stamp(base, "rares", tool="optimize_rare")}
+    variant = copy.deepcopy(base)
+    variant["items"][0]["text"] = "B"
+    base_result = PobResult({"Life": 100.0}, {}, (), (), False)
+    result = PobResult({} if missing_stat else {"Life": 110.0}, {}, (), (), False)
+    delta = Delta("weapon", result, {"Life": (100.0, result.stats.get("Life"))})
+    monkeypatch.setattr(build, "spec_from_dict", lambda value: value)
+    monkeypatch.setattr(build, "_delta", lambda *args, **kwargs: (base_result, [delta]))
+    monkeypatch.setattr(
+        build,
+        "_pick",
+        lambda result, *args: {
+            "stats": result.stats,
+            "items_legal": True,
+            "illegal_items": [],
+            "tree_connected": True,
+            "item_sockets_legal": True,
+            **(
+                {"items_pob_gaps": [{"slot": "Ring 1", "unread": ["Known utility"]}]}
+                if model_gap
+                else {}
+            ),
+        },
+    )
+    out = build.evaluate_delta(base, {"weapon": variant}, ["Life"], review_component="items")
+    evidence = out["review"]["search_evidence"]
+    assert evidence["selection"] == "baseline"
+    assert evidence["termination"]["reason"] == "variants_evaluated"
+    assert evidence["termination"]["converged"] is False
+    assert (
+        out["derived_from"]["items"]["items_sig"] == stamp(base, "items", tool="test")["items_sig"]
+    )
+    if missing_stat:
+        assert not evidence["scope"]
+        assert not evidence["revalidation_receipts"]
+        assert any(row["code"] == "unmeasured_stats" for row in evidence["unresolved"])
+    else:
+        assert evidence["scope"]["slots"] == ["Weapon 1"]
+        assert evidence["scope"]["candidates"] == ["weapon"]
+        assert "items[0].derived_from.rares" in evidence["revalidation_receipts"]
+        assert out["deltas"][0]["delta"] == {"Life": 10.0}
+        assert bool(evidence["unresolved"]) is model_gap
+
+
+def test_delta_rejects_unknown_review_component_before_calculation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pok.mcp.tools import build
+
+    monkeypatch.setattr(build, "_delta", lambda *args, **kwargs: pytest.fail("must not compute"))
+    with pytest.raises(ValueError, match="review_component"):
+        build.evaluate_delta({}, {}, review_component="arbitrary-owner")
+
+
 class TestSpecFromDict:
     def test_전체_필드_왕복(self) -> None:
         spec = spec_from_dict(
@@ -236,6 +311,22 @@ def test_req_shortfall_rides_on_every_return() -> None:
 
 
 # ── #155 — assemble_pob이 30분을 조용히 태우고 결과를 잃던 자리 ───────────────────
+
+
+def test_recommendation_without_contract_is_refused_before_expensive_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pok.mcp.tools.build as module
+
+    def unexpected(*args: Any, **kwargs: Any) -> None:
+        pytest.fail("계약 없는 추천은 절차/자동채움/PoB보다 먼저 거부해야 한다")
+
+    monkeypatch.setattr(module, "_procedure_refusal", unexpected)
+    out = module.assemble_pob({"class_name": "Mercenary"}, "not-a-final", purpose="recommendation")
+    assert out["ok"] is False
+    assert out["optimization_readiness"]["status"] == "not_ready"
+    assert out["optimization_readiness"]["blockers"][0]["code"] == "contract_missing"
+    assert "build_code" not in out
 
 
 def test_차단될_스펙에는_자동_채움을_돌리지_않는다(monkeypatch: pytest.MonkeyPatch) -> None:

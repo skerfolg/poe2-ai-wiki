@@ -456,7 +456,13 @@ def spec_from_pob_xml(
                     f"비활성 무기 세트의 '{name}'를 뺐다 — 교체 세트가 활성이라 PoB도 안 쓴다"
                 )
                 continue
-            items.append({"slot": name, "text": by_id[iid]})
+            restored_item: dict[str, Any] = {"slot": name, "text": by_id[iid]}
+            # PoB treats an absent active attribute as false for consumables.
+            if slot.get("active") == "false" or (
+                slot.get("active") is None and name.startswith(("Flask", "Charm"))
+            ):
+                restored_item["active"] = False
+            items.append(restored_item)
     if folded:
         notes.append(
             f"교체 무기 세트가 활성이라 {', '.join(folded)}를 1세트 슬롯으로 접어 실었다 — "

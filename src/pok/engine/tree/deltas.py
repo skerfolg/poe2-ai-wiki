@@ -16,6 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from pok.engine.jewels import unique_limit_rejection
 from pok.engine.tree.graph import TreeGraph
 from pok.pob.buildxml import BuildSpec, ItemSpec, JewelSpec
 from pok.pob.daemon import PobDaemon
@@ -89,6 +90,16 @@ def _tree_only(base: BuildSpec, variant: BuildSpec) -> bool:
     return dataclasses.replace(variant, tree_nodes=base.tree_nodes) == base
 
 
+def _jewel_limit_rejection(spec: BuildSpec, text: str, socket_node_id: int) -> str | None:
+    """A replacement does not count its own socket; unallocated jewels are inactive."""
+    return unique_limit_rejection(
+        text,
+        socket_node_id,
+        ((j.socket_node_id, j.text) for j in spec.jewels),
+        spec.tree_nodes,
+    )
+
+
 def evaluate_node_deltas(
     spec: BuildSpec,
     graph: TreeGraph,
@@ -98,6 +109,8 @@ def evaluate_node_deltas(
     daemon: PobDaemon | None = None,
     jewel_templates: tuple[str, ...] = (),
     jewel_score: Callable[[NodeDelta], float] | None = None,
+    jewel_rejections: list[str] | None = None,
+    exclude_nodes: frozenset[int] = frozenset(),
 ) -> list[NodeDelta]:
     """후보들을 현재 트리에 최단 연결해 각각의 델타를 실측한다.
 
@@ -117,7 +130,7 @@ def evaluate_node_deltas(
         base = m.base()
         score = jewel_score or _partial_relative_gain(base.stats)
         for cand in candidates:
-            path = graph.shortest_path(base_tree, cand)
+            path = graph.shortest_path(base_tree, cand, exclude_nodes=exclude_nodes)
             if path is None or not path:
                 continue  # 이미 트리에 있거나 도달 불가
             node = graph.nodes[cand]
@@ -126,10 +139,18 @@ def evaluate_node_deltas(
                 texts = (None, *jewel_templates)
             measured: list[NodeDelta] = []
             for text in texts:
+                if text is not None and (reason := _jewel_limit_rejection(spec, text, cand)):
+                    if jewel_rejections is not None and reason not in jewel_rejections:
+                        jewel_rejections.append(reason)
+                    continue
                 variant = dataclasses.replace(spec, tree_nodes=tuple(spec.tree_nodes) + tuple(path))
                 if text is not None:
                     variant = dataclasses.replace(
-                        variant, jewels=(*spec.jewels, JewelSpec(socket_node_id=cand, text=text))
+                        variant,
+                        jewels=(
+                            *(j for j in spec.jewels if j.socket_node_id != cand),
+                            JewelSpec(socket_node_id=cand, text=text),
+                        ),
                     )
                 # 주얼을 꽂는 변형은 **아이템이 바뀌므로** 통째로 로드해야 한다 —
                 # `TreeSwapMeasurer`가 그 구분을 한다(빈 소켓 측정은 트리만 바뀐다).
@@ -200,6 +221,7 @@ def evaluate_bundles(
     *,
     stats: tuple[str, ...] = ("CombinedDPS", "Life", "TotalEHP"),
     daemon: PobDaemon | None = None,
+    exclude_nodes: frozenset[int] = frozenset(),
 ) -> list[BundleDelta]:
     """묶음을 **통째로** 실측한다 — 노드 단위 그리디가 구조적으로 놓치는 것.
 
@@ -229,7 +251,7 @@ def evaluate_bundles(
             unreachable: list[int] = []
             grown = set(base_tree)
             for node_id in nodes:
-                path = graph.shortest_path(grown, node_id)
+                path = graph.shortest_path(grown, node_id, exclude_nodes=exclude_nodes)
                 if path is None:
                     unreachable.append(node_id)
                     continue
@@ -254,7 +276,9 @@ def evaluate_bundles(
             result = m.measure(variant)
             if result.pruned_nodes:
                 continue  # 요청한 트리가 반영되지 않은 측정은 무효다
-            parts = evaluate_node_deltas(spec, graph, list(nodes), stats=stats, daemon=d)
+            parts = evaluate_node_deltas(
+                spec, graph, list(nodes), stats=stats, daemon=d, exclude_nodes=exclude_nodes
+            )
             sum_of_parts = {k: round(sum(p.deltas.get(k, 0.0) for p in parts), 4) for k in stats}
             out.append(
                 BundleDelta(

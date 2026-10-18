@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from pok.engine.runes import (
     RuneOption,
     check_rune_rules,
@@ -72,6 +74,64 @@ def test_render_replaces_existing_socket_line() -> None:
     assert text.count("Sockets:") == 1
 
 
+def test_render_replaces_old_rune_declarations_and_mods() -> None:
+    old = RuneOption("old", "Greater Old Rune", ("old bonus",))
+    new = RuneOption("new", "Perfect New Rune", ("new bonus",))
+    base = _BASE + "\n200% increased effect of Socketed Runes\n{crafted}ordinary modifier"
+    previous = render_runed(base, [old, old])
+    replaced = render_runed(previous, [new])
+    assert replaced == render_runed(base, [new])
+    assert "old bonus" not in replaced
+    assert replaced.count("Rune:") == 1
+    assert render_runed(previous, []) == base
+    assert render_runed(replaced, [new]) == replaced
+
+
+@pytest.mark.parametrize(
+    "tag_prefix", ["{enchant}{rune}", "{rune}{enchant}", "{range:0.5}{RUNE}{enchant}"]
+)
+def test_native_tagged_runes_are_replaced_without_consuming_other_implicits(
+    tag_prefix: str,
+) -> None:
+    native = (
+        f"{_BASE}\nSockets: S S\nRune: Greater Old Rune\nRune: Greater Old Rune"
+        f"\nImplicits: 4\n{tag_prefix}old first bonus\n{{enchant}}ordinary enchantment"
+        "\n{enchant}{rune}old second bonus\nordinary implicit"
+        "\n200% increased effect of Socketed Runes\nText mentioning {rune} later"
+    )
+    clean = (
+        f"{_BASE}\nImplicits: 2\n{{enchant}}ordinary enchantment\nordinary implicit"
+        "\n200% increased effect of Socketed Runes\nText mentioning {rune} later"
+    )
+    rune = RuneOption("new", "Perfect New Rune", ("new bonus",))
+    assert render_runed(native, []) == clean
+    assert render_runed(native, [rune]) == render_runed(clean, [rune])
+    assert render_runed(render_runed(native, [rune]), [rune]) == render_runed(clean, [rune])
+
+
+def test_reoptimization_measures_runeless_baseline_and_replaces_existing_runes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    old = RuneOption("old", "Greater Old Rune", ("old bonus",))
+    new = RuneOption("new", "Perfect New Rune", ("new bonus",))
+    monkeypatch.setattr("pok.engine.runes.enumerate_slot_runes", lambda *_: [new])
+    spec = {**SPEC, "items": [{"slot": "Weapon 1", "text": render_runed(_BASE, [old, old])}]}
+    calls: list[str] = []
+
+    def compute(candidate: dict[str, Any]) -> dict[str, float]:
+        text = candidate["items"][0]["text"]
+        calls.append(text)
+        return {"CombinedDPS": 100 + 10 * text.count("{rune}")}
+
+    fill = optimize_runes(spec, "Weapon 1", {"CombinedDPS": 1}, sockets=2, compute=compute)
+    assert fill is not None
+    assert calls[0] == _BASE
+    assert all("Old Rune" not in text and "old bonus" not in text for text in calls)
+    assert fill.text == render_runed(_BASE, [new, new])
+    assert fill.delta == {"CombinedDPS": 20}
+    assert calls[-1] == fill.text
+
+
 def test_rune_rules_match_user_confirmed_constraints() -> None:
     """유산 1개 · 고유명 같은 이름 1개 · 일반은 중복 가능 (사용자 확인 2026-08-09)."""
     legacy_a = RuneOption("a", "Legacy of Cursecarver", ("x",))
@@ -113,6 +173,106 @@ def test_greedy_respects_sockets_and_rules() -> None:
 def test_no_sockets_means_no_fill() -> None:
     """칸이 없으면 아무것도 만들지 않는다 — 없는 것을 채웠다고 말하지 않는다."""
     assert optimize_runes(SPEC, "Weapon 1", {"CombinedDPS": 1.0}, sockets=0) is None
+
+
+def test_best_generic_is_reused_before_lower_scoring_distinct_runes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A legal duplicate must compete with lesser distinct choices for every socket."""
+    options = [
+        RuneOption("best", "Perfect Alpha Rune", ("alpha",)),
+        RuneOption("lesser", "Greater Alpha Rune", ("lesser",)),
+        RuneOption("named", "Named Rune", ("named",)),
+    ]
+    monkeypatch.setattr("pok.engine.runes.enumerate_slot_runes", lambda *_: options)
+    calls: list[str] = []
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        text = spec["items"][0]["text"]
+        calls.append(text)
+        return {
+            "CombinedDPS": 100.0
+            + sum(
+                text.splitlines().count("Rune: " + rune.name) * value
+                for rune, value in zip(options, (10, 7, 8), strict=True)
+            )
+        }
+
+    fill = optimize_runes(SPEC, "Weapon 1", {"CombinedDPS": 1}, sockets=3, compute=compute)
+    assert fill is not None
+    assert [r.label for r in fill.chosen] == ["best", "best", "best"]
+    assert fill.delta == {"CombinedDPS": 30.0}
+    assert len(fill.measured) == 3
+    assert [step["marginal_delta"]["CombinedDPS"] for step in fill.selection_steps] == [10] * 3
+    assert calls[-1] == fill.text, "The exact returned text must be recomputed last."
+
+
+def test_each_socket_uses_actual_marginal_gain_after_a_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options = [
+        RuneOption("capped", "Perfect Capped Rune", ("capped",)),
+        RuneOption("uncapped", "Greater Uncapped Rune", ("uncapped",)),
+    ]
+    monkeypatch.setattr("pok.engine.runes.enumerate_slot_runes", lambda *_: options)
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        lines = spec["items"][0]["text"].splitlines()
+        return {
+            "CombinedDPS": (
+                100.0
+                + min(1, lines.count("Rune: Perfect Capped Rune")) * 10
+                + lines.count("Rune: Greater Uncapped Rune") * 7
+            )
+        }
+
+    fill = optimize_runes(SPEC, "Weapon 1", {"CombinedDPS": 1}, sockets=3, compute=compute)
+    assert fill is not None
+    assert [r.label for r in fill.chosen] == ["capped", "uncapped", "uncapped"]
+    assert fill.delta == {"CombinedDPS": 24.0}
+    assert [step["marginal_delta"]["CombinedDPS"] for step in fill.selection_steps] == [10, 7, 7]
+
+
+@pytest.mark.parametrize("exclude_legacy", [False, True])
+def test_reselection_preserves_named_and_legacy_limits_before_calculation(
+    monkeypatch: pytest.MonkeyPatch,
+    exclude_legacy: bool,
+) -> None:
+    options = [
+        RuneOption("named", "Named Rune", ("named",)),
+        RuneOption("legacy-a", "Legacy of A", ("a",)),
+        RuneOption("legacy-b", "Legacy of B", ("b",)),
+        RuneOption("generic", "Perfect Generic Rune", ("generic",)),
+    ]
+    monkeypatch.setattr("pok.engine.runes.enumerate_slot_runes", lambda *_: options)
+
+    def compute(spec: dict[str, Any]) -> dict[str, float]:
+        lines = spec["items"][0]["text"].splitlines()
+        assert lines.count("Rune: Named Rune") <= 1
+        assert sum(line.startswith("Rune: Legacy of ") for line in lines) <= 1
+        if exclude_legacy:
+            assert not any(line.startswith("Rune: Legacy of ") for line in lines)
+        return {
+            "CombinedDPS": 100.0
+            + sum(
+                lines.count("Rune: " + rune.name) * value
+                for rune, value in zip(options, (12, 11, 10, 5), strict=True)
+            )
+        }
+
+    fill = optimize_runes(
+        SPEC,
+        "Weapon 1",
+        {"CombinedDPS": 1},
+        sockets=5,
+        compute=compute,
+        exclude_legacy=exclude_legacy,
+    )
+    assert fill is not None
+    expected = ["named"] + ([] if exclude_legacy else ["legacy-a"])
+    expected += ["generic"] * (5 - len(expected))
+    assert [r.label for r in fill.chosen] == expected
+    assert check_rune_rules(fill.chosen) == ()
 
 
 def test_조건부_줄을_버리지_않고_갈라서_낸다() -> None:

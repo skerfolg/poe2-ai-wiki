@@ -52,6 +52,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pok.engine.jewels import unique_limit_rejection
 from pok.engine.legality import _DECLARED_AFFIX, _parse_item
 from pok.engine.valuation import UnscoredAxis, axis_gain, unscored_axes
 
@@ -136,6 +137,7 @@ class CandidateResult:
     # 요구 속성 미달 {"str": 부족분, …} — PoB는 미달이어도 계산해 주므로 1판 델타가
     # 낙관이다. 미달 후보는 채택 금지, 2판(속성 탐침)으로 "지불 시 이득"만 낸다.
     req_shortfall: dict[str, float] = field(default_factory=dict)
+    legality_violations: tuple[str, ...] = ()
 
     def score(self, weights: Mapping[str, float], base: Mapping[str, float] | None = None) -> float:
         """정책 점수. `base`(현재 스펙의 실측)를 주면 **비선형 축에 곡선을 건다**.
@@ -163,7 +165,7 @@ class CandidateResult:
     @property
     def blocked(self) -> bool:
         """지금 이대로는 채택 불가 — 바닥선 위반이거나 착용 불가."""
-        return bool(self.floor_violations) or bool(self.req_shortfall)
+        return bool(self.floor_violations or self.req_shortfall or self.legality_violations)
 
     @property
     def conditional_peak(self) -> bool:
@@ -216,6 +218,7 @@ class ChainResult:
     delta_members_alone: tuple[dict[str, float], ...]
     floor_violations: tuple[str, ...]
     req_shortfall: dict[str, float]
+    legality_violations: tuple[str, ...] = ()
 
     def score(self, weights: Mapping[str, float], base: Mapping[str, float] | None = None) -> float:
         return sum(
@@ -233,7 +236,7 @@ class ChainResult:
 
     @property
     def blocked(self) -> bool:
-        return bool(self.floor_violations) or bool(self.req_shortfall)
+        return bool(self.floor_violations or self.req_shortfall or self.legality_violations)
 
 
 @dataclass(frozen=True)
@@ -260,6 +263,7 @@ class ItemOptimizeResult:
     # 셋 다 사용자가 지적해줘야 발견됐다. 채택은 호출자가 정하되 **안 보이는 채로
     # 배제되는 일은 없어진다**(AD-3). 압축 근거는 `engine.valuation.unscored_axes`.
     unscored_axes: tuple[UnscoredAxis, ...] = ()
+    search_evidence: dict[str, Any] = field(default_factory=dict)
 
 
 def resolve_rolls(text: str, roll: str = "mid") -> str:
@@ -545,7 +549,11 @@ def _replace_slot(spec: dict[str, Any], slot: str, text: str) -> dict[str, Any]:
         return {**spec, "jewels": [*jewels, {"socket_node_id": node, "text": text}]}
     items = [dict(i) for i in spec.get("items") or []]
     kept = [i for i in items if i.get("slot") != slot]
-    return {**spec, "items": [*kept, {"slot": slot, "text": text}]}
+    old = next((i for i in items if i.get("slot") == slot), {})
+    replacement: dict[str, Any] = {"slot": slot, "text": text}
+    if "active" in old:
+        replacement["active"] = old["active"]
+    return {**spec, "items": [*kept, replacement]}
 
 
 def _with_probe_lines(spec: dict[str, Any], lines: Sequence[str]) -> dict[str, Any]:
@@ -627,6 +635,17 @@ def _supply_magnitude(text: str, axis: str) -> float:
 ComputeFn = Callable[[dict[str, Any]], dict[str, float]]
 
 
+def _jewel_slot_rejection(spec: dict[str, Any], slot: str, text: str) -> str | None:
+    if not slot.startswith("Jewel@"):
+        return None
+    return unique_limit_rejection(
+        text,
+        int(slot.split("@", 1)[1]),
+        ((int(j["socket_node_id"]), str(j.get("text", ""))) for j in spec.get("jewels") or []),
+        {int(n) for n in spec.get("tree_nodes") or []},
+    )
+
+
 def _default_compute() -> ComputeFn:
     """측정 함수 — **상주 데몬 우선**, 없으면 1회성 경로 (백로그 #61, 2026-08-11).
 
@@ -671,6 +690,19 @@ def evaluate_slot(
     results: list[CandidateResult] = []
     probed_base: dict[str, dict[str, float]] = {}
     for cand in candidates:
+        if reason := _jewel_slot_rejection(spec, slot, cand.text):
+            results.append(
+                CandidateResult(
+                    candidate=cand,
+                    delta_now={},
+                    scaling_axes=(),
+                    delta_probed=None,
+                    probe=None,
+                    floor_violations=(),
+                    legality_violations=(reason,),
+                )
+            )
+            continue
         variant = _replace_slot(spec, slot, cand.text)
         measured = run(variant)
         delta_now = {k: round(measured.get(k, 0.0) - base.get(k, 0.0), 4) for k in stats}
@@ -712,6 +744,27 @@ def evaluate_slot(
     return results
 
 
+def _prepare_chain(
+    spec: dict[str, Any],
+    members: Sequence[CandidateResult],
+) -> tuple[dict[str, Any], tuple[str, ...]]:
+    variant = dict(spec)
+    for member in members:
+        variant = _replace_slot(variant, member.candidate.slot, member.candidate.text)
+    violations = tuple(
+        dict.fromkeys(
+            reason
+            for member in members
+            if (
+                reason := _jewel_slot_rejection(
+                    variant, member.candidate.slot, member.candidate.text
+                )
+            )
+        )
+    )
+    return variant, violations
+
+
 def _measure_chain(
     spec: dict[str, Any],
     base: Mapping[str, float],
@@ -722,9 +775,17 @@ def _measure_chain(
     floors: Mapping[str, float] | None,
     run: ComputeFn,
 ) -> ChainResult:
-    variant = dict(spec)
-    for member in members:
-        variant = _replace_slot(variant, member.candidate.slot, member.candidate.text)
+    variant, violations_legal = _prepare_chain(spec, members)
+    if violations_legal:
+        return ChainResult(
+            members=tuple((m.candidate.label, m.candidate.slot) for m in members),
+            axis_path=tuple(axis_path),
+            delta_chain={},
+            delta_members_alone=tuple(m.delta_now for m in members),
+            floor_violations=(),
+            req_shortfall={},
+            legality_violations=violations_legal,
+        )
     measured = run(variant)
     delta = {k: round(measured.get(k, 0.0) - base.get(k, 0.0), 4) for k in stats}
     violations = tuple(
@@ -777,7 +838,7 @@ def optimize_items(
       연쇄가 아직 착용 불가면 그 속성, 아니면 같은 스케일 축. 시드·공급자 모두
       유니크·희귀 템플릿을 가리지 않는다(고유+희귀·희귀+희귀 연쇄 동일 경로).
     - `slots`에 `"Jewel"`을 넣으면 `jewel_sockets`(트리에 **할당된** 소켓 node_id)의
-      빈 칸에 유니크 주얼을 실측한다. 소켓을 안 주면 후보가 있어도 **미측정으로
+      빈 칸과 점유 칸에 유니크 주얼을 실측한다. 소켓을 안 주면 후보가 있어도 **미측정으로
       보고**한다 — 없다고 단정하지 않는다.
     """
     # 방어 축은 **가중치와 무관하게 항상 잰다.** PoB 1회 실행이 619개 스탯을 한꺼번에
@@ -819,7 +880,33 @@ def optimize_items(
             f"방어 축 예: {', '.join(_DEFENSIVE_AXES[:3])}"
         )
 
+    # Replacements must include occupied sockets, not just the first empty one.
+    requested_slots = list(dict.fromkeys(slots))
+    search_slots: list[str] = []
+    unresolved: list[dict[str, Any]] = []
+    allocated = set(spec.get("tree_nodes") or [])
+    valid_sockets = [s for s in dict.fromkeys(jewel_sockets) if s in allocated]
+    for slot in requested_slots:
+        if slot == "Jewel":
+            search_slots.extend(f"Jewel@{s}" for s in valid_sockets)
+            if not valid_sockets:
+                note("Jewel: 할당된 jewel_sockets가 없어 미측정")
+                unresolved.append(
+                    {"code": "unmeasured_slot", "detail": "Jewel", "scope": ["Jewel"]}
+                )
+        else:
+            search_slots.append(slot)
+    rounds_evaluated = 0
+    termination_reason = "round_limit"
+    counts: dict[str, dict[str, int]] = {}
+    unmeasurable: dict[str, list[str]] = {}
+    rejected_candidates: dict[str, list[dict[str, Any]]] = {}
+    chain_rounds: list[dict[str, Any]] = []
+    chain_limited = False
+    round_results: list[CandidateResult] = []
+    base_now: dict[str, float] = {}
     for _ in range(max_rounds):
+        rounds_evaluated += 1
         base_now = run(current)
         base_short = _req_shortfall(base_now)
         if base_short:
@@ -828,34 +915,25 @@ def optimize_items(
                 f"쓰지 않지만(후보 탓이 아니다), 트리·장비로 채워야 실제 착용이 성립한다"
             )
         best: tuple[float, str, CandidateResult] | None = None
-        round_results: list[CandidateResult] = []
-        for slot in slots:
+        round_results = []
+        for slot in search_slots:
             eval_slot = slot
-            if slot == "Jewel":
-                used = {j.get("socket_node_id") for j in current.get("jewels") or []}
-                free = [s for s in jewel_sockets if s not in used]
-                pool = enumerate_slot_uniques("Jewel", root)
-                if not free:
-                    note(
-                        f"Jewel: 유니크 주얼 후보 {len(pool)}건 **미측정** — "
-                        f"jewel_sockets(트리에 할당된 소켓 node_id)가 없거나 다 찼다. "
-                        f"'없다'가 아니라 '안 쟀다'이다"
-                    )
-                    continue
-                eval_slot = f"Jewel@{free[0]}"
             candidates = enumerate_slot_uniques(eval_slot, root)
+            available = len(candidates)
             if max_candidates_per_slot is not None and len(candidates) > max_candidates_per_slot:
                 note(
                     f"{slot}: 후보 {len(candidates)}건 중 {max_candidates_per_slot}건만 측정 — "
                     f"절단됨. 전수 측정은 max_candidates_per_slot을 빼면 된다"
                 )
                 candidates = candidates[:max_candidates_per_slot]
+            unique_considered = len(candidates)
             # ⛔ **PoB가 못 읽는 후보를 신고한다** (#123). 델타가 0으로 나오는데 그 0이
             #    실측인지 미측정인지 호출자가 알 방법이 없다 — `optimize_rare`는 접사
             #    풀에 대해 이걸 이미 낸다(`rares.py:530`). 유니크 경로만 안 하고 있었다.
             #    ⚠ 절단(`max_candidates_per_slot`) **뒤에** 센다 — 실제로 잰 풀 기준이라야
             #    「이 결과의 바닥값」이라는 말이 성립한다.
             unreadable = [c for c in candidates if c.pob_unmeasurable]
+            unmeasurable[slot] = [c.label for c in unreadable]
             if unreadable:
                 sample = ", ".join(c.label for c in unreadable[:3])
                 note(
@@ -866,10 +944,20 @@ def optimize_items(
                     f"못 읽어서일 수 있다 — 배제 목록이 아니라 **미탐색 목록**이다. "
                     f"등가 문구로 바꿔 `ItemSpec.substitutes`에 넣으면 추산으로는 잴 수 있다"
                 )
-            for i, text in enumerate((rare_templates or {}).get(slot, [])):
+            templates = list((rare_templates or {}).get(slot, []))
+            if slot.startswith("Jewel@"):
+                templates.extend((rare_templates or {}).get("Jewel", []))
+            for i, text in enumerate(templates):
                 candidates.append(
                     ItemCandidate(f"rare:{slot}#{i}", eval_slot, text, "rare-template")
                 )
+            counts[slot] = {
+                "available_unique": available,
+                "unique_considered": unique_considered,
+                "evaluated": 0,
+                "rejected": 0,
+                "rare_templates": len(templates),
+            }
             if not candidates:
                 note(f"{slot}: 후보 0건 — 슬롯 매핑 밖이거나 KB에 유니크가 없다")
                 continue
@@ -877,6 +965,19 @@ def optimize_items(
                 current, eval_slot, candidates,
                 stats=measure, floors=floors, compute=run, base_stats=base_now,
             ):  # fmt: skip
+                if result.legality_violations:
+                    counts[slot]["rejected"] += 1
+                    rejected_candidates.setdefault(slot, []).append(
+                        {
+                            "label": result.candidate.label,
+                            "round": rounds_evaluated,
+                            "reasons": list(result.legality_violations),
+                        }
+                    )
+                    for reason in result.legality_violations:
+                        note(reason)
+                    continue
+                counts[slot]["evaluated"] += 1
                 round_results.append(result)
                 score = result.score(weights, base_now)
                 if not result.blocked and score > 0 and (best is None or score > best[0]):
@@ -904,13 +1005,16 @@ def optimize_items(
             reverse=True,
         )[:3]
         budget = max_chain_measures_per_round
+        chain_measurements = 0
+        unmeasured_extensions: list[dict[str, Any]] = []
+        rejected_extensions: list[dict[str, Any]] = []
         for seed in demand:
             members = [seed]
             axis_path: list[str] = []
             used_slots = {seed.candidate.slot}
             cur_score = seed.score(weights, base_now)
             axis = seed.scaling_axes[0] if seed.scaling_axes else next(iter(seed.req_shortfall), "")
-            while axis and len(members) < max_chain and budget > 0:
+            while axis and len(members) < max_chain:
                 suppliers = sorted(
                     (
                         r for r in round_results
@@ -923,14 +1027,39 @@ def optimize_items(
                 )[:2]  # fmt: skip
                 extended: tuple[float, ChainResult, CandidateResult] | None = None
                 for supplier in suppliers:
+                    # Legality does not consume an oracle budget. Known illegal pairs
+                    # must not become unresolved merely because the budget is zero.
+                    _, illegal = _prepare_chain(current, [*members, supplier])
+                    if illegal:
+                        rejected_extensions.append(
+                            {
+                                "members": [m.candidate.label for m in [*members, supplier]],
+                                "reasons": list(illegal),
+                            }
+                        )
+                        for reason in illegal:
+                            note(reason)
+                        continue
                     if budget <= 0:
-                        break
-                    budget -= 1
+                        unmeasured_extensions.append(
+                            {
+                                "seed": seed.candidate.label,
+                                "members": [m.candidate.label for m in members],
+                                "suppliers": [supplier.candidate.label],
+                            }
+                        )
+                        continue
                     chain = _measure_chain(
                         current, base_now, [*members, supplier], [*axis_path, axis],
                         stats=measure, floors=floors, run=run,
                     )  # fmt: skip
                     chains.append(chain)
+                    if chain.legality_violations:
+                        for reason in chain.legality_violations:
+                            note(reason)
+                        continue
+                    budget -= 1
+                    chain_measurements += 1
                     c_score = chain.score(weights, base_now)
                     if (
                         not chain.blocked
@@ -949,6 +1078,26 @@ def optimize_items(
                 axis_path.append(axis)
                 # 다음 축: 연쇄가 아직 착용 불가면 그 속성부터, 아니면 같은 축을 계속
                 axis = next(iter(chain.req_shortfall), axis)
+
+        chain_rounds.append(
+            {
+                "round": rounds_evaluated,
+                "measurements": chain_measurements,
+                "budget": max_chain_measures_per_round,
+                "unmeasured_extensions": unmeasured_extensions,
+                "rejected_extensions": rejected_extensions,
+            }
+        )
+        if unmeasured_extensions:
+            chain_limited = True
+            unresolved.append(
+                {
+                    "code": "chain_measurement_limit",
+                    "detail": f"round {rounds_evaluated}",
+                    "scope": unmeasured_extensions,
+                }
+            )
+            note(f"연쇄 실측 예산 제한: {rounds_evaluated}라운드에 미측정 확장이 남았다")
 
         if best_chain is not None and (best is None or best_chain[0] > best[0]):
             _, chain, parts = best_chain
@@ -970,6 +1119,9 @@ def optimize_items(
             )
             continue
         if best is None:
+            termination_reason = (
+                "chain_measurement_limit" if unmeasured_extensions else "no_positive_candidate"
+            )
             break
         _, slot, chosen = best
         current = _replace_slot(current, slot, chosen.candidate.text)
@@ -1009,6 +1161,12 @@ def optimize_items(
         f"PoB 실측 {measured_count}회 — 상주 데몬이면 1회 ~0.17초, 없으면 ~1.82초다"
         f"(10.5배). 슬롯·라운드를 늘리면 선형으로 는다"
     )
+    for slot, labels in unmeasurable.items():
+        if labels:
+            unresolved.append({"code": "unsupported_candidates", "detail": slot, "scope": labels})
+    for slot, count in counts.items():
+        if count["unique_considered"] < count["available_unique"]:
+            unresolved.append({"code": "truncated_candidates", "detail": slot, "scope": [slot]})
     return ItemOptimizeResult(
         spec=current,
         steps=tuple(steps),
@@ -1017,6 +1175,32 @@ def optimize_items(
         chains=tuple(chains),
         defensive_only=tuple(ranked),
         unscored_axes=axes,
+        search_evidence={
+            "scope": {
+                "slots": list(counts),
+                "jewel_sockets": valid_sockets,
+                "requested_slots": requested_slots,
+                "candidate_counts": counts,
+            },
+            "settings": {
+                "max_rounds": max_rounds,
+                "max_chain": max_chain,
+                "max_chain_measures_per_round": max_chain_measures_per_round,
+                "max_candidates_per_slot": max_candidates_per_slot,
+            },
+            "termination": {
+                "reason": termination_reason,
+                "converged": termination_reason == "no_positive_candidate" and not chain_limited,
+                "rounds_evaluated": rounds_evaluated,
+                "measurements": measured_count,
+                "chain_measurements": sum(r["measurements"] for r in chain_rounds),
+                "chain_budget_limited": chain_limited,
+            },
+            "chain_rounds": chain_rounds,
+            "rejected_candidates": rejected_candidates,
+            "unresolved": unresolved,
+            "unmeasurable_candidates": unmeasurable,
+        },
     )
 
 

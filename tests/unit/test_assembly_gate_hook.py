@@ -100,6 +100,7 @@ def boundaries(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[Any]]:
             build_code="test-code",
             duplicates=(),
             result=object(),
+            optimization_readiness={"status": "not_ready", "recommendation_ready": False},
         )
 
     def optimize(spec: Any, slot: str, base: str, weights: Any) -> SimpleNamespace:

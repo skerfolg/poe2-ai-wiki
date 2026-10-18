@@ -37,6 +37,7 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import functools
+import math
 import os
 import re
 from collections.abc import Callable
@@ -52,6 +53,12 @@ from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.integrity import spec_integrity
 from pok.engine.items import req_shortfall, unbuilt_declarations, unread_item_lines
 from pok.engine.legality import ItemLegalityChecker
+from pok.engine.optimization_readiness import (
+    REVIEW_COMPONENTS,
+    OptimizationNotReadyError,
+    measured_review_receipt,
+    optimization_readiness,
+)
 from pok.engine.procedures import check_procedures
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob.buildxml import spec_from_dict
@@ -596,29 +603,103 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
 
 
 def evaluate_delta(
-    base_spec: dict[str, Any], variants: dict[str, dict[str, Any]], stats: list[str] | None = None
+    base_spec: dict[str, Any],
+    variants: dict[str, dict[str, Any]],
+    stats: list[str] | None = None,
+    review_component: str | None = None,
 ) -> dict[str, Any]:
     """변경안들의 스탯 델타를 PoB로 실측 (추측 금지의 실행 수단, AD-8).
-    variants = {라벨: 변경된 build_spec}. 반환 delta는 변경안-기준의 차이."""
+    variants = {라벨: 변경된 build_spec}. 반환 delta는 변경안-기준의 차이.
+    review_component를 주면 성공한 실제 대안 측정 범위에서 기준(base) 구성의
+    평가 영수증을 만든다. 임의 재검증 경로는 받지 않으며 수렴/최적해를 주장하지 않는다.
+    반환 derived_from은 base_spec에만 적용한다. 변경안을 채택했다면 그것을 새 기준으로
+    다시 평가해야 한다."""
+    if review_component is not None and review_component not in REVIEW_COMPONENTS:
+        raise ValueError(f"review_component는 {REVIEW_COMPONENTS} 중 하나여야 한다")
+    requested = list(stats or DEFAULT_STATS)
     base_result, deltas = _delta(
         spec_from_dict(base_spec),
         {label: spec_from_dict(v) for label, v in variants.items()},
-        stats=tuple(stats or DEFAULT_STATS),
+        stats=() if requested == ["*"] else tuple(requested),
     )
-    return {
-        "base": _pick(base_result, stats, base_spec),
+    base_output = _pick(base_result, stats, base_spec)
+    variant_outputs = {
+        d.label: (
+            _pick(d.result, stats, variants[d.label])
+            if review_component
+            else _items_legal(variants[d.label])
+        )
+        for d in deltas
+    }
+    out = {
+        "base": base_output,
         "deltas": [
             {
                 "label": d.label,
-                "delta": {k: d.diff(k) for k in (stats or DEFAULT_STATS) if d.diff(k) is not None},
+                "delta": {
+                    k: d.diff(k)
+                    for k in (d.changes if requested == ["*"] else requested)
+                    if d.diff(k) is not None
+                },
                 "tree_connected": d.result.is_tree_legal,
                 # 변경안이 **장비를 바꿨다면** 그 장비가 실재하는지도 봐야 한다 —
                 # 기준만 검사하면 "바꾼 쪽이 가짜"인 델타를 그대로 믿게 된다(#27).
-                **_items_legal(variants[d.label]),
+                **{key: variant_outputs[d.label][key] for key in ("items_legal", "illegal_items")},
             }
             for d in deltas
         ],
     }
+    if review_component is not None:
+
+        def failures(label: str, result: PobResult, output: dict[str, Any]) -> list[dict[str, Any]]:
+            problems = []
+            for key in ("items_legal", "tree_connected", "item_sockets_legal"):
+                if output.get(key) is not True:
+                    problems.append({"code": key, "scope": [label], "observed": output.get(key)})
+            for key in ("dropped_items", "unbuilt_declarations", "items_pob_gaps", "req_shortfall"):
+                if output.get(key):
+                    problems.append({"code": key, "scope": [label], "observed": output[key]})
+            missing = [
+                key
+                for key in requested
+                if key != "*" and (key not in result.stats or not math.isfinite(result.stats[key]))
+            ]
+            if missing or not result.stats:
+                problems.append({"code": "unmeasured_stats", "scope": [label], "stats": missing})
+            return problems
+
+        unresolved = failures("baseline", base_result, base_output)
+        # Known unread wording limits interpretation but does not erase a completed
+        # numerical measurement. It remains an exact, nonempty unresolved issue.
+        baseline_ok = not any(row["code"] != "items_pob_gaps" for row in unresolved)
+        measured = {}
+        for d in deltas:
+            problems = failures(d.label, d.result, variant_outputs[d.label])
+            unresolved.extend(problems)
+            if not any(row["code"] != "items_pob_gaps" for row in problems) and baseline_ok:
+                measured[d.label] = variant_outputs[d.label]["stats"]
+        measured_labels = {d.label for d in deltas}
+        unresolved.extend(
+            {"code": "variant_unmeasured", "scope": [label]}
+            for label in variants
+            if label not in measured_labels
+        )
+        mark = measured_review_receipt(
+            base_spec,
+            variants,
+            measured,
+            component=review_component,
+            stats=requested,
+            baseline_stats=base_output["stats"],
+            unresolved=unresolved,
+        )
+        out["derived_from"] = {**(base_spec.get("derived_from") or {}), review_component: mark}
+        out["review"] = {
+            "component": review_component,
+            "selection": "baseline",
+            "search_evidence": mark["search_evidence"],
+        }
+    return out
 
 
 def check_item_legality(item_text: str) -> dict[str, Any]:
@@ -763,9 +844,14 @@ def assemble_pob(
     slug: str,
     stats: list[str] | None = None,
     ctx: Context | None = None,
+    purpose: str = "exploration",
 ) -> dict[str, Any]:
     """빌드 조립→검증→계산→artifacts/builds/<build-id>/ 기록. 비합법이면
     거부하고 사유 반환. 성공 시 PoB 공유 코드(build_code) 포함.
+
+    purpose='recommendation'은 build_spec.optimization_contract의 선언 범위와
+    실제 최적화 증거가 충족되어야 한다. 계약 누락/부분 탐색/미해결 증거는 계산 전에
+    거부한다. 기본 exploration은 합법 조립을 허용하되 추천 준비도를 별도로 기록한다.
 
     도장 없는 희귀 슬롯은 자동으로 optimize_rare를 돌려 채운다 — 칸마다 진행을 알리고
     벽시계 예산(기본 20분, `POK_AUTOFILL_BUDGET_S`) 안에서만 돈다. 넘치는 칸은
@@ -773,6 +859,16 @@ def assemble_pob(
     주입한다 — 호출자가 주지 않는다."""
     from pok.pob.buildxml import find_probe_lines
 
+    try:
+        readiness = optimization_readiness(build_spec, purpose=purpose)
+    except ValueError as e:
+        return {"ok": False, "reason": str(e)}
+    if purpose == "recommendation" and not readiness["recommendation_ready"]:
+        return {
+            "ok": False,
+            "reason": "최종 추천에 필요한 최적화 증거가 부족하다",
+            "optimization_readiness": readiness,
+        }
     refusal = _procedure_refusal(build_spec)
     if refusal is not None:
         return refusal
@@ -869,8 +965,14 @@ def assemble_pob(
             return _blocked(assumptions)
     try:
         built = assemble(
-            spec_from_dict(build_spec), slug, checker=_get_checker(), spec_data=build_spec
+            spec_from_dict(build_spec),
+            slug,
+            checker=_get_checker(),
+            spec_data=build_spec,
+            purpose=purpose,
         )
+    except OptimizationNotReadyError as e:
+        return {"ok": False, "reason": str(e), "optimization_readiness": e.report}
     except (IllegalBuildError, ValueError) as e:
         # 스펙 오류(ValueError)도 사유로 돌려준다 — 예외로 터지면 호출자는
         # "어느 젬의 어느 키"인지 못 보고 추측으로 재시도한다
@@ -902,6 +1004,8 @@ def assemble_pob(
 
     return {
         "ok": True,
+        "purpose": purpose,
+        "optimization_readiness": built.optimization_readiness,
         "build_id": built.build_id,
         "path": str(built.path),
         "build_code": built.build_code,

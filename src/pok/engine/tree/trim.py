@@ -13,7 +13,8 @@
    모여 60%다. 개별 점수로 깎으면 그것부터 헐린다.
 
 **③ 안 재는 축은 조용히 팔린다.** 손실 함수에 EHP를 안 넣었더니 방어 소형 9개가
-   「손실 0」으로 판정돼 EHP가 22% 빠졌다. 그래서 **가중치와 무관하게 전 축을 보고한다.**
+   「손실 0」으로 판정돼 EHP가 22% 빠졌다. 그래서 **가중치와 무관하게 피해 유형·방어·회복의
+   관측 축을 함께 보고한다.** 미모델링 효과의 가치 판정은 아니다.
 
 ⛔ 무엇을 지킬지·얼마를 깎을지는 판정하지 않는다(철칙 3). 재고 알린다.
 """
@@ -27,8 +28,32 @@ from typing import Any
 
 from pok.engine.tree.graph import TreeGraph
 
-# 가중치에 없어도 **항상** 보고하는 축 — 조용히 팔리는 것을 막는다.
-REPORTED_AXES: tuple[str, ...] = ("CombinedDPS", "Life", "TotalEHP", "Str", "Int", "Dex")
+# CombinedDPS는 평균 명중 표시 스킬에서 점화를 포함하지 않을 수 있다.
+# 이 축을 빼면 실제 점화 노드도 손실 0인 자유석으로 잘못 분류한다.
+# 아래는 값이 감소하면 손실로 보고하는 관측 축이며 모든 메커니즘의 가치 판정은 아니다.
+REPORTED_AXES: tuple[str, ...] = (
+    "CombinedDPS",
+    "TotalDPS",
+    "IgniteDPS",
+    "BleedDPS",
+    "TotalPoisonDPS",
+    "TotalDotDPS",
+    "FullDPS",
+    "Life",
+    "EnergyShield",
+    "TotalEHP",
+    "PhysicalMaximumHitTaken",
+    "FireMaximumHitTaken",
+    "ColdMaximumHitTaken",
+    "LightningMaximumHitTaken",
+    "ChaosMaximumHitTaken",
+    "LifeRegen",
+    "ManaRegen",
+    "MovementSpeedMod",
+    "Str",
+    "Int",
+    "Dex",
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -147,16 +172,20 @@ def measure_slack(
     """노드마다 단독 제거 비용을 재서 여유분을 낸다 (①·③).
 
     `measure`는 노드 집합 → 축별 실측치. `weights`가 없으면 `REPORTED_AXES`를 균등하게
-    본다 — **가중치에 없는 축도 항상 보고한다**(③).
+    본다 — **가중치에 없는 관측 축도 함께 보고한다**(③).
     """
     base = measure(allocated)
+    if not base:
+        raise ValueError("기준 트리의 측정값이 없어 제거 비용을 판정할 수 없다")
     axes = list(weights or {k: 1.0 for k in REPORTED_AXES if k in base})
     cands = removable_nodes(graph, allocated, start, protect=protect, floating=floating)
     costs: list[NodeCost] = []
     for n in cands:
         after = measure(allocated - {n})
+        if not after:
+            raise ValueError(f"노드 {n} 제거 후 측정값이 없어 자유석으로 판정할 수 없다")
         deltas = {
-            k: ((after.get(k, 0.0) - base[k]) / base[k] if base.get(k) else 0.0)
+            k: (after.get(k, 0.0) - base.get(k, 0.0)) / (abs(base.get(k, 0.0)) or 1.0)
             for k in set(axes) | set(REPORTED_AXES) & set(base)
         }
         node = graph.nodes.get(n)

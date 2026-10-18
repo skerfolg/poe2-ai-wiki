@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
 from pok.common.paths import knowledge_dir
@@ -27,6 +30,200 @@ needs_pob_snapshot = pytest.mark.skipif(
 @pytest.fixture(scope="module")
 def checker() -> ItemLegalityChecker:
     return ItemLegalityChecker(knowledge_dir())
+
+
+def _actual_merged_item(name: str = "body-add-hybrid-armour-life") -> str:
+    fixture = Path(__file__).with_name("gemling_20261019_merged_affixes.json")
+    return str(json.loads(fixture.read_text(encoding="utf-8"))["items"][name])
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "body-add-hybrid-armour-life",
+        "body-ruin-plus-hybrid",
+        "helmet-add-hybrid-armour-life",
+    ],
+)
+def test_native_flat_and_hybrid_totals_keep_all_declared_affixes(
+    checker: ItemLegalityChecker,
+    name: str,
+) -> None:
+    report = checker.check(_actual_merged_item(name))
+    assert report.is_legal, report
+    assert any("합산 범위" in v.reason for v in report.verdicts)
+
+
+@pytest.mark.parametrize("replacement", ["+999 to maximum Life", "+1 to maximum Life"])
+def test_merged_total_cannot_exceed_or_underrun_contributor_ranges(
+    checker: ItemLegalityChecker,
+    replacement: str,
+) -> None:
+    report = checker.check(_actual_merged_item().replace("+253 to maximum Life", replacement))
+    assert not report.is_legal
+    assert any(v.status == "ILLEGAL" and "합산 범위" in v.reason for v in report.verdicts)
+
+
+@pytest.mark.parametrize(
+    "change", ["missing", "repeated-declaration", "repeated-row", "low-ilvl", "wrong-base"]
+)
+def test_merged_totals_require_distinct_legal_contributors(
+    checker: ItemLegalityChecker,
+    change: str,
+) -> None:
+    text = _actual_merged_item()
+    declaration = "Prefix: {range:0.5}IncreasedLife13\n"
+    if change == "missing":
+        text = text.replace(declaration, "")
+    elif change == "repeated-declaration":
+        text = text.replace(declaration, declaration * 2)
+    elif change == "repeated-row":
+        text = text.replace("+253 to maximum Life", "+253 to maximum Life\n+253 to maximum Life")
+    elif change == "low-ilvl":
+        text += "\nItem Level: 77"  # hybrid tier requires 78; preserve native LevelReq
+    else:
+        text = text.replace("Warlord Cuirass", "Monument Greaves")
+    assert not checker.check(text).is_legal
+
+
+def test_merged_totals_do_not_relax_affix_or_crafted_caps(checker: ItemLegalityChecker) -> None:
+    text = _actual_merged_item() + "\nPrefix: EssencePhysicalDamageTakenAsChaos1"
+    report = checker.check(text)
+    assert not report.is_legal
+    assert any("crafted 2개" in error for error in report.errors)
+    assert any("prefix 4개" in error for error in report.errors)
+
+
+def test_native_mana_corruption_is_not_reclassified_as_desecrated(
+    checker: ItemLegalityChecker,
+) -> None:
+    text = _actual_merged_item("ring-mana-corruption")
+    report = checker.check(text)
+    assert report.is_legal, report
+    assert any("modifier.corruptionmanaregeneration1" in v.reason for v in report.verdicts)
+    # Two real Desecrated prefixes remain forbidden even alongside a valid
+    # corruption; the alternative route does not increase their independent cap.
+    body = _actual_merged_item() + (
+        "\n{custom}+12 to Strength and Intelligence\n{custom}+12 to Strength and Dexterity"
+    )
+    assert any("desecrated 2개" in error for error in checker.check(body).errors)
+
+
+def test_corruption_alternative_requires_its_full_range_and_base(
+    checker: ItemLegalityChecker,
+) -> None:
+    text = _actual_merged_item("ring-mana-corruption")
+    for invalid in (
+        text.replace("(20-30)% increased Mana", "(20-31)% increased Mana"),
+        text.replace("Vitalic Ring", "Monument Greaves"),
+    ):
+        report = checker.check(invalid)
+        assert not report.is_legal, report
+        assert not any("검증된 타락 모드" in v.reason for v in report.verdicts)
+    explicit_origin = checker.check(
+        text.replace("{custom}{range:0.5}", "{custom}{desecrated}{range:0.5}")
+    )
+    assert not any("검증된 타락 모드" in v.reason for v in explicit_origin.verdicts)
+
+
+def _special_body(*lines: str) -> str:
+    return "\n".join(
+        ["Rarity: RARE", "Origin limit regression", "Warlord Cuirass", "Item Level: 86", *lines]
+    )
+
+
+def test_crafted_and_desecrated_have_separate_default_budgets(checker: ItemLegalityChecker) -> None:
+    report = checker.check(
+        _special_body(
+            "Crafted: true",
+            "Prefix: EssenceIncreasedLifePercent1",
+            "Prefix: EssencePhysicalDamageTakenAsChaos1",
+            "{custom}{range:0.5}+(9-15) to Strength and Intelligence",
+            "{custom}{range:0.5}+(9-15) to Strength and Dexterity",
+        )
+    )
+    assert not report.is_legal
+    assert any("crafted 2개" in e for e in report.errors), report
+    assert any("desecrated 2개" in e for e in report.errors), report
+    valid = checker.check(
+        _special_body(
+            "Crafted: true",
+            "Prefix: EssenceIncreasedLifePercent1",
+            "9% increased maximum Life",
+            "Prefix: IncreasedLife13",
+            "+207 to maximum Life",
+            "Suffix: Strength8",
+            "+32 to Strength",
+            "{custom}{range:0.5}+(9-15) to Strength and Intelligence",
+        )
+    )
+    assert valid.is_legal, valid
+
+
+def test_astrid_expands_only_crafted_and_requires_actual_supplier(
+    checker: ItemLegalityChecker,
+) -> None:
+    crafted = ["Prefix: EssenceIncreasedLifePercent1", "Prefix: EssencePhysicalDamageTakenAsChaos1"]
+    supplied = [
+        "Sockets: S",
+        "Rune: Astrid's Creativity",
+        "{enchant}{rune}Can have 1 additional Crafted Modifier",
+    ]
+    good = checker.check(_special_body(*crafted, *supplied))
+    assert good.is_legal, good
+    for invalid_supplier in (
+        supplied[:1] + supplied[2:],
+        ["Sockets: S", "Rune: Perfect Body Rune", supplied[2]],
+        ["Rune: Astrid's Creativity", supplied[2]],
+    ):
+        bad = checker.check(_special_body(*crafted, *invalid_supplier))
+        assert any("crafted 2개" in e for e in bad.errors), bad
+    desecrated = checker.check(
+        _special_body(
+            *supplied,
+            "{custom}+12 to Strength and Intelligence",
+            "{custom}+12 to Strength and Dexterity",
+        )
+    )
+    assert any("desecrated 2개" in e for e in desecrated.errors), desecrated
+
+
+def test_known_custom_special_affixes_keep_value_and_ilvl_checks(
+    checker: ItemLegalityChecker,
+) -> None:
+    report = checker.check(_special_body("{custom}+999 to Strength and Intelligence"))
+    assert not report.is_legal
+    low = checker.check(
+        _special_body("{custom}+12 to Strength and Intelligence").replace("86", "1")
+    )
+    assert not low.is_legal
+    # Arbitrary custom/corruption text and rune effects are not automatically crafted.
+    untouched = checker.check(
+        _special_body("{custom}+42 to an imaginary stat", "{custom}+(13-19)% to Chaos Resistance")
+    )
+    assert not any("crafted" in e or "desecrated" in e for e in untouched.errors)
+
+
+def test_special_origin_uses_exclusive_grants_not_editor_or_normal_origins() -> None:
+    from pok.engine.legality import special_affix_origin
+
+    base = {"affix_type": "prefix", "origins": ["item"], "granted_by": ["item.essence"]}
+    assert special_affix_origin({**base, "spawn_weights": {"default": 0}}) == "crafted"
+    assert special_affix_origin({**base, "spawn_weights": {"default": 100}}) is None
+    assert special_affix_origin({**base, "affix_type": "corrupted"}) is None
+    assert special_affix_origin({**base, "origins": ["desecrated"]}) == "desecrated"
+
+
+def test_explicit_origin_tags_count_even_for_normally_rollable_modifiers(
+    checker: ItemLegalityChecker,
+) -> None:
+    for lines in (
+        ["{crafted}+207 to maximum Life", "{crafted}+32 to Strength"],
+        ["{custom}{crafted}+207 to maximum Life", "{custom}{crafted}+32 to Strength"],
+        ["Prefix: {crafted}IncreasedLife13", "Suffix: {crafted}Strength8"],
+    ):
+        report = checker.check(_special_body(*lines))
+        assert any("crafted 2개" in e for e in report.errors), report
 
 
 def test_정규화_키() -> None:
@@ -607,6 +804,41 @@ def test_variant_lines_do_not_make_a_unique_illegal(checker: ItemLegalityChecker
     # 반대 방향 — 스펙 줄을 건너뛴다고 진짜 모드까지 통과시키면 안 된다
     fake = checker.check(head + "Item Level: 82\n999% increased Nonsense\n")
     assert not fake.is_legal
+
+
+@needs_pob_snapshot
+def test_fireflower_generated_text_accepts_only_current_selected_variant(checker) -> None:
+    from pok.pob.uniques import render_unique
+
+    raw = "Rarity: UNIQUE\n" + render_unique("Fireflower", "Current")
+    result = checker.check(raw)
+    assert result.is_legal, result
+    assert not checker.check(raw + "\n{tags:fire}+99 to Level of all Fire Skills").is_legal
+    # 현재 변형과 관계없는 과거 줄은 검증 대상이 아니다.
+    assert checker.check(raw + "\n{variant:1}999% increased Nonsense").is_legal
+    assert not checker.check(raw + "\n{variant:2}999% increased Nonsense").is_legal
+
+
+@pytest.mark.parametrize(
+    "head",
+    [
+        "Rarity: RARE\nAnointed\nAmber Amulet\nItem Level: 80\n",
+        "Rarity: UNIQUE\nFireflower\nSolar Amulet\n",
+    ],
+)
+def test_real_anoint_reaches_legality_without_free_tree_allocation(checker, head) -> None:
+    assert checker.check(head + "Allocates Lasting Trauma").is_legal
+    assert checker.check(head + "{enchant}Allocates Near at Hand").is_legal
+    duplicate = checker.check(head + "Allocates Lasting Trauma\nAllocates Near at Hand")
+    assert not duplicate.is_legal and any("성유 중복" in e for e in duplicate.errors)
+    assert not checker.check(head + "Allocates A Made Up Passive").is_legal
+    assert not checker.check(head + "Allocates Adaptive Capability").is_legal
+
+
+def test_anoint_is_not_accepted_on_arbitrary_rare_slot(checker) -> None:
+    assert not checker.check(
+        "Rarity: RARE\nWrong slot\nIron Ring\nAllocates Lasting Trauma"
+    ).is_legal
 
 
 def test_rune_conditional_shows_the_actual_rune_value(checker: ItemLegalityChecker) -> None:

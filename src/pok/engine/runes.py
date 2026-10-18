@@ -134,10 +134,32 @@ def render_runed(item_text: str, runes: Sequence[RuneOption]) -> str:
     """아이템 텍스트에 룬을 **PoB가 증폭까지 태우는 형식**으로 박는다.
 
     ⛔ 손으로 `{rune}` 줄만 적지 말 것 — 모드는 들어가고 증폭만 빠진다(모듈 docstring).
+    기존 룬 선언과 시드는 교체한다. 빈 목록은 룬 없는 기준 아이템을 만든다.
     """
+
+    def removed(line: str) -> bool:
+        if line.lstrip().lower().startswith(("sockets:", "rune:")):
+            return True
+        # Native exports can prefix rune effects with {enchant} or {range:...}.
+        # Inspect only the leading tags: prose mentioning a rune is not its mod.
+        tags = re.match(r"^\s*((?:\{[^{}]+\})+)", line)
+        return bool(tags and "{rune}" in tags.group(1).lower())
+
+    original = item_text.splitlines()
+    lines = []
+    for index, line in enumerate(original):
+        if removed(line):
+            continue
+        implicit = re.fullmatch(r"\s*Implicits:\s*(\d+)\s*", line, re.I)
+        if implicit:
+            count = int(implicit.group(1))
+            # Preserve non-rune implicits/enchantments and their boundary. Do not
+            # hide a malformed source count by replacing it with the slice length.
+            count -= sum(removed(mod) for mod in original[index + 1 : index + 1 + count])
+            line = f"Implicits: {count}"
+        lines.append(line)
     if not runes:
-        return item_text
-    lines = [ln for ln in item_text.splitlines() if not ln.lower().startswith("sockets:")]
+        return "\n".join(lines)
     body = [f"Sockets: {' '.join('S' for _ in runes)}"]
     for rune in runes:
         body.append(f"Rune: {rune.name}")
@@ -205,6 +227,7 @@ class RuneFill:
     text: str  # 룬을 박은 아이템 텍스트
     delta: dict[str, float]  # 룬 없는 같은 아이템 대비
     measured: tuple[tuple[str, dict[str, float]], ...]  # 룬별 단독 델타 (전량, 절단 없음)
+    selection_steps: tuple[dict[str, Any], ...] = ()  # 현재 조합 기준 칸별 한계 델타
 
 
 def optimize_runes(
@@ -220,8 +243,9 @@ def optimize_runes(
 ) -> RuneFill | None:
     """슬롯의 룬 칸을 **실측 그리디**로 채운다.
 
-    각 룬을 1칸 넣어 단독 실측한 뒤, 점수 순으로 규칙을 지키며 칸을 채운다. 일반 룬은
-    중복 가능하므로 최고점 하나로 남은 칸을 메운다 — 실제 운용이 그렇다.
+    각 칸에서 현재 조합에 룬 하나를 더한 한계 델타를 실측한다. 일반 룬은 매 칸
+    다시 후보가 되며, 고유명·유산 제한은 완성 중인 조합에 적용한다. 최초 단독
+    델타도 전량 보존한다. 캡·반올림 등으로 한계 기여가 달라질 수 있기 때문이다.
 
     `exclude_legacy`는 **다른 슬롯이 이미 유산을 썼을 때** 준다(유산은 전 장비 1개).
     호출자가 슬롯을 돌며 관리한다 — 엔진은 한 슬롯만 본다(AD-3: 판단은 호출자).
@@ -259,20 +283,43 @@ def optimize_runes(
         delta = {k: round(measured.get(k, 0.0) - naked.get(k, 0.0), 4) for k in measure}
         scored.append((sum(w * delta.get(k, 0.0) for k, w in weights.items()), option, delta))
     scored.sort(key=lambda x: x[0], reverse=True)
-
     chosen: list[RuneOption] = []
-    for score, option, _ in scored:
-        if len(chosen) >= sockets or score <= 0:
+    steps: list[dict[str, Any]] = []
+    current_stats = naked
+    for socket_index in range(sockets):
+        marginal: list[tuple[float, RuneOption, dict[str, float]]] = []
+        for initial_score, option, initial_delta in scored:
+            if check_rune_rules([*chosen, option]):
+                continue
+            if not chosen:
+                score, delta = initial_score, initial_delta
+            else:
+                candidate_stats = run(
+                    _replace_slot(spec, slot, render_runed(base_text, [*chosen, option]))
+                )
+                delta = {
+                    k: round(candidate_stats.get(k, 0.0) - current_stats.get(k, 0.0), 4)
+                    for k in measure
+                }
+                score = sum(w * delta.get(k, 0.0) for k, w in weights.items())
+            marginal.append((score, option, delta))
+        best = max(marginal, key=lambda entry: entry[0], default=None)
+        if best is None or best[0] <= 0:
             break
-        if check_rune_rules([*chosen, option]):
-            continue  # 규칙 위반 — 다음 후보로
+        score, option, delta = best
         chosen.append(option)
-    # 남은 칸은 최고점 **일반** 룬으로 메운다 (중복 가능)
-    best_generic = next((o for _, o, _ in scored if o.is_generic), None)
-    if best_generic is not None:
-        top = next(s for s, o, _ in scored if o is best_generic)
-        while len(chosen) < sockets and top > 0:
-            chosen.append(best_generic)
+        # Retain the actual current output rather than accumulating rounded deltas.
+        current_stats = run(_replace_slot(spec, slot, render_runed(base_text, chosen)))
+        steps.append(
+            {
+                "socket": socket_index + 1,
+                "chosen": option.label,
+                "name": option.name,
+                "marginal_delta": delta,
+                "score": score,
+                "eligible_candidates": len(marginal),
+            }
+        )
     if not chosen:
         return None
     text = render_runed(base_text, chosen)
@@ -283,4 +330,5 @@ def optimize_runes(
         text=text,
         delta={k: round(final.get(k, 0.0) - naked.get(k, 0.0), 4) for k in measure},
         measured=tuple((o.label, d) for _, o, d in scored),
+        selection_steps=tuple(steps),
     )

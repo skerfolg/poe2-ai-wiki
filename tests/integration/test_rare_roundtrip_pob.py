@@ -89,3 +89,102 @@ def test_crafted_없는_명세는_접사가_통째로_빠진다() -> None:
     assert built, "아이템 자체는 만들어진다 — 그래서 조용하다"
     assert "+135 to maximum Life" not in built, "접사가 빠지는 것이 현재 동작이다"
     assert "Prefix: " not in built, "선언도 함께 사라진다"
+
+
+# 2026-10-19 실제 jewel-final2-26725의 세 번째 접두가 선언에만 남고
+# 효과에서는 사라졌다. 우리 어댑터가 native Craft의 list.limit를 전달해야 한다.
+_JEWEL_PREFIXES = ("JewelIgniteEffect", "JewelMaceDamage", "JewelAttackDamage")
+_JEWEL_SUFFIXES = (
+    "JewelMaximumFireResistance",
+    "JewelStunThreshold",
+    "JewelBleedingDuration",
+)
+
+
+def _jewel_spec(prefixes: int, suffixes: int) -> str:
+    lines = ["Rarity: RARE", "Native Jewel Regression", "Ruby", "Crafted: true"]
+    lines += [f"Prefix: {{range:0.5}}{key}" for key in _JEWEL_PREFIXES[:prefixes]]
+    lines += [f"Suffix: {{range:0.5}}{key}" for key in _JEWEL_SUFFIXES[:suffixes]]
+    return "\n".join(lines) + "\n"
+
+
+@pytest.fixture(scope="module")
+def jewel_paths() -> tuple[dict[str, str], dict[str, str]]:
+    from pok.pob.daemon import shared_daemon
+    from pok.pob.roundtrip import build_items, roundtrip
+
+    specs = {f"{p}/{s}": _jewel_spec(p, s) for p, s in ((2, 2), (3, 2), (2, 3), (3, 3))}
+    # Do not let an unavailable daemon silently turn this into fallback-only coverage.
+    assert shared_daemon() is not None
+    daemon = build_items(specs)
+    # This is the actual one-shot subprocess used when no daemon is available.
+    fallback = {r.label: r.rebuilt for r in roundtrip(specs) if not r.error}
+    assert daemon.keys() == specs.keys() == fallback.keys()
+    return daemon, fallback
+
+
+@pytest.mark.parametrize("split", ["2/2", "3/2", "2/3", "3/3"])
+def test_jewel_craft_daemon_and_fallback_match(
+    jewel_paths: tuple[dict[str, str], dict[str, str]],
+    split: str,
+) -> None:
+    daemon, fallback = jewel_paths
+    assert daemon[split] == fallback[split]
+
+
+@pytest.mark.parametrize(
+    "split,extra",
+    [
+        ("3/2", "10% increased Attack Damage"),
+        ("2/3", "8% increased Bleeding Duration"),
+    ],
+)
+def test_fifth_jewel_affix_is_rendered_and_legal(
+    jewel_paths: tuple[dict[str, str], dict[str, str]],
+    split: str,
+    extra: str,
+) -> None:
+    from pok.mcp.tools.build import check_item_legality
+    from pok.pob.roundtrip import build_items
+
+    built = jewel_paths[0][split]
+    assert extra in built, "native Craft must render the third affix, not only its declaration"
+    report = check_item_legality(built)
+    assert report["legal"], report["errors"]
+    assert not report.get("not_computable"), report
+    assert build_items({"again": built})["again"] == built
+
+
+def test_six_jewel_affixes_are_rendered_but_rejected(
+    jewel_paths: tuple[dict[str, str], dict[str, str]],
+) -> None:
+    from pok.mcp.tools.build import check_item_legality
+
+    built = jewel_paths[0]["3/3"]
+    assert "10% increased Attack Damage" in built
+    assert "8% increased Bleeding Duration" in built
+    report = check_item_legality(built)
+    assert not report["legal"], "rendering all declarations must not weaken the total-five gate"
+    assert report["errors"]
+
+
+def test_normal_two_by_two_jewel_render_is_unchanged(
+    jewel_paths: tuple[dict[str, str], dict[str, str]],
+) -> None:
+    built = jewel_paths[0]["2/2"]
+    assert built.splitlines() == [
+        "Rarity: RARE",
+        "Native Jewel Regression",
+        "Ruby",
+        "Crafted: true",
+        "Prefix: {range:0.5}JewelIgniteEffect",
+        "Prefix: {range:0.5}JewelMaceDamage",
+        "Suffix: {range:0.5}JewelMaximumFireResistance",
+        "Suffix: {range:0.5}JewelStunThreshold",
+        "LevelReq: 0",
+        "Implicits: 0",
+        "+1% to Maximum Fire Resistance",
+        "10% increased Ignite Magnitude",
+        "11% increased Damage with Maces",
+        "11% increased Stun Threshold",
+    ]
