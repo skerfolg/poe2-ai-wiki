@@ -43,13 +43,77 @@ KB 실측으로 그 지점을 잡았다 — 추측하지 않는다:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 # PoB 스탯 키. 이름이 `MovementSpeed`가 아니다 — 그 오기로 후보 20종이 전부 0으로
 # 찍혔고 세션이 그걸 보고도 넘어갔다(#25 이관이 잡았다).
 MOVEMENT_AXIS = "MovementSpeedMod"
+UTILITY_GAIN_AXES = frozenset(
+    {
+        MOVEMENT_AXIS,
+        "Evasion",
+        "EvadeChance",
+        "FireResistTotal",
+        "ColdResistTotal",
+        "LightningResistTotal",
+        "ChaosResistTotal",
+        "LateLootRarityMod",
+        "Speed",
+        "HitSpeed",
+        "LifeRegen",
+        "ManaRegen",
+        "AreaOfEffectMod",
+    }
+)
+
+
+def observed_stat_delta(
+    measured: Mapping[str, float], base: Mapping[str, float]
+) -> dict[str, float]:
+    """Compare only finite, actually observed numbers; absence is never zero."""
+    return {
+        key: float(value - base[key])
+        for key, value in measured.items()
+        if key in base
+        and isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and isinstance(base[key], int | float)
+        and not isinstance(base[key], bool)
+        and math.isfinite(value)
+        and math.isfinite(base[key])
+        and abs(value - base[key]) > 1e-9
+    }
+
+
+def observed_utility_gains(
+    changes: Mapping[str, float], scored_axes: Sequence[str] = ()
+) -> dict[str, float]:
+    """Report known positive utility changes, without selecting a candidate."""
+    return {
+        key: value
+        for key, value in changes.items()
+        if key in UTILITY_GAIN_AXES and key not in scored_axes and value > 0
+    }
+
+
+def utility_candidate_digest(item: str | Mapping[str, Any]) -> str:
+    """Bind actual ItemSpec/JewelSpec inputs, excluding provenance/display metadata."""
+    holder = {"text": item} if isinstance(item, str) else item
+    value = {
+        "text": holder.get("text", ""),
+        "active": holder.get("active", True),
+        "substitutes": list(holder.get("substitutes") or []),
+        "allocates": sorted(holder.get("allocates") or []),
+    }
+    return hashlib.sha256(
+        json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
 
 # 포화 상수(%p). 위 실측: 신발 최고 접사 30 + Legacy of Quicksilver 30.
 MOVEMENT_SATURATION_PCT = 60.0
@@ -72,14 +136,17 @@ def movement_gain(base_pct: float, delta_pct: float) -> float:
     return movement_value(base_pct + delta_pct) - movement_value(base_pct)
 
 
-def axis_gain(axis: str, delta: float, base: float = 0.0) -> float:
+def axis_gain(axis: str, delta: float, base: float | None = None) -> float:
     """축 하나의 점수 기여분. 곡선이 없는 축은 **델타 그대로** 돌려준다.
 
-    PoB의 `MovementSpeedMod`는 비율(방랑벽 = 0.200)이라 %p로 바꿔 재고 되돌린다.
+    PoB의 `MovementSpeedMod`는 기본 1.0인 최종 배율이다(+30% = 1.3).
+    기준값은 `(base - 1) * 100`, 변화량은 `delta * 100`으로 %p에 옮긴다.
+    기준값 생략만 중립 1.0으로 가정한다. 실제 0이나 1 미만의 감속은 보존한다.
     """
     if axis != MOVEMENT_AXIS:
         return delta
-    return movement_gain(base * 100.0, delta * 100.0) / 100.0
+    multiplier = 1.0 if base is None else base
+    return movement_gain((multiplier - 1.0) * 100.0, delta * 100.0) / 100.0
 
 
 # ── 안 재는 축 보고 (`unscored_axes`, 백로그 10차 이관) ─────────────────

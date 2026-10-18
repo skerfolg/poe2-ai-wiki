@@ -54,7 +54,15 @@ from typing import Any
 
 from pok.engine.jewels import unique_limit_rejection
 from pok.engine.legality import _DECLARED_AFFIX, _parse_item
-from pok.engine.valuation import UnscoredAxis, axis_gain, unscored_axes
+from pok.engine.valuation import (
+    UTILITY_GAIN_AXES,
+    UnscoredAxis,
+    axis_gain,
+    observed_stat_delta,
+    observed_utility_gains,
+    unscored_axes,
+    utility_candidate_digest,
+)
 
 # PoB 슬롯 → KB 유니크 `category`. 실측 0.5.4b: 유니크의 (class_group, category)
 # 조합 38종이 이 매핑으로 깨끗이 갈린다.
@@ -138,6 +146,9 @@ class CandidateResult:
     # 낙관이다. 미달 후보는 채택 금지, 2판(속성 탐침)으로 "지불 시 이득"만 낸다.
     req_shortfall: dict[str, float] = field(default_factory=dict)
     legality_violations: tuple[str, ...] = ()
+    # Full oracle changes for reporting, independent of the axes used for selection.
+    # Only numeric values actually present in both measurements are compared.
+    observed_delta: dict[str, float] = field(default_factory=dict)
 
     def score(self, weights: Mapping[str, float], base: Mapping[str, float] | None = None) -> float:
         """정책 점수. `base`(현재 스펙의 실측)를 주면 **비선형 축에 곡선을 건다**.
@@ -148,7 +159,7 @@ class CandidateResult:
         넘길 것(`optimize_items`는 넘긴다).
         """
         return sum(
-            w * axis_gain(k, self.delta_now.get(k, 0.0), (base or {}).get(k, 0.0))
+            w * axis_gain(k, self.delta_now.get(k, 0.0), (base or {}).get(k))
             for k, w in weights.items()
         )
 
@@ -158,7 +169,7 @@ class CandidateResult:
         if self.delta_probed is None:
             return self.score(weights, base)
         return sum(
-            w * axis_gain(k, self.delta_probed.get(k, 0.0), (base or {}).get(k, 0.0))
+            w * axis_gain(k, self.delta_probed.get(k, 0.0), (base or {}).get(k))
             for k, w in weights.items()
         )
 
@@ -198,11 +209,71 @@ _DEFENSIVE_AXES: tuple[str, ...] = (
 # 읽기 위한 내역이다(저항·회피는 EHP로 합산돼 들어온다).
 _DEFENSIVE_HEADLINE = "TotalEHP"
 _DEFENSIVE_REPORT_LIMIT = 8
+_UNSCORED_CANDIDATE_LIMIT = 20
+_UNSCORED_FAMILY_LIMIT = 8
+_UTILITY_GAIN_AXES = UTILITY_GAIN_AXES
 
 
 def _defensive_gain(result: CandidateResult) -> float:
     """방어 개선 대표값 — 없으면 0. 음수는 개선이 아니므로 0으로 깎는다."""
     return max(result.delta_now.get(_DEFENSIVE_HEADLINE, 0.0), 0.0)
+
+
+def _observed_delta(measured: Mapping[str, float], base: Mapping[str, float]) -> dict[str, float]:
+    """Preserve measured changes without turning an absent statistic into zero."""
+    return observed_stat_delta(measured, base)
+
+
+def _unscored_candidate(
+    result: CandidateResult,
+    base: Mapping[str, float],
+    weights: Mapping[str, float],
+    round_number: int,
+    spec: dict[str, Any],
+) -> dict[str, Any] | None:
+    scored = {key: value for key, value in weights.items() if value != 0}
+    changes = {key: value for key, value in result.observed_delta.items() if key not in scored}
+    if not changes:
+        return None
+    # A positive value is not necessarily useful (ManaCost is an obvious example).
+    # Name only the known utility gains; expose other changes without judging them.
+    gains = observed_utility_gains(changes, list(scored))
+    families, _ = unscored_axes(changes, base, scored, top=len(changes))
+    shown = families[:_UNSCORED_FAMILY_LIMIT]
+    variant = _replace_slot(spec, result.candidate.slot, result.candidate.text)
+    if result.candidate.slot.startswith("Jewel@"):
+        node = int(result.candidate.slot.split("@", 1)[1])
+        holder = next(row for row in variant["jewels"] if row["socket_node_id"] == node)
+    else:
+        holder = next(row for row in variant["items"] if row["slot"] == result.candidate.slot)
+    return {
+        "label": result.candidate.label,
+        "slot": result.candidate.slot,
+        "round": round_number,
+        "candidate_sha256": utility_candidate_digest(holder),
+        "context": "round_baseline",
+        "weighted_score": result.score(weights, base),
+        "blocked": result.blocked,
+        "floor_violations": list(result.floor_violations),
+        "req_shortfall": dict(result.req_shortfall),
+        "utility_gains": gains,
+        "unscored_axis_count": len(changes),
+        "family_count": len(families),
+        "families_truncated": len(families) > len(shown),
+        "omitted_families": [axis.family for axis in families[len(shown) :]],
+        "axes": [
+            {
+                "axis": axis.axis,
+                "family": axis.family,
+                "delta": changes[axis.axis],
+                "base": base[axis.axis],
+                "measured": base[axis.axis] + changes[axis.axis],
+                "relative": axis.relative if math.isfinite(axis.relative) else None,
+                "siblings": list(axis.siblings),
+            }
+            for axis in shown
+        ],
+    }
 
 
 @dataclass(frozen=True)
@@ -222,7 +293,7 @@ class ChainResult:
 
     def score(self, weights: Mapping[str, float], base: Mapping[str, float] | None = None) -> float:
         return sum(
-            w * axis_gain(k, self.delta_chain.get(k, 0.0), (base or {}).get(k, 0.0))
+            w * axis_gain(k, self.delta_chain.get(k, 0.0), (base or {}).get(k))
             for k, w in weights.items()
         )
 
@@ -264,6 +335,8 @@ class ItemOptimizeResult:
     # 배제되는 일은 없어진다**(AD-3). 압축 근거는 `engine.valuation.unscored_axes`.
     unscored_axes: tuple[UnscoredAxis, ...] = ()
     search_evidence: dict[str, Any] = field(default_factory=dict)
+    unscored_candidates: tuple[dict[str, Any], ...] = ()
+    unscored_summary: dict[str, Any] = field(default_factory=dict)
 
 
 def resolve_rolls(text: str, roll: str = "mid") -> str:
@@ -739,6 +812,7 @@ def evaluate_slot(
                 probe=probe_used,
                 floor_violations=violations,
                 req_shortfall=shortfall,
+                observed_delta=_observed_delta(measured, base),
             )
         )
     return results
@@ -864,6 +938,7 @@ def optimize_items(
     peaks: dict[str, CandidateResult] = {}
     chains: list[ChainResult] = []
     defensive: dict[str, CandidateResult] = {}
+    candidate_reports: dict[tuple[str, str], dict[str, Any]] = {}
     notes: list[str] = []
     seen_notes: set[str] = set()
 
@@ -905,8 +980,10 @@ def optimize_items(
     chain_limited = False
     round_results: list[CandidateResult] = []
     base_now: dict[str, float] = {}
+    round_start_spec = current
     for _ in range(max_rounds):
         rounds_evaluated += 1
+        round_start_spec = current
         base_now = run(current)
         base_short = _req_shortfall(base_now)
         if base_short:
@@ -966,6 +1043,7 @@ def optimize_items(
                 stats=measure, floors=floors, compute=run, base_stats=base_now,
             ):  # fmt: skip
                 if result.legality_violations:
+                    candidate_reports.pop((result.candidate.slot, result.candidate.label), None)
                     counts[slot]["rejected"] += 1
                     rejected_candidates.setdefault(slot, []).append(
                         {
@@ -979,6 +1057,12 @@ def optimize_items(
                     continue
                 counts[slot]["evaluated"] += 1
                 round_results.append(result)
+                report_key = (result.candidate.slot, result.candidate.label)
+                report = _unscored_candidate(result, base_now, weights, rounds_evaluated, current)
+                if report is None:
+                    candidate_reports.pop(report_key, None)
+                else:
+                    candidate_reports[report_key] = report
                 score = result.score(weights, base_now)
                 if not result.blocked and score > 0 and (best is None or score > best[0]):
                     best = (score, eval_slot, result)
@@ -1146,15 +1230,58 @@ def optimize_items(
             f"— 절단됐다는 사실을 남긴다(조용한 절단 금지)"
         )
         ranked = ranked[:_DEFENSIVE_REPORT_LIMIT]
-    # 채택된 마지막 후보가 건드린 축 중 **점수에 안 들어간 것**을 낸다. 채택분이
-    # 없으면 라운드에서 가장 점수가 높았던 후보를 쓴다 — "이걸 골랐는데 저건 안 봤다"가
-    # 보여야 한다. 방어 축은 이미 `defensive_only`로 따로 보고하므로 중복하지 않는다.
+    # Preserve the legacy single-change summary. Candidate-specific full-stat
+    # observations below cover utility even when EHP does not rise.
     probe = steps[-1].deltas if steps else (round_results[0].delta_now if round_results else None)
     axes: tuple[UnscoredAxis, ...] = ()
     if probe:
         axes, truncated = unscored_axes(probe, base_now, weights, already_reported=_DEFENSIVE_AXES)
         if truncated:
             note(truncated)
+    reports = sorted(
+        candidate_reports.values(),
+        key=lambda report: (
+            not (report["utility_gains"] and not report["blocked"]),
+            report["blocked"],
+            report["slot"],
+            report["label"],
+        ),
+    )
+    shown_reports = reports[:_UNSCORED_CANDIDATE_LIMIT]
+    utility_reports = [r for r in reports if r["utility_gains"] and not r["blocked"]]
+    last_round_utility = [r for r in utility_reports if r["round"] == rounds_evaluated]
+    utility_summary = {
+        "scope": "latest_measurement_per_candidate_in_its_round_baseline",
+        "measurement_basis": "numeric_stats_present_in_both_oracle_results",
+        "scored_axes": sorted(key for key, weight in weights.items() if weight != 0),
+        "known_utility_gain_axes": sorted(_UTILITY_GAIN_AXES),
+        "last_round_matches_returned_spec": current == round_start_spec,
+        "candidate_count": len(reports),
+        "returned_count": len(shown_reports),
+        "candidate_limit": _UNSCORED_CANDIDATE_LIMIT,
+        "family_limit_per_candidate": _UNSCORED_FAMILY_LIMIT,
+        "truncated": len(reports) > len(shown_reports),
+        "omitted_candidates": [
+            {key: r[key] for key in ("label", "slot", "round", "blocked", "utility_gains")}
+            for r in reports[len(shown_reports) :]
+        ],
+        "utility_gain_candidate_count": len(utility_reports),
+        "last_round_utility_gain_candidate_count": len(last_round_utility),
+        "utility_gain_candidate_ids": [
+            {key: r[key] for key in ("label", "slot", "round", "candidate_sha256", "utility_gains")}
+            for r in utility_reports
+        ],
+        "interpretation": (
+            "Observed changes outside supplied nonzero weights; utility gains are not "
+            "automatic recommendations or proof that resistance can be reallocated."
+        ),
+    }
+    if reports:
+        note(
+            f"미채점 변화 후보 {len(reports)}건 중 {len(shown_reports)}건 상세 반환; "
+            f"차단되지 않은 이동·회피·저항 여유 개선 {len(utility_reports)}건. "
+            "자동 선택과 수렴은 주어진 가중치 및 탐색 범위에만 해당한다."
+        )
     # 규모를 **결과에 남긴다** — 다음 호출자가 "얼마나 걸릴 일인지"를 알아야
     # 30분을 기다리다 죽었다고 판단하지 않는다(#61).
     note(
@@ -1175,6 +1302,8 @@ def optimize_items(
         chains=tuple(chains),
         defensive_only=tuple(ranked),
         unscored_axes=axes,
+        unscored_candidates=tuple(shown_reports),
+        unscored_summary=utility_summary,
         search_evidence={
             "scope": {
                 "slots": list(counts),
@@ -1191,12 +1320,15 @@ def optimize_items(
             "termination": {
                 "reason": termination_reason,
                 "converged": termination_reason == "no_positive_candidate" and not chain_limited,
+                "convergence_scope": "supplied_weights_and_search_scope",
+                "unscored_utility_gains_observed": bool(last_round_utility),
                 "rounds_evaluated": rounds_evaluated,
                 "measurements": measured_count,
                 "chain_measurements": sum(r["measurements"] for r in chain_rounds),
                 "chain_budget_limited": chain_limited,
             },
             "chain_rounds": chain_rounds,
+            "utility_review": utility_summary,
             "rejected_candidates": rejected_candidates,
             "unresolved": unresolved,
             "unmeasurable_candidates": unmeasurable,

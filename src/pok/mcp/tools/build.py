@@ -673,8 +673,10 @@ def evaluate_delta(
         # numerical measurement. It remains an exact, nonempty unresolved issue.
         baseline_ok = not any(row["code"] != "items_pob_gaps" for row in unresolved)
         measured = {}
+        utility_failures = {}
         for d in deltas:
             problems = failures(d.label, d.result, variant_outputs[d.label])
+            utility_failures[d.label] = problems
             unresolved.extend(problems)
             if not any(row["code"] != "items_pob_gaps" for row in problems) and baseline_ok:
                 measured[d.label] = variant_outputs[d.label]["stats"]
@@ -692,6 +694,9 @@ def evaluate_delta(
             stats=requested,
             baseline_stats=base_output["stats"],
             unresolved=unresolved,
+            utility_baseline=base_result.stats,
+            utility_measurements={d.label: d.result.stats for d in deltas},
+            utility_failures=utility_failures if baseline_ok else {},
         )
         out["derived_from"] = {**(base_spec.get("derived_from") or {}), review_component: mark}
         out["review"] = {

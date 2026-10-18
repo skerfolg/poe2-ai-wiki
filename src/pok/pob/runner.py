@@ -29,7 +29,7 @@ _DRIVER = "scripts/pob_driver.lua"
 #  읽혀 「갭 없음」·「속도 정상」이라는 **거짓 안심**을 준다(형태 ①의 캐시 재발).
 #  4 = items[].slot/grant/corrupted(#120) · 3 = items[](#120)
 #  2 = mainSkillShowsAverage(#113) · 1 = gap*(#110) · 0 = 그 이전
-_META_PROTOCOL = 4
+_META_PROTOCOL = 5  # Post-calculation LateLootRarity axes; preserve native early output.
 _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
 
 #: PoB **아이템 상세보기**가 만드는 룬 드롭다운 수 (`Classes/ItemsTab.lua:696` `for i = 1, 6`).
@@ -317,7 +317,7 @@ def _label(row: dict[str, Any]) -> str:
 
 
 def _as_int(value: object) -> int:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
+    if isinstance(value, bool) or not isinstance(value, int | float):
         return 0
     return int(value)
 

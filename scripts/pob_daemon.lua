@@ -16,6 +16,7 @@ end
 
 local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
 local craftItem = dofile(adapterDir .. "pob_item_craft.lua")
+local lateUtilityStats = dofile(adapterDir .. "pob_late_utility.lua")
 dofile("HeadlessWrapper.lua")
 
 local function jesc(s)
@@ -185,7 +186,9 @@ local function emit()
     return
   end
   build.calcsTab:BuildOutput()
-  local out = build.calcsTab.mainOutput
+  local out = {}
+  for key, value in pairs(build.calcsTab.mainOutput) do out[key] = value end
+  for key, value in pairs(lateUtilityStats(build.calcsTab.mainEnv)) do out[key] = value end
 
   local points, asc, secAsc = build.spec:CountAllocNodes()
   -- ⚠ 다중 반환은 **인자 목록 끝에서만** 펼쳐진다 — 뒤에 인자를 더하면 조용히 잘린다.
@@ -309,6 +312,14 @@ local function respond_power(statCsv)
   local wanted = {}
   for s in statCsv:gmatch("[^,]+") do wanted[#wanted + 1] = s end
   if #wanted == 0 then wanted = { "CombinedDPS", "TotalEHP" } end
+  -- GetMiscCalculator returns output only, not each candidate's final modDB.
+  -- Reading mainEnv here would reuse the baseline and fabricate zero deltas.
+  for _, stat in ipairs(wanted) do
+    if stat:match("^LateLootRarity") then
+      print("POK_ERR:" .. stat .. " is unavailable in POWER; use full XML or TREE computation")
+      return
+    end
+  end
 
   build.calcsTab:BuildOutput()
   local base = build.calcsTab.mainOutput

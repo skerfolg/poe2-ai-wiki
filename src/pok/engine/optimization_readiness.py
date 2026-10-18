@@ -12,6 +12,7 @@ import hashlib
 import json
 import math
 from collections.abc import Iterator, Mapping
+from copy import deepcopy
 from typing import Any
 
 from pok.engine.provenance import (
@@ -19,6 +20,12 @@ from pok.engine.provenance import (
     preserve_execution_history,
     stale_components,
     stamp,
+)
+from pok.engine.valuation import (
+    UTILITY_GAIN_AXES,
+    observed_stat_delta,
+    observed_utility_gains,
+    utility_candidate_digest,
 )
 
 PURPOSES = ("exploration", "recommendation")
@@ -82,6 +89,45 @@ def _receipt_digest(mark: Mapping[str, Any]) -> str:
     return hashlib.sha256(_canonical(mark).encode("utf-8")).hexdigest()
 
 
+def _utility_source(mark: Mapping[str, Any]) -> dict[str, Any]:
+    """Flatten history without changing the measured source or its context.
+
+    The utility digest covers the source receipt except its two history containers;
+    adding execution history cannot invalidate an otherwise exact candidate decision.
+    """
+    source = {key: value for key, value in mark.items() if key != "execution_history"}
+    evidence = source.get("search_evidence")
+    if isinstance(evidence, Mapping):
+        source["search_evidence"] = {
+            key: value for key, value in evidence.items() if key != "utility_review_history"
+        }
+    return deepcopy(source)
+
+
+def _utility_history(mark: Mapping[str, Any]) -> list[dict[str, Any]]:
+    evidence = mark.get("search_evidence")
+    if not isinstance(evidence, Mapping):
+        return []
+    previous = evidence.get("utility_review_history")
+    history = list(previous) if isinstance(previous, list) else []
+    if "utility_review" in evidence:
+        source = _utility_source(mark)
+        history.append({"source_sha256": _receipt_digest(source), "receipt": source})
+    return list(
+        {str(row.get("source_sha256")): row for row in history if isinstance(row, dict)}.values()
+    )
+
+
+def with_utility_history(
+    evidence: Mapping[str, Any], previous: Mapping[str, Any] | None
+) -> dict[str, Any]:
+    """All item producers preserve outstanding observed candidates when replacing a stamp."""
+    result = deepcopy(dict(evidence))
+    if previous is not None:
+        result["utility_review_history"] = _utility_history(previous)
+    return result
+
+
 def _owners(spec: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     owners = {}
     for kind, key in (("items", "slot"), ("jewels", "socket_node_id")):
@@ -101,6 +147,9 @@ def measured_review_receipt(
     stats: list[str],
     baseline_stats: Mapping[str, float],
     unresolved: list[dict[str, Any]],
+    utility_measurements: Mapping[str, Mapping[str, float]] | None = None,
+    utility_baseline: Mapping[str, float] | None = None,
+    utility_failures: Mapping[str, list[dict[str, Any]]] | None = None,
 ) -> dict[str, Any]:
     """Describe successful baseline/alternative measurements, never infer a winner.
 
@@ -128,9 +177,28 @@ def measured_review_receipt(
         "ascendancies": [],
     }
     owner_labels: dict[tuple[str, Any], list[str]] = {}
+    utility_candidates: list[dict[str, Any]] = []
+    full_baseline = baseline_stats if utility_baseline is None else utility_baseline
+    full_measurements = measurements if utility_measurements is None else utility_measurements
     problems = list(unresolved)
     for label, variant in variants.items():
-        if label not in measurements:
+        blocked = [
+            row
+            for row in (utility_failures or {}).get(label, [])
+            if component in ("items", "jewels")
+            and (
+                (
+                    row.get("code") in {"req_shortfall", "dropped_items", "unbuilt_declarations"}
+                    and row.get("observed")
+                )
+                or (
+                    row.get("code") in {"items_legal", "tree_connected", "item_sockets_legal"}
+                    and row.get("observed") is False
+                )
+            )
+        ]
+        successful = label in measurements
+        if not successful and not blocked:
             continue
         other = derivation_context(variant)
         differences = {
@@ -154,7 +222,8 @@ def measured_review_receipt(
                 }
             )
             continue
-        scope["candidates"].append(label)
+        if successful:
+            scope["candidates"].append(label)
         if component in ("items", "jewels"):
             kind, key, output = (
                 ("items", "slot", "slots")
@@ -169,10 +238,54 @@ def measured_review_receipt(
                 row[key]: {k: v for k, v in row.items() if k != "derived_from"}
                 for row in variant.get(kind) or []
             }
+            changed_owners = sum(
+                before.get(owner) != after.get(owner) for owner in before.keys() | after.keys()
+            )
+            change_digest = _receipt_digest(
+                {
+                    str(owner): utility_candidate_digest(after.get(owner) or {})
+                    for owner in before.keys() | after.keys()
+                    if before.get(owner) != after.get(owner)
+                }
+            )
             for owner in before.keys() | after.keys():
                 if before.get(owner) != after.get(owner):
-                    scope[output].append(owner)
-                    owner_labels.setdefault((kind, owner), []).append(label)
+                    if successful:
+                        scope[output].append(owner)
+                        owner_labels.setdefault((kind, owner), []).append(label)
+                    values = full_measurements.get(label, {})
+                    gains = observed_utility_gains(observed_stat_delta(values, full_baseline))
+                    utility_candidates.append(
+                        {
+                            "label": label,
+                            "slot": str(owner) if kind == "items" else f"Jewel@{owner}",
+                            "round": 1,
+                            "candidate_sha256": utility_candidate_digest(after.get(owner) or {}),
+                            "variant_sha256": _receipt_digest(other),
+                            "changed_owners": changed_owners,
+                            "change_sha256": change_digest,
+                            "change_owners": sorted(
+                                str(owner)
+                                for owner in before.keys() | after.keys()
+                                if before.get(owner) != after.get(owner)
+                            ),
+                            "utility_gains": gains,
+                            "blocked": not successful,
+                            "failures": blocked,
+                            "observed_axes": sorted(
+                                key
+                                for key in UTILITY_GAIN_AXES
+                                if key in values
+                                and key in full_baseline
+                                and isinstance(values[key], int | float)
+                                and not isinstance(values[key], bool)
+                                and isinstance(full_baseline[key], int | float)
+                                and not isinstance(full_baseline[key], bool)
+                                and math.isfinite(values[key])
+                                and math.isfinite(full_baseline[key])
+                            ),
+                        }
+                    )
         elif component == "supports":
             before_groups = base_spec.get("skills") or []
             after_groups = variant.get("skills") or []
@@ -209,7 +322,7 @@ def measured_review_receipt(
                 "receipt_sha256": _receipt_digest(old_mark),
                 "variant_labels": labels,
             }
-    evidence = {
+    evidence: dict[str, Any] = {
         "review_version": 1,
         "selection": "baseline",
         "scope": scope,
@@ -224,6 +337,56 @@ def measured_review_receipt(
         "baseline_stats": dict(baseline_stats),
         "revalidation_receipts": revalidations,
     }
+    if component in ("items", "jewels"):
+        gained = [row for row in utility_candidates if row["utility_gains"] and not row["blocked"]]
+        collection, owner_key = (
+            ("items", "slot") if component == "items" else ("jewels", "socket_node_id")
+        )
+        baseline_inputs = {
+            str(row[owner_key]): utility_candidate_digest(row)
+            for row in base_spec.get(collection) or []
+        }
+        baseline_axes = sorted(
+            key
+            for key in UTILITY_GAIN_AXES
+            if key in full_baseline
+            and isinstance(full_baseline[key], int | float)
+            and not isinstance(full_baseline[key], bool)
+            and math.isfinite(full_baseline[key])
+        )
+        # Only an actual baseline + alternative calculation proves adoption.
+        baseline_candidates = (
+            [
+                {
+                    "label": "baseline",
+                    "slot": owner if component == "items" else f"Jewel@{owner}",
+                    "candidate_sha256": row,
+                    "observed_axes": baseline_axes,
+                    "selection": "baseline",
+                    "variant_sha256": _receipt_digest(context),
+                    "owner_inputs": baseline_inputs,
+                }
+                for owner, row in baseline_inputs.items()
+            ]
+            if scope.get("candidates")
+            else []
+        )
+        evidence["utility_review"] = {
+            "scope": "successful_current_context_alternatives",
+            "last_round_matches_returned_spec": True,
+            "utility_gain_candidate_count": len(gained),
+            "last_round_utility_gain_candidate_count": len(gained),
+            "utility_gain_candidate_ids": gained,
+            "measured_candidates": [row for row in utility_candidates if not row["blocked"]],
+            "blocked_candidates": [row for row in utility_candidates if row["blocked"]],
+            "baseline_candidates": baseline_candidates,
+            "known_utility_gain_axes": sorted(UTILITY_GAIN_AXES),
+        }
+        evidence["termination"]["rounds_evaluated"] = 1
+        evidence["termination"]["unscored_utility_gains_observed"] = bool(gained)
+        previous = (base_spec.get("derived_from") or {}).get(component)
+        if isinstance(previous, Mapping):
+            evidence = with_utility_history(evidence, previous)
     mark = stamp(base_spec, component, tool="evaluate_delta", search_evidence=evidence)
     prior_marks = base_spec.get("derived_from") or {}
     prior = prior_marks.get(component) if isinstance(prior_marks, Mapping) else None
@@ -337,6 +500,325 @@ def _settings_issues(rules: Any, settings: Any, component: str) -> list[dict[str
     return out
 
 
+def _utility_decisions(
+    spec: Mapping[str, Any], contract: Mapping[str, Any]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
+    """Require candidate-specific judgment for actual, unscored observations.
+
+    Nothing here chooses an item. A replacement review cannot erase observations:
+    history is discharged only by a successful, current-context measurement of
+    the same alternative input. Old records without observations are not inferred.
+    """
+    issues: list[dict[str, Any]] = []
+    context = derivation_context(dict(spec))
+    sources: dict[str, tuple[str, Mapping[str, Any], bool]] = {}
+    current_measurements: list[tuple[str, Mapping[str, Any]]] = []
+
+    def fresh(mark: Mapping[str, Any]) -> bool:
+        return all(
+            mark.get(key) == value
+            for key, value in context.items()
+            if key.endswith("_sig") or key == "config"
+        )
+
+    for path, component, mark in _stamps(spec):
+        if path != f"derived_from.{component}" or component not in ("items", "jewels"):
+            continue
+        evidence = mark.get("search_evidence")
+        if not isinstance(evidence, Mapping):
+            continue
+        summary = evidence.get("utility_review")
+        if (
+            isinstance(summary, Mapping)
+            and fresh(mark)
+            and summary.get("last_round_matches_returned_spec") is True
+        ):
+            for field in ("measured_candidates", "baseline_candidates", "blocked_candidates"):
+                measured = summary.get(field, [])
+                if not isinstance(measured, list):
+                    issues.append(
+                        _issue(
+                            "invalid_utility_evidence",
+                            component,
+                            path,
+                            "실제 측정 후보는 목록이어야 한다",
+                        )
+                    )
+                    continue
+                current_measurements.extend(
+                    (component, row) for row in measured if isinstance(row, Mapping)
+                )
+        if "utility_review" in evidence:
+            source = _utility_source(mark)
+            sources[_receipt_digest(source)] = (component, source, False)
+        history = evidence.get("utility_review_history", [])
+        if not isinstance(history, list):
+            issues.append(
+                _issue(
+                    "invalid_utility_evidence",
+                    component,
+                    path,
+                    "유틸리티 관측 이력은 목록이어야 한다",
+                )
+            )
+            continue
+        for row in history:
+            if (
+                not isinstance(row, Mapping)
+                or not isinstance(row.get("receipt"), Mapping)
+                or row.get("source_sha256") != _receipt_digest(row["receipt"])
+            ):
+                issues.append(
+                    _issue(
+                        "invalid_utility_evidence",
+                        component,
+                        path,
+                        "유틸리티 관측 원본과 digest가 일치하지 않는다",
+                    )
+                )
+                continue
+            sources.setdefault(row["source_sha256"], (component, row["receipt"], True))
+
+    needed: list[dict[str, Any]] = []
+    superseded: list[dict[str, Any]] = []
+    for digest, (component, mark, historical) in sources.items():
+        evidence = mark.get("search_evidence") or {}
+        summary = evidence.get("utility_review")
+        path = f"derived_from.{component}.search_evidence.utility_review"
+        if not isinstance(summary, Mapping):
+            issues.append(
+                _issue(
+                    "invalid_utility_evidence",
+                    component,
+                    path,
+                    "유틸리티 관측 범위가 객체가 아니다",
+                )
+            )
+            continue
+        candidates = summary.get("utility_gain_candidate_ids")
+        count = summary.get("utility_gain_candidate_count")
+        if (
+            not isinstance(candidates, list)
+            or not isinstance(count, int)
+            or isinstance(count, bool)
+            or count < 0
+            or count != len(candidates)
+        ):
+            issues.append(
+                _issue(
+                    "invalid_utility_evidence",
+                    component,
+                    path,
+                    "양수 후보 수와 실제 식별 목록을 일치시켜야 한다",
+                )
+            )
+            continue
+        for candidate in candidates:
+            if (
+                not isinstance(candidate, Mapping)
+                or any(
+                    not isinstance(candidate.get(key), str) or not candidate[key].strip()
+                    for key in ("label", "slot")
+                )
+                or not isinstance(candidate.get("round"), int)
+                or isinstance(candidate["round"], bool)
+                or candidate["round"] < 1
+            ):
+                issues.append(
+                    _issue(
+                        "invalid_utility_evidence",
+                        component,
+                        path,
+                        "실제 후보 label/slot/round가 누락되었다",
+                    )
+                )
+                continue
+            identity = {
+                "source_sha256": digest,
+                **{key: candidate[key] for key in ("label", "slot", "round")},
+            }
+            # A complete current measurement may replace a historical observation,
+            # even if the new delta is zero/negative. Missing axes never mean zero.
+            observed_gains = candidate.get("utility_gains")
+            known_axes = summary.get("known_utility_gain_axes", sorted(UTILITY_GAIN_AXES))
+            if (
+                observed_gains is not None and not isinstance(observed_gains, Mapping)
+            ) or not isinstance(known_axes, list):
+                issues.append(
+                    _issue(
+                        "invalid_utility_evidence",
+                        component,
+                        path,
+                        "관측 개선 축의 형식을 확인해야 한다",
+                    )
+                )
+                continue
+            gain_axes = set(observed_gains or known_axes)
+            replacement = next(
+                (
+                    row
+                    for axis, row in current_measurements
+                    if historical
+                    and (axis == component or candidate["slot"].startswith("Jewel@"))
+                    and row.get("slot") == candidate["slot"]
+                    and candidate.get("candidate_sha256")
+                    and row.get("candidate_sha256") == candidate["candidate_sha256"]
+                    and (
+                        (
+                            candidate.get("change_sha256")
+                            and row.get("change_sha256") == candidate["change_sha256"]
+                        )
+                        or (
+                            not candidate.get("change_sha256")
+                            and (
+                                row.get("changed_owners") == 1 or row.get("selection") == "baseline"
+                            )
+                        )
+                        or (
+                            row.get("selection") == "baseline"
+                            and candidate.get("change_owners")
+                            and candidate.get("change_sha256")
+                            == _receipt_digest(
+                                {
+                                    owner: (row.get("owner_inputs") or {}).get(owner)
+                                    for owner in candidate["change_owners"]
+                                }
+                            )
+                        )
+                    )
+                    and (
+                        gain_axes <= set(row.get("observed_axes") or [])
+                        or (row.get("blocked") is True and row.get("failures"))
+                    )
+                ),
+                None,
+            )
+            if replacement is not None:
+                superseded.append(
+                    {
+                        **identity,
+                        "remeasured_label": replacement["label"],
+                        "variant_sha256": replacement.get("variant_sha256"),
+                        "outcome": "blocked"
+                        if replacement.get("blocked")
+                        else replacement.get("selection", "measured"),
+                        "failures": replacement.get("failures", []),
+                    }
+                )
+                continue
+            termination = evidence.get("termination") or {}
+            if (
+                not fresh(mark)
+                or summary.get("last_round_matches_returned_spec") is not True
+                or candidate["round"] != termination.get("rounds_evaluated")
+            ):
+                issues.append(
+                    _issue(
+                        "utility_context_unknown",
+                        component,
+                        path,
+                        "이 후보는 현재 최종 문맥에서 재측정해야 한다",
+                        observed=identity,
+                    )
+                )
+                continue
+            needed.append(identity)
+
+    supplied = contract.get("utility_decisions", [])
+    accepted: list[dict[str, Any]] = []
+    deferred: list[dict[str, Any]] = []
+    valid: set[str] = set()
+    wanted = {_canonical(row): row for row in needed}
+    if not isinstance(supplied, list):
+        issues.append(
+            _issue(
+                "invalid_utility_decision",
+                "items",
+                "utility_decisions",
+                "후보별 판단은 목록이어야 한다",
+            )
+        )
+        supplied = []
+    for decision in supplied:
+        fields = {"source_sha256", "label", "slot", "round", "decision", "reason"}
+        if (
+            not isinstance(decision, Mapping)
+            or set(decision) != fields
+            or decision.get("decision") not in ("reject", "defer")
+            or not isinstance(decision.get("reason"), str)
+            or not decision["reason"].strip()
+        ):
+            issues.append(
+                _issue(
+                    "invalid_utility_decision",
+                    "items",
+                    "utility_decisions",
+                    "대안에는 후보별 reject/defer와 사유가 필요하다; 채택은 새 기준으로 재측정한다",
+                    observed=decision,
+                )
+            )
+            continue
+        identity = {key: decision[key] for key in ("source_sha256", "label", "slot", "round")}
+        key = _canonical(identity)
+        if key not in wanted or key in valid:
+            issues.append(
+                _issue(
+                    "invalid_utility_decision",
+                    "items",
+                    "utility_decisions",
+                    "출처/후보/라운드가 현재 검토 대상과 다르거나 중복이다",
+                    observed=identity,
+                )
+            )
+            continue
+        valid.add(key)
+        accepted.append(dict(decision))
+        if decision["decision"] == "defer":
+            deferred.append(
+                {
+                    **_issue(
+                        "utility_deferred",
+                        "items",
+                        "utility_decisions",
+                        "이 대안의 선택을 보류했다",
+                        observed=identity,
+                    ),
+                    "exception_reason": decision["reason"].strip(),
+                }
+            )
+    for key, identity in wanted.items():
+        if key not in valid:
+            issues.append(
+                _issue(
+                    "utility_decision_missing",
+                    "items",
+                    "utility_decisions",
+                    "실제 미채점 유틸리티 후보의 선택 사유가 없다",
+                    observed=identity,
+                )
+            )
+    return (
+        issues,
+        deferred,
+        {
+            "status": (
+                "pending"
+                if issues
+                else "reviewed"
+                if needed
+                else "no_positive_candidates_observed"
+                if sources
+                else "not_observed"
+            ),
+            "source_digest_basis": "canonical_receipt_excluding_execution_and_utility_history",
+            "required_decisions": needed,
+            "accepted_decisions": accepted,
+            "remeasured_history": superseded,
+            "coverage": "observed_candidates_only_not_global_utility_optimum",
+        },
+    )
+
+
 def optimization_readiness(
     spec: Mapping[str, Any], *, purpose: str = "exploration"
 ) -> dict[str, Any]:
@@ -349,6 +831,11 @@ def optimization_readiness(
                     "settings": {"max_rounds": {"min": 2}},
                     "allowed_termination_reasons": ["no_improvement"]}},
          "exceptions": [{"issue_id": "<exact returned id>", "reason": "..."}]}
+
+    Optional utility_decisions contains exact source_sha256/label/slot/round,
+    decision (reject or defer), and a nonempty candidate-specific reason. The
+    report supplies the required identities. Adopting an alternative requires
+    measuring it as the new baseline; a decision cannot change the actual build.
 
     Producers attach scope/settings/termination/unresolved under their genuine
     derived_from.<component>.search_evidence. Exceptions acknowledge an exact
@@ -375,7 +862,7 @@ def optimization_readiness(
     elif (
         contract.get("version") != 1
         or isinstance(contract.get("version"), bool)
-        or set(contract) - {"version", "required_components", "exceptions"}
+        or set(contract) - {"version", "required_components", "exceptions", "utility_decisions"}
     ):
         issues.append(
             _issue(
@@ -692,6 +1179,8 @@ def optimization_readiness(
                 )
             )
 
+    utility_issues, utility_deferred, utility_review = _utility_decisions(spec, contract)
+    issues.extend(utility_issues)
     exceptions = contract.get("exceptions", [])
     accepted: dict[str, str] = {}
     nonwaivable = {
@@ -704,6 +1193,10 @@ def optimization_readiness(
         "output_changed",
         "termination_missing",
         "invalid_revalidation",
+        "invalid_utility_evidence",
+        "invalid_utility_decision",
+        "utility_decision_missing",
+        "utility_context_unknown",
     }
     by_id = {row["issue_id"]: row for row in issues}
     if not isinstance(exceptions, list):
@@ -744,7 +1237,7 @@ def optimization_readiness(
         {**row, "exception_reason": accepted[row["issue_id"]]}
         for row in issues
         if row["issue_id"] in accepted
-    ]
+    ] + utility_deferred
     return {
         "version": 1,
         "purpose": purpose,
@@ -754,6 +1247,7 @@ def optimization_readiness(
         "blockers": blockers,
         "accepted_exceptions": waived,
         "revalidated_paths": revalidated,
+        "utility_review": utility_review,
         "qualification": {
             "kind": "explicit_exceptions" if waived else "declared_scope",
             "known_limitations": [

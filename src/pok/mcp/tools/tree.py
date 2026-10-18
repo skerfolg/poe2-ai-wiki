@@ -91,9 +91,12 @@ def _stamp(
     개별 장비를 반환하는 생산자는 preserve_existing=False로 자기 도장만 낸다.
     전체 빌드의 출처를 장비 하나의 출처로 복제하면 그 장비를 만든 실행처럼 보인다.
     """
+    from pok.engine.optimization_readiness import with_utility_history
     from pok.engine.provenance import stamp
 
     existing = dict(spec_after.get("derived_from") or {}) if preserve_existing else {}
+    if component in ("items", "jewels") and search_evidence is not None:
+        search_evidence = with_utility_history(search_evidence, existing.get(component))
     existing[component] = stamp(
         spec_after, component, tool=tool, weights=weights, search_evidence=search_evidence
     )
@@ -597,7 +600,10 @@ def optimize_items(
     전 스탯을 주므로 비용 0), 가중 축 0 · 방어 양수인 후보를 `defensive_only`로 실어
     보낸다 — 채택은 여전히 가중치가 정하되(AD-3) **안 보이지는 않게** 한다.
     실측 2026-08-09(허리띠 20종·딜 가중): 채택 가능 **0건**인데 12종이 EHP를 올렸다.
-    방어를 실제로 반영하려면 `weights`에 `TotalEHP` 같은 축을 함께 준다.
+    후보별 `unscored_candidates`는 가중치 밖의 실제 통계 변화를 보존하므로 EHP가
+    그대로인 이동·회피·초과 저항 후보도 보인다. `unscored_summary`는 전체 건수와
+    생략 후보를 보존한다. 가중치를 바꿀지, 다른 접사를 재배분할지는 호출자가
+    목적에 맞게 판단한다. 수렴은 주어진 가중치·탐색 범위에 한정된다.
     """
     from pok.engine.items import optimize_items as _optimize
 
@@ -676,6 +682,9 @@ def optimize_items(
             }
             for a in result.unscored_axes
         ],
+        # 후보별 전체 통계의 미채점 변화. 이동·회피·저항 여유는 EHP 불변이어도 남긴다.
+        "unscored_candidates": list(result.unscored_candidates),
+        "unscored_summary": result.unscored_summary,
         "notes": list(result.notes),
     }
 

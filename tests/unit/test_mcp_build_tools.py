@@ -85,6 +85,47 @@ def test_delta_rejects_unknown_review_component_before_calculation(
         build.evaluate_delta({}, {}, review_component="arbitrary-owner")
 
 
+def test_review_cannot_hide_utility_by_requesting_only_damage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pok.engine.compute import Delta
+    from pok.mcp.tools import build
+    from pok.pob.runner import PobResult
+
+    base = {
+        "class_name": "Mercenary",
+        "ascendancy": "Mercenary3",
+        "items": [{"slot": "Boots", "text": "A"}],
+        "skills": [],
+    }
+    variant = {**base, "items": [{"slot": "Boots", "text": "B"}]}
+    baseline = PobResult({"Life": 100, "MovementSpeedMod": 1.0}, {}, (), (), False)
+    measured = PobResult({"Life": 100, "MovementSpeedMod": 1.3}, {}, (), (), False)
+    monkeypatch.setattr(build, "spec_from_dict", lambda value: value)
+    monkeypatch.setattr(
+        build,
+        "_delta",
+        lambda *a, **kw: (baseline, [Delta("boots", measured, {"Life": (100, 100)})]),
+    )
+    monkeypatch.setattr(
+        build,
+        "_pick",
+        lambda result, *a: {
+            "stats": {"Life": result.stats["Life"]},
+            "items_legal": True,
+            "illegal_items": [],
+            "tree_connected": True,
+            "item_sockets_legal": True,
+        },
+    )
+    output = build.evaluate_delta(base, {"boots": variant}, ["Life"], review_component="items")
+    assert output["review"]["search_evidence"]["measurements"] == {"boots": {"Life": 100}}
+    observed = output["review"]["search_evidence"]["utility_review"]
+    assert observed["utility_gain_candidate_ids"][0]["utility_gains"] == pytest.approx(
+        {"MovementSpeedMod": 0.3}
+    )
+
+
 class TestSpecFromDict:
     def test_전체_필드_왕복(self) -> None:
         spec = spec_from_dict(

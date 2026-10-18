@@ -129,3 +129,65 @@ def test_주얼이_계산에_반영된다() -> None:
     withj = run_build(jewel_spec, use_cache=False)
     assert 61419 in withj.allocated_nodes
     assert withj.stats["Life"] > base.stats["Life"]  # 7% 증가 반영
+
+
+def test_late_gold_rarity_preserves_native_output_across_driver_daemon_and_tree() -> None:
+    """Gold is applied after native rarity output; keep both observations visible."""
+    from dataclasses import replace
+
+    from pok.pob.runner import PobRunError
+
+    # Four real legacies, one duplicate. Native midpoint (25-50) rounds to38.
+    gold = ItemSpec(
+        slot="Belt",
+        text=(
+            "Rarity: UNIQUE\nMageblood\nUtility Belt\n"
+            "Implicits: 2\nHas 2 Charm Slots\n20% of Flask Recovery applied Instantly\n"
+            "All Mage's Legacies have (25-50)% increased effect per duplicate Mage's Legacy "
+            "you have\nLegacy of Bismuth\nLegacy of Gold\n"
+            "Legacy of Quicksilver\nLegacy of Quicksilver"
+        ),
+    )
+    gold_spec = replace(SPEC, items=(gold,))
+    baseline = run_build(SPEC, use_cache=False)
+    direct = run_build(gold_spec, use_cache=False)
+    assert baseline.stats["EffectiveLootRarityMod"] == 1
+    assert baseline.stats["LateLootRarityInc"] == 0
+    assert baseline.stats["LateLootRarityMore"] == 1
+    assert baseline.stats["LateLootRarityMod"] == 1
+    assert direct.stats["EffectiveLootRarityMod"] == 1  # Original pinned output is preserved.
+    assert direct.stats["LateLootRarityInc"] == 62
+    assert direct.stats["LateLootRarityMore"] == 1
+    assert direct.stats["LateLootRarityMod"] == pytest.approx(1.62)
+    with PobDaemon() as daemon:
+        streamed = daemon.compute_build(gold_spec)
+        via_tree = daemon.compute_tree(gold_spec.tree_nodes)
+        for key in (
+            "EffectiveLootRarityMod",
+            "LateLootRarityInc",
+            "LateLootRarityMore",
+            "LateLootRarityMod",
+            "Life",
+            "TotalDPS",
+        ):
+            assert streamed.stats[key] == pytest.approx(direct.stats[key])
+            assert via_tree.stats[key] == pytest.approx(direct.stats[key])
+        # POWER has a private candidate environment: fail instead of reporting false zeroes.
+        with pytest.raises(PobRunError, match="unavailable in POWER"):
+            daemon.node_power(("LateLootRarityMod",))
+        assert daemon.compute_tree(gold_spec.tree_nodes).stats["LateLootRarityMod"] == 1.62
+        # The raw protocol also rejects it, even without the Python preflight.
+        assert daemon._proc is not None and daemon._proc.stdin is not None
+        daemon._proc.stdin.write("POWER\tLateLootRarityMod\n")
+        daemon._proc.stdin.flush()
+        response = []
+        while True:
+            line = daemon._readline().strip()
+            assert line
+            if line == "POK_DONE":
+                break
+            response.append(line)
+        assert response == [
+            "POK_ERR:LateLootRarityMod is unavailable in POWER; use full XML or TREE computation"
+        ]
+        assert daemon.compute_tree(gold_spec.tree_nodes).stats["LateLootRarityMod"] == 1.62

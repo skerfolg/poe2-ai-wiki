@@ -11,6 +11,9 @@ package.preload['lua-utf8'] = function()
   return setmetatable({}, { __index = string })
 end
 
+local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
+local lateUtilityStats = dofile(adapterDir .. "pob_late_utility.lua")
+
 local xmlPath = arg and arg[1]
 if not xmlPath then
   print("POK_ERR:XML 경로 인자 누락")
@@ -31,7 +34,9 @@ if not build or not build.calcsTab then
   os.exit(1)
 end
 build.calcsTab:BuildOutput()
-local out = build.calcsTab.mainOutput
+local out = {}
+for key, value in pairs(build.calcsTab.mainOutput) do out[key] = value end
+for key, value in pairs(lateUtilityStats(build.calcsTab.mainEnv)) do out[key] = value end
 
 local function jesc(s)
   return tostring(s):gsub('[\\"]', '\\%0'):gsub("[%c]", " ")

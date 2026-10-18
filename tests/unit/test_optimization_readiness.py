@@ -556,3 +556,317 @@ def test_known_model_limit_keeps_real_measurement_but_requires_exact_exception()
     del spec["optimization_contract"]["exceptions"]
     evidence["unresolved"][0]["code"] = "unmeasured_stats"
     assert "stale_evidence" in _codes(optimization_readiness(spec))
+
+
+def _utility_spec(*, count: int = 1) -> dict[str, Any]:
+    from pok.engine.valuation import utility_candidate_digest
+
+    spec = _ready()
+    evidence = spec["derived_from"]["items"]["search_evidence"]
+    evidence["termination"]["rounds_evaluated"] = 3
+    evidence["termination"]["unscored_utility_gains_observed"] = bool(count)
+    evidence["utility_review"] = {
+        "last_round_matches_returned_spec": True,
+        "utility_gain_candidate_count": count,
+        "last_round_utility_gain_candidate_count": count,
+        "utility_gain_candidate_ids": [
+            {
+                "label": f"utility-{index}",
+                "slot": "Weapon 1",
+                "round": 3,
+                "candidate_sha256": utility_candidate_digest(f"B{index}"),
+                "utility_gains": {"MovementSpeedMod": 0.3},
+            }
+            for index in range(count)
+        ],
+    }
+    return spec
+
+
+def _decide_utility(spec: dict[str, Any], decision: str = "reject") -> None:
+    report = optimization_readiness(spec, purpose="recommendation")
+    spec["optimization_contract"]["utility_decisions"] = [
+        {
+            **row,
+            "decision": decision,
+            "reason": "Retain baseline: this alternative spends the damage budget for movement.",
+        }
+        for row in report["utility_review"]["required_decisions"]
+    ]
+
+
+def test_observed_utility_blocks_recommendation_until_exact_candidate_decisions() -> None:
+    spec = _utility_spec(count=2)
+    report = optimization_readiness(spec, purpose="recommendation")
+    assert not report["recommendation_ready"]
+    assert _codes(report) == {"utility_decision_missing"}
+    _decide_utility(spec)
+    assert optimization_readiness(spec)["status"] == "ready"
+    spec["optimization_contract"]["utility_decisions"].pop()
+    assert _codes(optimization_readiness(spec)) == {"utility_decision_missing"}
+
+
+def test_deferred_candidate_is_a_visible_qualification_not_plain_ready() -> None:
+    spec = _utility_spec()
+    _decide_utility(spec, "defer")
+    report = optimization_readiness(spec)
+    assert report["status"] == "ready_with_exceptions"
+    assert report["recommendation_ready"]
+    assert report["qualification"]["known_limitations"][0]["exception_reason"]
+
+
+@pytest.mark.parametrize("damage", ["source", "slot", "round", "reason", "boolean", "adopt"])
+def test_blank_blanket_or_wrong_candidate_decisions_cannot_clear_observation(damage: str) -> None:
+    spec = _utility_spec()
+    _decide_utility(spec)
+    row = spec["optimization_contract"]["utility_decisions"][0]
+    if damage == "source":
+        row["source_sha256"] = "old-source"
+    elif damage == "slot":
+        row["slot"] = "Helmet"
+    elif damage == "round":
+        row["round"] = 2
+    elif damage == "reason":
+        row["reason"] = "  "
+    elif damage == "boolean":
+        spec["optimization_contract"]["utility_decisions"] = True
+    else:
+        row["decision"] = "adopt"
+    assert "invalid_utility_decision" in _codes(optimization_readiness(spec))
+    assert not optimization_readiness(spec)["recommendation_ready"]
+
+
+@pytest.mark.parametrize(
+    "damage", ["final_context", "earlier_round", "unknown_scope", "source_changed"]
+)
+def test_observation_or_decision_from_another_measurement_cannot_be_reused(damage: str) -> None:
+    spec = _utility_spec()
+    _decide_utility(spec)
+    evidence = spec["derived_from"]["items"]["search_evidence"]
+    if damage == "final_context":
+        spec["config"]["enemyLevel"] = 82
+    elif damage == "earlier_round":
+        evidence["termination"]["rounds_evaluated"] = 4
+    elif damage == "unknown_scope":
+        evidence["utility_review"]["last_round_matches_returned_spec"] = False
+    else:
+        evidence["settings"]["new_measurement"] = True
+    report = optimization_readiness(spec)
+    assert not report["recommendation_ready"]
+    assert "invalid_utility_decision" in _codes(report)
+
+
+def test_blocked_candidates_are_not_available_and_legacy_has_no_new_coverage_claim() -> None:
+    spec = _utility_spec(count=0)
+    evidence = spec["derived_from"]["items"]["search_evidence"]
+    evidence["utility_review"]["omitted_candidates"] = [{"label": "illegal", "blocked": True}]
+    assert optimization_readiness(spec)["status"] == "ready"
+    legacy = optimization_readiness(_ready())
+    assert legacy["utility_review"]["status"] == "not_observed"
+
+
+def _fresh_utility_review(spec: dict[str, Any], text: str, *, speed: float | None = 1.3) -> None:
+    variant = copy.deepcopy(spec)
+    variant["items"][0]["text"] = text
+    values = {"Life": 100.0, **({"MovementSpeedMod": speed} if speed is not None else {})}
+    spec["derived_from"]["items"] = measured_review_receipt(
+        spec,
+        {"fresh": variant},
+        {"fresh": {"Life": 100}},
+        component="items",
+        stats=["Life"],
+        baseline_stats={"Life": 100},
+        unresolved=[],
+        utility_baseline={"Life": 100.0, "MovementSpeedMod": 1.0},
+        utility_measurements={"fresh": values},
+    )
+    spec["derived_from"].pop("tree", None)  # This fixture reviews only the item axis.
+    spec["optimization_contract"]["required_components"] = {
+        "items": {
+            "scope": {"slots": ["Weapon 1"]},
+            "allowed_termination_reasons": ["variants_evaluated"],
+        }
+    }
+
+
+def test_review_uses_full_actual_stats_even_when_requested_stats_omit_utility() -> None:
+    spec = _ready()
+    _fresh_utility_review(spec, "B0")
+    report = optimization_readiness(spec)
+    assert _codes(report) == {"utility_decision_missing"}
+    assert report["utility_review"]["required_decisions"][0]["label"] == "fresh"
+
+
+def test_review_overwrite_cannot_hide_prior_utility_candidate() -> None:
+    spec = _utility_spec()
+    prior = spec["derived_from"]["items"]
+    spec["config"]["enemyLevel"] = 82
+    _fresh_utility_review(spec, "Different candidate", speed=1.0)
+    report = optimization_readiness(spec)
+    assert _codes(report) == {"utility_context_unknown"}
+    saved = copy.deepcopy(
+        spec["derived_from"]["items"]["search_evidence"]["utility_review_history"]
+    )
+    prior["search_evidence"]["utility_review"]["utility_gain_candidate_ids"].clear()
+    assert spec["derived_from"]["items"]["search_evidence"]["utility_review_history"] == saved
+
+
+@pytest.mark.parametrize("speed", [1.3, 1.0, None])
+def test_exact_fresh_input_remeasurement_updates_history_without_inventing_missing_zero(
+    speed: float | None,
+) -> None:
+    spec = _utility_spec()
+    spec["config"]["enemyLevel"] = 82
+    _fresh_utility_review(spec, "B0", speed=speed)
+    report = optimization_readiness(spec)
+    if speed is None:
+        assert "utility_context_unknown" in _codes(report)
+        assert not report["utility_review"]["remeasured_history"]
+    elif speed > 1:
+        assert _codes(report) == {"utility_decision_missing"}
+        assert report["utility_review"]["remeasured_history"]
+        _decide_utility(spec)
+        assert optimization_readiness(spec)["status"] == "ready"
+    else:
+        assert report["status"] == "ready"
+        assert report["utility_review"]["remeasured_history"]
+
+
+def test_generic_exception_cannot_replace_candidate_judgment() -> None:
+    spec = _utility_spec()
+    report = optimization_readiness(spec)
+    spec["optimization_contract"]["exceptions"] = [
+        {"issue_id": report["blockers"][0]["issue_id"], "reason": "All utility was considered."}
+    ]
+    assert "invalid_contract" in _codes(optimization_readiness(spec))
+
+
+def test_same_label_other_text_and_unobserved_axis_cannot_discharge_history() -> None:
+    spec = _utility_spec()
+    spec["config"]["enemyLevel"] = 82
+    _fresh_utility_review(spec, "B0-but-different", speed=1.0)
+    assert "utility_context_unknown" in _codes(optimization_readiness(spec))
+    # Repeating a review must preserve the unresolved original, not just its last peer.
+    _fresh_utility_review(spec, "Still another candidate", speed=1.0)
+    assert "utility_context_unknown" in _codes(optimization_readiness(spec))
+
+
+def test_tampered_history_digest_is_rejected() -> None:
+    spec = _utility_spec()
+    _fresh_utility_review(spec, "Different", speed=1.0)
+    history = spec["derived_from"]["items"]["search_evidence"]["utility_review_history"]
+    history[0]["source_sha256"] = "not-the-original"
+    assert "invalid_utility_evidence" in _codes(optimization_readiness(spec))
+
+
+def test_actual_new_baseline_adoption_resolves_history_without_prose_adopt() -> None:
+    spec = _utility_spec()
+    spec["items"][0]["text"] = "B0"
+    _fresh_utility_review(spec, "A", speed=1.0)
+    report = optimization_readiness(spec)
+    assert report["status"] == "ready"
+    assert report["utility_review"]["remeasured_history"][0]["remeasured_label"] == "baseline"
+
+
+@pytest.mark.parametrize(
+    "field,value", [("active", False), ("substitutes", ["utility substitute"])]
+)
+def test_same_text_with_changed_calculator_inputs_cannot_resolve_history(
+    field: str, value: Any
+) -> None:
+    spec = _utility_spec()
+    spec["config"]["enemyLevel"] = 82
+    variant = copy.deepcopy(spec)
+    variant["items"][0].update({"text": "B0", field: value})
+    mark = measured_review_receipt(
+        spec,
+        {"same-label": variant},
+        {"same-label": {"MovementSpeedMod": 1.0}},
+        component="items",
+        stats=["MovementSpeedMod"],
+        baseline_stats={"MovementSpeedMod": 1.0},
+        unresolved=[],
+    )
+    spec["derived_from"] = {"items": mark}
+    spec["optimization_contract"]["required_components"] = {
+        "items": {
+            "scope": {"slots": ["Weapon 1"]},
+            "allowed_termination_reasons": ["variants_evaluated"],
+        }
+    }
+    assert "utility_context_unknown" in _codes(optimization_readiness(spec))
+
+
+def test_new_optimizer_stamp_cannot_erase_existing_utility_observation() -> None:
+    from pok.mcp.tools.tree import _stamp
+
+    spec = _utility_spec()
+    empty = copy.deepcopy(_utility_spec(count=0)["derived_from"]["items"]["search_evidence"])
+    spec["derived_from"] = _stamp(spec, "items", tool="optimize_items", search_evidence=empty)
+    assert _codes(optimization_readiness(spec)) == {"utility_decision_missing"}
+
+
+def test_item_optimizer_jewel_observation_can_be_remeasured_by_jewel_review() -> None:
+    from pok.engine.valuation import utility_candidate_digest
+
+    spec = _utility_spec()
+    spec["jewels"] = [{"socket_node_id": 2, "text": "Jewel A"}]
+    old = spec["derived_from"]["items"]["search_evidence"]
+    old["utility_review"]["utility_gain_candidate_ids"][0].update(
+        {"slot": "Jewel@2", "candidate_sha256": utility_candidate_digest("Jewel B")}
+    )
+    spec["derived_from"]["items"] = stamp(spec, "items", tool="optimize_items", search_evidence=old)
+    spec["config"]["enemyLevel"] = 82
+    _fresh_utility_review(spec, "Unrelated weapon", speed=1.0)
+    variant = copy.deepcopy(spec)
+    variant["jewels"][0]["text"] = "Jewel B"
+    spec["derived_from"]["jewels"] = measured_review_receipt(
+        spec,
+        {"jewel": variant},
+        {"jewel": {"MovementSpeedMod": 1.0}},
+        component="jewels",
+        stats=["MovementSpeedMod"],
+        baseline_stats={"MovementSpeedMod": 1.0},
+        unresolved=[],
+    )
+    report = optimization_readiness(spec)
+    assert report["status"] == "ready"
+    assert report["utility_review"]["remeasured_history"][0]["remeasured_label"] == "jewel"
+
+
+@pytest.mark.parametrize("observed", [False, None])
+def test_current_definite_block_resolves_old_candidate_but_unknown_does_not(observed: Any) -> None:
+    spec = _utility_spec()
+    spec["config"]["enemyLevel"] = 82
+    blocked = copy.deepcopy(spec)
+    blocked["items"][0]["text"] = "B0"
+    peer = copy.deepcopy(spec)
+    peer["items"][0]["text"] = "Peer"
+    failure = {"code": "items_legal", "scope": ["blocked"], "observed": observed}
+    spec["derived_from"] = {
+        "items": measured_review_receipt(
+            spec,
+            {"blocked": blocked, "peer": peer},
+            {"peer": {"MovementSpeedMod": 1.0}},
+            component="items",
+            stats=["MovementSpeedMod"],
+            baseline_stats={"MovementSpeedMod": 1.0},
+            unresolved=[failure],
+            utility_failures={"blocked": [failure]},
+        )
+    }
+    spec["optimization_contract"]["required_components"] = {
+        "items": {
+            "scope": {"slots": ["Weapon 1"]},
+            "allowed_termination_reasons": ["variants_evaluated"],
+        }
+    }
+    report = optimization_readiness(spec)
+    evidence = spec["derived_from"]["items"]["search_evidence"]
+    assert evidence["scope"]["candidates"] == ["peer"]
+    assert "blocked" not in evidence["measurements"]  # Never invent a zero utility score.
+    if observed is False:
+        assert _codes(report) == {"unresolved_evidence"}
+        assert report["utility_review"]["remeasured_history"][0]["outcome"] == "blocked"
+    else:
+        assert "utility_context_unknown" in _codes(report)
