@@ -240,7 +240,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| `codex/generation-controlled-eval` | implementation verified; PR preparation | S49/S50 실험·실행기 교정·전체 검증 완료. PR 검토 후 머지는 사용자, 병합 후 로컬 main 동기화는 이 작업 책임 |
+| `codex/generation-controlled-eval` | PR open | S49/S50 실험·실행기 교정·전체 검증 완료. [PR #146](https://github.com/skerfolg/poe2-ai-wiki/pull/146) 검토 후 머지는 사용자, 병합 후 로컬 main 동기화는 이 작업 책임 |
 | 생성 실험의 `artifacts/`·`var/` 원장 | local evidence | v1 무효 시도·v2·별도 창 결과·평가 실패까지 그대로 보존. git 정본은 보고서의 조건·값·인용과 회귀 시험이며 로컬 산출물은 정본 근거 링크로 사용하지 않음 |
 | `codex/gemling-optimization-readiness` | merged; main synchronized | PR #145 사용자 병합 후 로컬 main을 `61167b1`로 동기화 완료. 기존 worktree와 다른 세션 브랜치는 정리하지 않음 |
 | `var/pytest-*review*`·`var/pytest-*combined*`·검증 스크립트 | disposable | 단위·통합 검증용 파생물. 사용자 전달 감사표·원본/재현 기록은 보존하고 정본 회귀는 추적되는 tests 파일을 사용 |
