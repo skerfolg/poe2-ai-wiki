@@ -30,6 +30,13 @@ from pok.engine.valuation import (
 
 PURPOSES = ("exploration", "recommendation")
 REVIEW_COMPONENTS = ("items", "jewels", "tree", "supports", "ascendancy")
+_REVIEW_AXES = {
+    "items": {"items_sig", "item_substitutes_sig", "item_activity_sig"},
+    "jewels": {"jewels_sig"},
+    "tree": {"tree_sig", "attribute_choices_sig"},
+    "supports": {"skills_sig", "skills_details_sig"},
+    "ascendancy": {"character_sig", "tree_sig", "attribute_choices_sig"},
+}
 
 
 class OptimizationNotReadyError(ValueError):
@@ -150,23 +157,46 @@ def measured_review_receipt(
     utility_measurements: Mapping[str, Mapping[str, float]] | None = None,
     utility_baseline: Mapping[str, float] | None = None,
     utility_failures: Mapping[str, list[dict[str, Any]]] | None = None,
+    package_components: list[str] | None = None,
 ) -> dict[str, Any]:
     """Describe successful baseline/alternative measurements, never infer a winner.
 
     Only the MCP evaluator calls this after calculation. Revalidation owners are
     derived from actual input changes; callers cannot submit paths to clear.
     A changed support cannot certify an item search, and a no-op cannot certify
-    any search. The receipt belongs to the baseline, not an unselected variant.
+    any search. Explicit package reviews accept joint changes only in their named
+    components, credit only actual changes in this component, and retain the full
+    package context. The receipt belongs to the baseline, not an unselected variant.
     """
     if component not in REVIEW_COMPONENTS:
         raise ValueError(f"review_component는 {REVIEW_COMPONENTS} 중 하나여야 한다")
-    allowed = {
-        "items": {"items_sig", "item_substitutes_sig", "item_activity_sig"},
-        "jewels": {"jewels_sig"},
-        "tree": {"tree_sig", "attribute_choices_sig"},
-        "supports": {"skills_sig", "skills_details_sig"},
-        "ascendancy": {"character_sig", "tree_sig", "attribute_choices_sig"},
-    }[component]
+    own_axes = _REVIEW_AXES[component]
+    if package_components is not None and (
+        not isinstance(package_components, list)
+        or not package_components
+        or any(
+            not isinstance(value, str) or value not in REVIEW_COMPONENTS
+            for value in package_components
+        )
+        or len(set(package_components)) != len(package_components)
+        or component not in package_components
+    ):
+        raise ValueError(
+            "package_components는 중복 없는 지원 컴포넌트 목록이며 component를 포함해야 한다"
+        )
+    allowed = (
+        set().union(*(_REVIEW_AXES[value] for value in package_components))
+        if package_components is not None
+        else own_axes
+    )
+    # Without tree metadata, generic node changes cannot identify an ascendancy
+    # experiment inside a package. The legacy explicit single-axis review still
+    # supports same-ascendancy node allocation comparisons.
+    credit_axes = (
+        {"character_sig"}
+        if package_components is not None and component == "ascendancy"
+        else own_axes
+    )
     context = derivation_context(base_spec)
     scope: dict[str, Any] = {
         "candidates": [],
@@ -181,6 +211,7 @@ def measured_review_receipt(
     full_baseline = baseline_stats if utility_baseline is None else utility_baseline
     full_measurements = measurements if utility_measurements is None else utility_measurements
     problems = list(unresolved)
+    package_variants: dict[str, dict[str, Any]] = {}
     for label, variant in variants.items():
         blocked = [
             row
@@ -198,19 +229,26 @@ def measured_review_receipt(
             )
         ]
         successful = label in measurements
-        if not successful and not blocked:
-            continue
         other = derivation_context(variant)
         differences = {
             key
             for key, value in context.items()
             if (key.endswith("_sig") or key == "config") and value != other[key]
         }
+        if package_components is not None:
+            package_variants[label] = {
+                "context_sha256": _receipt_digest(other),
+                "changed_axes": sorted(differences),
+                "component_changed_axes": sorted(differences & credit_axes),
+                "measured": successful,
+            }
+        if not successful and not blocked:
+            continue
         if (
-            not differences
+            (package_components is None and not differences & own_axes)
             or differences - allowed
             or (
-                component == "ascendancy"
+                (component == "ascendancy" or package_components is not None)
                 and any(base_spec.get(key) != variant.get(key) for key in ("class_name", "level"))
             )
         ):
@@ -221,6 +259,10 @@ def measured_review_receipt(
                     "changed_axes": sorted(differences),
                 }
             )
+            continue
+        # One package batch may contain alternatives for different components.
+        # Other components' valid comparisons neither certify nor invalidate this one.
+        if not differences & credit_axes:
             continue
         if successful:
             scope["candidates"].append(label)
@@ -262,6 +304,19 @@ def measured_review_receipt(
                             "round": 1,
                             "candidate_sha256": utility_candidate_digest(after.get(owner) or {}),
                             "variant_sha256": _receipt_digest(other),
+                            "variant_inputs": {
+                                key: value for key, value in other.items() if key.endswith("_sig")
+                            },
+                            **(
+                                {
+                                    "measurement_scope": "package",
+                                    "package_inputs": {
+                                        key: other[key] for key in sorted(differences)
+                                    },
+                                }
+                                if package_components is not None
+                                else {}
+                            ),
                             "changed_owners": changed_owners,
                             "change_sha256": change_digest,
                             "change_owners": sorted(
@@ -337,6 +392,17 @@ def measured_review_receipt(
         "baseline_stats": dict(baseline_stats),
         "revalidation_receipts": revalidations,
     }
+    if package_components is not None:
+        evidence.update(
+            {
+                "measurement_scope": "package",
+                "package_components": list(package_components),
+                "package_context": {
+                    "baseline_sha256": _receipt_digest(context),
+                    "variants": package_variants,
+                },
+            }
+        )
     if component in ("items", "jewels"):
         gained = [row for row in utility_candidates if row["utility_gains"] and not row["blocked"]]
         collection, owner_key = (
@@ -364,6 +430,9 @@ def measured_review_receipt(
                     "observed_axes": baseline_axes,
                     "selection": "baseline",
                     "variant_sha256": _receipt_digest(context),
+                    "variant_inputs": {
+                        key: value for key, value in context.items() if key.endswith("_sig")
+                    },
                     "owner_inputs": baseline_inputs,
                 }
                 for owner, row in baseline_inputs.items()
@@ -498,6 +567,41 @@ def _settings_issues(rules: Any, settings: Any, component: str) -> list[dict[str
                 )
                 break
     return out
+
+
+def _same_package_inputs(
+    candidate: Mapping[str, Any],
+    measured: Mapping[str, Any],
+    source: Mapping[str, Any],
+) -> bool:
+    """Joint utility cannot replace, or be replaced by, different companion inputs."""
+    if candidate.get("measurement_scope") == "package":
+        inputs = candidate.get("package_inputs")
+        actual = measured.get("variant_inputs")
+        if (
+            not isinstance(inputs, Mapping)
+            or not inputs
+            or not isinstance(actual, Mapping)
+            or any(actual.get(key) != value for key, value in inputs.items())
+        ):
+            return False
+    if measured.get("measurement_scope") == "package":
+        inputs = measured.get("package_inputs")
+        if not isinstance(inputs, Mapping) or not inputs:
+            return False
+        previous = candidate.get("variant_inputs")
+        if isinstance(previous, Mapping):
+            return all(previous.get(key) == value for key, value in inputs.items())
+        # Older item-optimizer rows keep target item text digests but no full
+        # variant signatures. Their unchanged companion axes live in the source
+        # receipt; item/jewel identity is checked separately by the caller.
+        own = "jewels" if str(candidate.get("slot", "")).startswith("Jewel@") else "items"
+        return all(
+            source.get(key) == value
+            for key, value in inputs.items()
+            if key not in _REVIEW_AXES[own]
+        )
+    return True
 
 
 def _utility_decisions(
@@ -663,6 +767,7 @@ def _utility_decisions(
                     and row.get("slot") == candidate["slot"]
                     and candidate.get("candidate_sha256")
                     and row.get("candidate_sha256") == candidate["candidate_sha256"]
+                    and _same_package_inputs(candidate, row, mark)
                     and (
                         (
                             candidate.get("change_sha256")

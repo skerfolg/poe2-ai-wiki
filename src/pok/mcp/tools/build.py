@@ -607,6 +607,7 @@ def evaluate_delta(
     variants: dict[str, dict[str, Any]],
     stats: list[str] | None = None,
     review_component: str | None = None,
+    review_components: list[str] | None = None,
 ) -> dict[str, Any]:
     """여러 전체 build_spec의 절대 스탯과 델타를 PoB로 실측 (AD-8).
     variants = {라벨: 변경된 build_spec}. 스킬·전직·장비·트리를 함께 바꿀 수 있다.
@@ -616,9 +617,25 @@ def evaluate_delta(
     review_component를 주면 성공한 실제 대안 측정 범위에서 기준(base) 구성의
     평가 영수증을 만든다. 임의 재검증 경로는 받지 않으며 수렴/최적해를 주장하지 않는다.
     반환 derived_from은 base_spec에만 적용한다. 변경안을 채택했다면 그것을 새 기준으로
-    다시 평가해야 한다."""
+    다시 평가해야 한다.
+    장비와 트리·주얼·젬을 함께 재배분한 조합은 review_components=["items", "tree", ...]로
+    재검토한다. 명시한 영역 안의 실제 변경만 기록하며 config·클래스·레벨 변경은
+    재검토 증빙에서 제외한다. 복합 조합의 비교이며 개별 부품의 독립 기여/수렴은 아니다.
+    단일 review_component와 함께 지정할 수 없다."""
     if review_component is not None and review_component not in REVIEW_COMPONENTS:
         raise ValueError(f"review_component는 {REVIEW_COMPONENTS} 중 하나여야 한다")
+    if review_components is not None:
+        if review_component is not None:
+            raise ValueError("review_component와 review_components는 함께 지정할 수 없다")
+        if (
+            not isinstance(review_components, list)
+            or not review_components
+            or any(component not in REVIEW_COMPONENTS for component in review_components)
+            or len(set(review_components)) != len(review_components)
+        ):
+            raise ValueError(
+                f"review_components는 {REVIEW_COMPONENTS} 중 중복 없는 목록이어야 한다"
+            )
     requested = list(stats or DEFAULT_STATS)
     base_result, deltas = _delta(
         spec_from_dict(base_spec),
@@ -698,24 +715,47 @@ def evaluate_delta(
             for d in deltas
         ],
     }
-    if review_component is not None:
+    components = review_components or ([review_component] if review_component is not None else [])
+    marks = dict(base_spec.get("derived_from") or {})
+    reviews = {}
+    for component in components:
         mark = measured_review_receipt(
             base_spec,
             variants,
             measured,
-            component=review_component,
+            component=component,
             stats=requested,
             baseline_stats=base_output["stats"],
             unresolved=unresolved,
             utility_baseline=base_result.stats,
             utility_measurements={d.label: d.result.stats for d in deltas},
             utility_failures=utility_failures if baseline_ok else {},
+            package_components=review_components,
         )
-        out["derived_from"] = {**(base_spec.get("derived_from") or {}), review_component: mark}
+        evidence = mark["search_evidence"]
+        # An unchanged component has no package review. Keep its original source
+        # (and any staleness) instead of replacing it with an empty receipt.
+        if review_components is None or evidence["scope"].get("candidates"):
+            marks[component] = mark
+        reviews[component] = evidence
+    if review_component is not None:
+        out["derived_from"] = marks
         out["review"] = {
             "component": review_component,
             "selection": "baseline",
-            "search_evidence": mark["search_evidence"],
+            "search_evidence": reviews[review_component],
+        }
+    elif review_components is not None:
+        out["derived_from"] = marks
+        out["review"] = {
+            "components": review_components,
+            "selection": "baseline",
+            "measurement_scope": "package",
+            "search_evidence": reviews,
+            "measurements_complete": all(
+                evidence["scope"].get("candidates") and not evidence["unresolved"]
+                for evidence in reviews.values()
+            ),
         }
     return out
 

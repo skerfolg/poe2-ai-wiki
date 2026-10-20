@@ -333,6 +333,94 @@ def test_delta_rejects_unknown_review_component_before_calculation(
         build.evaluate_delta({}, {}, review_component="arbitrary-owner")
 
 
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"review_components": []},
+        {"review_components": ["items", "items"]},
+        {"review_components": ["items", "unknown"]},
+        {"review_component": "items", "review_components": ["items", "tree"]},
+    ],
+)
+def test_invalid_package_review_does_not_calculate(monkeypatch, arguments) -> None:
+    from pok.mcp.tools import build
+
+    monkeypatch.setattr(build, "_delta", lambda *a, **kw: pytest.fail("must not compute"))
+    with pytest.raises(ValueError, match="review_component"):
+        build.evaluate_delta({}, {}, **arguments)
+
+
+def test_package_review_reuses_one_measurement_and_preserves_unchanged_domain(monkeypatch) -> None:
+    import copy
+
+    from pok.engine.provenance import stamp
+    from pok.mcp.tools import build
+
+    base = {
+        "class_name": "Sorceress",
+        "ascendancy": "Sorceress1",
+        "level": 100,
+        "items": [{"slot": "Belt", "text": "A"}],
+        "tree_nodes": [1, 2],
+        "skills": [],
+    }
+    base["derived_from"] = {"supports": stamp(base, "supports", tool="existing")}
+    variant = copy.deepcopy(base)
+    variant["items"][0]["text"] = "B"
+    variant["tree_nodes"] = [1, 3]
+    original = copy.deepcopy(base)
+    calls = _whole_comparison(monkeypatch, {"Life": 100}, {"reallocated": {"Life": 110}})
+    output = build.evaluate_delta(
+        base,
+        {"reallocated": variant},
+        ["Life"],
+        review_components=["items", "tree", "supports"],
+    )
+    assert len(calls) == 1
+    assert base == original
+    assert output["comparison"]["measurements_complete"] is True
+    assert output["review"]["measurements_complete"] is False
+    assert output["review"]["measurement_scope"] == "package"
+    for component in ("items", "tree"):
+        evidence = output["derived_from"][component]["search_evidence"]
+        assert evidence["scope"]["candidates"] == ["reallocated"]
+        assert evidence["measurement_scope"] == "package"
+        assert evidence["termination"]["converged"] is False
+        assert not evidence["unresolved"]
+    assert output["derived_from"]["supports"] == original["derived_from"]["supports"]
+    missing = output["review"]["search_evidence"]["supports"]
+    assert any(row["code"] == "no_successful_alternative" for row in missing["unresolved"])
+
+
+@pytest.mark.parametrize("failure", ["unmeasured_stats", "items_legal"])
+def test_package_review_cannot_refresh_failed_measurements(monkeypatch, failure) -> None:
+    import copy
+
+    from pok.engine.provenance import stamp
+    from pok.mcp.tools import build
+
+    base = {"items": [{"slot": "Belt", "text": "A"}], "tree_nodes": [1], "skills": []}
+    base["derived_from"] = {"items": stamp(base, "items", tool="existing")}
+    variant = copy.deepcopy(base)
+    variant["items"][0]["text"] = "B"
+    variant["tree_nodes"].append(2)
+    _whole_comparison(
+        monkeypatch,
+        {"Life": 100},
+        {"changed": {} if failure == "unmeasured_stats" else {"Life": 110}},
+        diagnostics={"changed": {"items_legal": False}} if failure == "items_legal" else None,
+    )
+    output = build.evaluate_delta(
+        base, {"changed": variant}, ["Life"], review_components=["items", "tree"]
+    )
+    assert output["comparison"]["measurements_complete"] is False
+    assert output["review"]["measurements_complete"] is False
+    assert output["derived_from"] == base["derived_from"]
+    for evidence in output["review"]["search_evidence"].values():
+        assert not evidence["scope"].get("candidates")
+        assert any(row["code"] == failure for row in evidence["unresolved"])
+
+
 def test_review_cannot_hide_utility_by_requesting_only_damage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
