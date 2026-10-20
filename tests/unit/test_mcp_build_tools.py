@@ -10,6 +10,254 @@ from pok.mcp.tools.build import check_item_legality
 from pok.pob.buildxml import spec_from_dict
 
 
+def _whole_comparison(
+    monkeypatch: pytest.MonkeyPatch,
+    base_stats: dict[str, float],
+    variant_stats: dict[str, dict[str, float]],
+    *,
+    diagnostics: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Stub only calculation and enrichment; exercise the public comparison adapter."""
+    from pok.engine.compute import Delta
+    from pok.mcp.tools import build
+    from pok.pob.runner import PobResult
+
+    calls = []
+    baseline = PobResult(base_stats, {}, (), (), False)
+    results = {
+        label: PobResult(values, {"label": label}, (), (), False)
+        for label, values in variant_stats.items()
+    }
+
+    def calculate(base, variants, *, stats):
+        calls.append({"base": base, "variants": variants, "stats": stats})
+        return baseline, [
+            Delta(
+                label,
+                result,
+                {
+                    key: (base_stats.get(key), result.stats.get(key))
+                    for key in (stats or sorted(set(base_stats) | set(result.stats)))
+                },
+            )
+            for label, result in results.items()
+        ]
+
+    def pick(result, requested, spec):
+        keys = result.stats if requested == ["*"] else (requested or build.DEFAULT_STATS)
+        return {
+            "stats": {key: result.stats[key] for key in keys if key in result.stats},
+            "meta": result.meta,
+            "items_legal": True,
+            "illegal_items": [],
+            "tree_connected": True,
+            "item_sockets_legal": True,
+            **(diagnostics or {}).get(result.meta.get("label", "baseline"), {}),
+        }
+
+    monkeypatch.setattr(build, "spec_from_dict", lambda value: value)
+    monkeypatch.setattr(build, "_delta", calculate)
+    monkeypatch.setattr(build, "_pick", pick)
+    return calls
+
+
+def test_whole_specs_preserve_joint_changes_and_absolute_resource_utility_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pok.mcp.tools import build
+
+    stats = ["CombinedDPS", "Mana", "MovementSpeedMod"]
+    calls = _whole_comparison(
+        monkeypatch,
+        {"CombinedDPS": 100, "Mana": 40, "MovementSpeedMod": 1.0},
+        {
+            "burst": {"CombinedDPS": 200, "Mana": 5, "MovementSpeedMod": 1.0},
+            "mobile": {"CombinedDPS": 90, "Mana": 80, "MovementSpeedMod": 1.5},
+        },
+    )
+    base = {"skills": ["main-a", "support-a"], "tree_nodes": [1], "items": ["weapon-a"]}
+    variants = {
+        "burst": {"skills": ["main-b", "support-b"], "tree_nodes": [2], "items": ["weapon-b"]},
+        "mobile": {"skills": ["main-c", "support-c"], "tree_nodes": [3], "items": ["weapon-c"]},
+    }
+    output = build.evaluate_delta(base, variants, stats)
+    assert calls == [{"base": base, "variants": variants, "stats": tuple(stats)}]
+    assert output["variants"]["burst"]["stats"] == {
+        "CombinedDPS": 200,
+        "Mana": 5,
+        "MovementSpeedMod": 1.0,
+    }
+    assert output["variants"]["mobile"]["stats"]["MovementSpeedMod"] == 1.5
+    assert output["variants"]["mobile"]["meta"] == {"label": "mobile"}
+    assert output["deltas"][1]["delta"]["CombinedDPS"] == -10
+    assert output["comparison"]["measured_comparisons"] == ["burst", "mobile"]
+    assert output["comparison"]["measurements_complete"] is True
+    assert output["comparison"]["selection"] is None
+    assert "review" not in output and "derived_from" not in output
+
+
+@pytest.mark.parametrize(
+    ("stats", "values", "expected"),
+    [
+        (["Life", "Mana"], {"Life": 100}, ["Mana"]),
+        (["Life"], {}, ["Life"]),
+        (["*"], {"Life": float("nan"), "Mana": 20}, ["Life"]),
+        (["Life"], {"Life": float("inf")}, ["Life"]),
+    ],
+)
+def test_whole_comparison_does_not_count_missing_or_nonfinite_measurements(
+    monkeypatch: pytest.MonkeyPatch,
+    stats: list[str],
+    values: dict[str, float],
+    expected: list[str],
+) -> None:
+    from pok.mcp.tools import build
+
+    _whole_comparison(monkeypatch, {"Life": 100, "Mana": 20}, {"candidate": values})
+    output = build.evaluate_delta({}, {"candidate": {}}, stats)
+    comparison = output["comparison"]
+    assert comparison["computed_candidates"] == ["candidate"]
+    assert comparison["measured_comparisons"] == []
+    assert comparison["measurements_complete"] is False
+    assert comparison["unresolved"] == [
+        {"code": "unmeasured_stats", "scope": ["candidate"], "stats": expected}
+    ]
+    assert all(
+        value == value and abs(value) != float("inf")
+        for value in output["deltas"][0]["delta"].values()
+    )
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("items_legal", False),
+        ("tree_connected", False),
+        ("item_sockets_legal", False),
+        ("dropped_items", [{"slot": "Boots"}]),
+        ("unbuilt_declarations", ["Prefix: unrendered"]),
+        ("req_shortfall", {"Str": 10}),
+        ("items_pob_gaps", [{"slot": "Amulet", "unread": ["Free skill cost"]}]),
+    ],
+)
+def test_whole_comparison_exposes_each_candidates_diagnostics_without_review(
+    monkeypatch: pytest.MonkeyPatch, key: str, value: Any
+) -> None:
+    from pok.mcp.tools import build
+
+    _whole_comparison(
+        monkeypatch,
+        {"Life": 100},
+        {"candidate": {"Life": 200}},
+        diagnostics={"candidate": {key: value}},
+    )
+    output = build.evaluate_delta({}, {"candidate": {}}, ["Life"])
+    assert output["variants"]["candidate"][key] == value
+    assert output["comparison"]["measurements_complete"] is False
+    assert output["comparison"]["unresolved"][0]["code"] == key
+    expected = ["candidate"] if key == "items_pob_gaps" else []
+    assert output["comparison"]["measured_comparisons"] == expected
+
+
+def test_whole_comparison_reports_omitted_candidate_and_unmeasured_baseline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pok.mcp.tools import build
+
+    _whole_comparison(monkeypatch, {}, {"measured": {"Mana": 10}})
+    output = build.evaluate_delta({}, {"measured": {}, "omitted": {}}, ["Mana"])
+    comparison = output["comparison"]
+    assert comparison["requested_candidates"] == ["measured", "omitted"]
+    assert comparison["computed_candidates"] == ["measured"]
+    assert comparison["measured_comparisons"] == []
+    assert comparison["measurements_complete"] is False
+    assert comparison["unresolved"] == [
+        {"code": "unmeasured_stats", "scope": ["baseline"], "stats": ["Mana"]},
+        {"code": "variant_unmeasured", "scope": ["omitted"]},
+    ]
+    assert "omitted" not in output["variants"]
+
+
+def test_negative_resource_measurement_is_not_relabelled_as_gameplay_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pok.mcp.tools import build
+
+    _whole_comparison(monkeypatch, {"Spirit": 0}, {"free-cost": {"Spirit": -40}})
+    output = build.evaluate_delta({}, {"free-cost": {}}, ["Spirit"])
+    assert output["variants"]["free-cost"]["stats"]["Spirit"] == -40
+    assert output["comparison"]["measurements_complete"] is True
+    assert output["comparison"]["selection"] is None
+    assert "not_gameplay" in output["comparison"]["claim"]
+
+
+def test_empty_whole_comparison_is_not_measured_comparison_completion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pok.mcp.tools import build
+
+    _whole_comparison(monkeypatch, {"Life": 100}, {})
+    output = build.evaluate_delta({}, {}, ["Life"])
+    assert output["comparison"]["measured_comparisons"] == []
+    assert output["comparison"]["measurements_complete"] is False
+
+
+@pytest.mark.parametrize(
+    ("baseline", "variants", "missing", "measured"),
+    [
+        (
+            {"Life": 100},
+            {"different": {"Mana": 20}},
+            {"baseline": ["Mana"], "different": ["Life"]},
+            [],
+        ),
+        (
+            {"Life": 100, "Mana": 20},
+            {"full": {"Life": 110, "Mana": 25}, "partial": {"Life": 120}},
+            {"partial": ["Mana"]},
+            ["full"],
+        ),
+        (
+            {"Life": 100, "Mana": 20},
+            {"first": {"Life": 110, "Mana": 25}, "second": {"Life": 120, "Mana": 20}},
+            {},
+            ["first", "second"],
+        ),
+        (
+            {"Life": 100},
+            {"same": {"Life": 110}, "extra": {"Life": 110, "Mana": 20}},
+            {"baseline": ["Mana"], "same": ["Mana"]},
+            [],
+        ),
+    ],
+)
+def test_wildcard_comparison_uses_union_of_baseline_and_all_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+    baseline: dict[str, float],
+    variants: dict[str, dict[str, float]],
+    missing: dict[str, list[str]],
+    measured: list[str],
+) -> None:
+    from pok.mcp.tools import build
+
+    _whole_comparison(monkeypatch, baseline, variants)
+    output = build.evaluate_delta({}, {name: {} for name in variants}, ["*"])
+    comparison = output["comparison"]
+    assert comparison["compared_stats"] == ["Life", "Mana"]
+    assert comparison["measured_comparisons"] == measured
+    assert comparison["measurements_complete"] is (not missing)
+    assert {
+        row["scope"][0]: row["stats"]
+        for row in comparison["unresolved"]
+        if row["code"] == "unmeasured_stats"
+    } == missing
+    assert output["base"]["stats"] == baseline
+    assert {name: row["stats"] for name, row in output["variants"].items()} == variants
+    for row in output["deltas"]:
+        for key in row["delta"]:
+            assert key in baseline and key in variants[row["label"]]
+
+
 @pytest.mark.parametrize("missing_stat", [False, True])
 @pytest.mark.parametrize("model_gap", [False, True])
 def test_delta_review_is_produced_only_from_successfully_measured_owners(

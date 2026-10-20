@@ -1,6 +1,6 @@
 ---
 name: build-assembly
-description: 컨셉이 확정된 PoE2 빌드를 정본으로 조립한다 — assemble_pob으로 빌드별 산출물을 남기는 루프. 장비를 기억이 아니라 파일로 들고 적법성 전수 검사를 거친다. 본조립, 최종 빌드 확정, 장비 확정, PoB 코드 산출, validation.json 확인에 쓴다. (컨셉 탐색은 build-generation)
+description: 구체화된 PoE2 후보와 최종 채택안을 정본으로 조립한다 — assemble_pob으로 빌드별 산출물을 남기는 루프. 장비를 기억이 아니라 파일로 들고 적법성 전수 검사를 거친다. 본조립, 최종 빌드 확정, 장비 확정, PoB 코드 산출, validation.json 확인에 쓴다. (컨셉 탐색은 build-generation)
 ---
 
 # build-assembly

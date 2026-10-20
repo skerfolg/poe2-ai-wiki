@@ -7,9 +7,12 @@ It is an experimental interface, not the default registered PoK server.
 
 from __future__ import annotations
 
-import inspect
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
+
+from fastmcp.exceptions import ToolError
+from fastmcp.utilities.types import get_cached_typeadapter
+from pydantic import ValidationError
 
 
 def retrieve(
@@ -20,6 +23,7 @@ def retrieve(
     *,
     search_fn: Callable[..., list[dict[str, Any]]],
     read_fn: Callable[..., dict[str, Any]],
+    strict_input_validation: bool | None = None,
 ) -> dict[str, Any]:
     """Preserve all search hits, detail failures and unread IDs, without ranking."""
     if (
@@ -28,8 +32,12 @@ def retrieve(
         or not 1 <= max_entries <= 20
     ):
         raise ValueError("max_entries must be between 1 and 20")
-    inspect.signature(search_fn).bind(**search)
-    hits = search_fn(**search)
+    # A callable adapter validates arguments and executes the wrapped search once.
+    # Use the same adapter as the original MCP route, including aliases/defaults.
+    hits = cast(
+        list[dict[str, Any]],
+        get_cached_typeadapter(search_fn).validate_python(search, strict=strict_input_validation),
+    )
     identifiers = list(dict.fromkeys(row["id"] for row in hits if isinstance(row.get("id"), str)))
     details = []
     for identifier in identifiers[:max_entries]:
@@ -68,14 +76,20 @@ def register(server: Any) -> None:
         when different records matter. This operation counts each actual query.
         No stage or total-query limit is imposed by this optional entry point.
         """
-        return retrieve(
-            search,
-            max_entries,
-            fields,
-            include_narrative,
-            search_fn=server.search_kb,
-            read_fn=server.get_entry,
-        )
+        try:
+            return retrieve(
+                search,
+                max_entries,
+                fields,
+                include_narrative,
+                search_fn=server.search_kb,
+                read_fn=server.get_entry,
+                # FastMCP 2.10 has no strict setting and uses Pydantic's default.
+                strict_input_validation=getattr(server.mcp, "strict_input_validation", None),
+            )
+        except ValidationError as exc:
+            # Preserve diagnostics on the wire without labeling body errors as bad input.
+            raise ToolError(str(exc)) from exc
 
 
 def main() -> None:

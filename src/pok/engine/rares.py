@@ -253,9 +253,10 @@ def _affix_caps(base_type: str, root: Path | None) -> tuple[int, int, int, str]:
 
     해석은 검사기와 같다: 각 한도 +1, 총합 +1 — 3/3(총 6)은 불허.
     """
-    import json
+    from pok.engine.legality import apply_base_affix_limits
 
-    category = (base_record(base_type, root) or {}).get("data", {}).get("category") or ""
+    base = base_record(base_type, root)
+    category = (base or {}).get("data", {}).get("category") or ""
     rules = knowledge_dir(root) / "crafting-rules" / "board-rules.json"
     caps = (
         json.loads(rules.read_text(encoding="utf-8")).get("affix_caps", {})
@@ -265,13 +266,19 @@ def _affix_caps(base_type: str, root: Path | None) -> tuple[int, int, int, str]:
     section = caps.get(category) or caps.get("equipment") or {}
     rare = section.get("rare") if isinstance(section, dict) else None
     if not isinstance(rare, dict):
-        return 3, 3, 6, "equipment(기본값)"
-    label = category if caps.get(category) else "equipment"
+        rare = {"prefixes": 3, "suffixes": 3}
+        label = "equipment(기본값)"
+    else:
+        label = category if caps.get(category) else "equipment"
     pre, suf = int(rare.get("prefixes", 3)), int(rare.get("suffixes", 3))
     total = pre + suf
     if isinstance(section, dict) and section.get("season_override"):
         pre, suf, total = pre + 1, suf + 1, total + 1
         label += " (season_override)"
+    adjusted, adjusted_total = apply_base_affix_limits({"prefix": pre, "suffix": suf}, total, base)
+    if (adjusted["prefix"], adjusted["suffix"], adjusted_total) != (pre, suf, total):
+        label += " + 베이스 임플리싯"
+    pre, suf, total = adjusted["prefix"], adjusted["suffix"], adjusted_total
     return pre, suf, total, label
 
 
@@ -376,6 +383,7 @@ def optimize_rare(
     같은 접사도 빌드마다 델타가 다르다), 상위 접두·접미를 조립해 다시 잰다.
     단독 점수 순서로 시도하되, 매 조립 후보의 최종 렌더 문구를 다시 실측해
     실제 점수가 증가할 때만 채택한다. 전역 최적해 탐색은 아니다.
+    prefix_count/suffix_count는 정본·베이스 한도 안에서 탐색 한도를 더 낮출 때 쓴다.
 
     접사 한도는 **정본 판 규칙**에서 읽는다(장비 3/3, 주얼 2/2) — 하드코딩 3/3으로
     주얼을 조립하면 못 만드는 아이템이 나온다. 주얼은 `slot="Jewel@<소켓 node_id>"`
@@ -462,9 +470,13 @@ def optimize_rare(
 
     cap_pre, cap_suf, cap_total, cap_label = _affix_caps(base_type, root)
     if prefix_count is not None:
-        cap_pre = prefix_count
+        cap_pre = min(cap_pre, max(0, prefix_count))
+        if cap_pre != prefix_count:
+            notes_pre.append(f"접두 요청 한도 {prefix_count} → 베이스 허용 범위 {cap_pre}로 제한")
     if suffix_count is not None:
-        cap_suf = suffix_count
+        cap_suf = min(cap_suf, max(0, suffix_count))
+        if cap_suf != suffix_count:
+            notes_pre.append(f"접미 요청 한도 {suffix_count} → 베이스 허용 범위 {cap_suf}로 제한")
     ranked = sorted(readings, key=lambda r: r.score(weights), reverse=True)
     chosen: list[AffixReading] = []
     counts = {"prefix": 0, "suffix": 0, "corrupted": 0}
