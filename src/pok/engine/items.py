@@ -777,7 +777,30 @@ def evaluate_slot(
             )
             continue
         variant = _replace_slot(spec, slot, cand.text)
-        measured = run(variant)
+        try:
+            measured = run(variant)
+        except ValueError:
+            # A replacement can remove an item-granted main skill's only source.
+            # Reject only a reproducibly invalid spec; oracle/JSON errors on a
+            # valid spec must still fail the call instead of hiding lost results.
+            from pok.pob.buildxml import spec_from_dict
+
+            try:
+                spec_from_dict(variant)
+            except ValueError as invalid:
+                results.append(
+                    CandidateResult(
+                        candidate=cand,
+                        delta_now={},
+                        scaling_axes=(),
+                        delta_probed=None,
+                        probe=None,
+                        floor_violations=(),
+                        legality_violations=(f"후보 구성 불성립: {invalid}",),
+                    )
+                )
+                continue
+            raise
         delta_now = {k: round(measured.get(k, 0.0) - base.get(k, 0.0), 4) for k in stats}
         violations = tuple(
             f"{k} {measured.get(k, 0.0):g} < 바닥선 {v:g}"
@@ -928,10 +951,11 @@ def optimize_items(
 
     def run(spec_now: dict[str, Any]) -> dict[str, float]:
         nonlocal measured_count
+        measured = _inner(spec_now)
         measured_count += 1
         if progress is not None:
             progress(measured_count)
-        return _inner(spec_now)
+        return measured
 
     current = dict(spec)
     steps: list[ItemStep] = []

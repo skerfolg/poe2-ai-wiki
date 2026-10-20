@@ -41,6 +41,127 @@ needs_pob_snapshot = pytest.mark.skipif(
 SPEC = {"class_name": "Sorceress", "ascendancy": "Sorceress1", "items": []}
 
 
+@pytest.fixture
+def item_granted_main(monkeypatch):
+    """Keep real spec validation; only its catalog and the PoB oracle are fixtures."""
+    from types import SimpleNamespace
+
+    from pok.pob import buildxml, catalog, daemon
+
+    gem_id = "Metadata/Items/Gems/SkillGemFreezingShards"
+    monkeypatch.setattr(buildxml, "_ascendancy_codes", lambda: {"Witch2": "Blood Mage"})
+    monkeypatch.setattr(buildxml, "_unique_explicits", lambda _name: None)
+    monkeypatch.setattr(buildxml, "_passive_names", lambda: {})
+    monkeypatch.setattr(
+        buildxml,
+        "_item_granted_skill",
+        lambda name: ("Gelid Staff",) if name == "Freezing Shards" else None,
+    )
+    monkeypatch.setattr(catalog, "gem_ids", lambda: {gem_id})
+    monkeypatch.setattr(catalog, "config_vars", lambda: set())
+    spec = {
+        "class_name": "Witch",
+        "ascendancy": "Witch2",
+        "skills": [
+            {
+                "gems": [
+                    {"name": "Freezing Shards", "gem_id": gem_id, "stat_set_index": 1, "stages": 1}
+                ]
+            }
+        ],
+        "items": [{"slot": "Weapon 1", "text": "Rarity: RARE\nOriginal\nGelid Staff"}],
+    }
+    visited = []
+
+    def compute_build(parsed):
+        text = parsed.items[0].text
+        visited.append(text)
+        return SimpleNamespace(stats={"TotalDPS": 150.0 if "Improved" in text else 100.0})
+
+    oracle = SimpleNamespace(compute_build=compute_build)
+    monkeypatch.setattr(daemon, "shared_daemon", lambda: oracle)
+    return spec, oracle, visited
+
+
+def test_item_granted_main_source_rejection_keeps_later_candidate(
+    monkeypatch,
+    item_granted_main,
+):
+    """B's Gelid Staff replacement used to abort the whole item search."""
+    import pok.engine.items as module
+
+    spec, _oracle, visited = item_granted_main
+    candidates = [
+        ItemCandidate("lost-source", "Weapon 1", "Rarity: NORMAL\nSiphoning Wand", "unique-kb"),
+        ItemCandidate(
+            "kept-source", "Weapon 1", "Rarity: RARE\nImproved\nGelid Staff", "rare-template"
+        ),
+    ]
+    monkeypatch.setattr(module, "enumerate_slot_uniques", lambda *_: candidates)
+    progress = []
+    result = optimize_items(
+        spec, ["Weapon 1"], {"TotalDPS": 1}, max_rounds=1, progress=progress.append
+    )
+
+    assert result.steps[0].adopted == "kept-source"
+    rejected = result.search_evidence["rejected_candidates"]["Weapon 1"]
+    assert [row["label"] for row in rejected] == ["lost-source"]
+    assert "Freezing Shards" in rejected[0]["reasons"][0]
+    assert "Gelid Staff" in rejected[0]["reasons"][0]
+    counts = result.search_evidence["scope"]["candidate_counts"]["Weapon 1"]
+    assert counts["rejected"] == 1
+    assert counts["evaluated"] == 1
+    assert len(visited) == 2  # Baseline and valid replacement only.
+    assert result.search_evidence["termination"]["measurements"] == 2
+    assert progress == [1, 2]
+    assert all(row["label"] != "lost-source" for row in result.unscored_candidates)
+
+
+def test_invalid_item_granted_baseline_still_aborts(monkeypatch, item_granted_main):
+    import pok.engine.items as module
+
+    spec, _oracle, visited = item_granted_main
+    spec["items"] = []
+    monkeypatch.setattr(module, "enumerate_slot_uniques", lambda *_: [])
+    with pytest.raises(ValueError, match="Freezing Shards"):
+        optimize_items(spec, ["Weapon 1"], {"TotalDPS": 1})
+    assert visited == []
+
+
+@pytest.mark.parametrize("stage", ["baseline", "candidate"])
+@pytest.mark.parametrize("error_type", [ValueError, RuntimeError])
+def test_valid_spec_oracle_failure_is_not_candidate_rejection(
+    monkeypatch,
+    item_granted_main,
+    stage,
+    error_type,
+):
+    import pok.engine.items as module
+
+    spec, oracle, _visited = item_granted_main
+    original = oracle.compute_build
+    failure = error_type("oracle transport failure")
+
+    def compute_build(parsed):
+        if stage == "baseline" or "Improved" in parsed.items[0].text:
+            raise failure
+        return original(parsed)
+
+    oracle.compute_build = compute_build
+    monkeypatch.setattr(
+        module,
+        "enumerate_slot_uniques",
+        lambda *_: [
+            ItemCandidate(
+                "valid", "Weapon 1", "Rarity: RARE\nImproved\nGelid Staff", "rare-template"
+            )
+        ],
+    )
+    with pytest.raises(error_type) as caught:
+        optimize_items(spec, ["Weapon 1"], {"TotalDPS": 1}, max_rounds=1)
+    assert caught.value is failure
+
+
 def test_unique_jewels_replace_occupied_sockets_and_record_exhaustion(monkeypatch):
     """The Gemling's two occupied Ruby sockets used to skip all unique comparisons."""
     import pok.engine.items as module
