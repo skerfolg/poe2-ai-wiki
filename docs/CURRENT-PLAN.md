@@ -71,7 +71,7 @@ flowchart TD
   READY[S46 최적화 근거·완료 판정 수정<br/>done]
   REBUILD[S47 젬링 재최적화·누락 대조<br/>done]
   UTILITY[S48 유틸 후보·완료 관문·마법사의 피 재평가<br/>done]
-  EVAL[S49 전체 경로 비교 재설계<br/>active]
+  EVAL[S49 동일 원자료 전체 경로 재비교<br/>active]
   GENFIX[S50 선택적 실험 실행기 구현·기능 검증<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
@@ -188,7 +188,15 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S49 직접 대화·기존 PoK·수정 PoK의 전체 경로를 분리하는 새 비교 프로토콜을 확정한다.**
+The only next executable step is: **S49 검증한 원자료·실행 조건을 동결하고 A/B/C가 각자 완성 PoB를 생성하도록 실행한다.**
+
+사용자가 PR #146 원격 반영과 완성 빌드·PoB 공유코드를 남기는 전체 경로 재비교를
+명시 승인했다(2026-10-20). 정정 커밋 `4b52cf6`과 PR 제목·본문은 반영 완료다.
+새 실험은 [전체 경로 비교 원장](GENERATION_FULLPATH_EVAL.md)에 별도로 기록한다.
+같은 모델·복구한 원자료·90분 총 실행시간을 통제하고 중간 단계·조회 수는 각 방식에
+맡긴다. 원자료 출처 감사와 정상 도구·쓰기 경로 점검을 완료했다. 미복구 원본은
+실험 사본에서 제외하고 원본이 확인된 가공 설명은 유지했다. 사전 점검용 모델
+호출 8회를 실제 빌드 표본이나 성공으로 세지 않는다. 원래 실험·점수는 그대로 보존한다.
 
 사용자 방법론 지적(2026-10-20)에 따라 S49 완료와 전체 PoK 우열 결론을 철회한다. 기존 실행은 공통 PoK 환경에서 지침·조회 일부를 바꾼 실험으로 보존한다. 새 실행기 안의 자료 전달 기능은 검증했지만, 정상 PoK의 근본 원인이나 제품 생성 절차의 개선 효과를 입증하지 않았다. S50은 선택적 실험 도구의 구현·기능 검증만 완료로 남기고 기본 경로 지정을 철회한다. 원자료·모델·총예산은 맞추되 자료 선별·조회·중간 형식·반복은 방식별로 분리하도록 S49를 재설계한다. 동결 파일·KB·원답안·실패 평가를 수정하거나 새 모델 실험을 실행하지 않았다. S49 우선 실행 override를 유지하며 기존 S7 blocked·M6 대기는 그대로 둔다. 전체 M5 레인·버전은 닫지 않는다.
 
@@ -271,6 +279,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| S49 전체 경로 재비교·PoB 제출 및 PR #146 반영 승인 | 사용자가 원격 반영과 같은 모델·원자료·총예산에서 세 방식의 정상 완성 절차 실행을 명시 요청. 정정 PR 반영 완료. 준비·실험·사후 평가를 새 원장에 분리하고 본실험 전 자료·변경안·조건을 동결 | 2026-10-20 |
 | S49 완료 취소·우선 실행 override 유지 — 사용자 방법론 지적 | A/B에 공통 적용한 PoK 절차와 강제 종료 때문에 전체 비교는 미수행. 기존 국소 실험·원점수는 보존하되 전체 우열 결론 철회. S50은 선택적 실행기 기능 검증만 done, 기본 진입점 지정은 철회. S7 blocked와 M6 대기는 유지 | 2026-10-20 |
 | Integration branch override — `codex/generation-controlled-eval` | S49/S50 사용자 요청 작업. This lane targets `codex/generation-controlled-eval` instead of `main` for this PR only | 2026-10-20 |
 | S48 우선 실행 — 첫 미종결 S7보다 사용자 추가 교정 우선 | 이동·회피·저항 여유와 접사 재배분 누락을 실제 코드/측정으로 교정했다. S48 완료 후 S7의 기존 중단 상태로 복귀하며, 전역최적성·실전성·상주MCP재시작은 별도 범위로 공개한다 | 2026-10-19 |
