@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `codex/gemling-optimization-readiness`
+**Integration branch**: `codex/generation-controlled-eval`
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -71,6 +71,8 @@ flowchart TD
   READY[S46 최적화 근거·완료 판정 수정<br/>done]
   REBUILD[S47 젬링 재최적화·누락 대조<br/>done]
   UTILITY[S48 유틸 후보·완료 관문·마법사의 피 재평가<br/>done]
+  EVAL[S49 새 컨셉 3방식 통제 실험<br/>done]
+  GENFIX[S50 실험 근거의 생성 절차 수정·재검증<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
@@ -118,6 +120,7 @@ flowchart TD
   CODEX -. 사용자 요청 · 검색 전용 스킬 .-> TRADE --> M6
   TRADE -. 사용자 지적 · 실제 빌드 재현 .-> READY --> REBUILD --> M6
   REBUILD -. 유틸 가치 누락 재지적 .-> UTILITY --> M6
+  UTILITY -. 사용자 요청 · 동일 조건 비교 .-> EVAL --> GENFIX --> M6
 ```
 
 ## Baseline Structure
@@ -180,13 +183,18 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S48 | BACKLOG #179~#182: 후보별 미채점 유틸 반환·이동 배율 정규화·Gold 후기 통계·출처에 결박한 유틸 완료 판정 수정. 전체 단위1,501+PoB통합85=1,586통과·34skip, 전후326해시 일치. 유틸12/접사9/대조군2·새장비5축 broad·결합6실측 후 최종 장비27/트리25/주얼11/보조6/전직1과 유틸23판단으로 ready_with_exceptions. 코드재입력666통계·새프로세스6회 일치. Ring2 제작출처 누락은 실제 재생성/비교로 연결. 이전 희귀 벨트 종합우선 결론 철회. 선택안은 직전안 대비 점화 DPS−4.03%·이동 배율+22.21%·현재 적 공격 회피율4→34%, 생명력5981→5757·주력 마나 여유47→18.7/s. 첫 팩/전염 유지·실전 회복·가격은 미검증. 최종 문서 편집 후 CI가 잡은 로컬 산출물 링크는 제거하고 결과 값을 이 행에 보존했다. [PR #145](https://github.com/skerfolg/poe2-ai-wiki/pull/145) | done |
 
+| S49 | 새 석궁 컨셉 3방식×2회, 동일 모델·초기 자료·조회/시간 상한. 생성6/6·18단계·실제 설계 조회72회 완료. 평가12회 중10유효, 항목 재판정3회 유효. A2 92/B1 98/B2 92/C1 92, A1·C2는 평가 인용 검증 실패로 점수 없음. 현행 PoK 열등 가설은 지지되지 않았다. 마지막 검색의 상세 미열람·동일 재조회(B 7/24)·최종 구성 변경을 원출력으로 감사. [한국어 보고서](GENERATION_CONTROLLED_EVAL.md) | done |
+| S50 | S49 전이 근거로 실제 3단계 모델·MCP 실행기, 검색→상세 연속 조회, 초기 필드 색인·전체 구성 이력·설계/추천 상태 분리 구현. 별도 창2회에서 조회12→11·동일 재독5→0, 핵심 회오리 본문을 다음 판단에 반영. H2 88점, H1은 재판정 인용 오류로 미집계라 우위 주장 없음. 전체1,678통과(단위1,594+통합84)·34skip, 324.89초. Ruff·strict mypy·의존 경계·커밋 전 검사 통과. 적응형 재탐색·질문 갱신은 #183 미해결. [한국어 보고서](GENERATION_CONTROLLED_EVAL.md) | done |
+
 ## Canonical Next Step
 
-The only next executable step is: **S7 — 기존 blocked 상태 유지. M6 정본 진입 기준 합의 후 판정 경로를 재개한다.**
+The only next executable step is: **S7 에이전트 판정 배치의 재개 조건을 확인한다 — 현재 blocked를 유지하고 M6 정본 진입 범위·판정 기준 합의 전 자동 재개하지 않는다.**
+
+사용자 지시(2026-10-19)에 따른 S49/S50 실험·계획 평가 시도·실행 절차 교정·별도 과제 검증을 완료했다. 현행 PoK가 열등하다는 가설은 지지되지 않았고, 조회 전이의 구체적 단절을 수정했다. 동결 파일·KB·원답안·실패 평가도 보존하며, 같은 예산은 시간·세션·조회 상한이고 실제 토큰은 보고서에 공개했다. 미해결 적응형 재탐색·질문 이력은 BACKLOG #183에 등록했다. 이번 부수 작업의 순서 override를 종료해 첫 미종결 S7로 복귀한다. 기존 S7 blocked 상태와 M6 대기를 유지하며 전체 M5 레인·버전은 닫지 않는다.
 
 사용자 추가 지적(2026-10-19)에 따른 S48 코드 수정·유한 재최적화·한국어 대조 보고를 완료했다. 기존 S7 blocked 상태와 S46/S47의 코드·측정 기록은 보존한다. S47은 선언한 비교를 수행했으나 피해 중심 후보 선별이 유틸 가치를 빠뜨렸으므로 종합적인 아이템 선정 완료를 뜻하지 않는다. 전체 M5 레인/버전을 닫은 것은 아니므로 HISTORY-MAP의 레인 종결은 만들지 않는다.
 
-PR #145는 검토용 초안으로 미병합이다. 사용자가 머지하면 이 세션이 로컬 main을 fast-forward로 동기화할 책임을 유지한다. 새 도구는 fresh MCP로 검증했고 기존 데스크톱 연결은 재시작이 필요하다. 상류#132·전파/실전 회복·조달·설계 파서 스키마는 미해결 범위에 남긴다.
+PR #145는 사용자 병합 후 로컬 main을 `61167b1`로 동기화했다. S49는 이 커밋에서 분기한다. 기존 데스크톱 연결의 로드 커밋 표시는 이전 squash 전 커밋이므로, 실험은 고정 소스에서 새로 기동한 MCP를 사용한다. 상류#132·전파/실전 회복·조달·설계 파서 스키마는 미해결 범위에 남긴다.
 
 사용자 지시(2026-10-05)에 따른 레인 밖 S45는 구현·검증을 마쳤다. M5 측정·판정 상태는
 보존했다. 새 작업에서 `trade-search`를 발견하며, 기존 작업에서도 포함된 실행기를 직접 쓸 수 있다.
@@ -232,7 +240,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| `codex/gemling-optimization-readiness` | implementation verified; PR draft | S46/S47 조건부 산출물까지 완료. PR #145 검토/사용자 머지 대기, 이후 로컬 main 동기화 책임 유지. 기존 worktree와 다른 세션 브랜치는 정리하지 않음 |
+| `codex/generation-controlled-eval` | implementation verified; PR preparation | S49/S50 실험·실행기 교정·전체 검증 완료. PR 검토 후 머지는 사용자, 병합 후 로컬 main 동기화는 이 작업 책임 |
+| 생성 실험의 `artifacts/`·`var/` 원장 | local evidence | v1 무효 시도·v2·별도 창 결과·평가 실패까지 그대로 보존. git 정본은 보고서의 조건·값·인용과 회귀 시험이며 로컬 산출물은 정본 근거 링크로 사용하지 않음 |
+| `codex/gemling-optimization-readiness` | merged; main synchronized | PR #145 사용자 병합 후 로컬 main을 `61167b1`로 동기화 완료. 기존 worktree와 다른 세션 브랜치는 정리하지 않음 |
 | `var/pytest-*review*`·`var/pytest-*combined*`·검증 스크립트 | disposable | 단위·통합 검증용 파생물. 사용자 전달 감사표·원본/재현 기록은 보존하고 정본 회귀는 추적되는 tests 파일을 사용 |
 | `codex/trade-search-skill` | PR open | S45 구현·전체 검사 완료, [PR #144](https://github.com/skerfolg/poe2-ai-wiki/pull/144). `poe2-overlay`는 읽기 전용 참고. 머지는 사용자, 머지 후 로컬 main 동기화는 이 작업 책임 |
 | `var/live/trade-search/` | disposable | 거래소 호스트별 공개 카탈로그·제한 상태·검증 자료. 파생물이며 인증정보는 저장하지 않음 |
@@ -261,6 +271,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
+| S49/S50 종결 — 사용자 대조 실험 요청의 순서 override 종료 | 생성8회·계획된 평가21회와 절차 수정·별도 검증·전체 시험 완료. 점수 결측3건과 잔여#183을 공개하고 S7의 기존 blocked 상태로 복귀. 전체 M5 레인·버전은 닫지 않음 | 2026-10-20 |
+| Integration branch override — `codex/generation-controlled-eval` | S49/S50 사용자 요청 작업. This lane targets `codex/generation-controlled-eval` instead of `main` for this PR only | 2026-10-20 |
 | S48 우선 실행 — 첫 미종결 S7보다 사용자 추가 교정 우선 | 이동·회피·저항 여유와 접사 재배분 누락을 실제 코드/측정으로 교정했다. S48 완료 후 S7의 기존 중단 상태로 복귀하며, 전역최적성·실전성·상주MCP재시작은 별도 범위로 공개한다 | 2026-10-19 |
 | S46/S47 종결·Canonical Next Step을 첫 미종결 S7으로 복귀 | 사용자 지시 부수 작업의 수정·실측·재입력·한국어 대조를 완료. M5 자체는 active, S7은 기존 blocked 유지. 이 부수 작업용 순서 override는 종료 | 2026-10-19 |
 | S45 — 검색 범위와 실행 경계 | 사용자 요청 「검색 자체만, 주 사용자는 AI 에이전트」. `skills/trade-search/` 내부의 독립 실행기를 사용하며 기존 엔진·MCP 모듈 경계는 바꾸지 않는다. 원형 파라미터와 검색 결과를 반환하고 거래 동작은 구현하지 않는다. 기존 M5 레인 상태를 보존하는 사용자 지정 부수 작업으로 S45 우선 실행 | 2026-10-05 |
