@@ -105,6 +105,25 @@ item.astramentis · modifier.fire-damage-pct · content.pinnacle-boss · build.s
   들어가는지는 어느 문구에도 없다 — #62 실증). 소비처는 `engine/hosting.py`·statSet 게이트.
 - 출처: `sources[]`에 `{"src":"pob", "ref":"Data/Skills (…)", "pob":"<commit>"}` 필수.
 
+### 2-2. Modifier `data.per_slot_type` — 보강물 장착 종류 (#194, 2026-10-29)
+
+`affix_type="rune"`은 보강물 전체의 공통 수집 풀이다. 실제 장착 종류는
+`data.per_slot_type`에 `{"armour":"Rune", "caster":"Rune"}`처럼 슬롯군별로
+보존한다. 값은 PoB `Data/ModRunes.lua`의 각 슬롯 `type` 원형인
+`Rune · Idol · SoulCore · AbyssalEye · CongealedMist`다.
+`modifier.schema.json` v2에서 이 보조 필드를 정의한다.
+
+- `per_slot`의 효과 문구와 같은 슬롯 키를 쓴다. 원본에 종류가 없으면 그 슬롯의
+  종류도 비워 두며 이름이나 `affix_type`으로 보충하지 않는다.
+- KD-5 적합성: 이름에 종류가 없는 보강물이 있어 이름만으로 유도할 수 없다.
+  같은 스냅샷의 287종 중 94종이 이에 해당한다. 수집 시 `parse_rune`부터
+  `mod_to_record`까지 필드를 보존하며, 기존 자료 보강은 `store.patch_records`로
+  이 필드만 갱신한다.
+- 소비자는 장착 베이스에 대응하는 슬롯의 종류를 사용한다. Rune 전용 추가 홈과
+  Soul Core 전용 고유의 제한을 효과 문구나 `rank`로 추정하지 않는다.
+- 기존 `sources[]`의 PoB 커밋과 같은 원본에서만 보강한다. 기록된 커밋과 다른
+  스냅샷의 필드를 섞지 않는다.
+
 ## 3. 레코드 공통 envelope
 
 ```jsonc

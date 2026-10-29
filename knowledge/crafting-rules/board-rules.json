@@ -104,6 +104,73 @@
       "modifiers": 188
     }
   },
+  "socket_acquisition": {
+    "verification": "SUPPORTED_INFERENCE",
+    "reviewed": "2026-10-29",
+    "rule": "PoB socket_limit is not ordinary acquisition capacity. Ordinary sockets, the exceptional socket drop outcome, fixed item sockets, allocated tree grants and corruption outcomes are separate sources. A declared source is a crafting target, not proof of ownership.",
+    "ordinary_by_item_class": {
+      "Body Armour": 2,
+      "Helmet": 1,
+      "Gloves": 1,
+      "Boots": 1,
+      "Shield": 1,
+      "Focus": 1,
+      "Wand": 1,
+      "Sceptre": 1,
+      "Claw": 1,
+      "Dagger": 1,
+      "Spear": 1,
+      "One Hand Axe": 1,
+      "One Hand Mace": 1,
+      "One Hand Sword": 1,
+      "Staff": 2,
+      "Bow": 2,
+      "Crossbow": 2,
+      "Quarterstaff": 2,
+      "Talisman": 2,
+      "Two Hand Axe": 2,
+      "Two Hand Mace": 2,
+      "Two Hand Sword": 2
+    },
+    "exceptional_socket_gain": 1,
+    "corruption_socket_gain": 1,
+    "corruption_outcome_limit": 1,
+    "twice_corrupted_outcome_limit": 2,
+    "fixed_unique_sockets": {
+      "item.runeseekers-call": {
+        "sockets": 5,
+        "verification": "POB_CODE",
+        "source": "PoB 5d173cb Data/Uniques/wand.lua:72 Sockets: S S S S S; KB explicits omit the count"
+      }
+    },
+    "sources": [
+      {
+        "ref": "user v20 gloves counterexample, 2026-10-29",
+        "verification": "IN_GAME",
+        "scope": "Gloves third socket requires a corruption socket outcome; Corrupted alone does not establish coexistence with a separate corruption modifier"
+      },
+      {
+        "ref": "https://poe2db.tw/us/Exceptional_Item",
+        "verification": "GAME_DATA",
+        "scope": "Exceptional drop has over-maximum quality OR an additional Augment Socket"
+      },
+      {
+        "ref": "https://www.poe2wiki.net/wiki/Item_socket",
+        "verification": "SUPPORTED_INFERENCE",
+        "scope": "Ordinary one/two socket limits and extra socket routes; cross-checked with pinned PoB three/four maxima, not a direct official quote"
+      },
+      {
+        "ref": "https://www.pathofexile.com/forum/view-thread/3883495",
+        "verification": "GAME_DATA",
+        "scope": "Greymake and Bringer of Rain fixed four sockets; native/KB item definitions remain authoritative per item"
+      },
+      {
+        "ref": "https://www.poe2wiki.net/wiki/Architect%27s_Orb",
+        "verification": "SUPPORTED_INFERENCE",
+        "scope": "Second corruption adds an enchantment, not a second extra socket; native PoB Twice Corrupted marks the second outcome. Linked official video was not independently viewed."
+      }
+    ]
+  },
   "special_affix_caps": {
     "verification": "GAME_DATA",
     "limits": {

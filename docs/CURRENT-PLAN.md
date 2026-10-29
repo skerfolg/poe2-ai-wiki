@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `codex/bc-item-editor` (PR #146 반영용 분리 검증; 원격 head `codex/generation-controlled-eval`)
+**Integration branch**: `codex/socket-acquisition-fixes` (PR #146 병합 후 #191·#192·#194 격리 수정)
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -73,6 +73,8 @@ flowchart TD
   UTILITY[S48 유틸 후보·완료 관문·마법사의 피 재평가<br/>done]
   EVAL[S49 전체 경로 비교·사용자 실물 검토 반영<br/>done]
   GENFIX[S50 선택적 실험 실행기 구현·기능 검증<br/>done]
+  SERLE[S51 Serle 룬 접미·총한도 수정<br/>done]
+  ACQUIRE[S52 소켓 획득·종류 검사<br/>done]
   EDITOR[S53 B/C 편집 결함·완료 판정 수정<br/>done]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
@@ -122,7 +124,8 @@ flowchart TD
   TRADE -. 사용자 지적 · 실제 빌드 재현 .-> READY --> REBUILD --> M6
   REBUILD -. 유틸 가치 누락 재지적 .-> UTILITY --> M6
   UTILITY -. 사용자 요청 · 동일 조건 비교 .-> EVAL --> GENFIX --> M6
-  GENFIX -. B/C 아이템 상세보기 오류 .-> EDITOR --> M6
+  GENFIX -. 사용자 소유 활의 한도 오판 .-> SERLE --> ACQUIRE --> M6
+  ACQUIRE -. B/C 편집 결함은 별도 PR #146에 반영 .-> EDITOR --> M6
 ```
 
 ## Baseline Structure
@@ -188,11 +191,15 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S49 | 정상 전체 경로 A/B/C와 사용자 실물 검토 반영: 이번 A 우위, B/C 고유·최종 트리 부족, C 열기 성공. 복합 재검토 #190 및 트리 목표 설명 오보 수정, 제거 비용·교체안 비교 경로 연결. 전체 시험+정확한 오류 재실행 1,832통과/9skip(387파일 해시 불변). done은 비교·후속 수정이며 생성 품질 #188·계산 오류 #189는 미완료. [결과·수행 원장](GENERATION_FULLPATH_EVAL.md), [원본 코드](GENERATION_FULLPATH_CODES.md) | done |
 | S50 | 완료 범위를 선택적 실험 실행기의 구현·기능 검증으로 한정. 실제 3단계 모델·MCP 연결, 검색→상세 연속 조회, 필드 색인·구성 이력·설계/추천 상태 분리 구현. 창 H1/H2 각1회 조회12/11·동일 재독5/0 관측은 복합 변경의 국소 비교이며 원인을 분리하지 못함. H2 88점, H1 미집계. 전체1,678통과(단위1,594+통합84)·34skip. 기본 경로 지정 철회, 제품 생성 품질 개선 효과는 미검증. #183은 실행기 자체의 잔여 결함. [정정 보고서](GENERATION_CONTROLLED_EVAL.md) | done |
 
+| S51 | 사용자 소유 Serle's Triumph 활의 접미 4개/총 7개 거짓 거부 수정(#191). 실제 룬 선언·슬롯·중복 제한과 시드 검증, 주얼·부재·초과 접사 및 strict 조립 게이트 회귀. 전체 단위 1,828통과/34skip에 포함되어 통과. 새 main 기준 구현·검증 완료 | done |
+
+| S52 | #192 홈 획득·타락 결과 공존 검사와 #194 슬롯별 Rune/SoulCore/Idol 종류 복원. 생성·계산·조립 동일 판정, 정상 고유·전직 예외, 원본 287개 룬 레코드 복원. 전체 단위 1,828통과/34skip 및 관련 PoB 통합 11개 통과. Ruff·format·mypy·의존 방향 검사 통과. [수행·누락 대조](ITEM_SOCKET_REGRESSION.md). #193/#195는 S53·PR #146에 이미 반영 | done |
+
 | S53 | B/C 원본 더블클릭 오류를 재현하고 #193 생성 선언 위치·입력 검사와 #195 실제 native 편집 출고 검사를 수정했다. 원본 코드 보존, A19+B/C 교정37아이템 콜백 성공, 사전 명세·최종 XML 대조와 별도 진단 코드 제공. 루트의 별도 Serle·획득·종류 변경을 제외한 분리본 전체 단위1,768+통합99=1,867통과/9skip. 문서 큐 누락1건은 수정 후14개 재검사 통과. 구현/시험13파일 해시 불변. PR #146 반영 범위는 편집 결함 수정이다. GUI·상주MCP 교체·새 생성 품질 검증은 미수행. [결함 대조](GENERATION_EDITOR_REGRESSION.md), [진단 코드](GENERATION_EDITOR_REPAIR_CODES.md) | done |
 
 ## Canonical Next Step
 
-The only next executable step is: **S53의 편집 결함 수정이 반영된 PR #146 원격 검사를 확인하고 사용자 병합을 기다린다. GUI·상주 MCP 적용은 미검증/미수행이며, 생성 품질 #188과 계산 오류 #189는 해결로 닫지 않는다. 사용자 병합 뒤 로컬 main을 ff-only로 동기화한다.**
+The only next executable step is: **S51·S52의 #191·#192·#194 수정·검증은 완료했다. 별도 PR을 열어 원격 CI가 통과하면 병합하고, 그 뒤 로컬 main을 ff-only로 동기화한다. #188 생성 품질과 #189 계산 오류는 해결로 닫지 않는다.**
 
 사용자가 PR #146 원격 반영과 완성 빌드·PoB 공유코드를 남기는 전체 경로 재비교를
 명시 승인했다(2026-10-20). 정정 커밋 `4b52cf6`과 `b971a4e`는 반영 완료다.
@@ -261,8 +268,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| `codex/bc-item-editor` | retain until PR #146 merge | B/C 편집 결함만 분리한 관리 worktree. 원본 코드·진단 사본·전체 시험 증거는 보존하고 사용자 병합 후 main 동기화를 확인한 뒤 정리한다. 원래 Serle 작업 폴더는 수정·삭제하지 않음 |
-| `codex/generation-controlled-eval` | PR open | 정상 전체 경로 A/B/C 종료·원본 코드 공개, 결과·도구 재현 수정 검증 완료. [PR #146](https://github.com/skerfolg/poe2-ai-wiki/pull/146)에 정정과 후속 비교를 함께 보존. 사후 변경의 생성 품질은 미검증. 머지는 사용자, 병합 후 로컬 main 동기화는 이 작업 책임 |
+| `C:/Users/KSK/.codex/worktrees/bc-item-editor/poe2-ai-wiki` (`codex/bc-item-editor`) | retain (other worktree) | PR #146은 병합됐지만 다른 작업의 관리 worktree다. 이번 세션에서 수정·삭제하지 않는다. |
+| `C:/Users/KSK/.codex/worktrees/generation-reoptimization-188/poe2-ai-wiki` (`codex/generation-reoptimization-188`) | retain (active parent work) | #188 생성 품질 작업용 다른 세션 worktree. 이 하위 작업에서는 수정·삭제하지 않는다. |
+| `codex/generation-controlled-eval` | merged; main synchronized | PR #146 병합 commit `9aa1a61`; 이번 worktree에서 최신 main을 기준으로 후속 수정. 다른 세션 branch는 보존한다. |
 | 생성 실험의 `artifacts/`·`var/` 원장 | local evidence | v1 무효 시도·v2·별도 창 결과·평가 실패까지 그대로 보존. git 정본은 보고서의 조건·값·인용과 회귀 시험이며 로컬 산출물은 정본 근거 링크로 사용하지 않음 |
 | `codex/gemling-optimization-readiness` | merged; main synchronized | PR #145 사용자 병합 후 로컬 main을 `61167b1`로 동기화 완료. 기존 worktree와 다른 세션 브랜치는 정리하지 않음 |
 | `var/pytest-*review*`·`var/pytest-*combined*`·검증 스크립트 | disposable | 단위·통합 검증용 파생물. 사용자 전달 감사표·원본/재현 기록은 보존하고 정본 회귀는 추적되는 tests 파일을 사용 |

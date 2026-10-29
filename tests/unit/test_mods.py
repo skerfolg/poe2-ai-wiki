@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from pok.kb.ingest.mods import (
     base_to_record,
     essence_acquisition,
@@ -131,6 +133,33 @@ def test_parse_rune_per_slot() -> None:
     assert m["per_slot"]["armour"] == ["+9 to Dexterity"]
     assert m["rank"] == 15
     assert m["acquisition"] == ["rune-socket"]
+    assert m["per_slot_type"] == {slot: "Rune" for slot in RUNE}
+
+
+@pytest.mark.parametrize(
+    "augment_type", ["Rune", "Idol", "SoulCore", "AbyssalEye", "CongealedMist"]
+)
+def test_augment_type_comes_from_the_source_even_when_the_name_suggests_a_rune(
+    augment_type: str,
+) -> None:
+    raw = {"gloves": {"1": "Effect", "type": augment_type, "rank": [60]}}
+    parsed = parse_rune("Misleading Rune", raw)
+    parsed["origins"] = [parsed.pop("origin")]
+    record = mod_to_record(parsed, "test", "same-snapshot")
+    assert record["data"]["affix_type"] == "rune"
+    assert record["data"]["per_slot_type"] == {"gloves": augment_type}
+
+
+def test_missing_augment_type_is_not_inferred_and_slot_types_are_not_collapsed() -> None:
+    raw = {
+        "weapon": {"1": "Weapon effect", "type": "Rune"},
+        "armour": {"1": "Armour effect", "type": "SoulCore"},
+        "caster": {"1": "Unknown effect"},
+    }
+    parsed = parse_rune("Ordinary Rune", raw)
+    assert parsed["per_slot_type"] == {"weapon": "Rune", "armour": "SoulCore"}
+    assert parsed["per_slot"]["caster"] == ["Unknown effect"]
+    assert "per_slot_type" not in parse_rune("Ordinary Rune", {"caster": raw["caster"]})
 
 
 def test_parse_base_weapon_and_ring() -> None:
@@ -262,6 +291,7 @@ def test_seed_records_pass_schema_roundtrip(tmp_path: Path) -> None:
     assert seeds[0]["id"] == "modifier.strength1"
     assert seeds[0]["data"]["origins"] == ["item"]
     assert seeds[3]["data"]["per_slot"]["weapon"] == ["9% increased Attack Speed"]
+    assert seeds[3]["data"]["per_slot_type"]["weapon"] == "Rune"
     assert seeds[4]["id"] == "item.wooden-club"
     assert seeds[4]["data"]["rarity"] == "normal", "베이스 = 같은 Item 타입, 다른 rarity"
     assert all(s["verification"] == "POB_CODE" for s in seeds), (

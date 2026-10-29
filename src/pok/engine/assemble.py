@@ -27,6 +27,7 @@ from pok.engine.decisions import (
     rejection_record_gap,
 )
 from pok.engine.integrity import spec_integrity
+from pok.engine.item_sockets import audit_item_sockets
 from pok.engine.legality import ItemLegalityChecker, LegalityReport
 from pok.engine.optimization_readiness import OptimizationNotReadyError, optimization_readiness
 from pok.engine.provenance import missing_procedures, stale_components
@@ -48,6 +49,7 @@ class AssembledBuild:
     item_reports: dict[str, LegalityReport]  # slot → 판정
     duplicates: tuple[str, ...]  # 같은 content_hash의 기존 build-id들
     optimization_readiness: dict[str, Any] = dataclasses.field(default_factory=dict)
+    socket_acquisition: dict[str, Any] = dataclasses.field(default_factory=dict)
     item_editor: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     @property
@@ -55,6 +57,7 @@ class AssembledBuild:
         return (
             self.result.is_tree_legal
             and self.result.is_item_sockets_legal  # #120 — 룬 소켓 한도(PoB 판정)
+            and self.socket_acquisition.get("legal", True)
             and self.item_editor.get("checked", False)
             and self.item_editor.get("compatible", False)
             and all(r.is_legal for r in self.item_reports.values())
@@ -135,6 +138,9 @@ def assemble(
     생략하면 BuildSpec의 기본값까지 포함한 재사용 가능한 스펙을 기록한다.
     """
     saved_spec = _resume_spec_data(spec, spec_data)
+    socket_acquisition = audit_item_sockets(saved_spec)
+    if strict and not socket_acquisition["legal"]:
+        raise IllegalBuildError(" / ".join(socket_acquisition["problems"]))
     readiness = optimization_readiness(saved_spec, purpose=purpose)
     if purpose == "recommendation":
         if not strict:
@@ -160,11 +166,11 @@ def assemble(
     result = run_build(spec, use_cache=use_cache)
     if strict and not result.is_tree_legal:
         raise IllegalBuildError(_pruned_reason(result.pruned_nodes))
-    # **PoB가 못 여는 아이템은 출고하지 않는다** (#120). 룬 칸이 6개를 넘으면 그
-    # 아이템을 클릭하는 순간 PoB가 예외로 죽는다 — 계산은 통과하므로 여기가 유일한
-    # 관문이다(철칙 5). ⛔ 「예산 초과」는 **막지 않는다**(사용자 판정 2026-08-25):
-    # 트리 부여·타락 등 넘기는 경로가 실재하고, 거짓 거부는 게이트 우회를 학습시킨다.
-    # 그쪽은 `item_socket_warnings`로 기록·보고만 한다.
+    # Acquisition was checked before measurement (#192); now also compare with
+    # the count PoB actually parsed and enforce its editor representation limit.
+    socket_acquisition = audit_item_sockets(saved_spec, observed=result.items)
+    if strict and not socket_acquisition["legal"]:
+        raise IllegalBuildError(" / ".join(socket_acquisition["problems"]))
     if strict and not result.is_item_sockets_legal:
         raise IllegalBuildError(" / ".join(result.item_socket_problems))
 
@@ -203,9 +209,10 @@ def assemble(
         # `warnings`는 막지 않은 것이다 — 그래서 더더욱 기록이 유일한 흔적이다.
         "item_sockets": {
             "observed": [dict(row) for row in result.items],
-            "problems": list(result.item_socket_problems),
+            "problems": [*result.item_socket_problems, *socket_acquisition["problems"]],
             "warnings": list(result.item_socket_warnings),
-            "legal": result.is_item_sockets_legal,
+            "legal": result.is_item_sockets_legal and socket_acquisition["legal"],
+            "acquisition": socket_acquisition,
         },
     }
     files = {
@@ -227,6 +234,7 @@ def assemble(
         "legal": bool(
             result.is_tree_legal
             and result.is_item_sockets_legal
+            and socket_acquisition["legal"]
             and item_editor["checked"]
             and item_editor["compatible"]
             and all(r.is_legal for r in item_reports.values())
@@ -316,6 +324,7 @@ def assemble(
         item_reports=item_reports,
         duplicates=dups,
         optimization_readiness=readiness,
+        socket_acquisition=socket_acquisition,
         item_editor=item_editor,
     )
 

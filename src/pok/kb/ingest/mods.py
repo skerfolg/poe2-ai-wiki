@@ -119,6 +119,7 @@ _BONDED_EXEMPT = frozenset({"fox idol"})
 def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
     """룬 1건 → 중간 레코드 (슬롯군별 효과 보존)."""
     per_slot: dict[str, list[str]] = {}
+    per_slot_type: dict[str, str] = {}
     bonded: dict[str, list[str]] = {}
     rank = 0
     for slot, spec in raw.items():
@@ -126,6 +127,12 @@ def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
             continue
         texts = _texts(spec)
         per_slot[slot] = texts
+        # All augments share affix_type="rune"; their actual socket eligibility
+        # is the source's slot.type, not a word in the name (#194). Preserve it
+        # per slot and leave absent source data unknown instead of guessing Rune.
+        augment_type = spec.get("type")
+        if isinstance(augment_type, str) and augment_type:
+            per_slot_type[slot] = augment_type
         # 줄을 지우지 않고 **어느 줄이 조건부인지 따로 짚는다** — 지우면 정보 손실이고
         # 그대로 두면 오판한다
         conditional = [t for t in texts if _BONDED.match(t)]
@@ -143,6 +150,8 @@ def parse_rune(name: str, raw: dict[str, Any]) -> dict[str, Any]:
         "origin": "rune",
         "acquisition": ["rune-socket"],
     }
+    if per_slot_type:
+        out["per_slot_type"] = per_slot_type
     if bonded:
         out["bonded_lines"] = bonded
         if name.strip().lower() not in _BONDED_EXEMPT:
@@ -754,6 +763,7 @@ def mod_to_record(item: dict[str, Any], patch: str, pob_commit: str) -> dict[str
         "affix_name",
         "texts",
         "per_slot",
+        "per_slot_type",
         "group",
         "ilvl",
         "rank",

@@ -186,8 +186,9 @@ class PobResult:
         """PoB가 **실제로 읽은** 아이템별 소켓 사실 (#120) — 판정이 아니라 관측.
 
         각 행: `id`·`name`·`base`·`rarity`·`slot`·`sockets`(PoB의 `itemSocketCount`)·
-        `limit`(베이스/유니크 칸)·`limitSource`(`unique`/`base`/`none`)·
+        `limit`(PoB 베이스/유니크 표현용 참고 한도)·`limitSource`(`unique`/`base`/`none`)·
         `grant`(그 부위에 트리가 더해 준 칸)·`corrupted`·`unknownRunes`.
+        `limit`는 일반 제작 예산이나 획득 가능 소켓 수가 아니다.
         옛 캐시·옛 스냅샷에는 없을 수 있으므로 없으면 빈 튜플이다.
         """
         rows = self.meta.get("items")
@@ -199,29 +200,30 @@ class PobResult:
     def item_socket_problems(self) -> tuple[str, ...]:
         """**PoB가 표현하지 못하는** 룬 소켓 — 차단 사유 (#120). 비어 있으면 통과.
 
-        `is_tree_legal`과 같은 계열이다: 오라클이 낸 사실을 적법성 신호로 읽는다.
-        인게임 성립 여부를 다투는 것은 여기가 아니라 `item_socket_warnings`다.
+        표현 한계만 검사한다. 인게임 획득 경로·타락 결과 공존은 엔진의 별도
+        소켓 획득 검사가 담당하며, 경고가 없다는 사실로 성립을 증명하지 않는다.
         """
         return socket_problems(self.items)
 
     @property
     def item_socket_warnings(self) -> tuple[str, ...]:
-        """예산을 넘겼지만 **막지는 않는 것** (#120) — 확인 요청."""
+        """PoB 참고 한도 초과와 미상 룬 진단. 인게임 획득 판정은 아니다."""
         return socket_warnings(self.items)
 
     @property
     def is_item_sockets_legal(self) -> bool:
+        """PoB 표현 검사만 통과했는가. 최종 판정에는 별도 획득 검사가 필요하다."""
         return not self.item_socket_problems
 
 
 def socket_budget(row: dict[str, Any]) -> int:
-    """이 아이템이 가질 수 있는 룬 칸 = 베이스/유니크 한도 + **트리 부여**.
+    """PoB 메타데이터의 참고 한도(`limit` + 관측된 `grant`).
 
-    ⚠ 트리 부여를 빼면 안 된다 — 마셜 아티스트 `Runic Meridians`(39552)가
-    투구+1·갑옷+2·장갑+1·장화+1을 준다. PoB는 이 노드를 **한 줄도 파싱하지 못해**
-    (`pob_modeling.supported: false`) `base.socketLimit`에 절대 반영되지 않는다.
-    실측 2026-08-25: 이걸 빼고 쟀더니 사용자 신고 빌드 4건 중 **3건이 거짓 거부**였고
-    셋 다 이 노드 하나로 정확히 설명됐다.
+    호환성을 위해 함수 이름은 유지하지만 게임의 일반 제작 예산이나 획득 가능한
+    소켓 수를 반환하지 않는다. `base.socketLimit`에는 추가 홈이 포함될 수 있으며,
+    `Corrupted` 표식도 그 획득 경로나 다른 타락 결과와의 공존을 증명하지 않는다.
+    획득 규칙은 엔진의 별도 검사에 두고, 여기서는 원시 PoB 수치를 보존한다.
+    실제 편집기의 표현 상한은 이 참고값과 별개인 `RUNE_CONTROL_SLOTS`다.
     """
     return _as_int(row.get("limit")) + _as_int(row.get("grant"))
 
@@ -229,14 +231,9 @@ def socket_budget(row: dict[str, Any]) -> int:
 def socket_problems(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
     """**차단**할 것만 — PoB가 그 아이템을 표현하지 못하는 경우 (#120).
 
-    ## 무엇을 막고 무엇을 막지 않나 (사용자 판정 2026-08-25)
-
-    *"물리적으로 불가능한 수치의 소켓이 아니라면 허용하도록 하는 게 안전하다."*
-
-    「예산 초과」는 **막지 않는다**. 넘기는 경로가 여럿 실재하고 우리가 전부 알지
-    못하기 때문이다 — 유니크 자기 정의 · 트리 부여(`socket_budget`) · **타락**
-    (갑옷 4칸이 타락으로 5칸이 된다). 거짓 거부는 게이트 우회를 학습시킨다
-    (형태 ⑪) — 실제로 이 함수의 첫 판은 정상 3건을 거부했다.
+    `socket_budget`의 원시 참고값은 게임 획득 예산이 아니므로 이 함수의 차단
+    기준으로 쓰지 않는다. 일반 홈·추가 홈 획득 경로·타락 결과 예산은 엔진에서
+    별도로 검사한다. 이 함수가 통과해도 그 획득 검사가 실패하면 출고할 수 없다.
 
     막는 것은 하나뿐이다: **`RUNE_CONTROL_SLOTS`(6)을 넘는 칸.** 이건 인게임
     가부와 무관한 **도구 한계**다 — PoB가 룬 드롭다운을 6개만 만들어서, 그 아이템을
@@ -260,7 +257,8 @@ def socket_problems(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
                 f"`ItemsTab.lua`가 룬 드롭다운을 {RUNE_CONTROL_SLOTS}개만 만드는데 "
                 f"`UpdateRuneControls`는 `itemSocketCount`까지 돌며 인덱싱해서, 이 "
                 f"아이템을 **클릭하는 순간 예외**가 난다(계산은 통과한다). "
-                f"→ `Sockets:`를 {RUNE_CONTROL_SLOTS}칸으로 줄이고 넘치는 칸의 값은 "
+                f"→ 획득 경로가 검증된 구성은 `Sockets:`를 {RUNE_CONTROL_SLOTS}칸으로 "
+                f"줄이고 넘치는 칸의 값은 "
                 f"`ItemSpec.substitutes`(그 아이템에 붙는다·산출물에 추산으로 자동 기록) "
                 f"또는 config `customMods`(전역)로 주입한다. ⚠ 두 가지를 함께 보정할 것: "
                 f"①주입 줄에는 `increased effect of Socketed Runes` 증폭이 **안 곱해진다** "
@@ -271,10 +269,10 @@ def socket_problems(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
 
 
 def socket_warnings(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
-    """**보고만** 하는 것 — 예산 초과와 미상 룬 이름 (#120).
+    """PoB 참고 한도 초과와 미상 룬 이름을 보고한다 (#120).
 
-    차단하지 않는다(AD-3: 판단은 호출자). 다만 **매 반환에 싣는다** — 1회성 경고는
-    문서와 동급이라 사라진 전례가 있다(#29).
+    여기에는 획득 규칙을 복사하지 않는다. 초과 여부나 타락 표식만으로 적법성을
+    판정하지 않으며, 경고가 없는 입력도 별도 소켓 획득 검사를 통과해야 한다.
     """
     out: list[str] = []
     for row in items:
@@ -285,19 +283,15 @@ def socket_warnings(items: Sequence[dict[str, Any]]) -> tuple[str, ...]:
             source = {
                 "unique": "유니크 정의",
                 "base": "베이스 socketLimit",
-                "none": "이 베이스는 룬 소켓을 안 가진다",
+                "none": "PoB 한도 정보 없음",
             }.get(str(row.get("limitSource")), str(row.get("limitSource")))
             grant = _as_int(row.get("grant"))
             grant_note = f" + 트리 부여 {grant}" if grant else ""
-            corrupt_note = (
-                "이미 `Corrupted` 표기가 있으니 그 경로일 수 있다"
-                if row.get("corrupted")
-                else "타락으로 1칸 더 여는 구성이라면 `Corrupted` 줄을 적을 것"
-            )
             out.append(
-                f"⚠ {label}: 룬 소켓 {sockets}칸 — 아는 예산은 {budget}칸이다"
-                f"({source} {_as_int(row.get('limit'))}{grant_note}). 막지는 않는다"
-                f"(타락 등 모르는 경로가 있다) — {corrupt_note}"
+                f"⚠ {label}: 룬 소켓 {sockets}칸 — PoB 메타데이터의 참고 한도 {budget}칸"
+                f"({source} {_as_int(row.get('limit'))}{grant_note})을 넘는다. 이 값은 "
+                f"게임의 일반 제작 예산이 아니다. 별도 소켓 획득 검사에서 추가 홈 경로와 "
+                f"타락 결과 공존을 확인해야 한다. `Corrupted` 표식만으로는 이를 증명할 수 없다"
             )
         unknown = row.get("unknownRunes")
         if isinstance(unknown, list) and unknown:

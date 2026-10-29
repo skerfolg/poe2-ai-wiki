@@ -831,11 +831,19 @@ def optimize_runes(
                 f"sockets를 줬는지 확인할 것"
             ),
         }
+    source_item: dict[str, Any] = next(
+        (item for item in build_spec.get("items") or [] if item.get("slot") == fill.slot), {}
+    )
+    socket_sources = list(source_item.get("socket_sources") or [])
+    filled_spec = _with_item(build_spec, fill.slot, fill.text)
+    for item in filled_spec.get("items") or []:
+        if item.get("slot") == fill.slot and socket_sources:
+            item["socket_sources"] = socket_sources
     return {
         "filled": True,
         "slot": fill.slot,
         "derived_from": _stamp(
-            _with_item(build_spec, fill.slot, fill.text),
+            filled_spec,
             "runes",
             tool="optimize_runes",
             weights=dict(weights),
@@ -843,6 +851,7 @@ def optimize_runes(
         ),
         "chosen": [{"id": r.label, "name": r.name, "lines": list(r.lines)} for r in fill.chosen],
         "text": fill.text,
+        "socket_sources": socket_sources,
         "delta": fill.delta,
         "measured": [{"id": rid, "delta": d} for rid, d in fill.measured],
         "selection_steps": list(fill.selection_steps),
