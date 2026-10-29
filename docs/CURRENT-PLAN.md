@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `codex/socket-acquisition-fixes` (PR #146 병합 후 #191·#192·#194 격리 수정)
+**Integration branch**: `codex/socket-acquisition-closeout` (PR #147 병합·local main 동기화 기록; 사용자 요청 #188은 별도 worktree에서 진행)
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -191,15 +191,15 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S49 | 정상 전체 경로 A/B/C와 사용자 실물 검토 반영: 이번 A 우위, B/C 고유·최종 트리 부족, C 열기 성공. 복합 재검토 #190 및 트리 목표 설명 오보 수정, 제거 비용·교체안 비교 경로 연결. 전체 시험+정확한 오류 재실행 1,832통과/9skip(387파일 해시 불변). done은 비교·후속 수정이며 생성 품질 #188·계산 오류 #189는 미완료. [결과·수행 원장](GENERATION_FULLPATH_EVAL.md), [원본 코드](GENERATION_FULLPATH_CODES.md) | done |
 | S50 | 완료 범위를 선택적 실험 실행기의 구현·기능 검증으로 한정. 실제 3단계 모델·MCP 연결, 검색→상세 연속 조회, 필드 색인·구성 이력·설계/추천 상태 분리 구현. 창 H1/H2 각1회 조회12/11·동일 재독5/0 관측은 복합 변경의 국소 비교이며 원인을 분리하지 못함. H2 88점, H1 미집계. 전체1,678통과(단위1,594+통합84)·34skip. 기본 경로 지정 철회, 제품 생성 품질 개선 효과는 미검증. #183은 실행기 자체의 잔여 결함. [정정 보고서](GENERATION_CONTROLLED_EVAL.md) | done |
 
-| S51 | 사용자 소유 Serle's Triumph 활의 접미 4개/총 7개 거짓 거부 수정(#191). 실제 룬 선언·슬롯·중복 제한과 시드 검증, 주얼·부재·초과 접사 및 strict 조립 게이트 회귀. 전체 단위 1,828통과/34skip에 포함되어 통과. 새 main 기준 구현·검증 완료 | done |
+| S51 | 사용자 소유 Serle's Triumph 활의 접미 4개/총 7개 거짓 거부 수정(#191). 실제 룬 선언·슬롯·중복 제한과 시드 검증, 주얼·부재·초과 접사 및 strict 조립 게이트 회귀. 전체 단위 1,828통과/34skip, Windows/macOS 전체 CI 통과. PR #147 병합 후 local main을 `aa2e207`로 ff-only 동기화 | done |
 
-| S52 | #192 홈 획득·타락 결과 공존 검사와 #194 슬롯별 Rune/SoulCore/Idol 종류 복원. 생성·계산·조립 동일 판정, 정상 고유·전직 예외, 원본 287개 룬 레코드 복원. 전체 단위 1,828통과/34skip 및 관련 PoB 통합 11개 통과. Ruff·format·mypy·의존 방향 검사 통과. [수행·누락 대조](ITEM_SOCKET_REGRESSION.md). #193/#195는 S53·PR #146에 이미 반영 | done |
+| S52 | #192 홈 획득·타락 결과 공존 검사와 #194 슬롯별 Rune/SoulCore/Idol 종류 복원. 생성·계산·조립 동일 판정, 정상 고유·전직 예외, 원본 287개 룬 레코드 복원. 전체 단위 1,828통과/34skip 및 관련 PoB 통합 11개 통과. Ruff·format·mypy·의존 방향 검사 통과. PR #147의 Windows/macOS CI 통과 후 병합·local main ff-only 동기화 완료. [수행·누락 대조](ITEM_SOCKET_REGRESSION.md). #193/#195는 S53·PR #146에 이미 반영 | done |
 
 | S53 | B/C 원본 더블클릭 오류를 재현하고 #193 생성 선언 위치·입력 검사와 #195 실제 native 편집 출고 검사를 수정했다. 원본 코드 보존, A19+B/C 교정37아이템 콜백 성공, 사전 명세·최종 XML 대조와 별도 진단 코드 제공. 루트의 별도 Serle·획득·종류 변경을 제외한 분리본 전체 단위1,768+통합99=1,867통과/9skip. 문서 큐 누락1건은 수정 후14개 재검사 통과. 구현/시험13파일 해시 불변. PR #146 반영 범위는 편집 결함 수정이다. GUI·상주MCP 교체·새 생성 품질 검증은 미수행. [결함 대조](GENERATION_EDITOR_REGRESSION.md), [진단 코드](GENERATION_EDITOR_REPAIR_CODES.md) | done |
 
 ## Canonical Next Step
 
-The only next executable step is: **S51·S52의 #191·#192·#194 수정·검증은 완료했다. 별도 PR을 열어 원격 CI가 통과하면 병합하고, 그 뒤 로컬 main을 ff-only로 동기화한다. #188 생성 품질과 #189 계산 오류는 해결로 닫지 않는다.**
+The only next executable step is: **사용자 요청에 따라 `codex/generation-reoptimization-188` worktree에서 #188 전체 구성 재최적화를 진행하고, 새 정상 실행으로 실제 생성 품질 효과를 검증한다. 기존 동결 C 결과는 새 수정의 검증으로 세지 말고, #188과 #189는 해결 근거가 생길 때까지 열어 둔다.**
 
 사용자가 PR #146 원격 반영과 완성 빌드·PoB 공유코드를 남기는 전체 경로 재비교를
 명시 승인했다(2026-10-20). 정정 커밋 `4b52cf6`과 `b971a4e`는 반영 완료다.
@@ -268,6 +268,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
+| `C:/Users/KSK/.codex/worktrees/socket-acquisition-fixes/poe2-ai-wiki` (`codex/socket-acquisition-fixes`) | merged; main synchronized | PR #147 merged at `aa2e207`; Windows/macOS CI passed; local main ff-only synchronized. Managed worktree retained until closeout review is complete. |
 | `C:/Users/KSK/.codex/worktrees/bc-item-editor/poe2-ai-wiki` (`codex/bc-item-editor`) | retain (other worktree) | PR #146은 병합됐지만 다른 작업의 관리 worktree다. 이번 세션에서 수정·삭제하지 않는다. |
 | `C:/Users/KSK/.codex/worktrees/generation-reoptimization-188/poe2-ai-wiki` (`codex/generation-reoptimization-188`) | retain (active parent work) | #188 생성 품질 작업용 다른 세션 worktree. 이 하위 작업에서는 수정·삭제하지 않는다. |
 | `codex/generation-controlled-eval` | merged; main synchronized | PR #146 병합 commit `9aa1a61`; 이번 worktree에서 최신 main을 기준으로 후속 수정. 다른 세션 branch는 보존한다. |
@@ -304,6 +305,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | S49 전체 경로 재비교·PoB 제출 및 PR #146 반영 승인 | 사용자가 원격 반영과 같은 모델·원자료·총예산에서 세 방식의 정상 완성 절차 실행을 명시 요청. 정정 PR 반영 완료. 준비·실험·사후 평가를 새 원장에 분리하고 본실험 전 자료·변경안·조건을 동결 | 2026-10-20 |
 | S49 실제 비교 종료·사후 수정 범위 분리 | A/B/C 원본 코드 제출, C 품질 개선 미입증·B/C not_ready 유지. #184~#187 재현 결함 수정과 #188 전체 구성 비교 절차 변경은 종료 후 적용했으며 새로운 모델 실행으로 효과를 입증한 것으로 기록하지 않음 | 2026-10-21 |
 | S49 완료 취소·우선 실행 override 유지 — 사용자 방법론 지적 | A/B에 공통 적용한 PoK 절차와 강제 종료 때문에 전체 비교는 미수행. 기존 국소 실험·원점수는 보존하되 전체 우열 결론 철회. S50은 선택적 실행기 기능 검증만 done, 기본 진입점 지정은 철회. S7 blocked와 M6 대기는 유지 | 2026-10-20 |
+| User-directed #188 priority override after S51/S52 closeout | PR #147 merged and local main synchronized at `aa2e207`. The user then explicitly requested continuing #188; it is active in `codex/generation-reoptimization-188`, separate from this M5 baseline. S7 remains the first unclosed M5 row and blocked; #188 stays open until a fresh normal run demonstrates quality effects | 2026-10-30 |
 | Integration branch override — `codex/generation-controlled-eval` | S49/S50 사용자 요청 작업. This lane targets `codex/generation-controlled-eval` instead of `main` for this PR only | 2026-10-20 |
 | S48 우선 실행 — 첫 미종결 S7보다 사용자 추가 교정 우선 | 이동·회피·저항 여유와 접사 재배분 누락을 실제 코드/측정으로 교정했다. S48 완료 후 S7의 기존 중단 상태로 복귀하며, 전역최적성·실전성·상주MCP재시작은 별도 범위로 공개한다 | 2026-10-19 |
 | S46/S47 종결·Canonical Next Step을 첫 미종결 S7으로 복귀 | 사용자 지시 부수 작업의 수정·실측·재입력·한국어 대조를 완료. M5 자체는 active, S7은 기존 blocked 유지. 이 부수 작업용 순서 override는 종료 | 2026-10-19 |

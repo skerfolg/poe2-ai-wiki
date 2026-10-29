@@ -166,4 +166,8 @@ B/C 전용 수정·PR 범위는 [별도 보고서](GENERATION_EDITOR_REGRESSION.
 
 전체 단위는 **1,828 통과·34 skip**, 소켓 획득·엄격 조립 관련 PoB 통합은 **11 통과**다. Ruff lint/format, 변경 코드 9파일 mypy, 의존 방향(154파일/425 종속성), 작업 상태 guard가 통과했다. Guard는 오류0·경고0이었다. 전체 PoB 통합은 실행하지 않았다.
 
+skip 34건은 입력 자료 또는 로컬 산출물 부재 33건과 Windows runtime 권한 1건이다. 자료 부재는 `artifacts/ingest-raw` 25건, `legionpassives.json` 4건, ladder 원자료 1건, v6 설계 문서 2건, 실물 빌드 1건이다. 유일한 runtime skip은 `test_codex_setup.py:64`의 Windows 심볼릭 링크 생성 권한이다. 별도로 경로 복구 가능한 Accuracy/Incision fixture는 새 worktree의 fixture plugin으로 연결해 실제 실행했으며 skip하지 않았다.
+
+PR [#147](https://github.com/skerfolg/poe2-ai-wiki/pull/147)은 2026-10-30에 squash merge되어 `aa2e207`에 반영됐다. Windows와 macOS 전체 CI job 모두 성공했고, 로컬 `main`은 `git pull --ff-only`로 같은 커밋까지 동기화했다. Native 관련 통합 11건은 Windows에서 Python 3.12, LuaJIT `C:/Users/KSK/AppData/Local/Programs/LuaJIT/bin/luajit.exe`, PoB pin `5d173cb`를 사용해 실행했다. `PYTHONPATH`, `pok` 모듈 import, `project_root()`가 새 격리 worktree를 가리킴을 확인했다.
+
 이 검증은 생성 품질 #188, 인게임 거래 가능성, 실제 GUI 클릭, 상주 MCP 갱신을 증명하지 않는다. #188은 별도 작업으로 남긴다.
