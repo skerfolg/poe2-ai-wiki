@@ -76,7 +76,7 @@ flowchart TD
   SERLE[S51 Serle 룬 접미·총한도 수정<br/>done]
   ACQUIRE[S52 소켓 획득·종류 검사<br/>done]
   EDITOR[S53 B/C 편집 결함·완료 판정 수정<br/>done]
-  REOPT[S54 #188 전체 구성 비교·재최적화 실행 경로<br/>in_progress]
+  REOPT[S54 #188 전체 구성 재최적화·동시 색인 회귀<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
@@ -199,7 +199,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S53 | B/C 원본 더블클릭 오류를 재현하고 #193 생성 선언 위치·입력 검사와 #195 실제 native 편집 출고 검사를 수정했다. 원본 코드 보존, A19+B/C 교정37아이템 콜백 성공, 사전 명세·최종 XML 대조와 별도 진단 코드 제공. 루트의 별도 Serle·획득·종류 변경을 제외한 분리본 전체 단위1,768+통합99=1,867통과/9skip. 문서 큐 누락1건은 수정 후14개 재검사 통과. 구현/시험13파일 해시 불변. PR #146 반영 범위는 편집 결함 수정이다. GUI·상주MCP 교체·새 생성 품질 검증은 미수행. [결함 대조](GENERATION_EDITOR_REGRESSION.md), [진단 코드](GENERATION_EDITOR_REPAIR_CODES.md) | done |
 
-| S54 | #188: 측정 후보의 실물 대안 전달·채택안 비교 근거 재사용을 구현하고 새 정상 생성의 전체 구성 비교와 최종 재최적화를 검증한다. S51·S52 수정은 별도 하위 모델 에이전트가 PR #147로 병합·main 동기화 완료. 생성 품질 해결 판정은 새 실물 검토까지 유보 | in_progress |
+| S54 | #188: 측정 후보의 실물 전달·채택안 근거 재사용·트리 가지 편집을 구현해 PR #149 검토 중. 00:45 KST에 새 A/B/C 정상 생성 동시 시작. 후속 독립 검토의 반경 보호 결함과 병렬 검사에서 재현된 색인 임시 파일 충돌 #196도 수정(관련60개 통과)했으나 동결 C에는 소급 적용하지 않음. 통합 PoB106개 통과. S51·S52는 하위 모델 에이전트가 PR #147 병합·main 동기화 완료. 생성 품질 해결 판정은 새 실물 검토까지 유보 | in_progress |
 
 ## Canonical Next Step
 
