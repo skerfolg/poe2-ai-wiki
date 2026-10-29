@@ -149,6 +149,9 @@ class CandidateResult:
     # Full oracle changes for reporting, independent of the axes used for selection.
     # Only numeric values actually present in both measurements are compared.
     observed_delta: dict[str, float] = field(default_factory=dict)
+    # Exact unprobed entry sent to the oracle; optional MCP output lets the caller
+    # build a package without reconstructing a non-adopted candidate from its name.
+    replacement: dict[str, Any] = field(default_factory=dict)
 
     def score(self, weights: Mapping[str, float], base: Mapping[str, float] | None = None) -> float:
         """정책 점수. `base`(현재 스펙의 실측)를 주면 **비선형 축에 곡선을 건다**.
@@ -230,6 +233,8 @@ def _unscored_candidate(
     weights: Mapping[str, float],
     round_number: int,
     spec: dict[str, Any],
+    *,
+    include_candidate_items: bool = False,
 ) -> dict[str, Any] | None:
     scored = {key: value for key, value in weights.items() if value != 0}
     changes = {key: value for key, value in result.observed_delta.items() if key not in scored}
@@ -251,6 +256,7 @@ def _unscored_candidate(
         "slot": result.candidate.slot,
         "round": round_number,
         "candidate_sha256": utility_candidate_digest(holder),
+        **({"replacement": result.replacement} if include_candidate_items else {}),
         "context": "round_baseline",
         "weighted_score": result.score(weights, base),
         "blocked": result.blocked,
@@ -629,6 +635,22 @@ def _replace_slot(spec: dict[str, Any], slot: str, text: str) -> dict[str, Any]:
     return {**spec, "items": [*kept, replacement]}
 
 
+def _candidate_replacement(variant: dict[str, Any], slot: str) -> dict[str, Any]:
+    """Expose the exact measured entry as an identity-based replacement, not a merge."""
+    identity: str | int
+    if slot.startswith("Jewel@"):
+        collection, key, identity = "jewels", "socket_node_id", int(slot.split("@", 1)[1])
+    else:
+        collection, key, identity = "items", "slot", slot
+    value = dict(next(row for row in variant[collection] if row[key] == identity))
+    return {
+        "collection": collection,
+        "identity_key": key,
+        "value": value,
+        "candidate_sha256": utility_candidate_digest(value),
+    }
+
+
 def _with_probe_lines(spec: dict[str, Any], lines: Sequence[str]) -> dict[str, Any]:
     """탐침을 얹은 문맥 — 빈 장신구 슬롯에 넣거나, 없으면 기존 아이템에 덧붙인다."""
     joined = "\n".join(lines)
@@ -836,6 +858,7 @@ def evaluate_slot(
                 floor_violations=violations,
                 req_shortfall=shortfall,
                 observed_delta=_observed_delta(measured, base),
+                replacement=_candidate_replacement(variant, slot),
             )
         )
     return results
@@ -913,6 +936,7 @@ def optimize_items(
     jewel_sockets: Sequence[int] = (),
     max_chain: int = 4,
     max_chain_measures_per_round: int = 10,
+    include_candidate_items: bool = False,
     root: Path | None = None,
     compute: ComputeFn | None = None,
     progress: Callable[[int], None] | None = None,
@@ -1082,7 +1106,14 @@ def optimize_items(
                 counts[slot]["evaluated"] += 1
                 round_results.append(result)
                 report_key = (result.candidate.slot, result.candidate.label)
-                report = _unscored_candidate(result, base_now, weights, rounds_evaluated, current)
+                report = _unscored_candidate(
+                    result,
+                    base_now,
+                    weights,
+                    rounds_evaluated,
+                    current,
+                    include_candidate_items=include_candidate_items,
+                )
                 if report is None:
                     candidate_reports.pop(report_key, None)
                 else:

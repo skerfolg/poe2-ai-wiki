@@ -72,6 +72,7 @@ def test_package_review_장비와_트리_동시_변경_실측() -> None:
         {"joint": variant},
         ["Life", "Mana"],
         review_components=["items", "tree"],
+        include_variant_reviews=True,
     )
     assert output["comparison"]["measurements_complete"] is True
     assert output["review"]["measurements_complete"] is True
@@ -85,3 +86,19 @@ def test_package_review_장비와_트리_동시_변경_실측() -> None:
         assert evidence[component]["measurement_scope"] == "package"
         assert evidence[component]["scope"]["candidates"] == ["joint"]
         assert evidence[component]["termination"]["converged"] is False
+    # A post-result choice can carry the already-measured variant's own
+    # provenance. The original baseline receipt is deliberately different.
+    from pok.engine.provenance import stamp
+
+    adopted = output["variant_reviews"]["joint"]
+    assert adopted["measurements_complete"] is True
+    assert adopted["search_evidence"]["tree"]["scope"]["candidates"] == ["baseline"]
+    for component in ("items", "tree"):
+        expected = stamp(variant, component, tool="test")
+        for key, value in expected.items():
+            if key.endswith("_sig"):
+                assert adopted["derived_from"][component][key] == value
+        assert (
+            adopted["search_evidence"][component]["baseline_stats"]
+            == (output["variants"]["joint"]["stats"])
+        )

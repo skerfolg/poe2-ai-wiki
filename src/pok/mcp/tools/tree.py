@@ -364,6 +364,41 @@ def _assumed_sockets(out: Any) -> dict[str, Any]:
     }
 
 
+def prepare_tree_variant(
+    build_spec: dict[str, Any],
+    remove_nodes: list[int],
+    add_anchors: list[int] | None = None,
+    protect_nodes: list[int] | None = None,
+    point_budget: int = 123,
+    protect_radius_nodes: bool = True,
+) -> dict[str, Any]:
+    """선택한 가지 제거·앵커 연결을 실제 전체 스펙 대안으로 만든다. 계산/선택은 하지 않는다.
+
+    remove_nodes와 그로 인해 연결이 끊긴 가지를 함께 제거한다. 제거한 노드는 새 경로도
+    지나지 못한다. add_anchors는 기존 최단 경로로 연결하며 다른 전직·해금 조건과 예산을
+    검사한다. 삭제 소켓의 주얼과 사라진 노드의 attribute_choices도 정리해 changes에 낸다.
+    protect_nodes 또는 기본 반경 주얼 보호가 깨지면 실패한다. 반경 구조까지 의도적으로
+    바꾸려면 protect_radius_nodes=False로 명시한다. 기본 보호는 소켓과 실제 중심·링 안의
+    할당 노드 전체를 보수적으로 지킨다(가치 판정 아님). 반경 문구/좌표가 없어 보호할 수
+    없으면 이를 보충하거나 기본 보호를 끄고 protect_nodes를 명시한다.
+    전직·클래스는 원본 그대로 유지한다.
+    실패는 ok=false와 issues이며 spec을 반환하지 않는다. 성공 spec의 기존 derived_from은
+    그대로 남으므로 낡은 측정을 새 인증으로 바꾸지 않는다. 반환 spec을 현재 장비·젬·주얼
+    문맥에서 optimize_tree로 재성장하거나 evaluate_delta의 전체 대안으로 측정한다.
+    """
+    from pok.engine.tree.variant import prepare_tree_variant as prepare
+
+    return prepare(
+        build_spec,
+        _get_graph(),
+        remove_nodes,
+        add_anchors=add_anchors or (),
+        protect_nodes=protect_nodes or (),
+        point_budget=point_budget,
+        protect_radius_nodes=protect_radius_nodes,
+    )
+
+
 def measure_tree_slack(
     build_spec: dict[str, Any],
     point_budget: int = 123,
@@ -562,6 +597,7 @@ def optimize_items(
     jewel_sockets: list[int] | None = None,
     max_chain: int = 4,
     max_chain_measures_per_round: int = 10,
+    include_candidate_items: bool = False,
 ) -> dict[str, Any]:
     """아이템 그리디 최적화 — `optimize_tree`의 아이템판 (사용자 지시 2026-08-06).
 
@@ -604,6 +640,13 @@ def optimize_items(
     그대로인 이동·회피·초과 저항 후보도 보인다. `unscored_summary`는 전체 건수와
     생략 후보를 보존한다. 가중치를 바꿀지, 다른 접사를 재배분할지는 호출자가
     목적에 맞게 판단한다. 수렴은 주어진 가중치·탐색 범위에 한정된다.
+
+    `include_candidate_items=True`면 표시된 `unscored_candidates`·`conditional_peaks`·
+    `defensive_only`에 실제 측정한 아이템/주얼의 `replacement`를 붙인다. collection에서
+    identity_key 값이 value[identity_key]와 같은 항목을 **통째로 교체**한다(필드 병합 금지).
+    value를 다음 전체 스펙 대안에 그대로 넣고, 저항 여유·비용 등 동반 재배분을 더해
+    `evaluate_delta`로 비교할 수 있다. 탐침 스탯은 value에 들어가지 않으며 새 문맥의
+    성능·합법성을 인증하지 않는다. 기본값은 본문 생략이며 기존 표시 절단 범위를 유지한다.
     """
     from pok.engine.items import optimize_items as _optimize
 
@@ -618,6 +661,7 @@ def optimize_items(
         jewel_sockets=tuple(jewel_sockets or ()),
         max_chain=max_chain,
         max_chain_measures_per_round=max_chain_measures_per_round,
+        include_candidate_items=include_candidate_items,
     )
     return {
         "spec": {
@@ -644,6 +688,7 @@ def optimize_items(
                 "delta_now": p.delta_now,
                 "delta_probed": p.delta_probed,
                 "req_shortfall": p.req_shortfall,
+                **({"replacement": p.replacement} if include_candidate_items else {}),
             }
             for p in result.conditional_peaks
         ],
@@ -666,6 +711,7 @@ def optimize_items(
                 "label": d.candidate.label,
                 "slot": d.candidate.slot,
                 "delta_now": d.delta_now,
+                **({"replacement": d.replacement} if include_candidate_items else {}),
             }
             for d in result.defensive_only
         ],

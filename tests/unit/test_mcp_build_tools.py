@@ -421,6 +421,135 @@ def test_package_review_cannot_refresh_failed_measurements(monkeypatch, failure)
         assert any(row["code"] == failure for row in evidence["unresolved"])
 
 
+def test_variant_reviews_allow_choice_after_results_without_recalculation(monkeypatch) -> None:
+    import copy
+
+    from pok.engine.provenance import stamp
+    from pok.mcp.tools import build
+
+    base = {
+        "class_name": "Sorceress",
+        "ascendancy": "Sorceress1",
+        "level": 100,
+        "items": [{"slot": "Belt", "text": "original"}],
+        "tree_nodes": [1, 2],
+        "jewels": [{"socket_node_id": 1, "text": "original jewel"}],
+        "skills": [{"gems": [{"gem_id": "main"}, {"gem_id": "support-a"}]}],
+    }
+    variant = copy.deepcopy(base)
+    variant["items"][0]["text"] = "utility item"
+    variant["tree_nodes"] = [1, 3]
+    variant["jewels"][0]["text"] = "different jewel"
+    variant["skills"][0]["gems"][1]["gem_id"] = "support-b"
+    variants = {"package": variant}
+    original = copy.deepcopy((base, variants))
+    calls = _whole_comparison(
+        monkeypatch,
+        {"Life": 100, "MovementSpeedMod": 1.0},
+        {"package": {"Life": 90, "MovementSpeedMod": 1.5}},
+    )
+    output = build.evaluate_delta(
+        base,
+        variants,
+        ["Life"],
+        review_components=["items", "tree", "jewels", "supports"],
+        include_variant_reviews=True,
+    )
+    assert len(calls) == 1
+    assert (base, variants) == original
+    assert output["comparison"]["selection"] is None
+    assert output["review"]["selection"] == "baseline"
+    receipt = output["variant_reviews"]["package"]
+    assert receipt["measurements_complete"] is True
+    for component in ("items", "tree", "jewels", "supports"):
+        mark = receipt["derived_from"][component]
+        expected = stamp(variant, component, tool="test")
+        for key, value in expected.items():
+            if key.endswith("_sig"):
+                assert mark[key] == value
+        evidence = receipt["search_evidence"][component]
+        assert evidence["baseline_stats"] == {"Life": 90}
+        assert evidence["measurements"] == {"baseline": {"Life": 100}}
+        assert evidence["scope"]["candidates"] == ["baseline"]
+        assert evidence["termination"]["converged"] is False
+    # Utility evidence uses the full already-computed stats, even if only Life
+    # was requested. It describes the chosen package, not the original belt.
+    utility = receipt["search_evidence"]["items"]["utility_review"]
+    assert "MovementSpeedMod" in utility["baseline_candidates"][0]["observed_axes"]
+    assert (
+        utility["baseline_candidates"][0]["candidate_sha256"]
+        != (
+            output["review"]["search_evidence"]["items"]["utility_review"]["baseline_candidates"][
+                0
+            ]["candidate_sha256"]
+        )
+    )
+
+    from pok.engine.provenance import stale_components
+
+    adopted = {**variant, "derived_from": receipt["derived_from"]}
+    assert not stale_components(adopted)
+    # Restoring the old tree invalidates the package receipt, even if its item
+    # is kept. The measured variant is not a waiver for later edits.
+    changed_again = {**adopted, "tree_nodes": base["tree_nodes"]}
+    assert any(row["component"] == "items" for row in stale_components(changed_again))
+
+
+@pytest.mark.parametrize("failure", ["missing", "items_legal", "tree_connected"])
+def test_failed_variant_cannot_receive_fresh_reviews(monkeypatch, failure) -> None:
+    from pok.engine.provenance import stamp
+    from pok.mcp.tools import build
+
+    base = {"items": [{"slot": "Belt", "text": "A"}], "tree_nodes": [1]}
+    variant = {"items": [{"slot": "Belt", "text": "B"}], "tree_nodes": [2]}
+    variant["derived_from"] = {"items": stamp(base, "items", tool="old_context")}
+    _whole_comparison(
+        monkeypatch,
+        {"Life": 100},
+        {"bad": {} if failure == "missing" else {"Life": 110}},
+        diagnostics=None if failure == "missing" else {"bad": {failure: False}},
+    )
+    output = build.evaluate_delta(
+        base,
+        {"bad": variant},
+        ["Life"],
+        review_components=["items", "tree"],
+        include_variant_reviews=True,
+    )
+    receipt = output["variant_reviews"]["bad"]
+    assert receipt["measurements_complete"] is False
+    assert receipt["derived_from"] == variant["derived_from"]
+    assert all(not e["scope"].get("candidates") for e in receipt["search_evidence"].values())
+
+
+def test_variant_review_rebases_failures_and_preserves_colliding_labels(monkeypatch) -> None:
+    from pok.mcp.tools import build
+
+    base = {"items": [{"slot": "Belt", "text": "A"}]}
+    variants = {
+        "baseline": {"items": [{"slot": "Belt", "text": "B"}]},
+        "_baseline": {"items": [{"slot": "Belt", "text": "C"}]},
+        "unmeasured": {"items": [{"slot": "Belt", "text": "D"}]},
+    }
+    _whole_comparison(
+        monkeypatch, {"Life": 100}, {"baseline": {"Life": 110}, "_baseline": {"Life": 120}}
+    )
+    output = build.evaluate_delta(
+        base,
+        variants,
+        ["Life"],
+        review_component="items",
+        include_variant_reviews=True,
+    )
+    assert "unmeasured" not in output["variant_reviews"]
+    review = output["variant_reviews"]["baseline"]
+    assert review["original_base_label"] == "__baseline"
+    evidence = review["search_evidence"]["items"]
+    assert set(evidence["scope"]["candidates"]) == {"__baseline", "_baseline"}
+    assert review["measurements_complete"] is False
+    assert {"code": "variant_unmeasured", "scope": ["unmeasured"]} in evidence["unresolved"]
+
+
 def test_review_cannot_hide_utility_by_requesting_only_damage(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -164,7 +164,10 @@ python skills/build-generation/run.py --brief <브리프.txt> --evidence <자료
    저항 여유가 다른 부위의 접사를 풀어 준다면 그 재배분까지 들어간 패키지를 재고,
    단품 DPS 감소만으로 기각하지 않는다. 함께 바꾼 영역은
    `review_components=["items", "tree", "jewels", "supports"]` 중 실제 비교할 영역을
-   지정해 한 번의 실측에서 기록한다. 이 기록은 묶음의 결과이지 각 부품의 독립 기여가 아니다.
+   지정하고 `include_variant_reviews=True`로 각 변경안의 비교 근거도 함께 받는다.
+   결과를 본 뒤 채택한 변경안에는 `variant_reviews[라벨].derived_from`을 적용한다.
+   이는 그 실측 스펙에만 유효하므로 이후 입력을 바꾸면 다시 비교한다. 기준안의
+   `derived_from`을 변경안으로 옮기지 않는다. 이 기록은 묶음의 결과이지 각 부품의 독립 기여가 아니다.
    자원량만으로 반복 사용 가능성을 대신하지 않는다.
    PoB가 못 재는 무료 비용·발동·조작 조건은 원문·인사이트·실측 근거로 분리한다.
    사용자가 선택을 위임했으면 목표에 따라 채택하고 계속한다. 사용자 선택이 실제로
@@ -175,8 +178,12 @@ python skills/build-generation/run.py --brief <브리프.txt> --evidence <자료
    - **트리는 현재 장비·젬·주얼에서 교체안을 비교한다**. `optimize_tree`는 입력 노드를
      유지하며 남은 예산을 채우므로, 다 쓴 트리를 재입력하는 것은 기존 노드 재최적화가
      아니다. `measure_tree_slack`으로 제거 비용을 재고, 유지할 핵심과 교체할 가지를
-     판단해 연결된 대안 전체 스펙을 만든다. 가지를 덜어 재성장할 때만 `optimize_tree`를
-     쓰고 최종 트리끼리 `evaluate_delta`로 비교한다. 함께 바뀐 장비·주얼·젬은 위의
+     판단한다. `prepare_tree_variant(build_spec, remove_nodes=[...], add_anchors=[...],
+     protect_nodes=[...])`로 지정한 가지를 제거·재연결한 전체 `spec`을 받는다.
+     삭제된 소켓의 주얼·능력치 선택과 연결이 끊겨 함께 제거된 노드는 `changes`에 남는다.
+     `ok=false`이면 입력을 재설계하고, 성공한 `spec`도 아직 성능 측정 전이다.
+     가지를 덜어 재성장할 때만 `optimize_tree`를 쓰고 최종 트리끼리 `evaluate_delta`로
+     비교한다. 함께 바뀐 장비·주얼·젬은 위의
      `review_components`로 같은 측정에 포함한다. 노드 수·포인트 소진을 완료로 쓰지 않는다.
    - **아이템 슬롯은 `optimize_items`로 돈다** — 유니크 **전수** 열거(KB 자동, 방어구
      ·무기·장신구 + `"Charm 1"`·`"Flask 1"`·`"Jewel"`)·희귀안 비교·그리디 채택이
@@ -203,6 +210,11 @@ python skills/build-generation/run.py --brief <브리프.txt> --evidence <자료
      (`req_shortfall`) 후보는 속성 투자 여부가 설계 판단이다 — 지불 시 이득이 2판에
      있다. **축으로 안 잡히는 창발 조합**(예: 특정 상호작용 가설)은 연쇄 밖이다 —
      가설을 세웠으면 `evaluate_change_bundle`로 묶음 실측하라.
+     후속 패키지를 만들 탐색에서는 `optimize_items(include_candidate_items=True)`로
+     표시 후보의 `replacement`를 받는다. `collection`에서 `identity_key`가 같은
+     항목을 `value`로 통째로 교체하면 실제 측정에 쓴 아이템·주얼을 재사용할 수 있다.
+     후보 이름으로 옵션을 다시 추정하지 않는다. 이 교체는 출발점이며, 유틸이 확보한
+     저항·속성·자원 여유를 다른 부위와 트리에 재배분한 전체 대안은 별도로 실측한다.
    - **축 완전성을 검사기로 확인한다** — `check_constraints(axes={"build_spec": …})`가
      젬 레벨·성유·부여 스킬·호신부/플라스크·품질·슬롯별 공격 기여를
      covered/empty/unmeasured로 낸다. empty는 사유를 적고, unmeasured는 재라.

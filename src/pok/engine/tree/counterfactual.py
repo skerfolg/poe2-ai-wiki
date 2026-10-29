@@ -125,7 +125,9 @@ def _roots(spec: BuildSpec, graph: TreeGraph) -> frozenset[int]:
     )
 
 
-def _no_path_zones(spec: BuildSpec, graph: TreeGraph) -> set[int]:
+def _no_path_zones(
+    spec: BuildSpec, graph: TreeGraph, *, unresolved_sockets: list[int] | None = None
+) -> set[int]:
     """**연결 불요 주얼** 덕에 길 없이도 성립하는 할당 노드 (#87 · #90).
 
     ⚠ **섬이다 — 씨앗이 아니다.** 반경 안 노드는 각자 성립할 뿐 **이웃에게 길을
@@ -147,6 +149,7 @@ def _no_path_zones(spec: BuildSpec, graph: TreeGraph) -> set[int]:
 
     ⛔ 반경·중심을 못 읽으면 **아무것도 안 살린다** — 추측하면 오류 고아가 후보로
     둔갑한다. 소켓 자체가 할당돼 있어야 하는 것도 그대로다(안 찍힌 소켓은 무효).
+    unresolved_sockets를 주면 해석 불가와 유효한 빈 반경을 구분할 수 있다.
     """
     import math
     import re
@@ -166,6 +169,7 @@ def _no_path_zones(spec: BuildSpec, graph: TreeGraph) -> set[int]:
         if jewel.socket_node_id not in allocated:
             continue
         centers: list[tuple[float, float]] = []
+        centers_resolved = True
         ring: tuple[float, float] | None
         if match := named.search(text):
             want = match.group(1).strip().casefold()
@@ -176,6 +180,7 @@ def _no_path_zones(spec: BuildSpec, graph: TreeGraph) -> set[int]:
                 and node.position is not None
                 and node.name_en.casefold() == want
             ]
+            centers_resolved = bool(centers)
             ring = effective_radius(text)
         elif from_keystones.search(text):
             centers = [
@@ -189,7 +194,10 @@ def _no_path_zones(spec: BuildSpec, graph: TreeGraph) -> set[int]:
         else:
             socket = graph.nodes.get(jewel.socket_node_id or -1)
             centers = [socket.position] if socket is not None and socket.position else []
+            centers_resolved = bool(centers)
             ring = effective_radius(text)
+        if unresolved_sockets is not None and (ring is None or not centers_resolved):
+            unresolved_sockets.append(jewel.socket_node_id)
         if ring is None or not centers:
             continue
         inner, outer = ring
