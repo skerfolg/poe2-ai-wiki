@@ -71,22 +71,35 @@ def test_못_재는_축은_건너뛰고_그_사실을_말한다() -> None:
     assert any("재지 못했다" in n for n in notes), "못 잰 사실을 말하지 않으면 0으로 읽힌다"
 
 
-def test_첫_목표_미달이면_사전식이_퇴화했다고_말한다() -> None:
-    """미달로 끝났다 = **아래 축은 순서에 한 번도 안 들어왔다**.
-
-    사전식은 「경계를 채운 뒤 다음 축」인데, 못 채우면 끝까지 첫 축만 민다. 미달
-    사실만 말하고 이걸 안 말하면 세션은 두 축을 다 최적화한 결과로 읽는다.
-    실측 2026-08-18(데드아이): 트리만으로 닿는 EHP가 정답지의 59%라 바닥
-    60·80·100%가 전부 미달 — 서로 다른 바닥이 아니라 서로 다른 세기의 가중치였다.
-    """
+def test_목표_미달이어도_부차_축의_평가를_부정하지_않는다() -> None:
+    """미충족 목표가 있어도 다른 가중 축은 양수 점수로 채택될 수 있다."""
     obj = Objective(
         weights={"CombinedDPS": 1.0, "TotalEHP": 0.6},
         targets=(Target("TotalEHP", ">=", 13_459, "정답지 EHP"),),
     )
-    notes = _target_notes(obj, {"CombinedDPS": 1_200_000, "TotalEHP": 7_900})
+    base = {"CombinedDPS": 1_200_000, "TotalEHP": 7_900}
+    assert obj.score(_nd(CombinedDPS=1000.0), base) > 0
+    notes = _target_notes(obj, base)
     assert any("미충족 목표" in n for n in notes)
-    assert any("한 번도" in n for n in notes), "퇴화 사실이 조용하다"
-    assert any("도달 가능한지" in n for n in notes), "도달 가능성을 확인하라고 안 한다"
+    assert any("부차 점수" in n for n in notes)
+    assert not any("한 번도" in n or "딸려 온" in n for n in notes)
+
+
+def test_최종_미충족을_처음부터_고정된_병목으로_보고하지_않는다() -> None:
+    """C 공개 step 18: ES 충족 뒤 반경은 미달이어도 DPS 후보를 실제 채택했다."""
+    obj = Objective(
+        weights={"CombinedDPS": 1.0, "EnergyShield": 1.5, "AreaOfEffectRadius": 0.6},
+        targets=(Target("EnergyShield", ">=", 5000), Target("AreaOfEffectRadius", ">=", 35)),
+    )
+    before = {"CombinedDPS": 63_413.00114, "EnergyShield": 4308, "AreaOfEffectRadius": 28}
+    after = {**before, "EnergyShield": 5088}
+    assert obj.focus(before).metric == "EnergyShield"
+    assert obj.focus(after).metric == "AreaOfEffectRadius"
+    assert obj.score(_nd(CombinedDPS=588.66), after) > 0
+    notes = " ".join(_target_notes(obj, after))
+    assert "종료 시 측정 가능한 첫 미충족 목표(AreaOfEffectRadius)" in notes
+    assert "첫 목표(" not in notes
+    assert "한 번도" not in notes
 
 
 def test_목표를_채웠으면_퇴화_경고는_안_뜬다() -> None:

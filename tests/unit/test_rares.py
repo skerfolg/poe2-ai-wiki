@@ -477,3 +477,77 @@ def test_producer_applies_independent_origin_budgets_before_text_matching(
     ]
     assert out.delta == {"CombinedDPS": 290}
     assert any("제작 출처 한도 초과" in note for note in out.notes)
+
+
+@pytest.mark.parametrize(
+    ("base", "expected"),
+    [
+        ("Portent Amulet", (3, 2, 5)),
+        ("Lament Amulet", (2, 3, 5)),
+        ("Absent Amulet", (2, 2, 4)),
+        ("Dusk Amulet", (4, 2, 6)),
+        ("Gloam Amulet", (2, 4, 6)),
+        ("Penumbra Amulet", (5, 1, 6)),
+        ("Tenebrous Amulet", (1, 5, 6)),
+        ("Twisted Amulet", (2, 3, 5)),
+        ("Distorted Amulet", (3, 2, 5)),
+    ],
+)
+def test_affix_caps_include_the_canonical_base_implicit(
+    base: str, expected: tuple[int, int, int]
+) -> None:
+    from pok.engine.rares import _affix_caps
+
+    assert _affix_caps(base, None)[:3] == expected
+
+
+@pytest.mark.parametrize(
+    ("base", "requested", "expected"),
+    [
+        ("Portent Amulet", (None, None), (3, 2)),
+        ("Portent Amulet", (99, 99), (3, 2)),
+        ("Portent Amulet", (1, 1), (1, 1)),
+        ("Dusk Amulet", (None, None), (4, 2)),
+        ("Tenebrous Amulet", (99, 99), (1, 5)),
+    ],
+)
+def test_producer_obeys_base_caps_even_if_checker_accepts_every_candidate(
+    monkeypatch: pytest.MonkeyPatch,
+    base: str,
+    requested: tuple[int | None, int | None],
+    expected: tuple[int, int],
+) -> None:
+    """A permissive checker must not let caller overrides restore impossible slots."""
+    from types import SimpleNamespace
+
+    from pok.engine import rares
+
+    pool = [
+        rares.AffixOption(f"{kind}-{i}", kind, f"GAIN {20 - i}", f"{kind}-{i}", 1)
+        for kind in ("prefix", "suffix")
+        for i in range(6)
+    ]
+    monkeypatch.setattr(rares, "enumerate_base_affixes", lambda *a, **k: pool)
+    monkeypatch.setattr(
+        rares,
+        "_checker",
+        lambda *a: SimpleNamespace(
+            check=lambda text: SimpleNamespace(is_legal=True, errors=(), verdicts=())
+        ),
+    )
+    out = optimize_rare(
+        SPEC,
+        "Amulet",
+        base,
+        {"CombinedDPS": 1},
+        prefix_count=requested[0],
+        suffix_count=requested[1],
+        compute=_rendering_compute,
+        render_with_pob=False,
+    )
+    assert (
+        tuple(sum(r.option.affix_type == kind for r in out.chosen) for kind in ("prefix", "suffix"))
+        == expected
+    )
+    if requested == (99, 99):
+        assert any("요청 한도" in note for note in out.notes)

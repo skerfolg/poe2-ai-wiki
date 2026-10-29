@@ -160,16 +160,24 @@ def render_runed(item_text: str, runes: Sequence[RuneOption]) -> str:
         lines.append(line)
     if not runes:
         return "\n".join(lines)
-    body = [f"Sockets: {' '.join('S' for _ in runes)}"]
-    for rune in runes:
-        body.append(f"Rune: {rune.name}")
-    for rune in runes:
-        body += [f"{{rune}}{line}" for line in rune.lines]
-    return "\n".join([*lines, *body])
+    declarations = [f"Sockets: {' '.join('S' for _ in runes)}"]
+    declarations.extend(f"Rune: {rune.name}" for rune in runes)
+    # PoB continues parsing specifications after the first explicit modifier,
+    # but also retains those late specifications as explicit mod lines. BuildRaw
+    # then emits both the real header and those retained lines: an editor save
+    # doubles the socket/rune declarations (#193). Keep them before any modifiers,
+    # including texts without an Implicits marker. Normal/magic items have only
+    # the rarity/name header; rare/unique items also have a separate base name.
+    rarity = re.match(r"\s*Rarity:\s*(NORMAL|MAGIC)\s*$", lines[0], re.I) if lines else None
+    header_end = min(len(lines), 2 if rarity else 3)
+    seeds = [f"{{rune}}{line}" for rune in runes for line in rune.lines]
+    return "\n".join([*lines[:header_end], *declarations, *lines[header_end:], *seeds])
 
 
-def needs_rune_declaration(item_text: str) -> tuple[str, ...]:
-    """`{rune}` 줄이 있는데 선언이 빠졌는가 — **조용한 과소 계상**의 조건.
+def needs_rune_declaration(
+    item_text: str, *, mod_lines: Sequence[str] | None = None
+) -> tuple[str, ...]:
+    """룬 선언 누락과 옵션 본문 뒤의 선언을 검사한다.
 
     `render_runed`를 쓰라는 규율은 문서에만 있어서 강제력이 없었다(철칙 5). 손으로 적은
     텍스트는 여기서 잡는다 — PoB는 `Sockets:`/`Rune:`이 있어야 `augmentType == "Rune"`을
@@ -177,23 +185,44 @@ def needs_rune_declaration(item_text: str) -> tuple[str, ...]:
     적게 계산된다(실측 2026-08-09: Δ+26.5 vs +79.4).
 
     반경 주얼(`jewels.needs_radius_declaration`)과 **같은 계열**이라 같은 자리에서 낸다.
+    `mod_lines`는 legality의 정본 스펙/옵션 분리를 재사용한다. 옵션 뒤 선언은 PoB
+    편집·저장 시 복제되므로 계산 전에 거부한다(#193). 별도 헤더 목록을 만들지 않는다.
     """
     lines = item_text.splitlines()
+    problems: list[str] = []
+    if mod_lines is not None:
+        modifiers = {line.strip() for line in mod_lines}
+        seen_modifier = False
+        late: list[int] = []
+        for index, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if seen_modifier and re.match(r"^(Sockets|Rune):", stripped, re.I):
+                late.append(index)
+            if stripped in modifiers:
+                seen_modifier = True
+        if late:
+            problems.append(
+                f"룬 선언이 옵션 본문 뒤에 있다(줄 {', '.join(map(str, late))}) — PoB가 "
+                "`Sockets:`/`Rune:`를 헤더와 옵션 양쪽에 저장하여 편집·재가져오기 때 "
+                "소켓·룬 개수와 효과가 증가한다. `engine.runes.render_runed`로 선언을 "
+                "옵션보다 앞에 배치할 것"
+            )
     seeds = [ln for ln in lines if ln.lstrip().lower().startswith("{rune}")]
     if not seeds:
-        return ()
+        return tuple(problems)
     missing = [
         label
         for label, prefix in (("`Sockets:`", "sockets:"), ("`Rune:`", "rune:"))
         if not any(ln.lstrip().lower().startswith(prefix) for ln in lines)
     ]
     if not missing:
-        return ()
-    return (
+        return tuple(problems)
+    problems.append(
         f"`{{rune}}` 줄 {len(seeds)}건이 있는데 {' · '.join(missing)} 선언이 없다 — PoB가 "
         "룬으로 인식하지 못해 **증폭이 조용히 빠진다**(실측 3.00배). 손으로 적지 말고 "
-        "`engine.runes.render_runed`로 조립할 것",
+        "`engine.runes.render_runed`로 조립할 것"
     )
+    return tuple(problems)
 
 
 def check_rune_rules(runes: Sequence[RuneOption]) -> tuple[str, ...]:

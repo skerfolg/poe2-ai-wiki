@@ -38,6 +38,82 @@ def recorded_assembly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Mock:
     return run
 
 
+@pytest.mark.parametrize("checked", [True, False])
+def test_editor_error_or_unchecked_probe_blocks_output(
+    recorded_assembly: Mock, monkeypatch: pytest.MonkeyPatch, checked: bool
+) -> None:
+    import pok.engine.assemble as module
+
+    monkeypatch.setattr(
+        module,
+        "audit_item_editor",
+        lambda _: {
+            "checked": checked,
+            "compatible": False,
+            "items": [],
+            "problems": ["native editor failed" if checked else "editor timed out"],
+        },
+    )
+    write = Mock(side_effect=AssertionError("an unverified code was exported"))
+    monkeypatch.setattr(module, "record_build", write)
+    with pytest.raises(module.IllegalBuildError, match="상세보기"):
+        assemble(BuildSpec(class_name="Mercenary", ascendancy="Mercenary3"), "editor-failure")
+    write.assert_not_called()
+
+
+def test_diagnostic_output_preserves_editor_failure_and_is_not_legal(
+    recorded_assembly: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import pok.engine.assemble as module
+
+    failed = {"checked": False, "compatible": False, "items": [], "problems": ["timeout"]}
+    monkeypatch.setattr(module, "audit_item_editor", lambda _: failed)
+    built = assemble(
+        BuildSpec(class_name="Mercenary", ascendancy="Mercenary3"),
+        "editor-diagnostic",
+        strict=False,
+    )
+    validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
+    manifest = json.loads((built.path / "manifest.json").read_text(encoding="utf-8"))
+    assert validation["item_editor"] == failed
+    assert built.is_legal is False
+    assert manifest["legal"] is False
+    assert manifest["item_editor_checked"] is False
+
+
+def test_editor_receives_exported_item_text_after_substitutions(
+    recorded_assembly: Mock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import pok.engine.assemble as module
+    from pok.pob.buildxml import to_xml
+
+    captured: list[dict[str, str]] = []
+
+    def probe(items: dict[str, str]) -> dict[str, Any]:
+        captured.append(items)
+        return {"checked": True, "compatible": True, "items": [], "problems": []}
+
+    monkeypatch.setattr(module, "to_xml", to_xml)
+    monkeypatch.setattr(module, "audit_item_editor", probe)
+    source = BuildSpec(
+        class_name="Mercenary",
+        ascendancy="Mercenary3",
+        items=(
+            ItemSpec(
+                slot="Ring 1",
+                text="Rarity: RARE\nEditor export\nIron Ring\n+10 to Strength",
+                substitutes=("20% increased Spell Damage",),
+            ),
+        ),
+    )
+    built = assemble(source, "editor-final-text")
+    assert captured and len(captured[0]) == 1
+    raw = next(iter(captured[0].values()))
+    assert "20% increased Spell Damage" in raw
+    assert raw == module._editor_inputs(to_xml(source))[next(iter(captured[0]))]
+    assert built.item_editor["compatible"] is True
+
+
 def test_saved_spec_preserves_choices_settings_and_provenance(recorded_assembly: Mock) -> None:
     source: dict[str, Any] = {
         "class_name": "Witch",

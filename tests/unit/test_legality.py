@@ -32,6 +32,56 @@ def checker() -> ItemLegalityChecker:
     return ItemLegalityChecker(knowledge_dir())
 
 
+@pytest.mark.parametrize("base", ["Ultimate Life Flask", "Ultimate Mana Flask", "Stone Charm"])
+@pytest.mark.parametrize("declared", [False, True])
+def test_consumable_charge_recovery_is_available_in_its_real_pool(
+    checker: ItemLegalityChecker, base: str, declared: bool
+) -> None:
+    text = f"Rarity: MAGIC\nRegression\n{base}\nItem Level: 100\n"
+    if declared:
+        text += "Suffix: FlaskFillChargesPerMinute3\n"
+    text += "Gains 0.25 Charges per Second"
+    report = checker.check(text)
+    assert report.is_legal, report
+    assert any(v.modifier_id == "modifier.flaskfillchargesperminute3" for v in report.verdicts)
+
+
+@pytest.mark.parametrize("base", ["Ultimate Life Flask", "Ultimate Mana Flask"])
+def test_consumable_prefix_and_suffix_preserve_range_and_level_checks(
+    checker: ItemLegalityChecker, base: str
+) -> None:
+    text = (
+        f"Rarity: MAGIC\nRegression\n{base}\nItem Level: 100\n"
+        "30% of Recovery applied Instantly\nGains 0.25 Charges per Second"
+    )
+    assert checker.check(text).is_legal
+    assert not checker.check(text.replace("30%", "31%")).is_legal
+    assert not checker.check(text.replace("0.25", "0.3")).is_legal
+    assert not checker.check(text.replace("Item Level: 100", "Item Level: 1")).is_legal
+    duplicate = text + "\nGains 0.2 Charges per Second"
+    report = checker.check(duplicate)
+    assert not report.is_legal
+    assert any("group 중복" in error for error in report.errors)
+    assert any("suffix 2개" in error for error in report.errors)
+
+
+@pytest.mark.parametrize("base", ["Sacred Focus", "Amber Amulet", "Emerald"])
+@pytest.mark.parametrize("declared", [False, True])
+def test_consumable_default_spawn_weight_does_not_leak_to_equipment(
+    checker: ItemLegalityChecker, base: str, declared: bool
+) -> None:
+    text = f"Rarity: MAGIC\nRegression\n{base}\nItem Level: 100\n"
+    text += "Suffix: FlaskFillChargesPerMinute3" if declared else "Gains 0.25 Charges per Second"
+    assert not checker.check(text).is_legal
+
+
+def test_flask_only_recovery_does_not_apply_to_charm(checker: ItemLegalityChecker) -> None:
+    report = checker.check(
+        "Rarity: MAGIC\nRegression\nStone Charm\nItem Level: 100\n30% of Recovery applied Instantly"
+    )
+    assert not report.is_legal
+
+
 def _actual_merged_item(name: str = "body-add-hybrid-armour-life") -> str:
     fixture = Path(__file__).with_name("gemling_20261019_merged_affixes.json")
     return str(json.loads(fixture.read_text(encoding="utf-8"))["items"][name])
@@ -689,7 +739,8 @@ Implicits: 0
     assert not plain.is_legal
     assert any("{rune}" in e for e in plain.errors), "원인이 룬이라는 단서를 줘야 한다"
     tagged = checker.check(
-        full + "\nSockets: S\nRune: Greater Body Rune\n{rune}+12% to Fire Resistance"
+        full.replace("Implicits: 0", "Sockets: S\nRune: Greater Body Rune\nImplicits: 0")
+        + "\n{rune}+12% to Fire Resistance"
     )
     assert tagged.is_legal, "룬 표기하면 접사 칸 밖 — 한도에 안 걸린다"
 
@@ -1306,3 +1357,47 @@ def test_스폰_가중치는_모드_목록_순서로_처음_맞는_태그가_정
     assert _spawn_weight(mod, boots) == 0
     assert _spawn_weight(mod, body) == 1
     assert _spawn_weight({"spawn_weights": {}}, boots) is None
+
+
+_PORTENT_THREE_SUFFIXES = (
+    "Rarity: RARE\nEngineered Amulet\nPortent Amulet\nCrafted: true\n"
+    "Prefix: {range:0.5}SpellDamage6\n"
+    "Prefix: {range:0.5}IncreasedEnergyShieldPercent7\n"
+    "Prefix: {range:0.5}MaximumLifeIncrease3\n"
+    "Suffix: {range:0.5}GlobalSpellGemsLevel3\n"
+    "Suffix: {range:0.5}CastSpeedJewellery6\n"
+    "LevelReq: 60\nImplicits: 1\n-1 Suffix Modifier allowed\n"
+    "29% increased Spell Damage\n48% increased maximum Energy Shield\n"
+    "8% increased maximum Life\n+3 to Level of all Spell Skills\n"
+    "27% increased Cast Speed\n"
+    "{custom}{range:0.5}+(9-15) to Strength and Dexterity\n"
+)
+
+
+@pytest.mark.parametrize("implicit_in_text", [True, False])
+def test_portent_third_suffix_is_rejected_including_desecrated_origin(
+    checker: ItemLegalityChecker, implicit_in_text: bool
+) -> None:
+    """C item_268 returned this six-affix candidate as legal before the cap fix."""
+    text = _PORTENT_THREE_SUFFIXES
+    if not implicit_in_text:
+        text = text.replace("Implicits: 1\n-1 Suffix Modifier allowed\n", "")
+    report = checker.check(text)
+    assert not report.is_legal
+    assert any("suffix 3개" in error and "한도 2" in error for error in report.errors)
+    assert any("접사 총 6개" in error and "총한도 5" in error for error in report.errors)
+    assert any(
+        v.modifier_id == "modifier.desecrated-equipment-of-ulaman-9-15-to-strength-and-dexterity"
+        for v in report.verdicts
+    )
+    within_cap = text.replace("{custom}{range:0.5}+(9-15) to Strength and Dexterity\n", "")
+    assert checker.check(within_cap).is_legal
+
+
+def test_item_text_cannot_forge_a_larger_base_affix_cap(checker: ItemLegalityChecker) -> None:
+    text = _PORTENT_THREE_SUFFIXES.replace(
+        "-1 Suffix Modifier allowed", "+5 Suffix Modifiers allowed"
+    )
+    report = checker.check(text)
+    assert not report.is_legal
+    assert any("suffix 3개" in error and "한도 2" in error for error in report.errors)

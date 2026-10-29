@@ -607,15 +607,35 @@ def evaluate_delta(
     variants: dict[str, dict[str, Any]],
     stats: list[str] | None = None,
     review_component: str | None = None,
+    review_components: list[str] | None = None,
 ) -> dict[str, Any]:
-    """변경안들의 스탯 델타를 PoB로 실측 (추측 금지의 실행 수단, AD-8).
-    variants = {라벨: 변경된 build_spec}. 반환 delta는 변경안-기준의 차이.
+    """여러 전체 build_spec의 절대 스탯과 델타를 PoB로 실측 (AD-8).
+    variants = {라벨: 변경된 build_spec}. 스킬·전직·장비·트리를 함께 바꿀 수 있다.
+    반환 variants는 각 구성의 절대 스탯과 계산/적법성 진단, delta는 변경안-기준의 차이,
+    comparison은 요청 범위의 누락·실패다. 측정 완료는 자원 지속성·실사용 성립이나
+    최종 추천 완료를 인증하지 않는다.
     review_component를 주면 성공한 실제 대안 측정 범위에서 기준(base) 구성의
     평가 영수증을 만든다. 임의 재검증 경로는 받지 않으며 수렴/최적해를 주장하지 않는다.
     반환 derived_from은 base_spec에만 적용한다. 변경안을 채택했다면 그것을 새 기준으로
-    다시 평가해야 한다."""
+    다시 평가해야 한다.
+    장비와 트리·주얼·젬을 함께 재배분한 조합은 review_components=["items", "tree", ...]로
+    재검토한다. 명시한 영역 안의 실제 변경만 기록하며 config·클래스·레벨 변경은
+    재검토 증빙에서 제외한다. 복합 조합의 비교이며 개별 부품의 독립 기여/수렴은 아니다.
+    단일 review_component와 함께 지정할 수 없다."""
     if review_component is not None and review_component not in REVIEW_COMPONENTS:
         raise ValueError(f"review_component는 {REVIEW_COMPONENTS} 중 하나여야 한다")
+    if review_components is not None:
+        if review_component is not None:
+            raise ValueError("review_component와 review_components는 함께 지정할 수 없다")
+        if (
+            not isinstance(review_components, list)
+            or not review_components
+            or any(component not in REVIEW_COMPONENTS for component in review_components)
+            or len(set(review_components)) != len(review_components)
+        ):
+            raise ValueError(
+                f"review_components는 {REVIEW_COMPONENTS} 중 중복 없는 목록이어야 한다"
+            )
     requested = list(stats or DEFAULT_STATS)
     base_result, deltas = _delta(
         spec_from_dict(base_spec),
@@ -623,23 +643,69 @@ def evaluate_delta(
         stats=() if requested == ["*"] else tuple(requested),
     )
     base_output = _pick(base_result, stats, base_spec)
-    variant_outputs = {
-        d.label: (
-            _pick(d.result, stats, variants[d.label])
-            if review_component
-            else _items_legal(variants[d.label])
-        )
-        for d in deltas
-    }
+    variant_outputs = {d.label: _pick(d.result, stats, variants[d.label]) for d in deltas}
+    comparison_keys = (
+        sorted(set(base_result.stats).union(*(d.result.stats for d in deltas)))
+        if requested == ["*"]
+        else requested
+    )
+
+    def failures(label: str, result: PobResult, output: dict[str, Any]) -> list[dict[str, Any]]:
+        problems = []
+        for key in ("items_legal", "tree_connected", "item_sockets_legal"):
+            if output.get(key) is not True:
+                problems.append({"code": key, "scope": [label], "observed": output.get(key)})
+        for key in ("dropped_items", "unbuilt_declarations", "items_pob_gaps", "req_shortfall"):
+            if output.get(key):
+                problems.append({"code": key, "scope": [label], "observed": output[key]})
+        missing = [
+            key
+            for key in comparison_keys
+            if key not in result.stats or not math.isfinite(result.stats[key])
+        ]
+        if missing or not result.stats:
+            problems.append({"code": "unmeasured_stats", "scope": [label], "stats": missing})
+        return problems
+
+    unresolved = failures("baseline", base_result, base_output)
+    # Known unread wording limits interpretation but does not erase a completed
+    # numerical measurement. It remains an exact, nonempty unresolved issue.
+    baseline_ok = not any(row["code"] != "items_pob_gaps" for row in unresolved)
+    measured = {}
+    utility_failures = {}
+    for d in deltas:
+        problems = failures(d.label, d.result, variant_outputs[d.label])
+        utility_failures[d.label] = problems
+        unresolved.extend(problems)
+        if not any(row["code"] != "items_pob_gaps" for row in problems) and baseline_ok:
+            measured[d.label] = variant_outputs[d.label]["stats"]
+    measured_labels = {d.label for d in deltas}
+    unresolved.extend(
+        {"code": "variant_unmeasured", "scope": [label]}
+        for label in variants
+        if label not in measured_labels
+    )
     out = {
         "base": base_output,
+        "variants": variant_outputs,
+        "comparison": {
+            "requested_candidates": list(variants),
+            "requested_stats": requested,
+            "compared_stats": comparison_keys,
+            "computed_candidates": [d.label for d in deltas],
+            "measured_comparisons": list(measured),
+            "unresolved": unresolved,
+            "measurements_complete": bool(variants) and not unresolved,
+            "selection": None,
+            "claim": "requested_measurements_only_not_gameplay_or_recommendation_validation",
+        },
         "deltas": [
             {
                 "label": d.label,
                 "delta": {
-                    k: d.diff(k)
+                    k: value
                     for k in (d.changes if requested == ["*"] else requested)
-                    if d.diff(k) is not None
+                    if (value := d.diff(k)) is not None and math.isfinite(value)
                 },
                 "tree_connected": d.result.is_tree_legal,
                 # 변경안이 **장비를 바꿨다면** 그 장비가 실재하는지도 봐야 한다 —
@@ -649,60 +715,47 @@ def evaluate_delta(
             for d in deltas
         ],
     }
-    if review_component is not None:
-
-        def failures(label: str, result: PobResult, output: dict[str, Any]) -> list[dict[str, Any]]:
-            problems = []
-            for key in ("items_legal", "tree_connected", "item_sockets_legal"):
-                if output.get(key) is not True:
-                    problems.append({"code": key, "scope": [label], "observed": output.get(key)})
-            for key in ("dropped_items", "unbuilt_declarations", "items_pob_gaps", "req_shortfall"):
-                if output.get(key):
-                    problems.append({"code": key, "scope": [label], "observed": output[key]})
-            missing = [
-                key
-                for key in requested
-                if key != "*" and (key not in result.stats or not math.isfinite(result.stats[key]))
-            ]
-            if missing or not result.stats:
-                problems.append({"code": "unmeasured_stats", "scope": [label], "stats": missing})
-            return problems
-
-        unresolved = failures("baseline", base_result, base_output)
-        # Known unread wording limits interpretation but does not erase a completed
-        # numerical measurement. It remains an exact, nonempty unresolved issue.
-        baseline_ok = not any(row["code"] != "items_pob_gaps" for row in unresolved)
-        measured = {}
-        utility_failures = {}
-        for d in deltas:
-            problems = failures(d.label, d.result, variant_outputs[d.label])
-            utility_failures[d.label] = problems
-            unresolved.extend(problems)
-            if not any(row["code"] != "items_pob_gaps" for row in problems) and baseline_ok:
-                measured[d.label] = variant_outputs[d.label]["stats"]
-        measured_labels = {d.label for d in deltas}
-        unresolved.extend(
-            {"code": "variant_unmeasured", "scope": [label]}
-            for label in variants
-            if label not in measured_labels
-        )
+    components = review_components or ([review_component] if review_component is not None else [])
+    marks = dict(base_spec.get("derived_from") or {})
+    reviews = {}
+    for component in components:
         mark = measured_review_receipt(
             base_spec,
             variants,
             measured,
-            component=review_component,
+            component=component,
             stats=requested,
             baseline_stats=base_output["stats"],
             unresolved=unresolved,
             utility_baseline=base_result.stats,
             utility_measurements={d.label: d.result.stats for d in deltas},
             utility_failures=utility_failures if baseline_ok else {},
+            package_components=review_components,
         )
-        out["derived_from"] = {**(base_spec.get("derived_from") or {}), review_component: mark}
+        evidence = mark["search_evidence"]
+        # An unchanged component has no package review. Keep its original source
+        # (and any staleness) instead of replacing it with an empty receipt.
+        if review_components is None or evidence["scope"].get("candidates"):
+            marks[component] = mark
+        reviews[component] = evidence
+    if review_component is not None:
+        out["derived_from"] = marks
         out["review"] = {
             "component": review_component,
             "selection": "baseline",
-            "search_evidence": mark["search_evidence"],
+            "search_evidence": reviews[review_component],
+        }
+    elif review_components is not None:
+        out["derived_from"] = marks
+        out["review"] = {
+            "components": review_components,
+            "selection": "baseline",
+            "measurement_scope": "package",
+            "search_evidence": reviews,
+            "measurements_complete": all(
+                evidence["scope"].get("candidates") and not evidence["unresolved"]
+                for evidence in reviews.values()
+            ),
         }
     return out
 
@@ -1014,6 +1067,7 @@ def assemble_pob(
         "ok": True,
         "purpose": purpose,
         "optimization_readiness": built.optimization_readiness,
+        "item_editor": getattr(built, "item_editor", {"checked": False, "compatible": False}),
         "build_id": built.build_id,
         "path": str(built.path),
         "build_code": built.build_code,

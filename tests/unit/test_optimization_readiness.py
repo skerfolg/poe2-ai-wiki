@@ -496,6 +496,276 @@ def test_unchanged_or_confounded_variants_do_not_certify_scope() -> None:
     assert len(evidence["unresolved"]) == 3
 
 
+def _package_alternative(spec: dict[str, Any]) -> dict[str, Any]:
+    variant = copy.deepcopy(spec)
+    variant["items"][0]["text"] = "B"
+    variant["tree_nodes"] = [1, 3]
+    return variant
+
+
+def _package_receipt(
+    spec: dict[str, Any],
+    variant: dict[str, Any],
+    *,
+    component: str = "items",
+    package_components: list[str] | None = None,
+) -> dict[str, Any]:
+    return measured_review_receipt(
+        spec,
+        {"package": variant},
+        {"package": {"Life": 100}},
+        component=component,
+        stats=["Life"],
+        baseline_stats={"Life": 100},
+        unresolved=[],
+        package_components=package_components,
+    )
+
+
+def _package_contract(spec: dict[str, Any], *components: str) -> None:
+    spec["optimization_contract"] = {
+        "version": 1,
+        "required_components": {
+            component: {
+                "scope": {"candidates": ["package"]},
+                "allowed_termination_reasons": ["variants_evaluated"],
+            }
+            for component in components
+        },
+    }
+
+
+def test_joint_item_tree_review_records_actual_scope_and_full_package_context() -> None:
+    from pok.engine.provenance import derivation_context
+
+    spec = _spec()
+    variant = _package_alternative(spec)
+    original = copy.deepcopy(spec)
+    marks = {
+        component: _package_receipt(
+            spec, variant, component=component, package_components=["items", "tree"]
+        )
+        for component in ("items", "tree")
+    }
+    assert spec == original
+    spec["derived_from"] = marks
+    _package_contract(spec, "items", "tree")
+    assert optimization_readiness(spec)["status"] == "ready"
+    item_evidence = marks["items"]["search_evidence"]
+    tree_evidence = marks["tree"]["search_evidence"]
+    assert item_evidence["scope"] == {"candidates": ["package"], "slots": ["Weapon 1"]}
+    assert tree_evidence["scope"] == {"candidates": ["package"], "tree_nodes": [2, 3]}
+    for evidence in (item_evidence, tree_evidence):
+        assert evidence["measurement_scope"] == "package"
+        assert evidence["package_components"] == ["items", "tree"]
+        assert evidence["selection"] == "baseline"
+        context = evidence["package_context"]
+        for field, source in (("baseline_sha256", spec), ("context_sha256", variant)):
+            expected = hashlib.sha256(
+                json.dumps(
+                    derivation_context(source),
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode()
+            ).hexdigest()
+            actual = context if field == "baseline_sha256" else context["variants"]["package"]
+            assert actual[field] == expected
+        assert context["variants"]["package"]["changed_axes"] == ["items_sig", "tree_sig"]
+        assert context["variants"]["package"]["measured"] is True
+    assert item_evidence["package_context"]["variants"]["package"]["component_changed_axes"] == [
+        "items_sig"
+    ]
+    assert tree_evidence["package_context"]["variants"]["package"]["component_changed_axes"] == [
+        "tree_sig"
+    ]
+
+
+def test_legacy_single_component_still_rejects_joint_changes_and_accepts_single_axis() -> None:
+    spec = _spec()
+    variant = _package_alternative(spec)
+    joint = _package_receipt(spec, variant)["search_evidence"]
+    assert not joint["scope"]
+    assert {row["code"] for row in joint["unresolved"]} == {
+        "review_scope_mismatch",
+        "no_successful_alternative",
+    }
+    variant["tree_nodes"] = list(spec["tree_nodes"])
+    single = _package_receipt(spec, variant)["search_evidence"]
+    assert single["scope"]["slots"] == ["Weapon 1"]
+    assert not single["unresolved"]
+    assert "measurement_scope" not in single
+
+
+def test_package_cannot_claim_unchanged_supports_or_noop() -> None:
+    spec = _spec()
+    mark = _package_receipt(
+        spec,
+        _package_alternative(spec),
+        component="supports",
+        package_components=["items", "tree", "supports"],
+    )
+    for actual in (mark, _package_receipt(spec, spec, package_components=["items", "tree"])):
+        evidence = actual["search_evidence"]
+        assert not evidence["scope"]
+        assert not evidence["revalidation_receipts"]
+        assert "no_successful_alternative" in {row["code"] for row in evidence["unresolved"]}
+
+
+@pytest.mark.parametrize("component", ["items", "tree"])
+def test_package_batch_credits_only_variants_changing_each_component(component: str) -> None:
+    spec = _spec()
+    item = copy.deepcopy(spec)
+    item["items"][0]["text"] = "B"
+    tree = copy.deepcopy(spec)
+    tree["tree_nodes"] = [1, 3]
+    evidence = measured_review_receipt(
+        spec,
+        {"items": item, "tree": tree},
+        {"items": {"Life": 100}, "tree": {"Life": 100}},
+        component=component,
+        stats=["Life"],
+        baseline_stats={"Life": 100},
+        unresolved=[],
+        package_components=["items", "tree"],
+    )["search_evidence"]
+    assert evidence["scope"]["candidates"] == [component]
+    assert not evidence["unresolved"]
+
+
+@pytest.mark.parametrize(
+    "field,value", [("config", {"enemyLevel": 82}), ("level", 99), ("class_name", "Witch")]
+)
+def test_package_rejects_changed_scenario_level_and_class_even_with_ascendancy(
+    field: str, value: Any
+) -> None:
+    spec = _spec()
+    variant = _package_alternative(spec)
+    variant[field] = value
+    mark = _package_receipt(spec, variant, package_components=["items", "tree", "ascendancy"])
+    evidence = mark["search_evidence"]
+    assert not evidence["scope"]
+    assert "review_scope_mismatch" in {row["code"] for row in evidence["unresolved"]}
+
+
+def test_package_cannot_change_an_undeclared_component() -> None:
+    spec = _spec()
+    variant = _package_alternative(spec)
+    variant["skills"][0]["gems"][0]["quality"] += 1
+    evidence = _package_receipt(spec, variant, package_components=["items", "tree"])[
+        "search_evidence"
+    ]
+    assert not evidence["scope"]
+    assert "review_scope_mismatch" in {row["code"] for row in evidence["unresolved"]}
+
+
+def test_generic_package_tree_change_does_not_certify_an_unchanged_ascendancy() -> None:
+    spec = _spec()
+    variant = _package_alternative(spec)
+    evidence = _package_receipt(
+        spec, variant, component="ascendancy", package_components=["items", "tree", "ascendancy"]
+    )["search_evidence"]
+    assert not evidence["scope"]
+    assert evidence["package_context"]["variants"]["package"]["component_changed_axes"] == []
+    variant["ascendancy"] = "Mercenary1"
+    evidence = _package_receipt(
+        spec, variant, component="ascendancy", package_components=["items", "tree", "ascendancy"]
+    )["search_evidence"]
+    assert evidence["scope"]["ascendancies"] == ["Mercenary1", "Mercenary3"]
+    assert not evidence["unresolved"]
+    # The explicit existing single-component route still supports reallocating
+    # nodes inside one ascendancy; this receipt cannot infer node classification.
+    variant = copy.deepcopy(spec)
+    variant["tree_nodes"] = [1, 3]
+    single = _package_receipt(spec, variant, component="ascendancy")["search_evidence"]
+    assert single["scope"]["candidates"] == ["package"]
+    assert not single["unresolved"]
+
+
+@pytest.mark.parametrize(
+    "components", [[], ["items", "items"], ["tree"], ["items", "bad"], ["items", {}]]
+)
+def test_package_components_are_explicit_nonempty_supported_and_unique(components: Any) -> None:
+    spec = _spec()
+    with pytest.raises(ValueError, match="package_components"):
+        _package_receipt(spec, _package_alternative(spec), package_components=components)
+
+
+def test_package_baseline_receipts_cannot_follow_an_unmeasured_adopted_variant() -> None:
+    spec = _spec()
+    variant = _package_alternative(spec)
+    spec["derived_from"] = {
+        component: _package_receipt(
+            spec, variant, component=component, package_components=["items", "tree"]
+        )
+        for component in ("items", "tree")
+    }
+    _package_contract(spec, "items", "tree")
+    assert optimization_readiness(spec)["status"] == "ready"
+    adopted = copy.deepcopy(variant)
+    adopted["derived_from"] = copy.deepcopy(spec["derived_from"])
+    adopted["optimization_contract"] = copy.deepcopy(spec["optimization_contract"])
+    assert {"output_changed", "stale_evidence"} <= _codes(optimization_readiness(adopted))
+    adopted["derived_from"] = {
+        component: _package_receipt(
+            adopted, spec, component=component, package_components=["items", "tree"]
+        )
+        for component in ("items", "tree")
+    }
+    assert optimization_readiness(adopted)["status"] == "ready"
+
+
+def test_package_review_revalidates_only_changed_owners_and_keeps_original_execution() -> None:
+    spec, original = _review_with_previous_search()
+    spec["items"].append({"slot": "Helmet", "text": "Original helmet"})
+    for item in spec["items"]:
+        item["derived_from"] = {"rares": stamp(spec, "rares", tool="optimize_rare")}
+    spec["skills"][0]["gems"][0]["quality"] += 1
+    variant = _package_alternative(spec)
+    spec["derived_from"] = {
+        "items": _package_receipt(spec, variant, package_components=["items", "tree"])
+    }
+    _package_contract(spec, "items")
+    report = optimization_readiness(spec)
+    assert report["revalidated_paths"] == {"items[0].derived_from.rares": "derived_from.items"}
+    assert "stale_evidence" in _codes(report)
+    mark = spec["derived_from"]["items"]
+    assert mark["execution_history"][0]["receipt"] == original
+    assert missing_procedures(spec) == []
+    original["search_evidence"]["scope"]["slots"].append("Belt")
+    assert (
+        "Belt" not in mark["execution_history"][0]["receipt"]["search_evidence"]["scope"]["slots"]
+    )
+
+
+def test_failed_package_keeps_diagnostics_and_cannot_revalidate_owners() -> None:
+    spec = _spec()
+    spec["items"][0]["derived_from"] = {"rares": stamp(spec, "rares", tool="optimize_rare")}
+    spec["config"]["enemyLevel"] = 82
+    variant = _package_alternative(spec)
+    failure = {"code": "unmeasured_stats", "scope": ["package"], "observed": ["Life"]}
+    mark = measured_review_receipt(
+        spec,
+        {"package": variant},
+        {},
+        component="items",
+        stats=["Life"],
+        baseline_stats={"Life": 100},
+        unresolved=[failure],
+        package_components=["items", "tree"],
+    )
+    evidence = mark["search_evidence"]
+    assert not evidence["scope"]
+    assert not evidence["revalidation_receipts"]
+    assert evidence["unresolved"][0] == failure
+    assert evidence["package_context"]["variants"]["package"]["measured"] is False
+    spec["derived_from"] = {"items": mark}
+    _package_contract(spec, "items")
+    report = optimization_readiness(spec)
+    assert "stale_evidence" in _codes(report)
+    assert not report["revalidated_paths"]
+
+
 def test_jewel_review_binds_socket_and_original_receipt() -> None:
     spec = _spec()
     spec["jewels"] = [{"socket_node_id": 123, "text": "Ruby A"}]
@@ -687,6 +957,126 @@ def _fresh_utility_review(spec: dict[str, Any], text: str, *, speed: float | Non
             "allowed_termination_reasons": ["variants_evaluated"],
         }
     }
+
+
+def _package_utility_spec() -> dict[str, Any]:
+    spec = _spec()
+    variant = _package_alternative(spec)
+    spec["derived_from"] = {
+        "items": measured_review_receipt(
+            spec,
+            {"package": variant},
+            {"package": {"Life": 100}},
+            component="items",
+            stats=["Life"],
+            baseline_stats={"Life": 100},
+            unresolved=[],
+            package_components=["items", "tree"],
+            utility_baseline={"Life": 100, "MovementSpeedMod": 1.0},
+            utility_measurements={"package": {"Life": 100, "MovementSpeedMod": 1.3}},
+        )
+    }
+    _package_contract(spec, "items")
+    return spec
+
+
+def test_package_utility_is_a_joint_observation_not_an_isolated_item_effect() -> None:
+    spec = _package_utility_spec()
+    evidence = spec["derived_from"]["items"]["search_evidence"]
+    candidate = evidence["utility_review"]["utility_gain_candidate_ids"][0]
+    assert candidate["measurement_scope"] == "package"
+    assert set(candidate["package_inputs"]) == {"items_sig", "tree_sig"}
+    assert candidate["utility_gains"]["MovementSpeedMod"] == pytest.approx(0.3)
+    assert _codes(optimization_readiness(spec)) == {"utility_decision_missing"}
+    _decide_utility(spec)
+    assert optimization_readiness(spec)["status"] == "ready"
+
+
+def test_same_item_without_companion_tree_cannot_erase_package_utility_history() -> None:
+    spec = _package_utility_spec()
+    previous = copy.deepcopy(spec["derived_from"]["items"])
+    spec["config"]["enemyLevel"] = 82
+    _fresh_utility_review(spec, "B", speed=1.0)
+    report = optimization_readiness(spec)
+    assert _codes(report) == {"utility_context_unknown"}
+    assert not report["utility_review"]["remeasured_history"]
+    history = spec["derived_from"]["items"]["search_evidence"]["utility_review_history"]
+    assert history[0]["receipt"] == previous
+
+
+@pytest.mark.parametrize("adopt_tree", [False, True])
+def test_package_utility_adoption_requires_actual_companion_inputs(adopt_tree: bool) -> None:
+    spec = _package_utility_spec()
+    spec["items"][0]["text"] = "B"
+    if adopt_tree:
+        spec["tree_nodes"] = [1, 3]
+    _fresh_utility_review(spec, "A", speed=1.0)
+    report = optimization_readiness(spec)
+    if adopt_tree:
+        assert report["status"] == "ready"
+        assert report["utility_review"]["remeasured_history"][0]["remeasured_label"] == "baseline"
+    else:
+        assert _codes(report) == {"utility_context_unknown"}
+        assert not report["utility_review"]["remeasured_history"]
+
+
+def test_same_package_remeasurement_in_new_scenario_preserves_and_resolves_history() -> None:
+    spec = _package_utility_spec()
+    spec["config"]["enemyLevel"] = 82
+    variant = _package_alternative(spec)
+    spec["derived_from"]["items"] = measured_review_receipt(
+        spec,
+        {"package": variant},
+        {"package": {"Life": 100}},
+        component="items",
+        stats=["Life"],
+        baseline_stats={"Life": 100},
+        unresolved=[],
+        package_components=["items", "tree"],
+        utility_baseline={"Life": 100, "MovementSpeedMod": 1.0},
+        utility_measurements={"package": {"Life": 100, "MovementSpeedMod": 1.0}},
+    )
+    report = optimization_readiness(spec)
+    assert report["status"] == "ready"
+    assert report["utility_review"]["remeasured_history"][0]["remeasured_label"] == "package"
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("different_companion", [False, True])
+def test_new_joint_package_cannot_erase_single_item_utility_with_different_companions(
+    legacy: bool, different_companion: bool
+) -> None:
+    spec = _utility_spec() if legacy else _ready()
+    if not legacy:
+        _fresh_utility_review(spec, "B0", speed=1.3)
+    else:
+        _package_contract(spec, "items")
+    variant = copy.deepcopy(spec)
+    variant["items"][0]["text"] = "B0"
+    if different_companion:
+        variant["tree_nodes"] = [1, 3]
+    spec["derived_from"] = {
+        "items": measured_review_receipt(
+            spec,
+            {"package": variant},
+            {"package": {"Life": 100}},
+            component="items",
+            stats=["Life"],
+            baseline_stats={"Life": 100},
+            unresolved=[],
+            utility_baseline={"Life": 100, "MovementSpeedMod": 1.0},
+            utility_measurements={"package": {"Life": 100, "MovementSpeedMod": 1.0}},
+            package_components=["items", "tree"],
+        )
+    }
+    _package_contract(spec, "items")
+    report = optimization_readiness(spec)
+    if different_companion:
+        assert _codes(report) == {"utility_decision_missing"}
+        assert not report["utility_review"]["remeasured_history"]
+    else:
+        assert report["status"] == "ready"
+        assert report["utility_review"]["remeasured_history"][0]["remeasured_label"] == "package"
 
 
 def test_review_uses_full_actual_stats_even_when_requested_stats_omit_utility() -> None:

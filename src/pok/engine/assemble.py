@@ -14,6 +14,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,7 @@ from pok.engine.optimization_readiness import OptimizationNotReadyError, optimiz
 from pok.engine.provenance import missing_procedures, stale_components
 from pok.pob import codec
 from pok.pob.buildxml import BuildSpec, spec_from_dict, to_xml
+from pok.pob.item_editor import audit_item_editor
 from pok.pob.runner import PobResult, run_build
 from pok.pob.versions import pinned_commit
 
@@ -46,18 +48,34 @@ class AssembledBuild:
     item_reports: dict[str, LegalityReport]  # slot → 판정
     duplicates: tuple[str, ...]  # 같은 content_hash의 기존 build-id들
     optimization_readiness: dict[str, Any] = dataclasses.field(default_factory=dict)
+    item_editor: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     @property
     def is_legal(self) -> bool:
         return (
             self.result.is_tree_legal
             and self.result.is_item_sockets_legal  # #120 — 룬 소켓 한도(PoB 판정)
+            and self.item_editor.get("checked", False)
+            and self.item_editor.get("compatible", False)
             and all(r.is_legal for r in self.item_reports.values())
         )
 
 
 class IllegalBuildError(ValueError):
     """RC4: 못 만드는 아이템이 포함된 빌드 — 사유를 담는다."""
+
+
+def _editor_inputs(xml: str) -> dict[str, str]:
+    """Probe exactly the exported texts, including jewels and substituted mods."""
+    document = ET.fromstring(xml)
+    slots: dict[str, list[str]] = {}
+    for slot in document.findall(".//Slot"):
+        slots.setdefault(slot.get("itemId", ""), []).append(slot.get("name", ""))
+    return {
+        f"{','.join(sorted(set(slots.get(item.get('id', ''), [])))) or 'Item'}"
+        f"#{item.get('id', '?')}": item.text or ""
+        for item in document.findall(".//Items/Item")
+    }
 
 
 def _runtime_spec_data(spec: BuildSpec) -> dict[str, Any]:
@@ -151,11 +169,19 @@ def assemble(
         raise IllegalBuildError(" / ".join(result.item_socket_problems))
 
     xml = to_xml(spec)
+    # Calculation success does not exercise ItemListControl's double-click.
+    # Run its native editor path in an isolated process before issuing a code.
+    item_editor = audit_item_editor(_editor_inputs(xml))
+    if strict and not (item_editor["checked"] and item_editor["compatible"]):
+        raise IllegalBuildError(
+            "PoB 아이템 상세보기 검증 실패: " + " / ".join(item_editor["problems"])
+        )
     build_code = codec.encode(xml)
     build_id = new_build_id(slug)
     validation: dict[str, Any] = {
         "purpose": purpose,
         "optimization_readiness": readiness,
+        "item_editor": item_editor,
         "stats": result.stats,  # PoB 실측 전부 — floor 판정은 소비자(스킬) 몫
         "meta": result.meta,
         "tree": {
@@ -192,6 +218,8 @@ def assemble(
     manifest: dict[str, Any] = {
         "purpose": purpose,
         "optimization_readiness": readiness,
+        "item_editor_checked": item_editor["checked"],
+        "item_editor_compatible": item_editor["compatible"],
         "pob_commit": pinned_commit(),
         "class": spec.class_name,
         "ascendancy": spec.ascendancy,
@@ -199,6 +227,8 @@ def assemble(
         "legal": bool(
             result.is_tree_legal
             and result.is_item_sockets_legal
+            and item_editor["checked"]
+            and item_editor["compatible"]
             and all(r.is_legal for r in item_reports.values())
         ),
     }
@@ -286,6 +316,7 @@ def assemble(
         item_reports=item_reports,
         duplicates=dups,
         optimization_readiness=readiness,
+        item_editor=item_editor,
     )
 
 

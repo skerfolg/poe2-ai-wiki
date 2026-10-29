@@ -24,7 +24,7 @@ import contextlib
 import json
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -66,6 +66,31 @@ def special_affix_limits(rules: dict[str, Any]) -> dict[str, int]:
         for kind, limit in rules.get("special_affix_caps", {}).get("limits", {}).items()
         if kind in {"crafted", "desecrated"}
     }
+
+
+_BASE_AFFIX_LIMIT = re.compile(r"([+-]\d+)\s+(Prefix|Suffix)\s+Modifiers?\s+allowed", re.I)
+
+
+def apply_base_affix_limits(
+    caps: Mapping[str, int], total: int, base: Mapping[str, Any] | None
+) -> tuple[dict[str, int], int]:
+    """Apply the canonical base's unconditional implicit limits to board caps.
+
+    Item text cannot grant itself extra capacity or evade a missing negative line.
+    Prefix/suffix transfers preserve the total; a lost slot reduces it. Keep the
+    board's separate total budget (e.g. seasonal jewels), rather than replacing
+    it with the sum of the two per-kind caps.
+    """
+    adjusted = dict(caps)
+    implicit = str((base or {}).get("data", {}).get("implicit") or "")
+    delta = 0
+    for line in implicit.splitlines():
+        match = _BASE_AFFIX_LIMIT.fullmatch(line.strip())
+        if match:
+            amount, kind = int(match[1]), match[2].lower()
+            adjusted[kind] = max(0, adjusted[kind] + amount)
+            delta += amount
+    return adjusted, max(0, min(total + delta, sum(adjusted.values())))
 
 
 _ADDITIONAL_SPECIAL = re.compile(r"Can have (\d+) additional (Crafted|Desecrated) Modifiers?", re.I)
@@ -363,6 +388,19 @@ def _declared_implicit_count(item_text: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def _consumable_pool_fits(d: dict[str, Any], base: dict[str, Any] | None) -> bool:
+    """Consumable-only pools have a domain before their spawn-weight tags.
+
+    Their ``default: 1`` means every base in that pool, not every equipment
+    base. Charms share category=flask in the KB; item_class distinguishes them.
+    """
+    origins = set(d.get("origins") or [])
+    if not origins or not origins <= {"flask", "charm"}:
+        return True
+    item_class = str((base or {}).get("data", {}).get("item_class", "")).lower()
+    return item_class in origins
+
+
 def _spawn_weight(d: dict[str, Any], base: dict[str, Any] | None) -> int | None:
     """이 모드가 이 베이스에 붙는 스폰 가중치 — **모드 목록 순서로 처음 맞는 태그**가 정한다 (#149).
 
@@ -373,6 +411,8 @@ def _spawn_weight(d: dict[str, Any], base: dict[str, Any] | None) -> int | None:
     보존한다(dict 삽입 순 — 구체 태그가 앞, `default`가 끝).
     None = `spawn_weights` 자체가 없다(비크래프팅 경로 판정으로 넘긴다).
     """
+    if base is not None and not _consumable_pool_fits(d, base):
+        return 0
     weights = d.get("spawn_weights") or {}
     if not weights:
         return None
@@ -498,7 +538,14 @@ class ItemLegalityChecker:
                 self._uniques[r.name_en.lower()] = r.raw  # 유니크 우선 (category도 가질 수 있다)
             elif r.type == "Item" and r.raw.get("data", {}).get("category"):
                 self._bases[r.name_en.lower()] = r.raw
-            elif r.type == "Modifier" and {"item", "jewel", "desecrated", "rune"} & set(
+            elif r.type == "Modifier" and {
+                "item",
+                "jewel",
+                "desecrated",
+                "rune",
+                "flask",
+                "charm",
+            } & set(
                 r.raw.get("data", {}).get("origins", [])
             ):  # jewel origin도 크래프팅 풀 — 주얼 베이스 검증에 필요 (2026-07-31).
                 # desecrated도 합성 검증 풀에 포함(사용자 지시 2026-07-31) —
@@ -693,7 +740,11 @@ class ItemLegalityChecker:
     def check(self, item_text: str) -> LegalityReport:
         rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(item_text)
         if rarity == "unique":
-            return self._check_unique(item_text)
+            report = self._check_unique(item_text)
+            return LegalityReport(
+                verdicts=report.verdicts,
+                errors=(*report.errors, *needs_rune_declaration(item_text, mod_lines=mod_lines)),
+            )
         base = self._bases.get(base_name.lower())
         errors: list[str] = []
         if base is None:
@@ -744,9 +795,19 @@ class ItemLegalityChecker:
                     )
                 )
                 continue
-            verdicts.append(
-                LineVerdict(f"{kind}: {key}", "LEGAL", str(record["id"]), reason="선언형 접사")
-            )
+            if base is not None and not _consumable_pool_fits(record["data"], base):
+                verdicts.append(
+                    LineVerdict(
+                        f"{kind}: {key}",
+                        "ILLEGAL",
+                        str(record["id"]),
+                        reason="플라스크·호신부 전용 접사 풀 밖 베이스",
+                    )
+                )
+            else:
+                verdicts.append(
+                    LineVerdict(f"{kind}: {key}", "LEGAL", str(record["id"]), reason="선언형 접사")
+                )
             matched[str(record["id"])] = record
             declared_records.append(record)
         for line in item_text.splitlines():
@@ -832,6 +893,10 @@ class ItemLegalityChecker:
         # 접사 수·group 배타 (매칭된 모드 기준 — UNKNOWN 줄은 여기 안 들어간다)
         category = (base or {}).get("data", {}).get("category")
         caps, total_cap, cap_label = self._affix_limits(rarity, category)
+        base_caps, base_total = apply_base_affix_limits(caps, total_cap, base)
+        if (base_caps, base_total) != (caps, total_cap):
+            cap_label += " + 베이스 임플리싯"
+        caps, total_cap = base_caps, base_total
         counts = {"prefix": 0, "suffix": 0}
         groups: dict[str, str] = {}
         for rec in matched.values():
@@ -884,7 +949,7 @@ class ItemLegalityChecker:
                 "주얼의 실제 반경을 적을 것(engine.jewels.render_radius_jewel)"
             )
         # 룬도 같은 계열이다 — 선언이 없으면 모드는 들어가고 **증폭만** 빠진다(3.00배).
-        errors.extend(needs_rune_declaration(item_text))
+        errors.extend(needs_rune_declaration(item_text, mod_lines=mod_lines))
         if anoint_count > 1:
             errors.append("성유 중복 — 목걸이당 Allocates 부여는 1개만 허용(anoint-rules)")
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
@@ -1558,6 +1623,8 @@ def _route_base_fit(d: dict[str, Any], base: dict[str, Any]) -> tuple[bool, str]
     ③ scope (equipment | jewel | waystone)
     신호가 전혀 없으면 반증 불가 → 적용 가능으로 두고 CONDITIONAL을 유지한다.
     """
+    if not _consumable_pool_fits(d, base):
+        return False, "플라스크·호신부 전용 접사 풀 밖 베이스"
     base_data = base.get("data", {})
     tags = {t for t in base_data.get("spawn_tags", {}) if t != "default"}
     explicit = {k for k in d.get("spawn_weights", {}) if k != "default"}

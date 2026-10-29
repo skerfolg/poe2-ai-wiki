@@ -47,3 +47,41 @@ def test_evaluate_delta_아이템_델타_실측() -> None:
     assert delta.diff("Life") == 105  # +100 모드 + 베이스 부수 효과 실측값
     assert delta.diff("EnergyShield") == 95  # Altar Robe 베이스 ES
     assert delta.diff("TotalDPS") is None  # stats 선별 밖 — 측정 안 한 것은 None
+
+
+def test_package_review_장비와_트리_동시_변경_실측() -> None:
+    """Joint reallocation reaches the same oracle and records both changed domains."""
+    from pok.mcp.tools import build
+
+    base = {"class_name": "Sorceress", "ascendancy": "Sorceress1", "level": 90}
+    variant = {
+        **base,
+        "tree_nodes": [4739, 22419],
+        "items": [
+            {
+                "slot": "Ring 1",
+                "text": (
+                    "Rarity: RARE\nPok Ring\nIron Ring\nItem Level: 80\n"
+                    "Adds 1 to 3 Cold damage to Attacks"
+                ),
+            }
+        ],
+    }
+    output = build.evaluate_delta(
+        base,
+        {"joint": variant},
+        ["Life", "Mana"],
+        review_components=["items", "tree"],
+    )
+    assert output["comparison"]["measurements_complete"] is True
+    assert output["review"]["measurements_complete"] is True
+    assert output["base"]["stats"]["Life"] == 1187
+    assert output["variants"]["joint"]["items_legal"] is True
+    assert output["variants"]["joint"]["tree_connected"] is True
+    evidence = output["review"]["search_evidence"]
+    assert evidence["items"]["scope"]["slots"] == ["Ring 1"]
+    assert set(evidence["tree"]["scope"]["tree_nodes"]) == {4739, 22419}
+    for component in ("items", "tree"):
+        assert evidence[component]["measurement_scope"] == "package"
+        assert evidence[component]["scope"]["candidates"] == ["joint"]
+        assert evidence[component]["termination"]["converged"] is False
