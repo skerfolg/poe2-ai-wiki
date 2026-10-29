@@ -739,7 +739,8 @@ Implicits: 0
     assert not plain.is_legal
     assert any("{rune}" in e for e in plain.errors), "원인이 룬이라는 단서를 줘야 한다"
     tagged = checker.check(
-        full + "\nSockets: S\nRune: Greater Body Rune\n{rune}+12% to Fire Resistance"
+        full.replace("Implicits: 0", "Sockets: S\nRune: Greater Body Rune\nImplicits: 0")
+        + "\n{rune}+12% to Fire Resistance"
     )
     assert tagged.is_legal, "룬 표기하면 접사 칸 밖 — 한도에 안 걸린다"
 

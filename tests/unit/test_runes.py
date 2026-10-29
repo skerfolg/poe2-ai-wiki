@@ -68,10 +68,107 @@ def test_declared_and_runeless_items_pass() -> None:
 
 
 def test_render_replaces_existing_socket_line() -> None:
-    """이미 소켓 줄이 있으면 갈아 끼운다 — 두 줄이 남으면 PoB가 뒤엣것만 읽는다."""
+    """이미 소켓 줄이 있으면 갈아 끼운다 — PoB는 두 줄의 소켓을 합친다."""
     rune = RuneOption("modifier.x", "Greater Iron Rune", ("30% increased Spell Damage",))
     text = render_runed(f"{_BASE}\nSockets: S S S S S", [rune])
     assert text.count("Sockets:") == 1
+
+
+@pytest.mark.parametrize("implicit_header", ["", "Implicits: 0\n"])
+def test_rune_declarations_precede_modifiers(implicit_header: str) -> None:
+    """Late declarations are retained as explicit mods and duplicated on save (#193)."""
+    rune = RuneOption("new", "Perfect Iron Rune", ("20% increased Spell Damage",))
+    given = f"{_BASE}\n{implicit_header}80% increased Spell Damage\nCorrupted"
+    rendered = render_runed(given, [rune]).splitlines()
+    assert rendered.index("Rune: Perfect Iron Rune") < rendered.index("80% increased Spell Damage")
+    if implicit_header:
+        assert rendered.index("Rune: Perfect Iron Rune") < rendered.index("Implicits: 0")
+    assert render_runed("\n".join(rendered), []) == given
+
+
+@pytest.mark.parametrize("rarity", ["NORMAL", "MAGIC"])
+def test_two_line_identity_header_precedes_rune_declarations(rarity: str) -> None:
+    rune = RuneOption("new", "Perfect Iron Rune", ("20% increased Spell Damage",))
+    text = f"Rarity: {rarity}\nAttuned Wand\n80% increased Spell Damage"
+    lines = render_runed(text, [rune]).splitlines()
+    assert lines[:4] == [
+        f"Rarity: {rarity}",
+        "Attuned Wand",
+        "Sockets: S",
+        "Rune: Perfect Iron Rune",
+    ]
+
+
+def test_late_rune_declarations_are_rejected_even_without_effect_seeds() -> None:
+    mod = "80% increased Spell Damage"
+    late = f"{_BASE}\n{mod}\nSockets: S\nRune: Greater Iron Rune"
+    assert "옵션 본문 뒤" in needs_rune_declaration(late, mod_lines=[mod])[0]
+    early = f"{_BASE}\nSockets: S\nRune: Greater Iron Rune\n{mod}"
+    assert needs_rune_declaration(early, mod_lines=[mod]) == ()
+
+
+def test_prose_mentioning_runes_is_not_a_late_declaration() -> None:
+    mods = ["80% increased Spell Damage", "Socketed Runes have increased effect", "Some Rune: text"]
+    assert needs_rune_declaration("\n".join([_BASE, *mods]), mod_lines=mods) == ()
+
+
+@pytest.mark.parametrize(
+    "identity,mod",
+    [
+        ("Rarity: RARE\nProbe\nAttuned Wand", "80% increased Spell Damage"),
+        (
+            "Rarity: UNIQUE\nThe Unborn Lich\nStellar Amulet",
+            "70% increased Desecrated Modifier magnitudes",
+        ),
+    ],
+)
+def test_legality_attaches_late_declaration_gate_to_rare_and_unique(
+    identity: str, mod: str
+) -> None:
+    from pok.common.paths import knowledge_dir
+    from pok.engine.legality import ItemLegalityChecker
+
+    checker = ItemLegalityChecker(knowledge_dir())
+    head = f"{identity}\nItem Level: 82"
+    declarations = "Sockets: S\nRune: Greater Iron Rune"
+    invalid = checker.check(f"{head}\n{mod}\n{declarations}")
+    assert not invalid.is_legal
+    assert any("옵션 본문 뒤" in error for error in invalid.errors)
+    valid = checker.check(f"{head}\n{declarations}\n{mod}")
+    assert not any("옵션 본문 뒤" in error for error in valid.errors)
+
+
+def test_late_declarations_fail_compute_validation_and_strict_assembly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import pok.engine.assemble as assembly
+    from pok.mcp.tools.build import _items_legal
+    from pok.pob.buildxml import BuildSpec, ItemSpec
+
+    base = f"{_BASE}\n80% increased Spell Damage"
+    late = base + "\nSockets: S\nRune: Greater Iron Rune\n{rune}30% increased Spell Damage"
+    fixed = render_runed(
+        base, [RuneOption("iron", "Greater Iron Rune", ("30% increased Spell Damage",))]
+    )
+
+    def reached_oracle(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("passed strict item validation")
+
+    monkeypatch.setattr(assembly, "run_build", reached_oracle)
+    for text, legal in ((late, False), (fixed, True)):
+        item = {"slot": "Weapon 1", "text": text}
+        assert _items_legal({"items": [item]})["items_legal"] is legal
+        spec = BuildSpec(
+            class_name="Sorceress",
+            ascendancy="Sorceress1",
+            items=(ItemSpec(slot="Weapon 1", text=text),),
+        )
+        if legal:
+            with pytest.raises(RuntimeError, match="passed strict item validation"):
+                assembly.assemble(spec, "rune-layout-regression")
+        else:
+            with pytest.raises(assembly.IllegalBuildError, match="옵션 본문 뒤"):
+                assembly.assemble(spec, "rune-layout-regression")
 
 
 def test_render_replaces_old_rune_declarations_and_mods() -> None:

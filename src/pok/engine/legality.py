@@ -740,7 +740,11 @@ class ItemLegalityChecker:
     def check(self, item_text: str) -> LegalityReport:
         rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(item_text)
         if rarity == "unique":
-            return self._check_unique(item_text)
+            report = self._check_unique(item_text)
+            return LegalityReport(
+                verdicts=report.verdicts,
+                errors=(*report.errors, *needs_rune_declaration(item_text, mod_lines=mod_lines)),
+            )
         base = self._bases.get(base_name.lower())
         errors: list[str] = []
         if base is None:
@@ -945,7 +949,7 @@ class ItemLegalityChecker:
                 "주얼의 실제 반경을 적을 것(engine.jewels.render_radius_jewel)"
             )
         # 룬도 같은 계열이다 — 선언이 없으면 모드는 들어가고 **증폭만** 빠진다(3.00배).
-        errors.extend(needs_rune_declaration(item_text))
+        errors.extend(needs_rune_declaration(item_text, mod_lines=mod_lines))
         if anoint_count > 1:
             errors.append("성유 중복 — 목걸이당 Allocates 부여는 1개만 허용(anoint-rules)")
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))

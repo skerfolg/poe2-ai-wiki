@@ -51,6 +51,9 @@ def test_적법_빌드_조립_기록(tmp_path_factory: pytest.TempPathFactory) -
         validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
         assert validation["tree"]["legal"] is True
         assert validation["items"]["Ring 1"]["legal"] is True
+        assert validation["item_editor"]["checked"] is True
+        assert validation["item_editor"]["compatible"] is True
+        assert len(validation["item_editor"]["items"]) == 1
         xml = (built.path / "build.xml").read_text(encoding="utf-8")
         assert codec.decode(built.build_code) == xml
     finally:

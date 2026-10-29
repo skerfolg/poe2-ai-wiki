@@ -1067,6 +1067,7 @@ def assemble_pob(
         "ok": True,
         "purpose": purpose,
         "optimization_readiness": built.optimization_readiness,
+        "item_editor": getattr(built, "item_editor", {"checked": False, "compatible": False}),
         "build_id": built.build_id,
         "path": str(built.path),
         "build_code": built.build_code,
