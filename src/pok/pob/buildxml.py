@@ -154,6 +154,9 @@ class ItemSpec:
     substitutes: tuple[str, ...] = ()
     # 장착 상태와 효과 발동을 분리한다. 소모품이 꺼진 기준값도 왕복 보존한다.
     active: bool = True
+    # Acquisition metadata stays in spec.json; PoB has no field for exceptional
+    # drops. This is a declared crafting target, not a stat or a proof of ownership.
+    socket_sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -595,6 +598,11 @@ def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> Bu
         _make(ItemSpec, it, f"items[{i}]", spec_only=_ITEM_SPEC_ONLY_KEYS)
         for i, it in enumerate(data.get("items", []))
     )
+    for i, item in enumerate(items):
+        if not isinstance(item.socket_sources, list | tuple) or any(
+            not isinstance(source, str) for source in item.socket_sources
+        ):
+            raise ValueError(f"items[{i}].socket_sources must be a list of acquisition route names")
     jewels = tuple(
         _make(JewelSpec, j, f"jewels[{i}]", spec_only=_ITEM_SPEC_ONLY_KEYS)
         for i, j in enumerate(data.get("jewels", []))

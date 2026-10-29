@@ -77,19 +77,24 @@ def test_비합법_아이템은_거부된다() -> None:
         assemble(spec, "illegal")
 
 
-def _sockets_spec(sockets: int) -> BuildSpec:
-    """`Fists of Stone`(베이스 한도 3)에 소켓을 원하는 만큼 박은 장갑 한 짝."""
+def _sockets_spec(
+    sockets: int, *, exceptional: bool = False, corrupted: bool = False, runic: bool = False
+) -> BuildSpec:
+    """일반 1홈 장갑. 추가 홈의 드롭·타락·트리 경로는 각각 명시한다."""
     runes = "\n".join(["Rune: Perfect Iron Rune"] * sockets)
     return BuildSpec(
-        class_name="Sorceress",
-        ascendancy="Sorceress1",
+        class_name="Monk" if runic else "Sorceress",
+        ascendancy="Monk1" if runic else "Sorceress1",
+        tree_nodes=(20437, 39552) if runic else (),
         items=(
             ItemSpec(
                 slot="Gloves",
                 text=(
                     "Rarity: RARE\nPok Gloves\nFists of Stone\nItem Level: 80\n"
-                    f"Sockets: {' '.join('S' for _ in range(sockets))}\n{runes}"
+                    + ("Corrupted\n" if corrupted else "")
+                    + f"Sockets: {' '.join('S' for _ in range(sockets))}\n{runes}"
                 ),
+                socket_sources=("exceptional",) if exceptional else (),
             ),
         ),
     )
@@ -101,39 +106,54 @@ def test_PoB가_못_여는_소켓_수는_거부된다() -> None:
     막는 근거는 인게임 가부가 아니라 **PoB의 표현 한계**다(룬 드롭다운 6개). 열어 볼
     수 없는 빌드 코드를 출고하는 것은 산출물이 아니다.
     """
-    with pytest.raises(IllegalBuildError, match="표현하지 못한다"):
-        assemble(_sockets_spec(7), "socket-unrenderable")
+    from pok.engine.item_sockets import audit_item_sockets
+
+    text = "Rarity: UNIQUE\nMorior Invictus\nGrand Regalia\nCorrupted\nSockets: S S S S S S S"
+    source = {
+        "class_name": "Monk",
+        "ascendancy": "Monk1",
+        "tree_nodes": [20437, 39552],
+        "items": [{"slot": "Body Armour", "text": text}],
+    }
+    checked = audit_item_sockets(source)
+    assert checked["items"][0]["budget"] == 7, "고정 4홈 + 트리 2홈 + 타락 1홈의 경로는 성립한다"
+    assert all("PoB" in problem for problem in checked["problems"]), checked
+    spec = BuildSpec(
+        class_name="Monk",
+        ascendancy="Monk1",
+        tree_nodes=(20437, 39552),
+        items=(ItemSpec(slot="Body Armour", text=text),),
+    )
+    with pytest.raises(IllegalBuildError, match=r"PoB.*표현"):
+        assemble(spec, "socket-unrenderable")
 
 
-def test_예산을_넘겨도_막지_않는다() -> None:
-    """사용자 판정 2026-08-25: *물리적으로 불가능한 게 아니면 허용한다.*
-
-    `Fists of Stone`은 베이스 3칸인데 4칸을 적었다 — 마셜 아티스트 `Runic
-    Meridians`나 타락이면 정상이다. 실측 2026-08-25: 베이스 한도로 막았더니 신고
-    빌드 4건 중 **3건이 거짓 거부**였다. 막지 않되 **기록에는 남긴다**.
-    """
-    built = assemble(_sockets_spec(4), "socket-over-budget")
-    try:
-        assert built.result.is_item_sockets_legal, "예산 초과는 차단 사유가 아니다"
-        validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
-        assert validation["item_sockets"]["warnings"], "조용히 넘기지도 않는다"
-    finally:
-        for f in built.path.iterdir():
-            f.unlink()
-        built.path.rmdir()
+@pytest.mark.parametrize("sockets", [3, 4])
+def test_추가_홈_획득_경로를_생략하면_거부한다(sockets: int) -> None:
+    """PoB의 베이스 socketLimit=3은 일반 제작 예산을 증명하지 않는다 (#192)."""
+    with pytest.raises(IllegalBuildError, match=r"Gloves.*획득 가능한"):
+        assemble(_sockets_spec(sockets), "socket-missing-acquisition")
 
 
-def test_예산_안이면_아무_말도_안_한다() -> None:
+@pytest.mark.parametrize(("sockets", "runic"), [(3, False), (4, True)])
+def test_획득_경로가_있으면_홈을_줄이지_않고_조립한다(sockets: int, runic: bool) -> None:
     """게이트가 **정상을 막으면** 신호가 죽는다(BACKLOG 형태 ⑤ · ⑪)."""
-    built = assemble(_sockets_spec(3), "socket-ok")
+    built = assemble(
+        _sockets_spec(sockets, exceptional=True, corrupted=True, runic=runic), "socket-ok"
+    )
     try:
         assert built.result.is_item_sockets_legal
         validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
         assert validation["item_sockets"]["legal"] is True
         assert not validation["item_sockets"]["warnings"]
+        acquisition = validation["item_sockets"]["acquisition"]["items"][0]
+        assert acquisition["ordinary_limit"] == 1
+        assert acquisition["exceptional_grant"] == 1
+        assert acquisition["corruption_socket_allowance"] == 1
+        assert acquisition["tree_grant"] == int(runic)
         # 관측을 **기록에 남긴다** — 나중에 보는 쪽이 몇 칸으로 쟀는지 알아야 한다
         observed = validation["item_sockets"]["observed"]
-        assert observed and observed[0]["sockets"] == 3 and observed[0]["limit"] == 3
+        assert observed and observed[0]["sockets"] == sockets and observed[0]["limit"] == 3
     finally:
         for f in built.path.iterdir():
             f.unlink()

@@ -51,6 +51,7 @@ from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.integrity import spec_integrity
+from pok.engine.item_sockets import audit_item_sockets
 from pok.engine.items import req_shortfall, unbuilt_declarations, unread_item_lines
 from pok.engine.legality import ItemLegalityChecker
 from pok.engine.optimization_readiness import (
@@ -150,13 +151,11 @@ def _pick(
         "tree_connected": result.is_tree_legal,
         "pruned_nodes": list(result.pruned_nodes),
         "meta": result.meta,
-        # **룬 소켓**도 별개 축이다 (#120). `items_legal`(KB 모드풀)은 소켓 수를 아예
-        # 안 본다. `False`면 그 빌드 코드는 **PoB에서 열리지 않는다**(6칸 초과 —
-        # 아이템을 클릭하는 순간 예외). 예산 초과는 막지 않고 `item_socket_warnings`로
-        # 낸다 — 트리 부여·타락이 실제로 넘긴다.
+        # Raw PoB representation status. With build_spec, acquisition validation
+        # below also contributes; opening successfully is not a legal certificate.
         "item_sockets_legal": result.is_item_sockets_legal,
-        # PoB가 읽은 부위별 칸 수·예산 — **설계 중에 이걸 보고 칸을 채우라고** 싣는다.
-        # 「몇 칸이 맞나」를 도구가 안 알려 줘서 세션이 지어냈다(#120 근본 원인).
+        # Fallback observations without a source spec. The acquisition report
+        # replaces this view when a spec is available (#192).
         "item_sockets": [
             {
                 "slot": r.get("slot"),
@@ -183,6 +182,13 @@ def _pick(
     if result.dropped_items:
         out["dropped_items"] = [dict(row) for row in result.dropped_items]
     if build_spec is not None:
+        acquisition = audit_item_sockets(build_spec, observed=result.items)
+        out["socket_acquisition"] = acquisition
+        out["item_sockets_legal"] = result.is_item_sockets_legal and acquisition["legal"]
+        if acquisition["problems"]:
+            out["item_socket_problems"] = [*result.item_socket_problems, *acquisition["problems"]]
+        # The design-facing budget comes from acquisition, never base.socketLimit.
+        out["item_sockets"] = acquisition["items"]
         out.update(_items_legal(build_spec))
         # 설계 무결성은 **적법성과 별개 축**이다 (#58 ①). 적법한데 애초에 빌드가
         # 아닌 경우를 잡는다 — 주력기 부재·트리거 미연결. 거부하지 않고 **매번**

@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from pok.engine.jewels import RADIUS_LABELS, needs_radius_declaration
-from pok.engine.runes import needs_rune_declaration
+from pok.engine.runes import RuneOption, check_rune_rules, needs_rune_declaration, slot_keys
 from pok.kb.store import load as store_load
 
 _NUM = re.compile(r"\(\d+(?:\.\d+)?-\d+(?:\.\d+)?\)|\d+(?:\.\d+)?")
@@ -897,6 +897,13 @@ class ItemLegalityChecker:
         if (base_caps, base_total) != (caps, total_cap):
             cap_label += " + 베이스 임플리싯"
         caps, total_cap = base_caps, base_total
+        rune_caps = self._additional_rune_affix_limits(
+            item_text, mod_lines, sockets, rune_effect, base
+        )
+        if rune_caps:
+            caps = {kind: cap + rune_caps.get(kind, 0) for kind, cap in caps.items()}
+            total_cap += sum(rune_caps.values())
+            cap_label += " + 검증된 룬 공급"
         counts = {"prefix": 0, "suffix": 0}
         groups: dict[str, str] = {}
         for rec in matched.values():
@@ -953,6 +960,65 @@ class ItemLegalityChecker:
         if anoint_count > 1:
             errors.append("성유 중복 — 목걸이당 Allocates 부여는 1개만 허용(anoint-rules)")
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+
+    def _additional_rune_affix_limits(
+        self,
+        item_text: str,
+        mod_lines: list[str],
+        sockets: int,
+        rune_effect: float,
+        base: Mapping[str, Any] | None,
+    ) -> dict[str, int]:
+        """Expand ordinary caps only from a valid named, socketed supplier (#191).
+
+        Bare/custom capacity text is not an acquisition route. Match the rune's
+        unconditional effect for this base, preserve unique-rune restrictions and
+        require its rendered seed; a repeated/forged seed cannot mint capacity.
+        """
+        names = re.findall(r"^Rune:\s*(.+)$", item_text, re.M | re.I)
+        if not base or not names or len(names) > sockets:
+            return {}
+        keys = slot_keys(base)
+        declared: list[RuneOption] = []
+        supplied: dict[str, int] = {}
+        for name in names:
+            if name.strip().lower() == "none":
+                continue
+            rec = self._runes_by_name.get(name.strip().lower())
+            if not rec:
+                return {}
+            lines = tuple(
+                dict.fromkeys(
+                    str(line)
+                    for key, texts in (rec["data"].get("per_slot") or {}).items()
+                    if key.lower() in keys
+                    for line in texts
+                    if not str(line).startswith("Bonded:")
+                )
+            )
+            if not lines:
+                return {}
+            declared.append(RuneOption(str(rec["id"]), str(rec["name"]["en"]), lines))
+            for line in lines:
+                if (match := _BASE_AFFIX_LIMIT.fullmatch(line)) and int(match[1]) > 0:
+                    kind = match[2].lower()
+                    supplied[kind] = supplied.get(kind, 0) + int(match[1])
+        if check_rune_rules(declared):
+            return {}
+        written: dict[str, int] = {}
+        for line in mod_lines:
+            body = _MOD_DECORATION.sub("", line).strip()
+            if not _RUNE_PREFIX.match(body):
+                continue
+            body = _RUNE_PREFIX.sub("", body).strip()
+            if (match := _BASE_AFFIX_LIMIT.fullmatch(body)) and int(match[1]) > 0:
+                kind = match[2].lower()
+                written[kind] = written.get(kind, 0) + int(match[1])
+        return {
+            kind: amount
+            for kind, amount in written.items()
+            if 0 < amount <= math.floor(supplied.get(kind, 0) * (1 + rune_effect / 100))
+        }
 
     def _additional_special_limits(
         self, item_text: str, mod_lines: list[str], sockets: int, rune_effect: float

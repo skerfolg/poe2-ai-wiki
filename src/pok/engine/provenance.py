@@ -93,6 +93,13 @@ def _items_view(spec: dict[str, Any]) -> tuple[Any, str]:
     items = sorted(
         (str(i.get("slot", "")), str(i.get("text", ""))) for i in (spec.get("items") or [])
     )
+    sources = sorted(
+        (str(i.get("slot", "")), sorted(i["socket_sources"]))
+        for i in (spec.get("items") or [])
+        if i.get("socket_sources")
+    )
+    if sources:
+        return {"items": items, "socket_sources": sources}, f"{len(items)}슬롯"
     return items, f"{len(items)}슬롯"
 
 

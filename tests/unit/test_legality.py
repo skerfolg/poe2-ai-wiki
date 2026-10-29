@@ -1359,6 +1359,103 @@ def test_스폰_가중치는_모드_목록_순서로_처음_맞는_태그가_정
     assert _spawn_weight({"spawn_weights": {}}, boots) is None
 
 
+_SERLE_BOW = (
+    "Rarity: RARE\nSol Barrage\nWarmonger Bow\nItem Level: 82\nQuality: 30\n"
+    "Sockets: S S S\nRune: Serle's Triumph\nRune: None\nRune: None\n"
+    "LevelReq: 77\nImplicits: 1\n{enchant}{rune}+1 Suffix Modifier allowed\n"
+    "173% increased Physical Damage\nAdds 32 to 65 Physical Damage\n"
+    "78% increased Physical Damage\n+182 to Accuracy Rating\n"
+    "+5% to Critical Hit Chance\n+200% Surpassing chance to fire an additional Arrow\n"
+    "+4 to Level of all Projectile Skills\n+25% to Critical Damage Bonus\n"
+)
+
+
+def test_owned_serle_bow_accepts_three_prefixes_four_suffixes(checker: ItemLegalityChecker) -> None:
+    report = checker.check(_SERLE_BOW)
+    assert report.is_legal, report
+    assert any(v.modifier_id == "modifier.serles-triumph" for v in report.verdicts)
+
+
+def test_serle_bow_passes_strict_assembly_item_gate(
+    checker: ItemLegalityChecker, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import pok.engine.assemble as assembly
+    from pok.pob.buildxml import BuildSpec, ItemSpec
+
+    def reached_oracle(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("strict item gate passed")
+
+    monkeypatch.setattr(assembly, "run_build", reached_oracle)
+    spec = BuildSpec(
+        class_name="Mercenary",
+        ascendancy="Mercenary3",
+        items=(ItemSpec(slot="Weapon 1", text=_SERLE_BOW, socket_sources=("exceptional",)),),
+    )
+    with pytest.raises(RuntimeError, match="strict item gate passed"):
+        assembly.assemble(spec, "serle-gate", checker=checker)
+    bad = BuildSpec(
+        class_name="Mercenary",
+        ascendancy="Mercenary3",
+        items=(
+            ItemSpec(
+                slot="Weapon 1",
+                text=_SERLE_BOW.replace("Rune: Serle's Triumph\n", ""),
+                socket_sources=("exceptional",),
+            ),
+        ),
+    )
+    with pytest.raises(assembly.IllegalBuildError, match="suffix 4"):
+        assembly.assemble(bad, "serle-gate", checker=checker)
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("Rune: Serle's Triumph\n", ""),
+        ("Sockets: S S S\n", ""),
+        ("Sockets: S S S", "Sockets: S S"),
+        ("Rune: Serle's Triumph", "Rune: Perfect Iron Rune"),
+        ("Rune: None", "Rune: Serle's Triumph"),
+        ("{enchant}{rune}+1 Suffix Modifier allowed\n", ""),
+        ("{enchant}{rune}", "{custom}"),
+        ("+1 Suffix Modifier allowed", "+2 Suffix Modifiers allowed"),
+        (
+            "{enchant}{rune}+1 Suffix Modifier allowed",
+            "{enchant}{rune}+1 Suffix Modifier allowed\n{rune}+1 Suffix Modifier allowed",
+        ),
+    ],
+)
+def test_serle_requires_valid_supplier_and_seed(
+    checker: ItemLegalityChecker, old: str, new: str
+) -> None:
+    report = checker.check(_SERLE_BOW.replace(old, new))
+    assert not report.is_legal, report
+    assert any("suffix 4개" in error and "한도 3" in error for error in report.errors)
+    assert any("접사 총 7개" in error and "총한도 6" in error for error in report.errors)
+
+
+def test_serle_does_not_expand_prefix_or_fifth_suffix(checker: ItemLegalityChecker) -> None:
+    fifth = checker.check(_SERLE_BOW + "+32 to Dexterity\n")
+    assert any("suffix 5개" in error and "한도 4" in error for error in fifth.errors)
+    assert any("접사 총 8개" in error and "총한도 7" in error for error in fifth.errors)
+    fourth = checker.check(_SERLE_BOW + "Prefix: LocalAddedFireDamage1\n")
+    assert any("prefix 4개" in error and "한도 3" in error for error in fourth.errors), fourth
+    assert any("접사 총 8개" in error and "총한도 7" in error for error in fourth.errors)
+
+
+def test_serle_cannot_expand_non_socket_equipment(checker: ItemLegalityChecker) -> None:
+    # The rune's weapon/armour/caster keys must not leak to jewellery or jewels.
+    for base in ("Amber Amulet", "Absent Amulet", "Emerald"):
+        text = _SERLE_BOW.replace("Warmonger Bow", base)
+        _, _, _, mods, sockets, effect = _parse_item(text)
+        assert (
+            checker._additional_rune_affix_limits(
+                text, mods, sockets, effect, checker._bases[base.lower()]
+            )
+            == {}
+        )
+
+
 _PORTENT_THREE_SUFFIXES = (
     "Rarity: RARE\nEngineered Amulet\nPortent Amulet\nCrafted: true\n"
     "Prefix: {range:0.5}SpellDamage6\n"

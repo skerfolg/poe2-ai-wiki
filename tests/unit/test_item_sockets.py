@@ -1,4 +1,4 @@
-"""아이템 룬 소켓 **예산**을 오라클이 신고하는가 (#120).
+"""아이템 룬 소켓 표현 한계와 원시 PoB 참고값을 신고하는가 (#120·#192).
 
 사용자 신고 2026-08-25: 우리가 낸 PoB 코드에서 아이템을 클릭하면 예외가 났다.
 원인은 `Sockets:` 줄의 칸 수와 PoB의 표현 한계였다 — 룬 드롭다운이 6개뿐인데
@@ -9,8 +9,8 @@
 
 ⚠⚠ **첫 판은 베이스 한도로 쟀고, 그래서 정상 3건을 거부했다.** 마셜 아티스트
 `Runic Meridians`(39552)가 투구+1·갑옷+2·장갑+1·장화+1을 주는데 PoB는 그 노드를
-한 줄도 파싱하지 못한다. 그래서 이 시험의 절반은 **막지 않는 것**을 지킨다 —
-거짓 거부는 게이트 우회를 학습시킨다(BACKLOG 형태 ⑪).
+한 줄도 파싱하지 못한다. 이 모듈은 원시 메타데이터와 편집기 표현 검사를 맡는다.
+게임 내 획득 가능성은 `test_socket_acquisition.py`의 별도 검사 대상이다.
 """
 
 from __future__ import annotations
@@ -63,21 +63,17 @@ def test_컨트롤_수까지는_막지_않는다() -> None:
     assert socket_problems([_row(sockets=RUNE_CONTROL_SLOTS, limit=RUNE_CONTROL_SLOTS)]) == ()
 
 
-def test_예산_초과만으로는_막지_않는다() -> None:
-    """사용자 판정 2026-08-25: *물리적으로 불가능한 게 아니면 허용한다.*
-
-    갑옷 4칸이 타락으로 5칸이 되고, 트리 부여가 거기에 2칸을 더한다 — 넘기는 경로를
-    우리가 다 알지 못한다. 막으면 정상 빌드가 게이트를 우회하는 법을 배운다(형태 ⑪).
-    """
+def test_PoB_참고값_초과만으로_표현_불가라_하지_않는다() -> None:
+    """원시 참고값과 편집기 상한을 구분한다. 획득 검사는 별도다."""
     over = [_row(name="Powertread", slot="Boots", base="Hunting Shoes", sockets=5, limit=3)]
-    assert socket_problems(over) == (), "예산 초과는 경고이지 차단이 아니다"
+    assert socket_problems(over) == (), "PoB 참고값 초과가 곧 표현 불가는 아니다"
     assert socket_warnings(over), "그래도 조용히 넘기지는 않는다"
 
 
-# ── 예산: 베이스/유니크 + 트리 부여 ────────────────────────────────────────
+# ── 참고값: PoB 베이스/유니크 limit + 관측된 트리 부여 ─────────────────────
 
 
-def test_트리_부여가_예산에_들어간다() -> None:
+def test_관측된_트리_부여가_참고값에_들어간다() -> None:
     """`Runic Meridians`(39552) — PoB는 이 노드를 한 줄도 파싱하지 못한다.
 
     실측 2026-08-25: 이걸 빼고 쟀더니 신고 빌드 4건 중 **3건이 거짓 거부**였고
@@ -93,14 +89,14 @@ def test_갑옷_2칸_부여도_같은_경로다() -> None:
     body = _row(name="Morior Invictus", base="Grand Regalia", slot="Body Armour")
     ok = {**body, "sockets": 6, "limit": 4, "limitSource": "unique", "grant": 2}
     assert socket_budget(ok) == 6 and socket_warnings([ok]) == ()
-    # 한 칸 더는 타락 경로 — 경고는 내되 막지는 않는다
-    corrupt_route = {**ok, "sockets": 7}
-    assert socket_warnings([corrupt_route])
-    assert socket_problems([corrupt_route]), "단 7칸은 PoB가 못 그린다"
+    # 추가 한 칸의 획득 경로는 이 메타데이터만으로 판단할 수 없다.
+    over_reference = {**ok, "sockets": 7}
+    assert socket_warnings([over_reference])
+    assert socket_problems([over_reference]), "7칸은 PoB가 못 그린다"
 
 
-def test_예산_안이면_아무_말도_안_한다() -> None:
-    """게이트가 **정상을 막으면 신호가 죽는다**(BACKLOG 형태 ⑤)."""
+def test_참고값_이하면_초과_진단을_내지_않는다() -> None:
+    """경고 없음은 게임 획득 가능성의 증거가 아니다."""
     rows = [_row(sockets=3, limit=3), _row(sockets=0, limit=0, limitSource="none")]
     assert socket_problems(rows) == () and socket_warnings(rows) == ()
 
@@ -108,19 +104,31 @@ def test_예산_안이면_아무_말도_안_한다() -> None:
 # ── 경고 문구가 고칠 만큼 말하는가 ────────────────────────────────────────
 
 
-def test_경고가_예산의_출처를_밝힌다() -> None:
+def test_경고가_PoB_참고값의_출처와_한계를_밝힌다() -> None:
     warned = socket_warnings(
         [_row(name="Powertread", slot="Boots", base="Hunting Shoes", sockets=5, limit=3, grant=1)]
     )
     assert len(warned) == 1
-    assert "5칸" in warned[0] and "4칸" in warned[0]  # 기재 vs 예산
+    assert "5칸" in warned[0] and "4칸" in warned[0]  # 기재 vs 참고값
     assert "트리 부여 1" in warned[0] and "베이스 socketLimit" in warned[0]
     assert "Boots/" in warned[0], "어느 부위인지 없으면 못 고친다"
+    assert "게임의 일반 제작 예산이 아니다" in warned[0]
+    assert "소켓 획득 검사" in warned[0]
 
 
-def test_이미_타락이면_그_경로를_짚어_준다() -> None:
-    warned = socket_warnings([_row(sockets=4, limit=3, corrupted=True)])
-    assert "`Corrupted` 표기가 있으니" in warned[0]
+def test_타락_표식만으로_추가_홈_획득을_인정하거나_권하지_않는다() -> None:
+    for corrupted in (False, True):
+        warned = socket_warnings([_row(sockets=4, limit=3, corrupted=corrupted)])
+        assert "`Corrupted` 표식만으로는 이를 증명할 수 없다" in warned[0]
+        assert "타락 결과 공존" in warned[0]
+        assert "`Corrupted` 줄을 적을 것" not in warned[0]
+        assert "아는 예산" not in warned[0]
+
+
+def test_PoB_한도_정보_없음을_게임에서_소켓_불가로_단정하지_않는다() -> None:
+    warned = socket_warnings([_row(sockets=1, limit=0, limitSource="none")])
+    assert "PoB 한도 정보 없음" in warned[0]
+    assert "룬 소켓을 안 가진다" not in warned[0]
 
 
 def test_PoB가_모르는_룬_이름을_경고한다() -> None:
