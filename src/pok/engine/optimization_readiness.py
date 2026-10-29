@@ -13,7 +13,10 @@ import json
 import math
 from collections.abc import Iterator, Mapping
 from copy import deepcopy
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pok.engine.tree.graph import TreeGraph
 
 from pok.engine.provenance import (
     derivation_context,
@@ -145,6 +148,34 @@ def _owners(spec: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     return owners
 
 
+def _ascendancy_changes(
+    base: Mapping[str, Any], variant: Mapping[str, Any], graph: TreeGraph | None
+) -> set[int] | None:
+    """Identify actual allocated ascendancy changes using authoritative node owners."""
+    if graph is None or any(base.get(k) != variant.get(k) for k in ("class_name", "level")):
+        return None
+    known = {node.ascendancy for node in graph.nodes.values() if node.ascendancy}
+    allocations = []
+    for spec in (base, variant):
+        owner = graph.resolve_ascendancy(spec.get("ascendancy"))
+        codes = {code for code in known if graph.resolve_ascendancy(code) == owner}
+        if (
+            not owner
+            or not codes
+            or not any(code.startswith(str(spec.get("class_name"))) for code in codes)
+        ):
+            return None
+        allocated = {
+            nid
+            for nid in spec.get("tree_nodes") or []
+            if (node := graph.nodes.get(nid)) is not None and node.ascendancy
+        }
+        if any(graph.resolve_ascendancy(graph.nodes[nid].ascendancy) != owner for nid in allocated):
+            return None
+        allocations.append(allocated)
+    return allocations[0] ^ allocations[1]
+
+
 def measured_review_receipt(
     base_spec: dict[str, Any],
     variants: Mapping[str, dict[str, Any]],
@@ -158,6 +189,7 @@ def measured_review_receipt(
     utility_baseline: Mapping[str, float] | None = None,
     utility_failures: Mapping[str, list[dict[str, Any]]] | None = None,
     package_components: list[str] | None = None,
+    tree_graph: TreeGraph | None = None,
 ) -> dict[str, Any]:
     """Describe successful baseline/alternative measurements, never infer a winner.
 
@@ -187,14 +219,6 @@ def measured_review_receipt(
     allowed = (
         set().union(*(_REVIEW_AXES[value] for value in package_components))
         if package_components is not None
-        else own_axes
-    )
-    # Without tree metadata, generic node changes cannot identify an ascendancy
-    # experiment inside a package. The legacy explicit single-axis review still
-    # supports same-ascendancy node allocation comparisons.
-    credit_axes = (
-        {"character_sig"}
-        if package_components is not None and component == "ascendancy"
         else own_axes
     )
     context = derivation_context(base_spec)
@@ -235,6 +259,21 @@ def measured_review_receipt(
             for key, value in context.items()
             if (key.endswith("_sig") or key == "config") and value != other[key]
         }
+        ascendancy_nodes = (
+            _ascendancy_changes(base_spec, variant, tree_graph)
+            if component == "ascendancy"
+            else None
+        )
+        credit_axes = own_axes
+        if component == "ascendancy":
+            credit_axes = set()
+            if ascendancy_nodes is not None:
+                if ascendancy_nodes:
+                    credit_axes.add("tree_sig")
+                if tree_graph is not None and tree_graph.resolve_ascendancy(
+                    base_spec.get("ascendancy")
+                ) != tree_graph.resolve_ascendancy(variant.get("ascendancy")):
+                    credit_axes.add("character_sig")
         if package_components is not None:
             package_variants[label] = {
                 "context_sha256": _receipt_digest(other),
@@ -243,6 +282,9 @@ def measured_review_receipt(
                 "measured": successful,
             }
         if not successful and not blocked:
+            continue
+        if component == "ascendancy" and ascendancy_nodes is None:
+            problems.append({"code": "ascendancy_scope_unverified", "scope": [label]})
             continue
         if (
             (package_components is None and not differences & own_axes)
@@ -352,7 +394,9 @@ def measured_review_receipt(
             )
         else:
             scope["tree_nodes"].extend(
-                sorted(
+                sorted(ascendancy_nodes or ())
+                if component == "ascendancy"
+                else sorted(
                     set(base_spec.get("tree_nodes") or []) ^ set(variant.get("tree_nodes") or [])
                 )
             )
@@ -574,7 +618,15 @@ def _same_package_inputs(
     measured: Mapping[str, Any],
     source: Mapping[str, Any],
 ) -> bool:
-    """Joint utility cannot replace, or be replaced by, different companion inputs."""
+    """Bind cross-component companions; target owners are matched separately.
+
+    Whole inventory signatures include unrelated baseline slots. Requiring their
+    historical values would reject a real remeasurement after another slot changes.
+    Candidate and changed-owner digests in the caller still bind every changed item
+    or jewel, including a multi-slot package; never relax companion tree/skill axes.
+    """
+    own = "jewels" if str(candidate.get("slot", "")).startswith("Jewel@") else "items"
+    own_axes = _REVIEW_AXES[own]
     if candidate.get("measurement_scope") == "package":
         inputs = candidate.get("package_inputs")
         actual = measured.get("variant_inputs")
@@ -582,7 +634,7 @@ def _same_package_inputs(
             not isinstance(inputs, Mapping)
             or not inputs
             or not isinstance(actual, Mapping)
-            or any(actual.get(key) != value for key, value in inputs.items())
+            or any(actual.get(key) != value for key, value in inputs.items() if key not in own_axes)
         ):
             return False
     if measured.get("measurement_scope") == "package":
@@ -591,11 +643,12 @@ def _same_package_inputs(
             return False
         previous = candidate.get("variant_inputs")
         if isinstance(previous, Mapping):
-            return all(previous.get(key) == value for key, value in inputs.items())
+            return all(
+                previous.get(key) == value for key, value in inputs.items() if key not in own_axes
+            )
         # Older item-optimizer rows keep target item text digests but no full
         # variant signatures. Their unchanged companion axes live in the source
         # receipt; item/jewel identity is checked separately by the caller.
-        own = "jewels" if str(candidate.get("slot", "")).startswith("Jewel@") else "items"
         return all(
             source.get(key) == value
             for key, value in inputs.items()

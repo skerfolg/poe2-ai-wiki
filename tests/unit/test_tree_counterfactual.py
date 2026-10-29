@@ -17,6 +17,7 @@ from __future__ import annotations
 import dataclasses
 import json
 from collections.abc import Callable, Sequence
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -53,6 +54,8 @@ class _Daemon:
     트리만 바뀌므로 측정기가 `TREE` 명령 쪽으로 보낸다 — 가짜가 그걸 안 흉내 내면
     계약이 어긋난 채로 시험만 통과한다. `pruned` 훅은 두 경로에 **똑같이** 건다.
     """
+
+    transaction = staticmethod(nullcontext)
 
     def __init__(self, pruned: Callable[[BuildSpec], tuple[int, ...]] | None = None) -> None:
         self.seen: list[tuple[int, ...]] = []

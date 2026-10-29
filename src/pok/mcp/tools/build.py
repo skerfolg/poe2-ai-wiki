@@ -725,6 +725,11 @@ def evaluate_delta(
         ],
     }
     components = review_components or ([review_component] if review_component is not None else [])
+    tree_graph = None
+    if "ascendancy" in components:
+        from pok.mcp.tools.tree import _get_graph
+
+        tree_graph = _get_graph()
     marks = dict(base_spec.get("derived_from") or {})
     reviews = {}
     for component in components:
@@ -740,6 +745,7 @@ def evaluate_delta(
             utility_measurements={d.label: d.result.stats for d in deltas},
             utility_failures=utility_failures if baseline_ok else {},
             package_components=review_components,
+            tree_graph=tree_graph if component == "ascendancy" else None,
         )
         evidence = mark["search_evidence"]
         # An unchanged component has no package review. Keep its original source
@@ -812,6 +818,7 @@ def evaluate_delta(
                     },
                     utility_failures=alternative_failures if selected_ok else {},
                     package_components=review_components,
+                    tree_graph=tree_graph if component == "ascendancy" else None,
                 )
                 evidence = mark["search_evidence"]
                 if evidence["scope"].get("candidates"):

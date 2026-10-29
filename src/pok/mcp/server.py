@@ -15,8 +15,10 @@
 
 from __future__ import annotations
 
+import copy
 import functools
 import inspect
+import json
 import re
 from collections.abc import Callable
 from dataclasses import asdict
@@ -24,7 +26,11 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.tools.base import ToolResult
+from fastmcp.tools.function_tool import FunctionTool
+from mcp.types import CallToolResult
 
+from pok.artifacts import tool_results
 from pok.common import telemetry
 from pok.common.paths import knowledge_dir
 from pok.common.stdio import force_utf8_stdio
@@ -119,6 +125,23 @@ _FRONT_ID = re.compile(r"^id:\s*(\S+)$", re.M)
 #: (`FunctionTool.from_function`)에서 뽑으므로 주입 인자(`Context`)가 빠지는 것까지 같다 —
 #: 둘의 일치는 `tests/unit/test_mcp_server_info.py`가 잠근다.
 _TOOL_PARAMS: dict[str, list[str]] = {}
+_WIRE_RESULT_BYTES = 16_000
+
+
+def _wire_json(result: ToolResult) -> str:
+    """Use the actual MCP encoding, including nonfinite numbers becoming null."""
+    wire = CallToolResult(
+        content=result.content,
+        structured_content=result.structured_content,
+        is_error=result.is_error,
+        _meta=result.meta,
+    )
+    return wire.model_dump_json(by_alias=True, exclude_none=True)
+
+
+def _wire_size(result: ToolResult) -> int:
+    """Count both MCP copies (text and structured JSON), including escaping."""
+    return len(_wire_json(result).encode("utf-8"))
 
 
 def tool[F: Callable[..., Any]](fn: F) -> F:
@@ -151,12 +174,84 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
             )
         return result
 
-    # 지문을 **지금** 뽑는다 — 루프가 없는 등록 시점이라 어디서 불려도 안전하다 (#150)
-    from fastmcp.tools.function_tool import FunctionTool
-
+    # Direct Python calls retain the original return value. Only the registered
+    # MCP boundary expands references and stores oversized wire responses.
     schema = FunctionTool.from_function(wrapper)
+
+    @functools.wraps(fn)
+    def wire_wrapper(*args: Any, **kwargs: Any) -> Any:
+        bound = inspect.signature(fn).bind(*args, **kwargs)
+        bound.apply_defaults()
+        for name, value in list(bound.arguments.items()):
+            if name != "ctx" and isinstance(value, dict | list):
+                bound.arguments[name] = tool_results.resolve_references(value)
+        inputs = copy.deepcopy(
+            {name: value for name, value in bound.arguments.items() if name != "ctx"}
+        )
+        result = wrapper(*bound.args, **bound.kwargs)
+        converted = schema.convert_result(result)
+        wire_json = _wire_json(converted)
+        if len(wire_json.encode("utf-8")) <= _WIRE_RESULT_BYTES:
+            return converted
+        # Save the logical JSON that the original MCP boundary actually sends,
+        # not its pre-serialization Python object (which can contain inf/NaN).
+        wire = json.loads(wire_json)
+        wrapped = (schema.output_schema or {}).get("x-fastmcp-wrap-result") is True
+        logical_result = wire.get("structuredContent")
+        if logical_result is not None:
+            if wrapped:
+                logical_result = logical_result["result"]
+        else:
+            # Unstructured ordinary JSON/text returns use FastMCP's text copy.
+            text = wire["content"][0]["text"]
+            logical_result = text if isinstance(result, str) else json.loads(text)
+        manifest = tool_results.store_result(
+            fn.__name__,
+            inputs,
+            logical_result,
+            source={
+                "module": fn.__module__,
+                "function": fn.__qualname__,
+                "loaded_commit": _LOADED_COMMIT,
+            },
+        )
+        envelope = tool_results.notice(manifest, logical_result)
+        bounded = ToolResult(
+            content=envelope,
+            structured_content={"result": envelope} if wrapped else envelope,
+            meta={"fastmcp": {"wrap_result": True}} if wrapped else None,
+        )
+        if _wire_size(bounded) > _WIRE_RESULT_BYTES:
+            raise ValueError("Tool-result handoff exceeds the MCP wire budget")
+        return bounded
+
+    # A list-returning tool keeps its original small-result wrapper. Its declared
+    # schema additionally permits the reference envelope for a large response.
+    output_schema = schema.output_schema
+    if output_schema is not None:
+        envelope_schema = {
+            "type": "object",
+            "required": ["stored_tool_result"],
+            "properties": {"stored_tool_result": {"const": True}},
+        }
+        if output_schema.get("x-fastmcp-wrap-result"):
+            properties = output_schema.get("properties", {})
+            output_schema = {
+                **output_schema,
+                "properties": {
+                    **properties,
+                    "result": {"anyOf": [properties["result"], envelope_schema]},
+                },
+            }
+        else:
+            output_schema = {
+                "type": "object",
+                "anyOf": [output_schema, envelope_schema],
+                **({"$defs": output_schema["$defs"]} if "$defs" in output_schema else {}),
+            }
     _TOOL_PARAMS[schema.name] = sorted((schema.parameters or {}).get("properties", {}))
-    return mcp.tool(wrapper)  # type: ignore[return-value]
+    mcp.tool(wire_wrapper, output_schema=output_schema)
+    return wrapper  # type: ignore[return-value]
 
 
 def _named(fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -166,6 +261,27 @@ def _named(fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]
         return dict(bound.arguments)
     except (TypeError, ValueError):
         return {"args": list(args), **kwargs}
+
+
+@tool
+def get_tool_result(
+    result_id: str,
+    path: str = "/result",
+    offset: int = 0,
+    limit: int = 20,
+    mode: str = "entries",
+) -> dict[str, Any]:
+    """Read a saved tool result by JSON pointer, with bounded complete JSON pages.
+
+    Entries include exact value_ref objects for large children. mode='json'
+    recovers any entire subtree as chunks; follow next_offset until null.
+    A reference can be used inside dict inputs without transcribing its contents:
+    {"$pok_result": id, "path": "/inputs/variants/x", "overrides": {
+      "derived_from": {"$pok_result": id, "path": "/result/variant_reviews/x/derived_from"}}}.
+    Overrides replace only explicitly named top-level fields. References do not
+    add freshness, measurement, selection, or recommendation status.
+    """
+    return tool_results.read_page(result_id, path, offset, limit, mode)
 
 
 def _narrative_index(knowledge: Path) -> dict[str, Path]:

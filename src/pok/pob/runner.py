@@ -15,7 +15,9 @@ import subprocess
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from time import monotonic, sleep
 from typing import Any
+from uuid import uuid4
 from xml.sax.saxutils import unescape
 
 from pok.common.paths import project_root, var_dir
@@ -328,6 +330,30 @@ def _cache_path(xml_text: str, commit: str) -> Path:
     return var_dir() / "pob-cache" / f"{digest}.json"
 
 
+def _publish_cache(cache: Path, payload: dict[str, object]) -> None:
+    """다른 호출이 읽는 JSON을 직접 덮어쓰지 않고 완성본만 공개한다."""
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    tmp = cache.with_name(f"{cache.name}.{uuid4().hex}.tmp")
+    try:
+        tmp.write_text(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            encoding="utf-8",
+            newline="\n",
+        )
+        deadline = monotonic() + 5.0
+        while True:
+            try:
+                tmp.replace(cache)
+                break
+            except PermissionError as exc:
+                # Windows의 열린 캐시 독자가 잠깐 교체를 막을 수 있다.
+                if getattr(exc, "winerror", None) not in {5, 32, 33} or monotonic() >= deadline:
+                    raise
+                sleep(0.05)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 def parse_lines(
     lines: list[str],
 ) -> tuple[dict[str, float], dict[str, object], tuple[int, ...]]:
@@ -369,18 +395,17 @@ def run_xml(
     """XML 하나를 PoB로 계산한다. requested_nodes를 주면 잘린 노드를 판정."""
     snap = snapshot or resolve_snapshot()
     cache = _cache_path(xml_text, snap.commit)
-    hit = use_cache and cache.exists()
-    if hit:
-        payload = json.loads(cache.read_text(encoding="utf-8"))
-    else:
+    hit = False
+    if use_cache:
+        try:
+            payload = json.loads(cache.read_text(encoding="utf-8"))
+            hit = True
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass  # 없거나 구 버전의 중간 쓰기 잔재이면 오라클로 재계산한다.
+    if not hit:
         payload = _run_driver(xml_text, snap, timeout)
         if use_cache:
-            cache.parent.mkdir(parents=True, exist_ok=True)
-            cache.write_text(
-                json.dumps(payload, ensure_ascii=False, sort_keys=True),
-                encoding="utf-8",
-                newline="\n",
-            )
+            _publish_cache(cache, payload)
     allocated = tuple(int(n) for n in payload["alloc"])
     pruned = tuple(sorted(set(requested_nodes) - set(allocated)))
     meta = dict(payload["meta"])
@@ -472,7 +497,8 @@ def run_build(spec: BuildSpec, **kwargs: object) -> PobResult:
 def _run_driver(xml_text: str, snap: PobSnapshot, timeout: float) -> dict[str, object]:
     driver = project_root() / _DRIVER
     digest = hashlib.sha256(xml_text.encode()).hexdigest()[:16]
-    xml_file = var_dir() / "pob-cache" / f"_input-{digest}.xml"  # 해시명 = 동시 실행 안전
+    # 같은 XML도 동시 실행되므로 콘텐츠 해시만으로는 요청 소유권을 나눌 수 없다.
+    xml_file = var_dir() / "pob-cache" / f"_input-{digest}-{uuid4().hex}.xml"
     xml_file.parent.mkdir(parents=True, exist_ok=True)
     xml_file.write_text(xml_text, encoding="utf-8", newline="\n")
     env = {**os.environ, "LUA_PATH": _LUA_PATH}

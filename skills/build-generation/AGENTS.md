@@ -168,6 +168,11 @@ python skills/build-generation/run.py --brief <브리프.txt> --evidence <자료
    결과를 본 뒤 채택한 변경안에는 `variant_reviews[라벨].derived_from`을 적용한다.
    이는 그 실측 스펙에만 유효하므로 이후 입력을 바꾸면 다시 비교한다. 기준안의
    `derived_from`을 변경안으로 옮기지 않는다. 이 기록은 묶음의 결과이지 각 부품의 독립 기여가 아니다.
+   큰 MCP 응답의 `stored_tool_result=true`는 결과가 저장됐다는 뜻이다. 반환 `read`의
+   `result_id`·`path`로 `get_tool_result`를 호출하고, 후보 입력은 `inputs_ref`의 해당
+   `/inputs/variants/라벨` 참조와 그 후보의 `/result/variant_reviews/라벨/derived_from`
+   참조를 명시적 `overrides`로 연결할 수 있다. 입력·근거를 다시 전사할 필요가 없으며
+   참조도 원래 계산·완료 검사를 거친다. 조회 페이지가 끝나지 않았으면 `next_offset`을 따른다.
    자원량만으로 반복 사용 가능성을 대신하지 않는다.
    PoB가 못 재는 무료 비용·발동·조작 조건은 원문·인사이트·실측 근거로 분리한다.
    사용자가 선택을 위임했으면 목표에 따라 채택하고 계속한다. 사용자 선택이 실제로

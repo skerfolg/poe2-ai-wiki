@@ -671,15 +671,14 @@ def test_generic_package_tree_change_does_not_certify_an_unchanged_ascendancy() 
     evidence = _package_receipt(
         spec, variant, component="ascendancy", package_components=["items", "tree", "ascendancy"]
     )["search_evidence"]
-    assert evidence["scope"]["ascendancies"] == ["Mercenary1", "Mercenary3"]
-    assert not evidence["unresolved"]
-    # The explicit existing single-component route still supports reallocating
-    # nodes inside one ascendancy; this receipt cannot infer node classification.
+    assert not evidence["scope"]
+    assert "ascendancy_scope_unverified" in {row["code"] for row in evidence["unresolved"]}
+    # An explicit component name cannot turn unknown/general nodes into proof.
     variant = copy.deepcopy(spec)
     variant["tree_nodes"] = [1, 3]
     single = _package_receipt(spec, variant, component="ascendancy")["search_evidence"]
-    assert single["scope"]["candidates"] == ["package"]
-    assert not single["unresolved"]
+    assert not single["scope"]
+    assert "ascendancy_scope_unverified" in {row["code"] for row in single["unresolved"]}
 
 
 @pytest.mark.parametrize(

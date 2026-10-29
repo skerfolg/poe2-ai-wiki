@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import inspect
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 import pytest
@@ -62,6 +63,8 @@ def graph() -> TreeGraph:
 
 
 class _Daemon:
+    transaction = staticmethod(nullcontext)
+
     def __init__(self) -> None:
         self.loaded_spec: BuildSpec | None = None
         self.measured: list[tuple[int, ...]] = []

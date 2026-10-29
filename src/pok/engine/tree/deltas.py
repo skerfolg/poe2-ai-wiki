@@ -74,15 +74,16 @@ class TreeSwapMeasurer:
         return self._d.compute_build(self._base)
 
     def measure(self, variant: BuildSpec) -> Any:
-        loaded = self._d.loaded_spec
-        if loaded is not None and _tree_only(loaded, variant):
-            return self._d.compute_tree(tuple(variant.tree_nodes))
-        if _tree_only(self._base, variant):
-            # 다른 빌드가 올라가 있다 — 기준을 다시 올린 뒤 트리만 갈아 끼운다.
-            # 재로드 1회를 더 쓰더라도 **엉뚱한 토대 위에서 재는 것보다 낫다**.
-            self._d.compute_build(self._base)
-            return self._d.compute_tree(tuple(variant.tree_nodes))
-        return self._d.compute_build(variant)
+        with self._d.transaction():
+            loaded = self._d.loaded_spec
+            if loaded is not None and _tree_only(loaded, variant):
+                return self._d.compute_tree(tuple(variant.tree_nodes))
+            if _tree_only(self._base, variant):
+                # 다른 빌드가 올라가 있다 — 기준 재로드와 트리 교체를 묶는다.
+                # 중간에 다른 요청이 장비를 바꾸면 정상 JSON으로도 오측정한다.
+                self._d.compute_build(self._base)
+                return self._d.compute_tree(tuple(variant.tree_nodes))
+            return self._d.compute_build(variant)
 
 
 def _tree_only(base: BuildSpec, variant: BuildSpec) -> bool:

@@ -229,7 +229,11 @@ def _power_ranked(
     ⚠ **얕게 자르면 놓친다.** 실제 상위 5를 담으려면 추정 상위 **25위**까지 필요한
     전직이 있었다(Witch3b). `slice_size`를 그대로 쓰는 이유이고, 줄이지 말 것.
     """
-    power, _meta = daemon.node_power(("CombinedDPS", "TotalEHP"))
+    with daemon.transaction():
+        # POWER는 현재 올라간 빌드를 쓴다. 초기 미로드·직전 후보·다른 요청의
+        # 빌드를 토대로 재지 않도록 current 로드와 POWER를 한 거래로 묶는다.
+        daemon.compute_build(current)
+        power, _meta = daemon.node_power(("CombinedDPS", "TotalEHP"))
     scored: list[tuple[float, int]] = []
     for nid, deltas in power.items():
         if nid in tree_now or nid in banned or nid not in graph.nodes:

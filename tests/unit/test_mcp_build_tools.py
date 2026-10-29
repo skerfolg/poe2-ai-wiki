@@ -916,3 +916,64 @@ def test_MCP_경유_자동_채움이_진행을_알린다(monkeypatch: pytest.Mon
     data = result.data if isinstance(result.data, dict) else json.loads(result.content[0].text)
     assert data.get("ok") is False and "autofill_failed" in data, data
     assert seen and any("Ring 1" in (m or "") for _, _, m in seen), seen
+
+
+@pytest.mark.parametrize("changed_nodes, expected_review", [([1, 11], True), ([2, 10], False)])
+def test_ascendancy_reviews_use_graph_for_baseline_and_selected_variant(
+    monkeypatch: pytest.MonkeyPatch, changed_nodes: list[int], expected_review: bool
+) -> None:
+    from pok.engine.tree.graph import TreeGraph, TreeNode
+    from pok.mcp.tools import build, tree
+
+    graph = object.__new__(TreeGraph)
+    graph._asc_names = {"monk2": "Invoker", "invoker": "Invoker"}
+    graph.nodes = {
+        node_id: TreeNode(node_id, str(node_id), "", "small", (), owner)
+        for node_id, owner in [(1, None), (2, None), (10, "Monk2"), (11, "Monk2")]
+    }
+    graph_calls = []
+
+    def get_graph():
+        graph_calls.append(graph)
+        return graph
+
+    monkeypatch.setattr(tree, "_get_graph", get_graph)
+    base = {"class_name": "Monk", "ascendancy": "Monk2", "level": 100, "tree_nodes": [1, 10]}
+    variant = {**base, "tree_nodes": changed_nodes}
+    _whole_comparison(monkeypatch, {"Life": 100}, {"changed": {"Life": 110}})
+    output = build.evaluate_delta(
+        base,
+        {"changed": variant},
+        ["Life"],
+        review_component="ascendancy",
+        include_variant_reviews=True,
+    )
+    assert graph_calls == [graph]
+    baseline_evidence = output["review"]["search_evidence"]
+    selected_evidence = output["variant_reviews"]["changed"]["search_evidence"]["ascendancy"]
+    assert bool(baseline_evidence["scope"].get("candidates")) is expected_review
+    assert bool(selected_evidence["scope"].get("candidates")) is expected_review
+    if expected_review:
+        assert baseline_evidence["scope"]["candidates"] == ["changed"]
+        assert selected_evidence["scope"]["candidates"] == ["baseline"]
+        assert baseline_evidence["scope"]["tree_nodes"] == [10, 11]
+        assert selected_evidence["scope"]["tree_nodes"] == [10, 11]
+        assert not baseline_evidence["unresolved"]
+        assert not selected_evidence["unresolved"]
+
+
+def test_non_ascendancy_review_does_not_load_graph(monkeypatch: pytest.MonkeyPatch) -> None:
+    from pok.mcp.tools import build, tree
+
+    monkeypatch.setattr(tree, "_get_graph", lambda: pytest.fail("unneeded graph load"))
+    base = {"items": [{"slot": "Belt", "text": "old"}]}
+    variant = {"items": [{"slot": "Belt", "text": "new"}]}
+    _whole_comparison(monkeypatch, {"Life": 100}, {"changed": {"Life": 110}})
+    output = build.evaluate_delta(
+        base,
+        {"changed": variant},
+        ["Life"],
+        review_component="items",
+        include_variant_reviews=True,
+    )
+    assert output["review"]["search_evidence"]["scope"]["candidates"] == ["changed"]
