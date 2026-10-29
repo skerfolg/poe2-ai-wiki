@@ -1,6 +1,7 @@
 {
   "$id": "modifier.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "v2 (2026-10-29, #194): preserve native augment type per slot; affix_type=rune alone does not identify Rune eligibility.",
   "title": "Modifier.data (P1b ④ 모드 풀 — 제작규칙 RC4의 근거)",
   "type": "object",
   "properties": {
@@ -23,6 +24,14 @@
       "additionalProperties": {
         "type": "array",
         "items": { "type": "string" }
+      }
+    },
+    "per_slot_type": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "보강물 전용: PoB ModRunes의 슬롯군별 type 원형. affix_type=rune은 공통 풀이고 실제 Rune/Idol/SoulCore 등의 장착 종류는 이 필드로 구분한다. 원본에 없으면 추론하지 않는다.",
+      "additionalProperties": {
+        "enum": ["Rune", "Idol", "SoulCore", "AbyssalEye", "CongealedMist"]
       }
     },
     "group": {

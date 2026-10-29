@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `codex/generation-reoptimization-188` (#188 개선·새 정상 생성 검증; #191·#192·#194 병합은 별도 에이전트)
+**Integration branch**: `codex/generation-reoptimization-188` (#188 개선·새 정상 생성 검증; #191·#192·#194는 별도 에이전트가 PR #147 병합·main 동기화 완료)
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -73,6 +73,8 @@ flowchart TD
   UTILITY[S48 유틸 후보·완료 관문·마법사의 피 재평가<br/>done]
   EVAL[S49 전체 경로 비교·사용자 실물 검토 반영<br/>done]
   GENFIX[S50 선택적 실험 실행기 구현·기능 검증<br/>done]
+  SERLE[S51 Serle 룬 접미·총한도 수정<br/>done]
+  ACQUIRE[S52 소켓 획득·종류 검사<br/>done]
   EDITOR[S53 B/C 편집 결함·완료 판정 수정<br/>done]
   REOPT[S54 #188 전체 구성 비교·재최적화 실행 경로<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
@@ -124,7 +126,8 @@ flowchart TD
   TRADE -. 사용자 지적 · 실제 빌드 재현 .-> READY --> REBUILD --> M6
   REBUILD -. 유틸 가치 누락 재지적 .-> UTILITY --> M6
   UTILITY -. 사용자 요청 · 동일 조건 비교 .-> EVAL --> GENFIX --> M6
-  GENFIX -. B/C 아이템 상세보기 오류 .-> EDITOR --> M6
+  GENFIX -. 사용자 소유 활의 한도 오판 .-> SERLE --> ACQUIRE --> M6
+  ACQUIRE -. B/C 편집 결함은 별도 PR #146에 반영 .-> EDITOR --> M6
 ```
 
 ## Baseline Structure
@@ -190,13 +193,17 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 | S49 | 정상 전체 경로 A/B/C와 사용자 실물 검토 반영: 이번 A 우위, B/C 고유·최종 트리 부족, C 열기 성공. 복합 재검토 #190 및 트리 목표 설명 오보 수정, 제거 비용·교체안 비교 경로 연결. 전체 시험+정확한 오류 재실행 1,832통과/9skip(387파일 해시 불변). done은 비교·후속 수정이며 생성 품질 #188·계산 오류 #189는 미완료. [결과·수행 원장](GENERATION_FULLPATH_EVAL.md), [원본 코드](GENERATION_FULLPATH_CODES.md) | done |
 | S50 | 완료 범위를 선택적 실험 실행기의 구현·기능 검증으로 한정. 실제 3단계 모델·MCP 연결, 검색→상세 연속 조회, 필드 색인·구성 이력·설계/추천 상태 분리 구현. 창 H1/H2 각1회 조회12/11·동일 재독5/0 관측은 복합 변경의 국소 비교이며 원인을 분리하지 못함. H2 88점, H1 미집계. 전체1,678통과(단위1,594+통합84)·34skip. 기본 경로 지정 철회, 제품 생성 품질 개선 효과는 미검증. #183은 실행기 자체의 잔여 결함. [정정 보고서](GENERATION_CONTROLLED_EVAL.md) | done |
 
+| S51 | 사용자 소유 Serle's Triumph 활의 접미 4개/총 7개 거짓 거부 수정(#191). 실제 룬 선언·슬롯·중복 제한과 시드 검증, 주얼·부재·초과 접사 및 strict 조립 게이트 회귀. 전체 단위 1,828통과/34skip에 포함되어 통과. 새 main 기준 구현·검증 완료 | done |
+
+| S52 | #192 홈 획득·타락 결과 공존 검사와 #194 슬롯별 Rune/SoulCore/Idol 종류 복원. 생성·계산·조립 동일 판정, 정상 고유·전직 예외, 원본 287개 룬 레코드 복원. 전체 단위 1,828통과/34skip 및 관련 PoB 통합 11개 통과. Ruff·format·mypy·의존 방향 검사 통과. [수행·누락 대조](ITEM_SOCKET_REGRESSION.md). #193/#195는 S53·PR #146에 이미 반영 | done |
+
 | S53 | B/C 원본 더블클릭 오류를 재현하고 #193 생성 선언 위치·입력 검사와 #195 실제 native 편집 출고 검사를 수정했다. 원본 코드 보존, A19+B/C 교정37아이템 콜백 성공, 사전 명세·최종 XML 대조와 별도 진단 코드 제공. 루트의 별도 Serle·획득·종류 변경을 제외한 분리본 전체 단위1,768+통합99=1,867통과/9skip. 문서 큐 누락1건은 수정 후14개 재검사 통과. 구현/시험13파일 해시 불변. PR #146 반영 범위는 편집 결함 수정이다. GUI·상주MCP 교체·새 생성 품질 검증은 미수행. [결함 대조](GENERATION_EDITOR_REGRESSION.md), [진단 코드](GENERATION_EDITOR_REPAIR_CODES.md) | done |
 
 | S54 | #188: 측정 후보의 실물 대안 전달·채택안 비교 근거 재사용을 구현하고 새 정상 생성의 전체 구성 비교와 최종 재최적화를 검증한다. S52 미반영 수정의 병합은 별도 하위 모델 에이전트에 위임. 생성 품질 해결 판정은 새 실물 검토까지 유보 | in_progress |
 
 ## Canonical Next Step
 
-The only next executable step is: **S54: #188의 측정 후보→실물 대안 전달과 변경안 채택 후 재측정 중복을 고치고, 새 컨셉의 정상 생성에서 전체 구성 비교·최종 재최적화를 검증한다. #191·#192·#194 분리 검증·PR·병합은 사용자 지시로 새 하위 모델 에이전트에 위임했다. PR #146은 병합됐으며 원래 Serle 작업폴더의 미커밋 변경은 보존한다.**
+The only next executable step is: **S54: #188의 측정 후보→실물 대안 전달과 변경안 채택 후 재측정 중복을 고치고, 새 컨셉의 정상 생성에서 전체 구성 비교·최종 재최적화를 검증한다. #191·#192·#194는 사용자 지시에 따라 새 하위 모델 에이전트가 PR #147로 병합하고 로컬 main을 aa2e207로 동기화했다. 원래 Serle 작업폴더의 미커밋 변경은 보존한다.**
 
 사용자가 PR #146 원격 반영과 완성 빌드·PoB 공유코드를 남기는 전체 경로 재비교를
 명시 승인했다(2026-10-20). 정정 커밋 `4b52cf6`과 `b971a4e`는 반영 완료다.
@@ -266,9 +273,9 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | Item | Status | Disposition |
 | --- | --- | --- |
 | `C:/Users/KSK/.codex/worktrees/generation-reoptimization-188/poe2-ai-wiki` | active | #188 도구·정상 생성 개선 전용. 기존 사용자 변경을 분리 보존하고 새 비교 산출물·검증 기록을 남긴다 |
-| `C:/Users/KSK/.codex/worktrees/socket-acquisition-fixes/poe2-ai-wiki` | delegated | 사용자가 지정한 하위 모델 에이전트가 #191·#192·#194 분리 검증·PR·병합·main 동기화를 담당 |
+| `C:/Users/KSK/.codex/worktrees/socket-acquisition-fixes/poe2-ai-wiki` | retained evidence | 하위 모델 에이전트가 #191·#192·#194를 PR #147로 병합·main 동기화 완료. 검사 기록 보존 |
+| `C:/Users/KSK/.codex/worktrees/socket-acquisition-closeout/poe2-ai-wiki` | delegated | PR #147 완료 상태를 문서에 반영하는 별도 하위 작업. #188 코드는 수정하지 않음 |
 | `C:/Users/KSK/.codex/worktrees/bc-item-editor/poe2-ai-wiki` | retained evidence | PR #146 병합 확인. 69867cd 트리는 squash main 9aa1a61과 동일하며 #188 실험 B의 수정 전 소스·편집 검증 기록을 보존 |
-| `codex/bc-item-editor` | retain until PR #146 merge | B/C 편집 결함만 분리한 관리 worktree. 원본 코드·진단 사본·전체 시험 증거는 보존하고 사용자 병합 후 main 동기화를 확인한 뒤 정리한다. 원래 Serle 작업 폴더는 수정·삭제하지 않음 |
 | `codex/generation-controlled-eval` | merged; main synchronized | [PR #146](https://github.com/skerfolg/poe2-ai-wiki/pull/146) 병합과 main 9aa1a61 동기화 확인. 과거 A/B/C 원본·실패 결론은 보존하며 #188은 새 사례로 별도 검증 |
 | 생성 실험의 `artifacts/`·`var/` 원장 | local evidence | v1 무효 시도·v2·별도 창 결과·평가 실패까지 그대로 보존. git 정본은 보고서의 조건·값·인용과 회귀 시험이며 로컬 산출물은 정본 근거 링크로 사용하지 않음 |
 | `codex/gemling-optimization-readiness` | merged; main synchronized | PR #145 사용자 병합 후 로컬 main을 `61167b1`로 동기화 완료. 기존 worktree와 다른 세션 브랜치는 정리하지 않음 |

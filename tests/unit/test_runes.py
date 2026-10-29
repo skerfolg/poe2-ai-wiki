@@ -24,7 +24,9 @@ _BASE = "Rarity: RARE\nProbe\nAttuned Wand\nItem Level: 80"
 SPEC: dict[str, Any] = {
     "class_name": "Sorceress",
     "ascendancy": "Sorceress1",
-    "items": [{"slot": "Weapon 1", "text": _BASE}],
+    "items": [
+        {"slot": "Weapon 1", "text": _BASE + "\nCorrupted", "socket_sources": ["exceptional"]}
+    ],
 }
 
 
@@ -212,7 +214,16 @@ def test_reoptimization_measures_runeless_baseline_and_replaces_existing_runes(
     old = RuneOption("old", "Greater Old Rune", ("old bonus",))
     new = RuneOption("new", "Perfect New Rune", ("new bonus",))
     monkeypatch.setattr("pok.engine.runes.enumerate_slot_runes", lambda *_: [new])
-    spec = {**SPEC, "items": [{"slot": "Weapon 1", "text": render_runed(_BASE, [old, old])}]}
+    spec = {
+        **SPEC,
+        "items": [
+            {
+                "slot": "Weapon 1",
+                "text": render_runed(_BASE, [old, old]),
+                "socket_sources": ["exceptional"],
+            }
+        ],
+    }
     calls: list[str] = []
 
     def compute(candidate: dict[str, Any]) -> dict[str, float]:
@@ -358,8 +369,15 @@ def test_reselection_preserves_named_and_legacy_limits_before_calculation(
         }
 
     fill = optimize_runes(
-        SPEC,
-        "Weapon 1",
+        {
+            "items": [
+                {
+                    "slot": "Body Armour",
+                    "text": "Rarity: UNIQUE\nMorior Invictus\nGrand Regalia\nCorrupted",
+                }
+            ]
+        },
+        "Body Armour",
         {"CombinedDPS": 1},
         sockets=5,
         compute=compute,

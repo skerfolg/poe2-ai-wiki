@@ -59,6 +59,7 @@ class RuneOption:
     #    ("Idols socketed in this item gain the benefits of their Bonded modifiers").
     #    그래서 「쓸 수 있나」는 여기서 못 정한다. **판정은 호출자 몫**(AD-3).
     bonded_lines: tuple[str, ...] = ()
+    augment_type: str = ""  # Native per-slot type, never guessed from the name (#194).
 
     @property
     def is_legacy(self) -> bool:
@@ -110,6 +111,11 @@ def enumerate_slot_runes(base_type: str, root: Path | None = None) -> list[RuneO
         if data.get("affix_type") != "rune":
             continue
         per_slot = data.get("per_slot") or {}
+        native_types = {
+            str(kind)
+            for key, kind in (data.get("per_slot_type") or {}).items()
+            if str(key).lower() in wanted
+        }
         applicable = [
             str(line)
             for key, texts in per_slot.items()
@@ -125,6 +131,7 @@ def enumerate_slot_runes(base_type: str, root: Path | None = None) -> list[RuneO
                     name=str((entry.raw.get("name") or {}).get("en") or entry.id),
                     lines=tuple(dict.fromkeys(lines)),
                     bonded_lines=tuple(dict.fromkeys(bonded)),
+                    augment_type=next(iter(native_types)) if len(native_types) == 1 else "",
                 )
             )
     return sorted(out, key=lambda r: r.label)
@@ -279,12 +286,11 @@ def optimize_runes(
     `exclude_legacy`는 **다른 슬롯이 이미 유산을 썼을 때** 준다(유산은 전 장비 1개).
     호출자가 슬롯을 돌며 관리한다 — 엔진은 한 슬롯만 본다(AD-3: 판단은 호출자).
 
-    ⚠ **`sockets`는 지어내지 말 것** — 베이스의 `data.socket_limit`, 또는 유니크면
-    그 유니크의 정의가 정한 칸 수다. 여기서 상한을 깎지 않는 이유는 유니크가 베이스
-    한도를 넘는 경우가 실재하기 때문이다(Atziri's Splendour 6 > 4) — 깎으면 정상
-    구성에서 칸을 **조용히 잃는다**. 초과는 `compute_pob`·`assemble_pob`이 PoB
-    관측으로 잡아 거부한다(`item_sockets_legal`, #120).
+    `sockets`는 획득 경로를 포함해 검사한다(#192). PoB `socket_limit`는 일반
+    제작 예산이 아니다. exceptional 추가 홈은 items[].socket_sources에 선언하며,
+    타락 옵션과 추가 홈은 같은 타락 결과 예산을 쓴다. 불성립 요청은 측정 전에 거부한다.
     """
+    from pok.engine.item_sockets import audit_item_sockets
     from pok.engine.items import _default_compute, _replace_slot
 
     if sockets <= 0:
@@ -298,17 +304,36 @@ def optimize_runes(
     if current is None:
         return None
     base_text = str(current.get("text", ""))
-    base_type = base_text.splitlines()[2] if len(base_text.splitlines()) > 2 else ""
+
+    def with_text(text: str) -> dict[str, Any]:
+        updated = _replace_slot(spec, slot, text)
+        # The item is unchanged; only its socket contents change. General item
+        # replacement must not transfer this provenance to a different item.
+        for item in updated.get("items") or []:
+            if item.get("slot") == slot and current.get("socket_sources"):
+                item["socket_sources"] = list(current["socket_sources"])
+        return updated
+
+    budget_text = render_runed(base_text, []) + "\nSockets: " + " ".join(["S"] * sockets)
+    checked = audit_item_sockets(with_text(budget_text), root=root)
+    failures = [problem for problem in checked["problems"] if problem.startswith(slot + "/")]
+    if failures:
+        raise ValueError(f"{slot}: " + " / ".join(failures))
+    budget: dict[str, Any] = next((row for row in checked["items"] if row["slot"] == slot), {})
+    base_type = str(budget.get("base") or "")
     pool = [
         r for r in enumerate_slot_runes(base_type, root) if not (exclude_legacy and r.is_legacy)
     ]
+    allowed = budget.get("allowed_augment_types")
+    if allowed is not None:
+        pool = [r for r in pool if r.augment_type in allowed]
     if not pool:
         return None
 
-    naked = run(_replace_slot(spec, slot, render_runed(base_text, [])))
+    naked = run(with_text(render_runed(base_text, [])))
     scored: list[tuple[float, RuneOption, dict[str, float]]] = []
     for option in pool:
-        measured = run(_replace_slot(spec, slot, render_runed(base_text, [option])))
+        measured = run(with_text(render_runed(base_text, [option])))
         delta = {k: round(measured.get(k, 0.0) - naked.get(k, 0.0), 4) for k in measure}
         scored.append((sum(w * delta.get(k, 0.0) for k, w in weights.items()), option, delta))
     scored.sort(key=lambda x: x[0], reverse=True)
@@ -320,12 +345,16 @@ def optimize_runes(
         for initial_score, option, initial_delta in scored:
             if check_rune_rules([*chosen, option]):
                 continue
+            if (
+                budget.get("tree_grant")
+                and sum(rune.augment_type != "Rune" for rune in [*chosen, option])
+                > budget["non_rune_capacity"]
+            ):
+                continue
             if not chosen:
                 score, delta = initial_score, initial_delta
             else:
-                candidate_stats = run(
-                    _replace_slot(spec, slot, render_runed(base_text, [*chosen, option]))
-                )
+                candidate_stats = run(with_text(render_runed(base_text, [*chosen, option])))
                 delta = {
                     k: round(candidate_stats.get(k, 0.0) - current_stats.get(k, 0.0), 4)
                     for k in measure
@@ -338,7 +367,7 @@ def optimize_runes(
         score, option, delta = best
         chosen.append(option)
         # Retain the actual current output rather than accumulating rounded deltas.
-        current_stats = run(_replace_slot(spec, slot, render_runed(base_text, chosen)))
+        current_stats = run(with_text(render_runed(base_text, chosen)))
         steps.append(
             {
                 "socket": socket_index + 1,
@@ -352,7 +381,7 @@ def optimize_runes(
     if not chosen:
         return None
     text = render_runed(base_text, chosen)
-    final = run(_replace_slot(spec, slot, text))
+    final = run(with_text(text))
     return RuneFill(
         slot=slot,
         chosen=tuple(chosen),
