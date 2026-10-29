@@ -199,11 +199,11 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S53 | B/C 원본 더블클릭 오류를 재현하고 #193 생성 선언 위치·입력 검사와 #195 실제 native 편집 출고 검사를 수정했다. 원본 코드 보존, A19+B/C 교정37아이템 콜백 성공, 사전 명세·최종 XML 대조와 별도 진단 코드 제공. 루트의 별도 Serle·획득·종류 변경을 제외한 분리본 전체 단위1,768+통합99=1,867통과/9skip. 문서 큐 누락1건은 수정 후14개 재검사 통과. 구현/시험13파일 해시 불변. PR #146 반영 범위는 편집 결함 수정이다. GUI·상주MCP 교체·새 생성 품질 검증은 미수행. [결함 대조](GENERATION_EDITOR_REGRESSION.md), [진단 코드](GENERATION_EDITOR_REPAIR_CODES.md) | done |
 
-| S54 | #188: 측정 후보의 실물 전달·채택안 근거 재사용·트리 가지 편집을 구현해 PR #149 검토 중. 00:45 KST에 새 A/B/C 정상 생성 동시 시작. 후속 독립 검토의 반경 보호 결함과 병렬 검사에서 재현된 색인 임시 파일 충돌 #196도 수정(관련60개 통과)했으나 동결 C에는 소급 적용하지 않음. 통합 PoB106개 통과. S51·S52는 하위 모델 에이전트가 PR #147 병합·main 동기화 완료. 생성 품질 해결 판정은 새 실물 검토까지 유보 | in_progress |
+| S54 | #188: 측정 후보의 실물 전달·채택안 근거 재사용·트리 가지 편집을 구현해 PR #149 검토 중. 00:45 KST에 새 A/B/C 정상 생성 동시 시작. 후속 반경 보호·색인 임시 파일 충돌 #196 수정은 동결 C에 소급 적용하지 않음. 전체 단위1,914통과/4skip, 색인 수정 전 PoB통합106통과. S51·S52는 하위 모델이 PR #147·#148 병합과 main d66f26f 동기화 완료. 생성 품질 판정은 새 실물 검토까지 유보 | in_progress |
 
 ## Canonical Next Step
 
-The only next executable step is: **S54: #188의 측정 후보→실물 대안 전달과 변경안 채택 후 재측정 중복을 고치고, 새 컨셉의 정상 생성에서 전체 구성 비교·최종 재최적화를 검증한다. #191·#192·#194는 사용자 지시에 따라 새 하위 모델 에이전트가 PR #147로 병합하고 로컬 main을 aa2e207로 동기화했다. 원래 Serle 작업폴더의 미커밋 변경은 보존한다.**
+The only next executable step is: **S54: #188의 측정 후보→실물 대안 전달과 변경안 채택 후 재측정 중복을 고치고, 새 컨셉의 정상 생성에서 전체 구성 비교·최종 재최적화를 검증한다. #191·#192·#194는 사용자 지시에 따라 새 하위 모델 에이전트가 PR #147로 병합했고, 문서 정리 PR #148 후 로컬 main은 d66f26f로 동기화됐다. 원래 Serle 작업폴더의 미커밋 변경은 보존한다.**
 
 사용자가 PR #146 원격 반영과 완성 빌드·PoB 공유코드를 남기는 전체 경로 재비교를
 명시 승인했다(2026-10-20). 정정 커밋 `4b52cf6`과 `b971a4e`는 반영 완료다.
@@ -273,8 +273,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | Item | Status | Disposition |
 | --- | --- | --- |
 | `C:/Users/KSK/.codex/worktrees/generation-reoptimization-188/poe2-ai-wiki` | active | #188 도구·정상 생성 개선 전용. 기존 사용자 변경을 분리 보존하고 새 비교 산출물·검증 기록을 남긴다 |
-| `C:/Users/KSK/.codex/worktrees/socket-acquisition-fixes/poe2-ai-wiki` | retained evidence | 하위 모델 에이전트가 #191·#192·#194를 PR #147로 병합·main 동기화 완료. 검사 기록 보존 |
-| `C:/Users/KSK/.codex/worktrees/socket-acquisition-closeout/poe2-ai-wiki` | delegated | PR #147 완료 상태를 문서에 반영하는 별도 하위 작업. #188 코드는 수정하지 않음 |
+| `C:/Users/KSK/.codex/worktrees/socket-acquisition-fixes/poe2-ai-wiki` | archive queued | PR #147 병합·main 동기화 완료. 검사 기록을 원본 저장소 var에 복사하고 해시 검증. 앱 보관 요청은 queued이며 완료 미확인 |
+| `C:/Users/KSK/.codex/worktrees/socket-acquisition-closeout/poe2-ai-wiki` | archived | 완료 상태 문서 PR #148 병합·main d66f26f 동기화 후 앱 보관 완료 확인. #188 코드는 수정하지 않음 |
 | `C:/Users/KSK/.codex/worktrees/bc-item-editor/poe2-ai-wiki` | retained evidence | PR #146 병합 확인. 69867cd 트리는 squash main 9aa1a61과 동일하며 #188 실험 B의 수정 전 소스·편집 검증 기록을 보존 |
 | `codex/generation-controlled-eval` | merged; main synchronized | [PR #146](https://github.com/skerfolg/poe2-ai-wiki/pull/146) 병합과 main 9aa1a61 동기화 확인. 과거 A/B/C 원본·실패 결론은 보존하며 #188은 새 사례로 별도 검증 |
 | 생성 실험의 `artifacts/`·`var/` 원장 | local evidence | v1 무효 시도·v2·별도 창 결과·평가 실패까지 그대로 보존. git 정본은 보고서의 조건·값·인용과 회귀 시험이며 로컬 산출물은 정본 근거 링크로 사용하지 않음 |
