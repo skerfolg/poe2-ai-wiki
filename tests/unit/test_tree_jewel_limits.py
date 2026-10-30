@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 import pytest
@@ -58,6 +59,8 @@ def test_declared_unique_limit_excludes_the_replaced_socket(
 
 
 class _Daemon:
+    transaction = staticmethod(nullcontext)
+
     def __init__(self) -> None:
         self.loaded_spec: BuildSpec | None = None
         self.measured: list[BuildSpec] = []

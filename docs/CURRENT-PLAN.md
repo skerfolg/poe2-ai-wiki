@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `codex/socket-acquisition-closeout` (PR #147 병합·local main 동기화 기록; 사용자 요청 #188은 별도 worktree에서 진행)
+**Integration branch**: `codex/generation-reoptimization-188` (#188 개선·새 정상 생성 검증; #191·#192·#194는 별도 에이전트가 PR #147 병합·main 동기화 완료)
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -76,9 +76,11 @@ flowchart TD
   SERLE[S51 Serle 룬 접미·총한도 수정<br/>done]
   ACQUIRE[S52 소켓 획득·종류 검사<br/>done]
   EDITOR[S53 B/C 편집 결함·완료 판정 수정<br/>done]
+  REOPT[S54 #188 정상 비교 종료·전달/계산/완료 판정 수정<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
+  EVAL -. 사용자 지시 · 새 정상 생성 검증 .-> REOPT --> M6
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN --> NARROW --> CPL --> FULL
   WIDEN --> CFG --> CPL
@@ -197,9 +199,11 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S53 | B/C 원본 더블클릭 오류를 재현하고 #193 생성 선언 위치·입력 검사와 #195 실제 native 편집 출고 검사를 수정했다. 원본 코드 보존, A19+B/C 교정37아이템 콜백 성공, 사전 명세·최종 XML 대조와 별도 진단 코드 제공. 루트의 별도 Serle·획득·종류 변경을 제외한 분리본 전체 단위1,768+통합99=1,867통과/9skip. 문서 큐 누락1건은 수정 후14개 재검사 통과. 구현/시험13파일 해시 불변. PR #146 반영 범위는 편집 결함 수정이다. GUI·상주MCP 교체·새 생성 품질 검증은 미수행. [결함 대조](GENERATION_EDITOR_REGRESSION.md), [진단 코드](GENERATION_EDITOR_REPAIR_CODES.md) | done |
 
+| S54 | #188 정상 비교 종료: A79.6분 제출, B최종 제출 누락/마지막 ready 조립 보존, C90분·파일 존재/not_ready. 이번 이동 맵핑 목표에는 A가 가장 일관되고 C 품질 우위 미입증. 후보20개 반환 및 근거·트리 편집의 후속 연결 확인, A19/B18/C17아이템 native·stock 재입력 통과. #199대량 전달·#189병렬 상태/응답·#200완료 증거 연결 수정·재현 검증 완료. 최종 전체 단위1,991/5skip·PoB통합110통과, 최종 저장 수정 후 관련 native1건 재확인. #189 자동 시간제한·재시작과 #188 품질은 남음. 원본·공유코드 보존, 후속수정은 동결 C에 소급 안 함. [수행·누락과 결함 대조](GENERATION_REOPTIMIZATION_188.md), [공유코드](GENERATION_REOPTIMIZATION_188_CODES.md). PR #149 검토 중, #147·#148/main d66f26f 하위 모델 병합 완료 | in_progress |
+
 ## Canonical Next Step
 
-The only next executable step is: **사용자 요청에 따라 `codex/generation-reoptimization-188` worktree에서 #188 전체 구성 재최적화를 진행하고, 새 정상 실행으로 실제 생성 품질 효과를 검증한다. 기존 동결 C 결과는 새 수정의 검증으로 세지 말고, #188과 #189는 해결 근거가 생길 때까지 열어 둔다.**
+The only next executable step is: **S54: 남은 #188 핵심별 트리·주얼·보조·접사 공동 재설계와 여유 재투자를 실제 전체 구성으로 검증한다. 실제 실패 입력의 #199 전달 절단·#189 병렬 상태/응답 혼선·#200 완료 증거 누락 수정과 한글 대조 보고서는 PR #149에 반영했고 구현 ed51a6d의 Windows/macOS CI가 모두 통과했다. 이번 A 대비 품질 개선은 미입증이고 #189 자동 시간제한·재시작도 미해결이다. 하위 모델의 PR #147·#148 병합과 main d66f26f 동기화는 완료했고 원래 Serle 작업폴더의 미커밋 변경은 보존한다.**
 
 사용자가 PR #146 원격 반영과 완성 빌드·PoB 공유코드를 남기는 전체 경로 재비교를
 명시 승인했다(2026-10-20). 정정 커밋 `4b52cf6`과 `b971a4e`는 반영 완료다.
@@ -268,10 +272,11 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 | Item | Status | Disposition |
 | --- | --- | --- |
-| `C:/Users/KSK/.codex/worktrees/socket-acquisition-fixes/poe2-ai-wiki` (`codex/socket-acquisition-fixes`) | merged; main synchronized | PR #147 merged at `aa2e207`; Windows/macOS CI passed; local main ff-only synchronized. Managed worktree retained until closeout review is complete. |
-| `C:/Users/KSK/.codex/worktrees/bc-item-editor/poe2-ai-wiki` (`codex/bc-item-editor`) | retain (other worktree) | PR #146은 병합됐지만 다른 작업의 관리 worktree다. 이번 세션에서 수정·삭제하지 않는다. |
-| `C:/Users/KSK/.codex/worktrees/generation-reoptimization-188/poe2-ai-wiki` (`codex/generation-reoptimization-188`) | retain (active parent work) | #188 생성 품질 작업용 다른 세션 worktree. 이 하위 작업에서는 수정·삭제하지 않는다. |
-| `codex/generation-controlled-eval` | merged; main synchronized | PR #146 병합 commit `9aa1a61`; 이번 worktree에서 최신 main을 기준으로 후속 수정. 다른 세션 branch는 보존한다. |
+| `C:/Users/KSK/.codex/worktrees/generation-reoptimization-188/poe2-ai-wiki` | active | #188 도구·정상 생성 개선 전용. 기존 사용자 변경을 분리 보존하고 새 비교 산출물·검증 기록을 남긴다 |
+| `C:/Users/KSK/.codex/worktrees/socket-acquisition-fixes/poe2-ai-wiki` | archive queued | PR #147 병합·main 동기화 완료. 검사 기록을 원본 저장소 var에 복사하고 해시 검증. 앱 보관 요청은 queued이며 완료 미확인 |
+| `C:/Users/KSK/.codex/worktrees/socket-acquisition-closeout/poe2-ai-wiki` | archived | 완료 상태 문서 PR #148 병합·main d66f26f 동기화 후 앱 보관 완료 확인. #188 코드는 수정하지 않음 |
+| `C:/Users/KSK/.codex/worktrees/bc-item-editor/poe2-ai-wiki` | retained evidence | PR #146 병합 확인. 69867cd 트리는 squash main 9aa1a61과 동일하며 #188 실험 B의 수정 전 소스·편집 검증 기록을 보존 |
+| `codex/generation-controlled-eval` | merged; main synchronized | [PR #146](https://github.com/skerfolg/poe2-ai-wiki/pull/146) 병합과 main 9aa1a61 동기화 확인. 과거 A/B/C 원본·실패 결론은 보존하며 #188은 새 사례로 별도 검증 |
 | 생성 실험의 `artifacts/`·`var/` 원장 | local evidence | v1 무효 시도·v2·별도 창 결과·평가 실패까지 그대로 보존. git 정본은 보고서의 조건·값·인용과 회귀 시험이며 로컬 산출물은 정본 근거 링크로 사용하지 않음 |
 | `codex/gemling-optimization-readiness` | merged; main synchronized | PR #145 사용자 병합 후 로컬 main을 `61167b1`로 동기화 완료. 기존 worktree와 다른 세션 브랜치는 정리하지 않음 |
 | `var/pytest-*review*`·`var/pytest-*combined*`·검증 스크립트 | disposable | 단위·통합 검증용 파생물. 사용자 전달 감사표·원본/재현 기록은 보존하고 정본 회귀는 추적되는 tests 파일을 사용 |
@@ -305,7 +310,7 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | S49 전체 경로 재비교·PoB 제출 및 PR #146 반영 승인 | 사용자가 원격 반영과 같은 모델·원자료·총예산에서 세 방식의 정상 완성 절차 실행을 명시 요청. 정정 PR 반영 완료. 준비·실험·사후 평가를 새 원장에 분리하고 본실험 전 자료·변경안·조건을 동결 | 2026-10-20 |
 | S49 실제 비교 종료·사후 수정 범위 분리 | A/B/C 원본 코드 제출, C 품질 개선 미입증·B/C not_ready 유지. #184~#187 재현 결함 수정과 #188 전체 구성 비교 절차 변경은 종료 후 적용했으며 새로운 모델 실행으로 효과를 입증한 것으로 기록하지 않음 | 2026-10-21 |
 | S49 완료 취소·우선 실행 override 유지 — 사용자 방법론 지적 | A/B에 공통 적용한 PoK 절차와 강제 종료 때문에 전체 비교는 미수행. 기존 국소 실험·원점수는 보존하되 전체 우열 결론 철회. S50은 선택적 실행기 기능 검증만 done, 기본 진입점 지정은 철회. S7 blocked와 M6 대기는 유지 | 2026-10-20 |
-| User-directed #188 priority override after S51/S52 closeout | PR #147 merged and local main synchronized at `aa2e207`. The user then explicitly requested continuing #188; it is active in `codex/generation-reoptimization-188`, separate from this M5 baseline. S7 remains the first unclosed M5 row and blocked; #188 stays open until a fresh normal run demonstrates quality effects | 2026-10-30 |
+| S54 우선 실행 — #188 개선 | 사용자가 병합 작업을 새 하위 모델 에이전트에 위임하고 여기서는 #188을 진행하도록 지정. 이 브랜치는 정상 생성의 실제 대안 구성·비교·재최적화 경로를 수정하고 새 사례로 검증한다. 기존 S7 blocked·M6 대기 유지 | 2026-10-30 |
 | Integration branch override — `codex/generation-controlled-eval` | S49/S50 사용자 요청 작업. This lane targets `codex/generation-controlled-eval` instead of `main` for this PR only | 2026-10-20 |
 | S48 우선 실행 — 첫 미종결 S7보다 사용자 추가 교정 우선 | 이동·회피·저항 여유와 접사 재배분 누락을 실제 코드/측정으로 교정했다. S48 완료 후 S7의 기존 중단 상태로 복귀하며, 전역최적성·실전성·상주MCP재시작은 별도 범위로 공개한다 | 2026-10-19 |
 | S46/S47 종결·Canonical Next Step을 첫 미종결 S7으로 복귀 | 사용자 지시 부수 작업의 수정·실측·재입력·한국어 대조를 완료. M5 자체는 active, S7은 기존 blocked 유지. 이 부수 작업용 순서 override는 종료 | 2026-10-19 |

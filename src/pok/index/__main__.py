@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import sys
 
-from pok.common.paths import index_db_path
 from pok.common.stdio import force_utf8_stdio
 from pok.index.build import build_index
 from pok.index.search import ensure_index, search
@@ -27,7 +26,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "build":
         print(f"index: {ensure_index()}")
     elif args.cmd == "rebuild":
-        index_db_path().unlink(missing_ok=True)
         print(f"index: {build_index()}")
     elif args.cmd == "search":
         for h in search(args.query):

@@ -11,6 +11,8 @@ import hashlib
 import json
 import sqlite3
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from time import monotonic, sleep
 
 from pok.common.paths import index_db_path, knowledge_dir
 from pok.kb.insights import load_insights
@@ -219,8 +221,32 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
     # 검증 실패 시 여기서 예외 → 잘못된 정본이 인덱스로 흘러가지 않음
     store: Store = load(root)
 
-    tmp = db.with_suffix(".building")
-    tmp.unlink(missing_ok=True)
+    # 고정 index.building은 동시 self-healing끼리 상대의 열린 DB를 삭제한다.
+    # 같은 볼륨의 고유 작업 공간만 소유하고, 성공·실패 모두 자기 것만 정리한다.
+    with TemporaryDirectory(prefix=f".{db.name}.building-", dir=db.parent) as workspace:
+        tmp = Path(workspace) / db.name
+        _populate_index(tmp, store, kdir, root)
+        _replace_completed_index(tmp, db)
+    return db
+
+
+def _replace_completed_index(tmp: Path, db: Path) -> None:
+    """완성본만 원자 교체한다. Windows의 짧은 독자 핸들 점유만 기다린다."""
+    deadline = monotonic() + 5.0
+    while True:
+        try:
+            tmp.replace(db)
+            return
+        except PermissionError as exc:
+            # Windows는 열린 SQLite 독자가 있으면 replace를 거부한다(5/32/33).
+            # 대상을 지워 우회하지 않는다. 계속 점유되거나 권한 문제면 실패하고
+            # 기존 완성본을 보존한다. 다른 파일 시스템 오류는 즉시 전파한다.
+            if getattr(exc, "winerror", None) not in {5, 32, 33} or monotonic() >= deadline:
+                raise
+            sleep(0.05)
+
+
+def _populate_index(tmp: Path, store: Store, kdir: Path, root: Path | None) -> None:
     con = sqlite3.connect(tmp)
     try:
         con.executescript(_DDL)
@@ -279,5 +305,3 @@ def build_index(root: Path | None = None, db_path: Path | None = None) -> Path:
         con.commit()
     finally:
         con.close()
-    tmp.replace(db)  # 원자적 교체 — 빌드 중 실패해도 기존 인덱스 보존
-    return db

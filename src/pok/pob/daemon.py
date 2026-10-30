@@ -15,9 +15,14 @@ import hashlib
 import json
 import os
 import subprocess
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from functools import wraps
 from pathlib import Path
+from threading import Lock, RLock
 from types import TracebackType
-from typing import Any
+from typing import Any, Concatenate
+from uuid import uuid4
 
 from pok.common.paths import project_root, var_dir
 from pok.pob.buildxml import BuildSpec, to_xml
@@ -28,18 +33,38 @@ _DAEMON = "scripts/pob_daemon.lua"
 _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
 
 
+def _exclusive[**P, R](
+    method: Callable[Concatenate[PobDaemon, P], R],
+) -> Callable[Concatenate[PobDaemon, P], R]:
+    """명령 전송부터 응답·상태 갱신까지 같은 요청이 스트림을 소유한다."""
+
+    @wraps(method)
+    def wrapped(self: PobDaemon, /, *args: P.args, **kwargs: P.kwargs) -> R:
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapped
+
+
 class PobDaemon:
     """with PobDaemon() as d: d.compute_build(spec) — 프로세스 1개, 계산 N회."""
 
     def __init__(self, snapshot: PobSnapshot | None = None) -> None:
         self._snap = snapshot or resolve_snapshot()
         self._proc: subprocess.Popen[str] | None = None
-        self._seq = 0
+        self._lock = RLock()
         self._loaded_spec: BuildSpec | None = None
         # 마지막으로 계산한 XML — `compute_tree`는 트리만 갈아 끼우므로 **아이템은
         # 그때 올린 것 그대로**다. 버려진 아이템 신고(#135)를 트리 왕복에서도 유지한다.
         self._last_xml = ""
 
+    @contextmanager
+    def transaction(self) -> Iterator[PobDaemon]:
+        """로드 상태 확인과 그 상태를 쓰는 여러 명령을 한 요청으로 묶는다."""
+        with self._lock:
+            yield self
+
+    @_exclusive
     def start(self) -> None:
         if self._proc is not None:
             return
@@ -60,6 +85,7 @@ class PobDaemon:
             if line.strip() == "POK_READY":
                 return
 
+    @_exclusive
     def compute(self, xml_text: str, *, requested_nodes: tuple[int, ...] = ()) -> PobResult:
         """XML 하나를 계산한다 (캐시 없음 — 루프는 항상 새 조합을 시도한다)."""
         self.start()
@@ -67,6 +93,10 @@ class PobDaemon:
         xml_file = self._xml_file(xml_text)
         xml_file.write_text(xml_text, encoding="utf-8", newline="\n")
         try:
+            # raw XML도 native 빌드를 교체한다. 이전 BuildSpec 표식을 남기면
+            # TREE 최적화가 다른 장비의 빌드를 자기 토대로 오인한다.
+            self._loaded_spec = None
+            self._last_xml = ""
             self._proc.stdin.write(str(xml_file) + "\n")
             self._proc.stdin.flush()
             lines: list[str] = []
@@ -91,6 +121,7 @@ class PobDaemon:
             dropped_items=find_dropped_items(xml_text, meta),
         )
 
+    @_exclusive
     def compute_tree(self, nodes: tuple[int, ...]) -> PobResult:
         """**로드된 빌드의 트리만** 갈아 끼워 재계산한다 (#70 후속).
 
@@ -127,6 +158,7 @@ class PobDaemon:
             dropped_items=find_dropped_items(self._last_xml, meta),
         )
 
+    @_exclusive
     def node_power(
         self, stats: tuple[str, ...] = ()
     ) -> tuple[dict[int, dict[str, float]], dict[str, Any]]:
@@ -154,6 +186,7 @@ class PobDaemon:
         self._proc.stdin.flush()
         out: dict[int, dict[str, float]] = {}
         meta: dict[str, Any] = {}
+        lines: list[str] = []
         while True:
             line = self._readline()
             if not line:
@@ -161,6 +194,10 @@ class PobDaemon:
             s = line.rstrip("\n")
             if s == "POK_DONE":
                 break
+            lines.append(s)
+        # 오류도 응답 프레임 끝까지 소비한 뒤 전파한다. 중간에 던지면 남은
+        # POK_DONE을 다음 요청이 자기 응답 끝으로 읽어 정상 계산까지 실패한다.
+        for s in lines:
             if s.startswith("POK_POWER:"):
                 row = json.loads(s[len("POK_POWER:") :])
                 out[int(row["node"])] = {k: float(v) for k, v in (row.get("d") or {}).items()}
@@ -170,6 +207,7 @@ class PobDaemon:
                 raise PobRunError(s[len("POK_ERR:") :])
         return out, meta
 
+    @_exclusive
     def build_item(self, spec_text: str) -> str:
         """아이템 **명세 → PoB 정본 텍스트** (#34). 실패하면 빈 문자열.
 
@@ -197,6 +235,7 @@ class PobDaemon:
             path.unlink(missing_ok=True)
         return built
 
+    @_exclusive
     def compute_build(self, spec: BuildSpec) -> PobResult:
         result = self.compute(to_xml(spec), requested_nodes=spec.tree_nodes)
         self._loaded_spec = spec
@@ -214,20 +253,30 @@ class PobDaemon:
         return self._loaded_spec
 
     def close(self) -> None:
-        if self._proc is None:
+        proc = self._proc
+        if proc is None:
             return
+        # 계산이 막혔을 때 close()로 중단하는 기존 계약을 지킨다. 계산 잠금을
+        # 기다리면 무한 대기를 끊을 수 없으므로, 사용 중이면 이 자식만 종료한다.
+        idle = self._lock.acquire(blocking=False)
         try:
-            if self._proc.stdin is not None:
-                self._proc.stdin.write("QUIT\n")
-                self._proc.stdin.flush()
-            self._proc.wait(timeout=5)
+            if idle and proc.stdin is not None:
+                proc.stdin.write("QUIT\n")
+                proc.stdin.flush()
+            else:
+                proc.kill()
+            proc.wait(timeout=5)
         except (OSError, subprocess.TimeoutExpired):
-            self._proc.kill()
+            proc.kill()
+            proc.wait(timeout=5)
         finally:
-            self._proc = None
-            # 프로세스가 죽으면 올라가 있던 빌드도 사라진다 — 안 지우면 재기동 뒤
-            # `compute_tree`가 **빈 데몬 위에서** 도는데 그건 조용히 틀린다.
-            self._loaded_spec = None
+            with self._lock:
+                if self._proc is proc:
+                    self._proc = None
+                    self._loaded_spec = None
+                    self._last_xml = ""
+            if idle:
+                self._lock.release()
 
     def _readline(self) -> str:
         # 제너레이터로 감싸지 않는다 — `yield from 파일`을 중도 포기하면
@@ -236,11 +285,11 @@ class PobDaemon:
         return str(self._proc.stdout.readline())
 
     def _xml_file(self, xml_text: str) -> Path:
-        self._seq += 1
         digest = hashlib.sha256(xml_text.encode()).hexdigest()[:8]
         d = var_dir() / "pob-cache"
         d.mkdir(parents=True, exist_ok=True)
-        return d / f"_daemon-{os.getpid()}-{self._seq}-{digest}.xml"
+        # 인스턴스별 seq는 같은 PID의 독립 데몬끼리 충돌한다. 요청별 소유권이다.
+        return d / f"_daemon-{os.getpid()}-{uuid4().hex}-{digest}.xml"
 
     def __enter__(self) -> PobDaemon:
         self.start()
@@ -256,6 +305,7 @@ class PobDaemon:
 
 
 _SHARED: PobDaemon | bool | None = None
+_SHARED_LOCK = Lock()
 
 
 def shared_daemon() -> PobDaemon | None:
@@ -268,13 +318,17 @@ def shared_daemon() -> PobDaemon | None:
     강제 종료**했다(백로그 #61) — 느린 것과 죽은 것을 구분할 수 없었다.
     """
     global _SHARED
-    if _SHARED is None:
-        try:
-            daemon = PobDaemon()
-            daemon.start()
-        except Exception:  # 스냅샷 없음·기동 실패 — 조용히 죽지 않고 되돌아간다
-            _SHARED = False
-        else:
-            _SHARED = daemon
-            atexit.register(daemon.close)
+    with _SHARED_LOCK:
+        if _SHARED is None:
+            daemon = None
+            try:
+                daemon = PobDaemon()
+                daemon.start()
+            except Exception:  # 스냅샷 없음·기동 실패 — 조용히 죽지 않고 되돌아간다
+                if daemon is not None:
+                    daemon.close()
+                _SHARED = False
+            else:
+                _SHARED = daemon
+                atexit.register(daemon.close)
     return _SHARED if isinstance(_SHARED, PobDaemon) else None

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import dataclasses
 import inspect
+from contextlib import nullcontext
 from typing import Any
 
 import pytest
@@ -41,6 +42,8 @@ class _Result:
 
 class _Daemon:
     """가짜 PoB — Life가 트리 크기에 선형이다. 데몬 계약(`loaded_spec`·`compute_tree`)을 지킨다."""
+
+    transaction = staticmethod(nullcontext)
 
     def __init__(self) -> None:
         self.loaded_spec: BuildSpec | None = None

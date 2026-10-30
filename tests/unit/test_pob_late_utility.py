@@ -10,7 +10,7 @@ import pytest
 from pok.common.paths import project_root
 from pok.pob import runner
 from pok.pob.daemon import PobDaemon
-from pok.pob.versions import find_luajit
+from pok.pob.versions import PobSnapshot, find_luajit
 
 
 def _lua(tmp_path: Path, body: str) -> None:
@@ -113,8 +113,16 @@ def test_late_axes_invalidate_previous_cached_payloads(monkeypatch: pytest.Monke
 
 
 @pytest.mark.parametrize("axis", ["LateLootRarityInc", "LateLootRarityMore", "LateLootRarityMod"])
-def test_power_rejects_late_axes_before_start_or_send(axis: str) -> None:
-    # No initialized snapshot/process: rejection must precede any daemon access.
-    daemon = object.__new__(PobDaemon)
+def test_power_rejects_late_axes_before_start_or_send(
+    axis: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Initialize the actual request/state locks without resolving or booting PoB.
+    daemon = PobDaemon(PobSnapshot("fixture", tmp_path, tmp_path))
+
+    def unexpected_start() -> None:
+        pytest.fail("Unsupported POWER axes must be rejected before starting or sending")
+
+    monkeypatch.setattr(daemon, "start", unexpected_start)
     with pytest.raises(runner.PobRunError, match="unavailable in POWER"):
         daemon.node_power(("TotalDPS", axis))
+    assert daemon._proc is None

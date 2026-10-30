@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import dataclasses
+from contextlib import nullcontext
 
 from pok.engine.tree.deltas import TreeSwapMeasurer, _tree_only
 from pok.pob.buildxml import BuildSpec, ItemSpec, JewelSpec
@@ -22,6 +23,8 @@ class _Result:
 
 class _Daemon:
     """호출 종류를 그대로 기록하는 가짜 데몬. 로드 상태는 **자기가** 들고 있다."""
+
+    transaction = staticmethod(nullcontext)
 
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[int, ...]]] = []

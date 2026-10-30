@@ -614,6 +614,7 @@ def evaluate_delta(
     stats: list[str] | None = None,
     review_component: str | None = None,
     review_components: list[str] | None = None,
+    include_variant_reviews: bool = False,
 ) -> dict[str, Any]:
     """여러 전체 build_spec의 절대 스탯과 델타를 PoB로 실측 (AD-8).
     variants = {라벨: 변경된 build_spec}. 스킬·전직·장비·트리를 함께 바꿀 수 있다.
@@ -622,8 +623,10 @@ def evaluate_delta(
     최종 추천 완료를 인증하지 않는다.
     review_component를 주면 성공한 실제 대안 측정 범위에서 기준(base) 구성의
     평가 영수증을 만든다. 임의 재검증 경로는 받지 않으며 수렴/최적해를 주장하지 않는다.
-    반환 derived_from은 base_spec에만 적용한다. 변경안을 채택했다면 그것을 새 기준으로
-    다시 평가해야 한다.
+    반환 derived_from은 base_spec에만 적용한다. include_variant_reviews=True이면
+    이미 계산한 각 변경안의 variant_reviews도 만든다. 결과를 보고 변경안을 채택할 때
+    그 라벨의 derived_from을 해당 스펙에 적용하면 같은 구성을 다시 계산할 필요가 없다.
+    다른 입력으로 바꾼 스펙에는 적용할 수 없고, 어느 안을 채택할지는 호출자가 판단한다.
     장비와 트리·주얼·젬을 함께 재배분한 조합은 review_components=["items", "tree", ...]로
     재검토한다. 명시한 영역 안의 실제 변경만 기록하며 config·클래스·레벨 변경은
     재검토 증빙에서 제외한다. 복합 조합의 비교이며 개별 부품의 독립 기여/수렴은 아니다.
@@ -722,6 +725,11 @@ def evaluate_delta(
         ],
     }
     components = review_components or ([review_component] if review_component is not None else [])
+    tree_graph = None
+    if "ascendancy" in components:
+        from pok.mcp.tools.tree import _get_graph
+
+        tree_graph = _get_graph()
     marks = dict(base_spec.get("derived_from") or {})
     reviews = {}
     for component in components:
@@ -737,6 +745,7 @@ def evaluate_delta(
             utility_measurements={d.label: d.result.stats for d in deltas},
             utility_failures=utility_failures if baseline_ok else {},
             package_components=review_components,
+            tree_graph=tree_graph if component == "ascendancy" else None,
         )
         evidence = mark["search_evidence"]
         # An unchanged component has no package review. Keep its original source
@@ -763,6 +772,70 @@ def evaluate_delta(
                 for evidence in reviews.values()
             ),
         }
+    if include_variant_reviews and components:
+        # Rebase the *measured* comparison, never the old baseline's receipt.
+        # A model can choose after seeing results without another oracle pass.
+        base_label = "baseline"
+        while base_label in variants:
+            base_label = "_" + base_label
+        result_by_label = {d.label: d.result for d in deltas}
+        all_specs = {base_label: base_spec, **variants}
+        all_results = {base_label: base_result, **result_by_label}
+        all_outputs = {base_label: base_output, **variant_outputs}
+        variant_reviews = {}
+        for selected, selected_spec in variants.items():
+            if selected not in result_by_label:
+                continue
+            alternatives = {k: v for k, v in all_specs.items() if k != selected}
+            selected_failures = failures(selected, all_results[selected], all_outputs[selected])
+            selected_ok = not any(row["code"] != "items_pob_gaps" for row in selected_failures)
+            alternative_failures = {
+                k: failures(k, all_results[k], all_outputs[k])
+                if k in all_results
+                else [{"code": "variant_unmeasured", "scope": [k]}]
+                for k in alternatives
+            }
+            successful = {
+                k: all_outputs[k]["stats"]
+                for k, problems in alternative_failures.items()
+                if selected_ok and not any(row["code"] != "items_pob_gaps" for row in problems)
+            }
+            selected_marks = dict(selected_spec.get("derived_from") or {})
+            selected_reviews = {}
+            for component in components:
+                mark = measured_review_receipt(
+                    selected_spec,
+                    alternatives,
+                    successful,
+                    component=component,
+                    stats=requested,
+                    baseline_stats=all_outputs[selected]["stats"],
+                    unresolved=selected_failures
+                    + [row for rows in alternative_failures.values() for row in rows],
+                    utility_baseline=all_results[selected].stats,
+                    utility_measurements={
+                        k: all_results[k].stats for k in alternatives if k in all_results
+                    },
+                    utility_failures=alternative_failures if selected_ok else {},
+                    package_components=review_components,
+                    tree_graph=tree_graph if component == "ascendancy" else None,
+                )
+                evidence = mark["search_evidence"]
+                if evidence["scope"].get("candidates"):
+                    selected_marks[component] = mark
+                selected_reviews[component] = evidence
+            variant_reviews[selected] = {
+                "derived_from": selected_marks,
+                "search_evidence": selected_reviews,
+                "measurements_complete": all(
+                    evidence["scope"].get("candidates") and not evidence["unresolved"]
+                    for evidence in selected_reviews.values()
+                ),
+                "applies_to": {"variant": selected},
+                "original_base_label": base_label,
+                "claim": "measured_alternatives_not_selection_or_convergence",
+            }
+        out["variant_reviews"] = variant_reviews
     return out
 
 
