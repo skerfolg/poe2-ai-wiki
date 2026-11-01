@@ -207,6 +207,11 @@ def optimize_tree(
     )
     search_evidence = {
         "scope": {
+            "search_mode": "grow_from_protected_base_with_new_branch_pruning",
+            "base_tree_nodes": list(build_spec.get("tree_nodes") or []),
+            "excluded_nodes": list(exclude_nodes or []),
+            "existing_tree_reallocation": False,
+            "global_optimum_proven": False,
             "jewel_templates_used": bool(jewel_templates),
             "cluster_scan": bool(cluster_include),
             "required_anchors": list(required_anchors or []),
@@ -222,6 +227,7 @@ def optimize_tree(
         "termination": {
             "reason": out.termination_reason,
             "converged": out.termination_reason == "no_positive_candidate",
+            "convergence_scope": "evaluated_candidates_under_protected_base_and_objective",
         },
         "unresolved": [],
     }
@@ -788,14 +794,43 @@ def optimize_rare(
         suffix_count=suffix_count,
         radius=radius,
     )
+    search_evidence = {
+        "scope": {
+            "slots": [slot],
+            "base_type": base_type,
+            "search_mode": "single_affix_ranking_then_greedy_rendered_combinations",
+            "other_equipment_reallocated": False,
+            "tree_reallocated": False,
+            "global_optimum_proven": False,
+        },
+        "settings": {
+            "weights": dict(weights),
+            "floors": dict(floors or {}),
+            "prefix_count": prefix_count,
+            "suffix_count": suffix_count,
+            "roll": "mid",
+            "radius": radius,
+        },
+        "termination": {
+            "reason": "completed_local_pass",
+            "converged": False,
+            "ranked_affixes": len(result.table),
+            "claim": "completed_algorithm_not_exhaustive_combination_search",
+        },
+        "unresolved": [
+            {"code": "unmeasurable_affix", "id": option.label} for option in result.unmeasurable
+        ],
+    }
     return {
         "text": result.text,
+        "search_evidence": search_evidence,
         "derived_from": _stamp(
             _with_item(build_spec, slot, result.text),
             "rares",
             tool="optimize_rare",
             weights=dict(weights),
             preserve_existing=False,
+            search_evidence=search_evidence,
         ),
         # **PoB 명세**(모드 id) — 문구가 아니다(#34 A). `text`는 이 명세를 PoB에
         # 태워 되받은 정본이고, `pob_rendered: false`면 아직 우리가 쓴 문구다.

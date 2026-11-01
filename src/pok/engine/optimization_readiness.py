@@ -1470,6 +1470,12 @@ def _comparison_readiness(
         )
         required, comparisons = [], []
     current = derivation_context(dict(spec))
+    graph = None
+    if "ascendancy" in required:
+        from pok.common.paths import knowledge_dir
+        from pok.engine.tree.graph import TreeGraph
+
+        graph = TreeGraph(knowledge_dir())
     for index, reference in enumerate(comparisons):
         path = f"comparisons[{index}]"
         try:
@@ -1544,6 +1550,16 @@ def _comparison_readiness(
                 ):
                     raise ValueError("Compare candidates under the same config, class and level")
                 for component, axes in _REVIEW_AXES.items():
+                    if component == "ascendancy":
+                        # General passive edits share tree_sig with ascendancy
+                        # allocations; never credit the former as the latter.
+                        if graph is not None and (
+                            graph.resolve_ascendancy(candidate.get("ascendancy"))
+                            != graph.resolve_ascendancy(subject.get("ascendancy"))
+                            or _ascendancy_changes(candidate, subject, graph)
+                        ):
+                            changed.add(component)
+                        continue
                     if any(context.get(axis) != actual.get(axis) for axis in axes):
                         changed.add(component)
             if not changed:

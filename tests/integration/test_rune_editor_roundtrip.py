@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -68,7 +69,7 @@ _RUNES = (
 _SCRIPT = r"""
 package.preload['lua-utf8'] = function() return setmetatable({}, { __index = string }) end
 local input = assert(io.open(arg[1], 'rb')):read('*a')
-dofile('HeadlessWrapper.lua')
+dofile(assert(arg[3], 'headless adapter path missing'))
 local json = require('dkjson')
 local items = json.decode(input)
 local results = {}
@@ -155,7 +156,13 @@ def editor_paths(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
     source.write_text(json.dumps(cases), encoding="utf-8")
     script.write_text(_SCRIPT, encoding="utf-8")
     proc = subprocess.run(
-        [lua, str(script), str(source), str(output)],
+        [
+            lua,
+            str(script),
+            str(source),
+            str(output),
+            str(Path(__file__).resolve().parents[2] / "scripts/pob_headless.lua"),
+        ],
         cwd=snapshot.src_dir,
         env={**os.environ, "LUA_PATH": _LUA_PATH},
         capture_output=True,

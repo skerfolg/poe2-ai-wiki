@@ -74,6 +74,18 @@ def test_different_alternative_scenario_is_not_component_evidence(case):
     assert not optimization_readiness(spec)["recommendation_ready"]
 
 
+def test_general_passive_comparison_does_not_cover_ascendancy(case):
+    base, inputs, output = case
+    base["ascendancy"] = "Sorceress1"
+    inputs["variants"]["other"]["ascendancy"] = "Sorceress1"
+    inputs["variants"]["other"]["tree_nodes"] = [22419]
+    spec = recommend(base, inputs, output)
+    spec["optimization_contract"]["required_components"] = ["ascendancy"]
+    report = optimization_readiness(spec)
+    assert not report["recommendation_ready"]
+    assert any(row["component"] == "ascendancy" for row in report["blockers"])
+
+
 @pytest.mark.parametrize(
     "deficit",
     ["partial", "unresolved", "no_stats", "identical", "wrong_component", "missing", "reason"],

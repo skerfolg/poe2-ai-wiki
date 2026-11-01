@@ -82,7 +82,9 @@ flowchart TD
   R0BASE[R0 실행 기반·입력 동결<br/>done]
   R1RUN[R1 기준 실험·초기 기술 검토<br/>done]
   R2CONTRACT[R2 식별·근거·이행 계약<br/>done]
-  R3CORE[R3 기록 커널 · 근거/저장/MCP 구현<br/>in_progress]
+  R3CORE[R3 기반 구현 · 원격 플랫폼 검증/최종 감사<br/>in_progress]
+  R3CORE -. 플랫폼 검증과 병행 .-> R4FLOW
+  R4FLOW[R4 명시 계산/조립 · 저장 비교 · 자율 스킬 · 공동 재투자<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
@@ -207,11 +209,11 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S54 | #188 정상 비교 종료: A79.6분 제출, B최종 제출 누락/마지막 ready 조립 보존, C90분·파일 존재/not_ready. 이번 이동 맵핑 목표에는 A가 가장 일관되고 C 품질 우위 미입증. 후보20개 반환 및 근거·트리 편집의 후속 연결 확인, A19/B18/C17아이템 native·stock 재입력 통과. #199대량 전달·#189병렬 상태/응답·#200완료 증거 연결 수정·재현 검증 완료. 최종 전체 단위1,991/5skip·PoB통합110통과, 최종 저장 수정 후 관련 native1건 재확인. #189 자동 시간제한·재시작과 #188 품질은 남음. 원본·공유코드 보존, 후속수정은 동결 C에 소급 안 함. [수행·누락과 결함 대조](GENERATION_REOPTIMIZATION_188.md), [공유코드](GENERATION_REOPTIMIZATION_188_CODES.md). PR #149 병합 e7bd429 완료, #147·#148/main d66f26f 하위 모델 병합 완료 | in_progress |
 
-| S55 | PoK R0~R7 재설계. R0 기반·R1 기준 실험·R2 계약/기준판/R5 입력 동결 완료. R3 설계 기록·XML 편집/계산/근거·관측·소유 native 수명·영속 실행/MCP 회수 구현 중. 저널 전 전체 단위2448통과/2문서skip, 이후 영속 연결57검사·실제 재기동/중단/PoB취소 회수3검사 통과. R3 종합 요구 감사·비용/원문 편집·플랫폼/전량 통합 및 UI/R4~R7은 미완료. [계약/증거](POK_REDESIGN_CONTRACTS.md) · [완료 기준](POK_REDESIGN_ACCEPTANCE.md) · [로드맵](ROADMAP.md) | in_progress |
+| S55 | PoK R0~R7 재설계. R0~R2 범위 완료. R3 기반 구현·로컬 전량 검사와 원격 Windows native149통과, macOS native142통과/3skip/룬 fixture6오류를 후속 수정 중. R4 명시 계산/조립·저장 비교 v2·자율 설계 스킬·탐색 범위 및 공동 재투자 검증 진행. 일반 CI 양쪽 OS 통과. R3 최종 감사·R4 출구와 R5~R7은 미완료. [계약/증거](POK_REDESIGN_CONTRACTS.md) · [완료 기준](POK_REDESIGN_ACCEPTANCE.md) · [로드맵](ROADMAP.md) | in_progress |
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / ROADMAP R3: XML 문서 측정/선택 보고를 design-record의 실제 근거 형식에 연결하고 편집 후 설계/획득 근거 재결박을 구현한다. 문서 결박된 native 효과/모드 범위 검증·원문 보존 편집·재측정은 관련21/8검사와 실제 PoB2건 통과했다. 직접 대응되는 현재 주력 그룹만 지원하고 재인덱싱/item-generated/모호한 좌표는 편집 전에 거절한다. matched는 native 선택 대조일 뿐 실행 정체성/게임 성립/전체 준비도 인증이 아니다. 기존 spec_sha256 참조로 XML 측정을 위장하지 않는다. 실제 실행 정체성·전체 요청 수명/절대 기한·격리/복구와 UI 저장/undo/export 휴대·재적용도 남아 있다. 기존 전체 단위2295통과/2v6skip은 후속 코드 이전 결과다. 상세 증거는 계약·ACCEPTANCE·BACKLOG를 따른다. 기존 모듈 경계/독립 계산·v1 purpose를 유지하고 새 가변 설계 DB나 빌드 솔버를 만들지 않는다. R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 worktree codex/pok-r1-replay는 보존한다. R3 전체 및 R4~R7·개선판 새 과제 생성/평가는 미완료다.**
+The only next executable step is: **S55 / R3·R4: macOS native 룬 편집 fixture의 공통 로더 수정과 탐색 범위 보강을 게시하고 원격 결과를 확인한다. 공동 재투자 두 사례는 v3에서 통과했으며 핵심 메커니즘 변경의 완성 트리 대안·기각 근거를 다음으로 검증한다. R3 최종 감사·R4 전체·R5~R7은 미완료다. 동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 worktree codex/pok-r1-replay는 보존한다. 초안 PR #150은 병합하지 않는다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -926,3 +928,21 @@ Codex/Claude 등록 설명4개를 동일 지원 범위로 갱신했다. validato
 이는 커밋2702a38 범위의 Windows 증거다. macOS는 Launch.lua 헤더 실패로 현재 로컬 보강을
 재게시해야 한다. v2 스킬 등록4개 UTF-8 quick_validate 통과, 등록 회귀6통과,
 추가 capability/CI 관련4통과. 현재 R4 전체/모델 효과·R5~R7은 미완료다.
+
+R4 유한 탐색 감사: 트리는 보호 기반 성장/새 가지 정리이며 기존 트리 전체 재배분 아님,
+희귀는 지정 슬롯·베이스/롤의 단독 접사 순위·조립 그리디임을 search_evidence에 자동 부착했다.
+보호 기반/예산/제외/희귀/추천 회귀146통과(r4-search-scope-audit-v1.xml), 관련 mypy/Ruff 통과.
+v2에서 일반 패시브 tree_sig 변경을 전직 비교로 과대 인정할 수 있음을 찾아 실제 노드
+소유 정보로 분리했다. component-scope 회귀 실행을 별도로 보존한다. 공동 재투자 출구
+세 실제 사례와 전체 R4 감사는 여전히 남아 있다. 원격 최신 run41259946514 및 native
+41259946493/41259941382는 마지막 조회 시 실제 실행 중이며 종료 전 재시작하지 않는다.
+전직/일반 트리 범위 구분 회귀13통과(r4-component-scope-v1.xml). 검색 결과 서식1건 교정 완료.
+
+R4 공동 재투자 v1의2개 계산 성공 뒤 수치를 재감사했다. 마나 기본안은 이미 비용 보조
+없이도 지속 가능해 인과 대조로 약했으므로 필수 공급을 입증했다고 하지 않는다.
+v2에 보조 조기 교체 대조를 추가했고 원래/조기교체의 지속 경계는 갈렸으나 최종안도
+31.2<19*1.642857143으로 미세 부족했다. 원본 실패 보존. 회복 접사25% 명시안으로 v3 재검증.
+저항 사례는 부족한 저항을 캡핑한 빌드가 아니라 같은 저항을 유지하는 부위 재배분 fixture다.
+일반 CI run41259946514 양쪽 OS 성공. native macOS142통과/3skip/룬 probe6오류 확인 후
+probe에 실제 공통 로더 경로를 전달하도록 수정했고 로컬 룬 재가져오기6검사 통과했다.
+공동 재투자 v3 종료2통과. 마나 조기 교체 실패/공급 후 회복과 저항 재배분의 실제 수치·대가를 R4 감사에 기록했다. 원격 run41259946493 Windows success/macOS fixture6오류로 종료를 확인했다. 전체 R4 완료 아님.
