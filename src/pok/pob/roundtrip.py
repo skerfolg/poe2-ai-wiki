@@ -28,13 +28,13 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from pok.common.paths import project_root, var_dir
-from pok.pob.runner import _LUA_PATH
+from pok.pob.runner import _LUA_PATH, run_native_capture
 from pok.pob.versions import PobSnapshot, find_luajit, resolve_snapshot
 
 _SCRIPT = Path("scripts") / "pob_item_roundtrip.lua"
@@ -89,7 +89,7 @@ def roundtrip(
     if not items:
         return []
     snap = snapshot or resolve_snapshot(root)
-    payload = var_dir() / "pob-cache" / "_roundtrip.txt"
+    payload = var_dir() / "pob-cache" / f"_roundtrip-{uuid4().hex}.txt"
     payload.parent.mkdir(parents=True, exist_ok=True)
     with payload.open("w", encoding="utf-8", newline="\n") as fh:
         for label, text in items.items():
@@ -97,13 +97,10 @@ def roundtrip(
             fh.writelines(f"{line}\n" for line in text.splitlines())
             fh.write("#END\n")
     try:
-        proc = subprocess.run(
+        proc = run_native_capture(
             [find_luajit(), str(project_root() / _SCRIPT), str(payload)],
             cwd=snap.src_dir,
             env={**os.environ, "LUA_PATH": _LUA_PATH},
-            input="",
-            capture_output=True,
-            text=True,
             # 로케일 디코딩 금지 — 근거는 `runner.py`의 #120 주석(같은 luajit
             # 출력이고, 여기선 아이템 원문이라 비ASCII 이름이 더 흔하다). #166.
             encoding="utf-8",

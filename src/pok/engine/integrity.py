@@ -17,25 +17,49 @@
 
 from __future__ import annotations
 
-import functools
 from typing import Any
 
-# 메타/트리거 젬은 **스스로 딜을 내지 않는다** — 무엇을 발동시킬지가 있어야 한다.
-# 판정 근거는 KB 태그(GAME_DATA)이지 이름 매칭이 아니다.
-_META_TAGS = frozenset({"meta", "trigger"})
+from pok.kb.store import Store
+
+_CLASSIFICATIONS: tuple[Store, dict[str, str]] | None = None
 
 
-@functools.lru_cache(maxsize=1)
-def _skill_tags() -> dict[str, frozenset[str]]:
-    """스킬 표시명(소문자) → 태그. 액티브 스킬 판별과 메타 젬 판별에 함께 쓴다."""
+def _record_kind(tags: frozenset[str], effects: list[dict[str, Any]]) -> str:
+    """Explicit meta containers still need a payload, even with ancillary effects."""
+    types = {
+        str(value)
+        for effect in effects
+        if not effect.get("support")
+        for value in effect.get("types", [])
+    }
+    if "meta" in tags or "Meta" in types:
+        return "meta"
+    if "InbuiltTrigger" in types:
+        return "active"
+    # Retain the existing external-trigger fallback when no internal effect is
+    # recorded. Triggerable (can be triggered) is not a container marker.
+    return "meta" if "trigger" in tags else "active"
+
+
+def _skill_kinds() -> dict[str, str]:
+    """KB identity-scoped classifications by native gem id and display name."""
     from pok.kb.store import load as store_load
 
-    out: dict[str, frozenset[str]] = {}
-    for record in store_load().records.values():
+    global _CLASSIFICATIONS
+    store = store_load()
+    if _CLASSIFICATIONS is not None and _CLASSIFICATIONS[0] is store:
+        return _CLASSIFICATIONS[1]
+    out: dict[str, str] = {}
+    for record in store.records.values():
         if record.type != "Skill":
             continue
         tags = record.raw.get("tags") or []
-        out[record.name_en.lower()] = frozenset(str(x).lower() for x in tags)
+        pob = record.raw.get("data", {}).get("pob", {})
+        kind = _record_kind(frozenset(str(x).lower() for x in tags), pob.get("effects", []))
+        out[record.name_en.lower()] = kind
+        if identity := pob.get("gem_id"):
+            out[str(identity)] = kind
+    _CLASSIFICATIONS = (store, out)
     return out
 
 
@@ -44,17 +68,19 @@ def _is_support(gem: dict[str, Any]) -> bool:
     return str(gem.get("gem_id", "")).endswith("Support")
 
 
-def _classify(gem: dict[str, Any]) -> str:
+def _classify(gem: dict[str, Any], kinds: dict[str, str]) -> str:
     """`support` | `meta` | `active` | `unknown`."""
     if _is_support(gem):
         return "support"
-    tags = _skill_tags().get(str(gem.get("name", "")).strip().lower())
-    if tags is None:
-        return "unknown"
-    return "meta" if tags & _META_TAGS else "active"
+    return kinds.get(
+        str(gem.get("gem_id", "")),
+        kinds.get(str(gem.get("name", "")).strip().lower(), "unknown"),
+    )
 
 
-def spec_integrity(spec_data: dict[str, Any]) -> tuple[str, ...]:
+def spec_integrity(
+    spec_data: dict[str, Any], *, native_selection: dict[str, Any] | None = None
+) -> tuple[str, ...]:
     """스펙의 구조적 결함 — 적법성이 아니라 **설계가 성립하는가**.
 
     돌려주는 것은 사람이 읽을 문장이다. 어느 그룹의 몇 번째인지까지 짚어야
@@ -65,7 +91,8 @@ def spec_integrity(spec_data: dict[str, Any]) -> tuple[str, ...]:
     if not groups:
         return ("스킬 그룹이 하나도 없다 — 딜을 낼 수 있는 구성이 아니다",)
 
-    kinds = [[_classify(g) for g in (grp.get("gems") or [])] for grp in groups]
+    classifications = _skill_kinds()
+    kinds = [[_classify(g, classifications) for g in (grp.get("gems") or [])] for grp in groups]
 
     # ① 주력기 부재 — `main_socket_group`이 가리키는 곳에 딜을 낼 스킬이 없다.
     #    실측: `CombinedDPS` 2,562(주력기 없음) → 24,436(투입). **10배**.
@@ -88,17 +115,30 @@ def spec_integrity(spec_data: dict[str, Any]) -> tuple[str, ...]:
                 f"주력기 투입 시 24,436(**10배**)"
             )
         else:
-            # ② 주력 스킬 지정 — PoB의 `mainActiveSkill`은 그룹 안 **순번**이다.
-            #    메타 젬을 가리키면 그 그룹의 딜이 통째로 안 잡힌다.
-            pointer = int(main.get("main_active_skill") or 1)
-            if 1 <= pointer <= len(main_kinds) and main_kinds[pointer - 1] != "active":
-                names = [str(g.get("name", "?")) for g in (main.get("gems") or [])]
-                suggest = ", ".join(f"{i + 1}={names[i]!r}" for i in active_at)
+            # mainActiveSkill indexes the native active-effect list, not gems.
+            # Without an observation, do not manufacture a slot-based verdict.
+            actual_value = (native_selection or {}).get("actual")
+            actual: dict[str, Any] = actual_value if isinstance(actual_value, dict) else {}
+            observed = (
+                native_selection is not None
+                and native_selection.get("format") == "pok.native-selection.v1"
+                and native_selection.get("status") == "observed"
+                and actual.get("selected") is True
+            )
+            if observed and actual.get("meta_container") is True:
                 problems.append(
-                    f"skills[{main_index - 1}].main_active_skill={pointer}가 "
-                    f"{names[pointer - 1]!r}(딜을 내지 않는 젬)를 가리킨다 — "
-                    f"딜을 낼 젬은 {suggest}"
+                    "PoB의 실제 주력 활성 효과가 메타 컨테이너다: "
+                    f"{actual.get('effect_id')} (활성 효과 순번 {actual.get('active_index')}, "
+                    f"젬 슬롯 {actual.get('gem_index')}) — 의도한 피해 효과인지 확인할 것"
                 )
+            if observed and actual.get("group_index") == main_index:
+                pointer = int(main.get("main_active_skill") or 1)
+                index = actual.get("active_index")
+                if isinstance(index, int) and pointer != index:
+                    problems.append(
+                        f"main_active_skill={pointer} 요청과 PoB 실제 활성 효과 순번 {index}가 "
+                        "다르다 — 젬 슬롯 번호와 혼동하지 말고 nativeSelection을 확인할 것"
+                    )
 
     # ③ 트리거 미연결 — 메타 젬이 있는데 **발동될 스킬**이 같은 그룹에 없다.
     #    PoB는 오류를 내지 않는다. 조립도 성공이고 젬도 `enabled="true"`다.

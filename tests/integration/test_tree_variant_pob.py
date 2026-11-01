@@ -79,8 +79,8 @@ def test_branch_variant_reaches_measurement_and_exploration_export(
         assert not result.is_error
         wire = CallToolResult(
             content=result.content,
-            structured_content=result.structured_content,
-            is_error=result.is_error,
+            structuredContent=result.structured_content,
+            isError=result.is_error,
             _meta=result.meta,
         ).model_dump_json(by_alias=True, exclude_none=True)
         assert len(wire.encode("utf-8")) <= 16000

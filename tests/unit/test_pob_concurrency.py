@@ -38,9 +38,11 @@ def test_identical_driver_requests_do_not_delete_each_others_input(
             second_reading.set()
             assert release_second.wait(5)
         assert path.read_text(encoding="utf-8") == "<same-input/>"
-        return subprocess.CompletedProcess(args, 0, STDOUT, "")
+        kwargs["stdout"].write(STDOUT.encode("utf-8"))
+        kwargs["stdout"].flush()
+        return subprocess.CompletedProcess(args, 0)
 
-    monkeypatch.setattr(runner.subprocess, "run", run)
+    monkeypatch.setattr(runner, "_run_owned_driver", run)
     snapshot = PobSnapshot("fixture", tmp_path, tmp_path)
     with ThreadPoolExecutor(max_workers=2) as pool:
         first = pool.submit(runner._run_driver, "<same-input/>", snapshot, 10)
@@ -59,6 +61,9 @@ def test_cache_reader_never_observes_an_unfinished_write(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(runner, "var_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        runner, "_execution_observation", lambda *args: {"status": "observed", "sha256": "fixture"}
+    )
     snapshot = PobSnapshot("fixture", tmp_path, tmp_path)
     payload = {"meta": {"level": 90}, "alloc": [], "stats": {"Life": 1187}}
     monkeypatch.setattr(runner, "_run_driver", lambda *args: payload)
@@ -85,7 +90,7 @@ def test_cache_reader_never_observes_an_unfinished_write(
             finish_write.set()
         assert writer.result(timeout=5).stats == observed.stats
     cache = runner._cache_path("<same-input/>", snapshot.commit)
-    assert json.loads(cache.read_text(encoding="utf-8")) == payload
+    assert json.loads(cache.read_text(encoding="utf-8"))["result"] == payload
     assert list(cache.parent.iterdir()) == [cache]
 
 
@@ -93,6 +98,9 @@ def test_corrupt_legacy_cache_is_recomputed(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(runner, "var_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        runner, "_execution_observation", lambda *args: {"status": "observed", "sha256": "fixture"}
+    )
     snapshot = PobSnapshot("fixture", tmp_path, tmp_path)
     cache = runner._cache_path("<input/>", snapshot.commit)
     cache.parent.mkdir()
@@ -101,7 +109,7 @@ def test_corrupt_legacy_cache_is_recomputed(
     monkeypatch.setattr(runner, "_run_driver", lambda *args: payload)
     assert not runner.run_xml("<input/>", snapshot=snapshot).cached
     assert runner.run_xml("<input/>", snapshot=snapshot).cached
-    assert json.loads(cache.read_text(encoding="utf-8")) == payload
+    assert json.loads(cache.read_text(encoding="utf-8"))["result"] == payload
 
 
 def test_independent_daemons_own_distinct_input_paths(
@@ -248,6 +256,7 @@ def test_power_ranking_loads_its_base_and_holds_it_until_measurement() -> None:
 
     class Probe:
         transaction = daemon_mod.PobDaemon.transaction
+        command_timeout_s = 180.0
 
         def __init__(self):
             self._lock = RLock()

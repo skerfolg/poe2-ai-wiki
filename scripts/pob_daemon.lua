@@ -17,6 +17,7 @@ end
 local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
 local craftItem = dofile(adapterDir .. "pob_item_craft.lua")
 local lateUtilityStats = dofile(adapterDir .. "pob_late_utility.lua")
+local nativeSelection = dofile(adapterDir .. "pob_selection.lua")
 dofile("HeadlessWrapper.lua")
 
 local function jesc(s)
@@ -194,11 +195,11 @@ local function emit()
   -- ⚠ 다중 반환은 **인자 목록 끝에서만** 펼쳐진다 — 뒤에 인자를 더하면 조용히 잘린다.
   local gapTrig, gapMirage, gapMainTrig = pokOracleGaps()
   print(string.format(
-    'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"mainSkillShowsAverage":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d,"items":%s}',
+    'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"mainSkillShowsAverage":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d,"items":%s,"nativeSelection":%s}',
     jesc(build.spec.curClassName or ""),
     jesc(build.spec.curAscendClassName or ""),
     build.characterLevel or 0, points or 0, asc or 0, secAsc or 0, pokShowsAverage(),
-    gapTrig, gapMirage, gapMainTrig, pokItems()))
+    gapTrig, gapMirage, gapMainTrig, pokItems(), nativeSelection(build, SkillType)))
 
   local ids = {}
   for id, node in pairs(build.spec.allocNodes) do

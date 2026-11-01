@@ -35,13 +35,13 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from pok.common.paths import project_root, var_dir
-from pok.pob.runner import _LUA_PATH
+from pok.pob.runner import _LUA_PATH, run_native_capture
 from pok.pob.versions import PobSnapshot, find_luajit, resolve_snapshot
 
 _SCRIPT = "scripts/pob_item_parse_gaps.lua"
@@ -167,7 +167,7 @@ def _probe(
     """레코드 묶음을 한 베이스에 얹어 PoB 1회 부팅으로 판정."""
     if not batch:
         return {}
-    payload = var_dir() / "pob-cache" / f"_item-gaps-{abs(hash(base)) % 10**8}.txt"
+    payload = var_dir() / "pob-cache" / f"_item-gaps-{uuid4().hex}.txt"
     payload.parent.mkdir(parents=True, exist_ok=True)
     with payload.open("w", encoding="utf-8", newline="\n") as fh:
         for rid, lines in batch.items():
@@ -175,13 +175,10 @@ def _probe(
             fh.writelines(f"{line}\n" for line in lines)
             fh.write("#END\n")
     try:
-        proc = subprocess.run(
+        proc = run_native_capture(
             [find_luajit(), str(project_root() / _SCRIPT), str(payload)],
             cwd=snap.src_dir,
             env={**os.environ, "LUA_PATH": _LUA_PATH},
-            input="",
-            capture_output=True,
-            text=True,
             # 로케일 디코딩 금지 — 근거는 `runner.py`의 #120 주석(같은 luajit
             # 출력이고, 여기선 아이템 원문이라 비ASCII 이름이 더 흔하다). #166.
             encoding="utf-8",

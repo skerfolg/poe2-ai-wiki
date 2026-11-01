@@ -68,7 +68,13 @@ def boundaries(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[Any]]:
         )
         for node in (10100, 20200)
     }
-    monkeypatch.setattr(store, "load", lambda: SimpleNamespace(records=records))
+    monkeypatch.setattr(
+        store,
+        "load",
+        lambda root=None: SimpleNamespace(
+            records=records, subjects={"enemy.status": {"values": ["cursed"]}}
+        ),
+    )
     monkeypatch.setattr(telemetry, "record", lambda *a, **kw: None)
     monkeypatch.setattr(buildxml, "_validate_catalog", lambda spec: None)
     monkeypatch.setattr(build, "_get_checker", lambda: object())
@@ -120,6 +126,58 @@ def test_능력치_선택_누락을_훅_없이_거부한다(tool: str, boundarie
     out = _call(tool, _spec(attribute_choices=[]))
     assert out["ok"] is False and "10100" in " ".join(out["blocking"])
     assert not any(boundaries.values()), "검사 전에 계산·자동 채움·출고하면 안 된다"
+
+
+def test_assembly_mcp_preserves_automatic_sidecar_reference(monkeypatch, boundaries):
+    from pok.mcp.tools import build
+
+    previous = build.assemble
+    reference = {
+        "artifact_id": "fixture",
+        "name": "socket-sidecar.json",
+        "sha256": "sha256:" + "0" * 64,
+    }
+    provenance = {
+        "status": "bound_declarations",
+        "claim": "caller_declarations_not_drop_verification",
+    }
+
+    def assemble_with_reference(*args, **kwargs):
+        result = previous(*args, **kwargs)
+        result.socket_sidecar_ref = reference
+        result.socket_provenance = provenance
+        return result
+
+    monkeypatch.setattr(build, "assemble", assemble_with_reference)
+    out = _call("assemble_pob", _spec())
+    assert out["ok"] is True
+    assert out["socket_sidecar_ref"] == reference
+    assert out["socket_provenance"] == provenance
+
+
+@pytest.mark.parametrize("config", [{"conditionMoving": True}, {"conditionStationary": 1}])
+def test_behaviour_scenario_passes_actual_assembly_gate_and_is_reported(
+    monkeypatch, boundaries, config
+):
+    from pok.engine.constraints import assumptions
+
+    # Retain the real config audit while the existing fixture substitutes
+    # unrelated node legality, native arithmetic, and artifact publication.
+    monkeypatch.setattr(
+        assumptions,
+        "check_assumptions",
+        lambda spec: assumptions.AssumptionReport(assumptions.audit_config(spec)),
+    )
+    out = _call("assemble_pob", _spec(config=config))
+    assert out["ok"] is True
+    assert len(boundaries["assemble"]) == 1
+    assert out["assumptions"]["behaviour_scenarios"][0]["var"] == next(iter(config))
+    assert out["assumptions"]["always_on_config"] == []
+    assert any("상시 유지" in note for note in out["assumptions"]["notes"])
+    denied = _call("assemble_pob", _spec(config={**config, "conditionEnemyCursed": True}))
+    assert denied["ok"] is False
+    assert any("conditionEnemyCursed" in reason for reason in denied["blocking"])
+    assert len(boundaries["assemble"]) == 1
 
 
 @pytest.mark.parametrize("tool", ["compute_pob", "assemble_pob"])

@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -243,6 +244,7 @@ def list_builds(root: Path | None = None) -> tuple[BuildListing, ...]:
     자료 조사 전에 버전업/백지를 강제로 물어보게 하라"). 판단은 하지 않는다 —
     어느 것이 '진행 중'인지는 `status` 줄을 읽는 쪽의 몫이다(AD-3).
     """
+    from pok.artifacts.store import IMMUTABLE_BUILD_FORMAT
     from pok.common.paths import artifacts_dir
 
     builds = artifacts_dir(root) / "builds"
@@ -250,7 +252,28 @@ def list_builds(root: Path | None = None) -> tuple[BuildListing, ...]:
         return ()
     out: list[BuildListing] = []
     for path in sorted(builds.iterdir()):
-        if not path.is_dir():
+        if not path.is_dir() or path.name.startswith("."):
+            continue
+        try:
+            manifest = json.loads((path / "manifest.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            manifest = {}
+        metadata = manifest.get("metadata", {}) if isinstance(manifest, dict) else {}
+        if (
+            isinstance(manifest, dict)
+            and manifest.get("format") == IMMUTABLE_BUILD_FORMAT
+            and isinstance(metadata, dict)
+            and metadata.get("kind")
+            in {
+                "design-checkpoint",
+                "socket-provenance-sidecar",
+                "design-material",
+                "pob-document",
+                "pob-document-measurement",
+                "pob-document-selection",
+                "execution-checkpoint",
+            }
+        ):
             continue
         design_path = path / "design.md"
         if design_path.exists():

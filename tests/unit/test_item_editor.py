@@ -55,7 +55,7 @@ def test_batches_exact_utf8_inputs_in_unique_cleaned_directory(
         )
         return SimpleNamespace(returncode=0, stdout="POK_OK\n", stderr="")
 
-    monkeypatch.setattr(item_editor.subprocess, "run", run)
+    monkeypatch.setattr(item_editor, "run_native_capture", run)
     for _ in range(2):
         result = item_editor.audit_item_editor(
             {"장갑": "Rarity: RARE\n원문\nAdorned Wraps"},
@@ -89,7 +89,7 @@ def test_native_error_is_checked_but_incompatible(
         )
         return SimpleNamespace(returncode=0, stdout="POK_OK\n", stderr="")
 
-    monkeypatch.setattr(item_editor.subprocess, "run", run)
+    monkeypatch.setattr(item_editor, "run_native_capture", run)
     result = item_editor.audit_item_editor({"Body Armour": "original"}, snapshot=runtime)
     assert result["checked"] and not result["compatible"]
     assert result["items"][0]["opened_sockets"] == 8
@@ -118,7 +118,7 @@ def test_successful_open_with_socket_count_drift_is_incompatible(
         )
         return SimpleNamespace(returncode=0, stdout="POK_OK\n", stderr="")
 
-    monkeypatch.setattr(item_editor.subprocess, "run", run)
+    monkeypatch.setattr(item_editor, "run_native_capture", run)
     result = item_editor.audit_item_editor({"Gloves": "original"}, snapshot=runtime)
     assert result["checked"] and not result["compatible"]
     assert result["items"][0]["code"] == "count_changed"
@@ -145,7 +145,7 @@ def test_timeout_keeps_partial_item_stage_and_unstarted_rows(
         )
         raise subprocess.TimeoutExpired(args, 0.1)
 
-    monkeypatch.setattr(item_editor.subprocess, "run", run)
+    monkeypatch.setattr(item_editor, "run_native_capture", run)
     result = item_editor.audit_item_editor(
         {"first": "one", "second": "two", "third": "three"},
         timeout=0.1,
@@ -177,7 +177,7 @@ def test_success_exit_without_complete_evidence_does_not_pass(
             _write_output(args, [])
         return SimpleNamespace(returncode=0, stdout="POK_OK\n", stderr="")
 
-    monkeypatch.setattr(item_editor.subprocess, "run", run)
+    monkeypatch.setattr(item_editor, "run_native_capture", run)
     result = item_editor.audit_item_editor({"item": "original"}, snapshot=runtime)
     assert not result["checked"] and not result["compatible"]
     assert result["problems"]

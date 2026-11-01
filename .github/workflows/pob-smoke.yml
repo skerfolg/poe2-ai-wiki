@@ -8,13 +8,24 @@ on:
   push:
     paths:
       - "scripts/pob_smoke.lua"
+      - "scripts/pob_*.lua"
+      - "src/pok/**"
+      - "tests/integration/**"
+      - "tests/unit/test_owned_process.py"
+      - "pyproject.toml"
       - ".github/workflows/pob-smoke.yml"
   pull_request:
     paths:
       - "scripts/pob_smoke.lua"
+      - "scripts/pob_*.lua"
+      - "src/pok/**"
+      - "tests/integration/**"
+      - "tests/unit/test_owned_process.py"
+      - "pyproject.toml"
       - ".github/workflows/pob-smoke.yml"
 
 env:
+  PYTHONUTF8: "1"
   POB_REPO: https://github.com/PathOfBuildingCommunity/PathOfBuilding-PoE2.git
   POB_COMMIT: 5d173cbf8c9cf394a975cbb813f19d0b6dc67ea6
 
@@ -27,22 +38,30 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Python runtime dependencies
+        run: pip install -e ".[dev]"
 
       - name: PoB 클론 캐시
         id: pob-cache
         uses: actions/cache@v4
         with:
-          path: pob
-          key: pob-${{ env.POB_COMMIT }}
+          path: external/pob
+          key: ${{ runner.os }}-pob-native-v2-${{ env.POB_COMMIT }}
 
       - name: PoB 소스 (고정 커밋)
         if: steps.pob-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
-          git init pob
-          git -C pob remote add origin "$POB_REPO"
-          git -C pob fetch --depth 1 origin "$POB_COMMIT"
-          git -C pob checkout FETCH_HEAD
+          dir="external/pob/${POB_COMMIT:0:7}"
+          mkdir -p "$dir"
+          git init "$dir"
+          git -C "$dir" config core.autocrlf false
+          git -C "$dir" remote add origin "$POB_REPO"
+          git -C "$dir" fetch --depth 1 origin "$POB_COMMIT"
+          git -C "$dir" checkout FETCH_HEAD
 
       - name: LuaJIT 설치 (macOS)
         if: runner.os == 'macOS'
@@ -59,7 +78,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          cd pob/src
+          cd "external/pob/${POB_COMMIT:0:7}/src"
           echo "" | LUA_PATH="./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;" \
             luajit "$GITHUB_WORKSPACE/scripts/pob_smoke.lua" | tee out.log
           grep -q "^POK_OK$" out.log
@@ -68,7 +87,25 @@ jobs:
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
-          cd pob/src
+          cd "external/pob/${POB_COMMIT:0:7}/src"
           echo "" | LUA_PATH="./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;" \
             luajit "$GITHUB_WORKSPACE/scripts/pob_smoke.lua" | tee out.log
           grep -q "^POK_OK$" out.log
+
+      - name: Export LuaJIT path (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          printf 'POK_LUAJIT=%s\n' "$(cygpath -w "$(command -v luajit)")" >> "$GITHUB_ENV"
+
+      - name: Native adapter, ownership and recovery tests
+        run: >-
+          python -m pytest tests/integration tests/unit/test_owned_process.py
+          --junitxml=native-results.xml
+
+      - name: Native test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-results-${{ runner.os }}
+          path: native-results.xml

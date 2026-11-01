@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import functools
+import math
 import re
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Any
@@ -114,6 +115,10 @@ class GemSpec:
     # 원인이 안 보이는 종류의 손실이라(경고도 없다) 반드시 싣는다.
     corrupted: bool = False
     corrupt_level: int = 0
+    # None preserves the legacy primary-only shorthand; explicit maps preserve
+    # per-effect MAIN/CALCS assignments, including an intentionally empty map.
+    stat_set_indices: tuple[tuple[str, int], ...] | None = None
+    stat_set_calcs_indices: tuple[tuple[str, int], ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -124,6 +129,7 @@ class SkillGroupSpec:
     slot: str = "Weapon 1"
     enabled: bool = True
     main_active_skill: int = 1
+    main_active_skill_calcs: int | None = None
 
 
 @dataclass(frozen=True)
@@ -190,7 +196,7 @@ class BuildSpec:
     items: tuple[ItemSpec, ...] = ()
     jewels: tuple[JewelSpec, ...] = ()
     main_socket_group: int = 1  # 1-based (PoB 관례) — 0-based로 읽으면 이웃 그룹을 잰다 (#144)
-    config: tuple[tuple[str, str | int | bool], ...] = field(default=())  # Input name→value
+    config: tuple[tuple[str, str | int | float | bool], ...] = field(default=())  # Input name→value
     # 능력치 택1 노드의 선택 — {node_id: "str"|"dex"|"int"} (이관 5 C13')
     #
     # `+N to any Attribute` 노드는 PoB 트리에 `isAttribute=true` + `options[]`로 있고
@@ -290,6 +296,45 @@ def _make[T](
             parts.append(f"모르는 키: {unknown}")
         raise ValueError(f"{where} — {' · '.join(parts)}. 허용 키: {sorted(allowed)}")
     return cls(**{k: v for k, v in data.items() if k not in spec_only})
+
+
+def _mode_index(value: Any, where: str) -> int:
+    from pok.pob.selection import _integer
+
+    if isinstance(value, bool) or not isinstance(value, str | int | float):
+        raise ValueError(f"{where} must be a positive integer")
+    try:
+        number = _integer(str(value))
+    except ValueError as exc:
+        raise ValueError(f"{where} must be a positive integer") from exc
+    if number < 1:
+        raise ValueError(f"{where} must be a positive integer")
+    return number
+
+
+def _mode_pairs(value: Any, where: str) -> tuple[tuple[str, int], ...] | None:
+    if value is None:
+        return None
+    if not isinstance(value, dict | list | tuple):
+        raise ValueError(f"{where} must be an effect-to-index map or pairs")
+    pairs = value.items() if isinstance(value, dict) else value
+    result: dict[str, int] = {}
+    for pair in pairs:
+        if not isinstance(pair, list | tuple) or len(pair) != 2:
+            raise ValueError(f"{where} contains a malformed effect/index pair")
+        effect, index = pair
+        if not isinstance(effect, str) or not effect or effect in result:
+            raise ValueError(f"{where} effect IDs must be nonempty and unique")
+        result[effect] = _mode_index(index, f"{where}[{effect}]")
+    return tuple(sorted(result.items()))
+
+
+def _make_gem(data: dict[str, Any], where: str) -> GemSpec:
+    value = dict(data)
+    for key in ("stat_set_indices", "stat_set_calcs_indices"):
+        if key in value:
+            value[key] = _mode_pairs(value[key], f"{where}.{key}")
+    return _make(GemSpec, value, where)
 
 
 @functools.lru_cache(maxsize=1)
@@ -466,7 +511,10 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
         for i, gem in enumerate(group.get("gems", [])):
             if gem.get("stat_set_index") is not None:
                 continue
-            _, labels = stat_sets(str(gem.get("gem_id", "")))
+            effect, labels = stat_sets(str(gem.get("gem_id", "")))
+            explicit = dict(_mode_pairs(gem.get("stat_set_indices"), "stat_set_indices") or ())
+            if effect in explicit:
+                continue
             if len(labels) > 1:
                 numbered = ", ".join(f"{n}={lb!r}" for n, lb in enumerate(labels, 1))
                 problems.append(
@@ -586,7 +634,7 @@ def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> Bu
             {
                 **{k: v for k, v in grp.items() if k != "gems"},
                 "gems": tuple(
-                    _make(GemSpec, g, f"skills[{gi}].gems[{i}]")
+                    _make_gem(g, f"skills[{gi}].gems[{i}]")
                     for i, g in enumerate(grp.get("gems", []))
                 ),
             },
@@ -638,10 +686,12 @@ def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> Bu
     )
 
 
-def _config_value_attrs(value: str | int | bool) -> str:
+def _config_value_attrs(value: str | int | float | bool) -> str:
     if isinstance(value, bool):
         return f'boolean="{"true" if value else "false"}"'
-    if isinstance(value, int):
+    if isinstance(value, int | float):
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError("Config numbers must be finite")
         return f'number="{value}"'
     return f"string={_pob_attr(value)}"
 
@@ -698,19 +748,42 @@ def _gem_xml(gem: GemSpec) -> str:
         )
         + f'enabled="{"true" if gem.enabled else "false"}" nameSpec={quoteattr(gem.name)}'
     )
-    if gem.stat_set_index is None:
-        return head + "/>"
-
     from pok.kb.skill_facts import primary_effect
 
-    effect = primary_effect(gem.gem_id)
-    index = gem.stat_set_index
-    return (
-        head + ">\n"
-        f'          <StatSetIndex grantedEffect={quoteattr(effect)} index="{index}"/>\n'
-        f'          <StatSetCalcsIndex grantedEffect={quoteattr(effect)} index="{index}"/>\n'
-        "        </Gem>"
+    effect = primary_effect(canonical_gem_id(gem.gem_id))
+    explicit_main = _mode_pairs(gem.stat_set_indices, "stat_set_indices")
+    explicit_calcs = _mode_pairs(gem.stat_set_calcs_indices, "stat_set_calcs_indices")
+    main = dict(explicit_main) if explicit_main is not None else {}
+    scalar = (
+        _mode_index(gem.stat_set_index, "stat_set_index")
+        if gem.stat_set_index is not None
+        else None
     )
+    if scalar not in (None, 1) and not effect and explicit_main is None:
+        raise ValueError(
+            "Primary effect is unknown; supply stat_set_indices with an explicit effect ID"
+        )
+    if scalar is not None and effect:
+        if explicit_main is not None and main.get(effect, 1) != scalar:
+            raise ValueError("stat_set_index conflicts with explicit MAIN effect modes")
+        if explicit_main is None:
+            main[effect] = scalar
+    # A MAIN map never spreads into CALCS. The legacy scalar still provides
+    # its historical primary CALCS choice unless CALCS is explicitly supplied.
+    calcs = (
+        dict(explicit_calcs)
+        if explicit_calcs is not None
+        else ({effect: scalar} if effect and scalar is not None else {})
+    )
+    if not main and not calcs:
+        return head + "/>"
+    children = []
+    for tag, modes in (("StatSetIndex", main), ("StatSetCalcsIndex", calcs)):
+        for identity, index in sorted(modes.items()):
+            children.append(
+                f'          <{tag} grantedEffect={quoteattr(identity)} index="{index}"/>'
+            )
+    return head + ">\n" + "\n".join(children) + "\n        </Gem>"
 
 
 def to_xml(spec: BuildSpec) -> str:
@@ -725,9 +798,16 @@ def to_xml(spec: BuildSpec) -> str:
     skill_groups: list[str] = []
     for group in spec.skills:
         gems = "\n".join(_gem_xml(g) for g in group.gems)
+        calcs_pointer = (
+            _mode_index(group.main_active_skill_calcs, "main_active_skill_calcs")
+            if group.main_active_skill_calcs is not None
+            else None
+        )
         skill_groups.append(
             f'      <Skill enabled="{"true" if group.enabled else "false"}" label="" '
-            f'slot={quoteattr(group.slot)} mainActiveSkill="{group.main_active_skill}">\n'
+            f'slot={quoteattr(group.slot)} mainActiveSkill="{group.main_active_skill}"'
+            + (f' mainActiveSkillCalcs="{calcs_pointer}"' if calcs_pointer is not None else "")
+            + ">\n"
             f"{gems}\n      </Skill>"
         )
     skills_xml = "\n".join(skill_groups)

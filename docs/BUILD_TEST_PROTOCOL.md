@@ -2,7 +2,7 @@
 
 > **대상**: 빌드 생성을 수행하는 세션
 > **작성 계기**: P5 이후 실전 검증 (사용자 결정 2026-08-04)
-> 관련: [ROADMAP](ROADMAP.md) P5 · [BUILD_DESIGN](BUILD_DESIGN.md) 설계 규격
+> 관련: [개정 전 ROADMAP](ROADMAP_PRE_REDESIGN.md) P5 · [BUILD_DESIGN](BUILD_DESIGN.md) 설계 규격
 
 ---
 

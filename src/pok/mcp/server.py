@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import copy
 import functools
+import hashlib
 import inspect
 import json
 import re
@@ -26,14 +27,28 @@ from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_context
 from fastmcp.tools.base import ToolResult
 from fastmcp.tools.function_tool import FunctionTool
 from mcp.types import CallToolResult
 
 from pok.artifacts import tool_results
+from pok.artifacts.design_record import FORMAT as _DESIGN_FORMAT
+from pok.artifacts.design_record import canonical_bytes
+from pok.artifacts.design_record import record_schema as _design_schema
 from pok.common import telemetry
+from pok.common.execution import checkpoint, current_execution
 from pok.common.paths import knowledge_dir
 from pok.common.stdio import force_utf8_stdio
+from pok.engine import design_service as _design_service
+from pok.engine import document_selection as _document_selection
+from pok.engine import pob_documents as _pob_documents
+from pok.engine.execution_requests import RequestManager
+from pok.engine.measurement_provenance import (
+    compare_observations,
+    observe_loaded_execution,
+    observe_sources,
+)
 from pok.index.describe import describe_kb as _describe_kb
 from pok.index.describe import describe_type as _describe_type
 from pok.index.describe import find_by_value as _find_by_value
@@ -47,40 +62,37 @@ from pok.mcp.tools import build as _build
 from pok.mcp.tools import constraints as _constraints
 from pok.mcp.tools import explore as _explore
 from pok.mcp.tools import tree as _tree
+from pok.pob.runner import _META_PROTOCOL as _POB_META_PROTOCOL
 
 
 def _git_head(root: Path) -> tuple[str, str]:
     """(짧은 커밋, 제목). 실패해도 세션을 막지 않는다."""
     import subprocess
+    import tempfile
 
+    # Windows subprocess.run(timeout=...) drains captured pipes after killing
+    # the parent. A descendant retaining an output handle can make that drain
+    # unbounded. Identity discovery must work even while diagnosing this failure.
     try:
-        commit = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=5,
-            check=False,
-        ).stdout.strip()
-        subject = subprocess.run(
-            ["git", "-C", str(root), "log", "-1", "--format=%s"],
-            capture_output=True,
-            text=True,
-            # ⛔ **이 두 줄이 없으면 재시작 신호가 통째로 죽는다**(#166). 커밋 제목은
-            #    이 레포에선 거의 항상 한글 + em dash라, 로케일이 UTF-8이 아닌
-            #    Windows(한국어면 cp949)에서 디코딩이 깨진다. 그런데 아래 `except`가
-            #    그것을 ("", "")로 삼켜 **`_LOADED_COMMIT`도 `source_commit`도 빈
-            #    문자열**이 되고, 둘이 같으니 `stale`은 **영원히 False**다 — 옛 코드를
-            #    로드한 채 도는 서버를 아무도 못 본다. 실측 2026-09-12(한국어 Windows,
-            #    `PYTHONUTF8` 없이): `source_commit=''` · `stale=False`.
-            #    `errors="replace"`인 이유는 제목이 **라벨**이기 때문이다 — 한 글자
-            #    때문에 커밋 식별 자체를 잃는 쪽이 나쁘다(`runner.py` #120과 같은 판단).
-            encoding="utf-8",
-            errors="replace",
-            timeout=5,
-            check=False,
-        ).stdout.strip()
-        return commit, subject
+        with tempfile.TemporaryFile() as output:
+            result = subprocess.run(
+                ["git", "-C", str(root), "log", "-1", "--format=%h%n%s"],
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=5,
+                check=False,
+            )
+            if result.returncode != 0:
+                return "", ""
+            output.seek(0)
+            lines = output.read(8192).decode("utf-8", errors="replace").splitlines()
+        if len(lines) < 2:
+            return "", ""
+        return lines[0].strip(), lines[1].strip()
     except Exception:
         return "", ""
 
@@ -126,14 +138,59 @@ _FRONT_ID = re.compile(r"^id:\s*(\S+)$", re.M)
 #: 둘의 일치는 `tests/unit/test_mcp_server_info.py`가 잠근다.
 _TOOL_PARAMS: dict[str, list[str]] = {}
 _WIRE_RESULT_BYTES = 16_000
+_REQUESTS = RequestManager(persist=True)
+_REQUEST_TIMEOUT_S = 600.0
+_SEARCH_TOOLS = frozenset(
+    {
+        "optimize_tree",
+        "optimize_items",
+        "optimize_rare",
+        "optimize_runes",
+        "evaluate_bundles",
+    }
+)
+_SINGLE_CALC_TOOLS = frozenset({"compute_pob", "compute_pob_document"})
+_EXECUTION_CONTROLS = frozenset(
+    {
+        "get_execution_status",
+        "cancel_execution",
+        "read_execution_result",
+        "recover_execution",
+    }
+)
+
+
+def _execution_budget(tool_name: str, options: dict[str, Any], arguments: dict[str, Any]) -> float:
+    default, maximum = (
+        (300.0, 1200.0)
+        if tool_name in _SEARCH_TOOLS
+        else (
+            (180.0, 180.0)
+            if tool_name in _SINGLE_CALC_TOOLS
+            else (_REQUEST_TIMEOUT_S, _REQUEST_TIMEOUT_S)
+        )
+    )
+    requested = options.get("timeout_s")
+    internal = arguments.get("time_budget_s") if tool_name in _SEARCH_TOOLS else None
+    for value in (requested, internal):
+        if value is not None and (
+            isinstance(value, bool)
+            or not isinstance(value, int | float)
+            or not 0 < value <= maximum
+        ):
+            raise ValueError(
+                f"{tool_name} timeout must be positive and at most {maximum:g} seconds"
+            )
+    limits = [float(value) for value in (requested, internal) if value is not None]
+    return min(limits) if limits else default
 
 
 def _wire_json(result: ToolResult) -> str:
     """Use the actual MCP encoding, including nonfinite numbers becoming null."""
     wire = CallToolResult(
         content=result.content,
-        structured_content=result.structured_content,
-        is_error=result.is_error,
+        structuredContent=result.structured_content,
+        isError=result.is_error,
         _meta=result.meta,
     )
     return wire.model_dump_json(by_alias=True, exclude_none=True)
@@ -144,7 +201,7 @@ def _wire_size(result: ToolResult) -> int:
     return len(_wire_json(result).encode("utf-8"))
 
 
-def tool[F: Callable[..., Any]](fn: F) -> F:
+def tool[F: Callable[..., Any]](fn: F, *, literal_arguments: frozenset[str] = frozenset()) -> F:
     """도구를 등록하면서 호출 이력을 남긴다.
 
     무개입 테스트에서는 구조 세션이 생성 과정을 못 본다 — 도구가 스스로 남겨야
@@ -153,6 +210,10 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
 
     `functools.wraps`로 시그니처를 보존해야 FastMCP가 스키마를 만든다.
     """
+
+    unknown_literals = literal_arguments - inspect.signature(fn).parameters.keys()
+    if unknown_literals:
+        raise ValueError(f"Unknown literal tool arguments: {sorted(unknown_literals)}")
 
     @functools.wraps(fn)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -180,22 +241,34 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
 
     @functools.wraps(fn)
     def wire_wrapper(*args: Any, **kwargs: Any) -> Any:
+        checkpoint()
+        wire_limit = _WIRE_RESULT_BYTES - (512 if current_execution() is not None else 0)
         bound = inspect.signature(fn).bind(*args, **kwargs)
         bound.apply_defaults()
         for name, value in list(bound.arguments.items()):
-            if name != "ctx" and isinstance(value, dict | list):
+            if name != "ctx" and name not in literal_arguments and isinstance(value, dict | list):
                 bound.arguments[name] = tool_results.resolve_references(value)
         inputs = copy.deepcopy(
             {name: value for name, value in bound.arguments.items() if name != "ctx"}
         )
+        measurement = fn.__name__ in {"compute_pob", "evaluate_delta", "compute_pob_document"}
+        observed_before = observe_sources() if measurement else None
+        loaded_before = observe_loaded_execution(entrypoint=wire_wrapper) if measurement else None
         result = wrapper(*bound.args, **bound.kwargs)
+        observation = (
+            compare_observations(observed_before, observe_sources())
+            if observed_before is not None
+            else None
+        )
         converted = schema.convert_result(result)
         wire_json = _wire_json(converted)
-        if len(wire_json.encode("utf-8")) <= _WIRE_RESULT_BYTES:
+        checkpoint()
+        if not measurement and len(wire_json.encode("utf-8")) <= wire_limit:
             return converted
         # Save the logical JSON that the original MCP boundary actually sends,
         # not its pre-serialization Python object (which can contain inf/NaN).
         wire = json.loads(wire_json)
+        nonstandard_json: dict[str, str] = {}
         wrapped = (schema.output_schema or {}).get("x-fastmcp-wrap-result") is True
         logical_result = wire.get("structuredContent")
         if logical_result is not None:
@@ -204,7 +277,17 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
         else:
             # Unstructured ordinary JSON/text returns use FastMCP's text copy.
             text = wire["content"][0]["text"]
-            logical_result = text if isinstance(result, str) else json.loads(text)
+
+            def nonfinite(token: str) -> None:
+                # Untyped FastMCP content can contain Infinity/NaN literals.
+                # Preserve that exact text as source, but references must be
+                # standard JSON just like typed structured results.
+                nonstandard_json["unstructured_json_text"] = text
+
+            logical_result = (
+                text if isinstance(result, str) else json.loads(text, parse_constant=nonfinite)
+            )
+        checkpoint()
         manifest = tool_results.store_result(
             fn.__name__,
             inputs,
@@ -213,15 +296,56 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
                 "module": fn.__module__,
                 "function": fn.__qualname__,
                 "loaded_commit": _LOADED_COMMIT,
+                **({"source_observation": observation} if observation is not None else {}),
+                **(
+                    {
+                        "loaded_execution_observation": {
+                            "before": loaded_before,
+                            "after": observe_loaded_execution(entrypoint=wire_wrapper),
+                            "scope": "observed_memory_components_not_full_execution_certification",
+                        }
+                    }
+                    if loaded_before is not None
+                    else {}
+                ),
+                **nonstandard_json,
             },
         )
+        # Bind the receipt to the result before adding its own reference. This
+        # avoids recursive hashes and leaves the measured payload unchanged.
+        measurement_ref = {"$pok_result": manifest["id"], "path": "/result"}
+        if measurement and isinstance(logical_result, dict):
+            public = {**logical_result, "measurement_ref": measurement_ref}
+            public_result = schema.convert_result(public)
+            if _wire_size(public_result) <= wire_limit:
+                return public_result
         envelope = tool_results.notice(manifest, logical_result)
+        if (
+            fn.__name__ == "update_design_record"
+            and isinstance(logical_result, dict)
+            and ("change_summary" in logical_result)
+        ):
+            envelope["change_summary"] = logical_result["change_summary"]
+            envelope["change_details"] = {
+                key: {"$pok_result": manifest["id"], "path": "/result/" + key}
+                for key in ("changed_decision_ids", "review_required_ids", "current_assessment")
+            }
+        if measurement:
+            envelope["measurement_ref"] = measurement_ref
+        if nonstandard_json:
+            envelope["normalization"] = {
+                "nonfinite_numbers": "null",
+                "original_text_ref": {
+                    "$pok_result": manifest["id"],
+                    "path": "/source/unstructured_json_text",
+                },
+            }
         bounded = ToolResult(
             content=envelope,
             structured_content={"result": envelope} if wrapped else envelope,
             meta={"fastmcp": {"wrap_result": True}} if wrapped else None,
         )
-        if _wire_size(bounded) > _WIRE_RESULT_BYTES:
+        if _wire_size(bounded) > wire_limit:
             raise ValueError("Tool-result handoff exceeds the MCP wire budget")
         return bounded
 
@@ -250,8 +374,349 @@ def tool[F: Callable[..., Any]](fn: F) -> F:
                 **({"$defs": output_schema["$defs"]} if "$defs" in output_schema else {}),
             }
     _TOOL_PARAMS[schema.name] = sorted((schema.parameters or {}).get("properties", {}))
-    mcp.tool(wire_wrapper, output_schema=output_schema)
+
+    @functools.wraps(fn)
+    async def supervised_wrapper(*args: Any, **kwargs: Any) -> Any:
+        if fn.__name__ in _EXECUTION_CONTROLS:
+            # Control requests must remain available while a target is stopping.
+            import asyncio
+
+            return await asyncio.to_thread(wire_wrapper, *args, **kwargs)
+        context = get_context()
+        owner = f"{context.session_id}/{context.request_id}"
+        metadata = context.request_context.meta if context.request_context is not None else None
+        options = metadata.model_dump().get("pok_execution", {}) if metadata is not None else {}
+        if not isinstance(options, dict) or set(options) - {"request_id", "timeout_s"}:
+            raise ValueError("Unsupported pok_execution request metadata")
+        arguments = {key: value for key, value in _named(fn, args, kwargs).items() if key != "ctx"}
+        timeout = _execution_budget(fn.__name__, options, arguments)
+        revision = "sha256:" + hashlib.sha256(canonical_bytes(arguments)).hexdigest()
+
+        def encode_result(value: ToolResult, execution_ref: dict[str, str]) -> str:
+            value.meta = {**(value.meta or {}), "pok_execution": execution_ref}
+            if _wire_size(value) > _WIRE_RESULT_BYTES:
+                raise ValueError("Execution result exceeds the reserved MCP wire budget")
+            return _wire_json(value)
+
+        result, reference = await _REQUESTS.run(
+            functools.partial(wire_wrapper, *args, **kwargs),
+            owner=owner,
+            tool=fn.__name__,
+            timeout_s=float(timeout),
+            request_id=options.get("request_id"),
+            input_revision=revision,
+            request_json=canonical_bytes(arguments).decode("utf-8"),
+            result_encoder=encode_result,
+        )
+        result.meta = {**(result.meta or {}), "pok_execution": reference}
+        if _wire_size(result) > _WIRE_RESULT_BYTES:
+            raise ValueError("Execution result exceeds the reserved MCP wire budget")
+        return result
+
+    mcp.tool(supervised_wrapper, output_schema=output_schema)
     return wrapper  # type: ignore[return-value]
+
+
+@tool
+def get_execution_status(execution_ref: dict[str, Any]) -> dict[str, Any]:
+    """Inspect one process-local request. Missing history never means completed."""
+    return _REQUESTS.status(execution_ref)
+
+
+@tool
+def cancel_execution(execution_ref: dict[str, Any]) -> dict[str, Any]:
+    """Request cooperative cancellation; inspect worker/resource confirmation separately."""
+    return _REQUESTS.cancel(execution_ref)
+
+
+@tool
+def recover_execution(execution_ref: dict[str, Any]) -> dict[str, Any]:
+    """Verify saved request/result checkpoints from this or an older server.
+
+    Nonterminal evidence does not prove a worker stopped. Never replay an
+    operation, adopt a build, or terminate a historical PID here.
+    """
+    return _REQUESTS.recover(execution_ref)
+
+
+@tool
+def read_execution_result(execution_ref: dict[str, Any]) -> dict[str, Any]:
+    """Recover a completed wire result while its server incarnation retains it."""
+    return {
+        "execution": _REQUESTS.status(execution_ref),
+        "wire_result": json.loads(_wire_json(_REQUESTS.result(execution_ref))),
+    }
+
+
+def create_design_record(design_id: str, goal: str) -> dict[str, Any]:
+    """Create an immutable pre-PoB design record with automatic evidence inspection.
+
+    Preserve record_json as text or use record_ref; do not reserialize it in JS.
+    The caller owns the current reference. No build choices are made here.
+    """
+    return _design_service.create_design(design_id, goal)
+
+
+create_design_record = tool(create_design_record)
+
+
+def capture_design_material(
+    build_spec: dict[str, Any] | None = None,
+    build_code: str | None = None,
+    xml_text: str | None = None,
+    metadata_ref: dict[str, Any] | None = None,
+    selection: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Snapshot explicit spec/XML/metadata as immutable schema-valid material refs.
+
+    Supply a spec and/or one XML source (build_code or xml_text). metadata_ref
+    accepts an existing artifact_id/name/sha256 blob; media_type is optional.
+    All component hashes, media types and material revision are generated here.
+    Pass returned material to update_design_record with op='set_material'.
+    This preserves raw inputs; it does not choose sets or certify equivalence.
+    """
+    return _design_service.capture_material(
+        build_spec=build_spec,
+        build_code=build_code,
+        xml_text=xml_text,
+        metadata_ref=metadata_ref,
+        selection=selection,
+    )
+
+
+capture_design_material = tool(
+    capture_design_material, literal_arguments=frozenset({"metadata_ref", "selection"})
+)
+
+
+@tool
+def select_pob_document_effect(
+    xml_ref: dict[str, Any],
+    expected_revision: str,
+    document_measurement_ref: dict[str, Any],
+    active_index: int,
+    stat_set_index: int | None = None,
+    native_timeout_s: float = 180,
+    use_cache: bool = True,
+) -> dict[str, Any]:
+    """Select an observed effect/mode on this exact XML, then remeasure the candidate.
+
+    active_index indexes native effects, not gem slots. Modes must occur in the
+    document-bound observation. Unmapped/reindexed/item-generated groups fail
+    before editing. MAIN only: CALCS, comments and inactive data remain intact.
+    native_selection_matched verifies this selection, not game feasibility or
+    execution identity. Failure retains the candidate and an immutable report.
+    """
+    return _document_selection.select_effect(
+        xml_ref,
+        expected_revision,
+        document_measurement_ref,
+        active_index,
+        stat_set_index,
+        native_timeout_s=native_timeout_s,
+        use_cache=use_cache,
+    )
+
+
+@tool
+def compute_pob_document(
+    xml_ref: dict[str, Any],
+    stats: list[str] | None = None,
+    native_timeout_s: float = 180,
+    use_cache: bool = True,
+) -> dict[str, Any]:
+    """Calculate exactly the verified XML bytes and store a document-bound native receipt.
+
+    No BuildSpec reconstruction or implicit set selection occurs. stats=['*']
+    returns all values; [] returns observation only. The immutable receipt keeps
+    all native stats and the exact XML regardless of this response filter.
+    native_timeout_s limits the native subprocess, not the whole request lifetime.
+    Execution identity/game feasibility remain unverified.
+    """
+    return _pob_documents.measure_document(
+        xml_ref,
+        stats=list(_build.DEFAULT_STATS) if stats is None else stats,
+        native_timeout_s=native_timeout_s,
+        use_cache=use_cache,
+    )
+
+
+@tool
+def read_pob_document_measurement(
+    document_measurement_ref: dict[str, Any], xml_ref: dict[str, Any]
+) -> dict[str, Any]:
+    """Verify a complete native measurement bundle belongs to exactly this XML.
+
+    The result binds document bytes and observations. It does not certify engine
+    execution identity, game legality, or a new document edited afterwards.
+    """
+    return _pob_documents.load_document_measurement(document_measurement_ref, xml_ref)
+
+
+@tool
+def read_pob_document(xml_ref: dict[str, Any]) -> dict[str, Any]:
+    """Read exact verified XML text; large source is returned through result paging.
+
+    This is byte integrity, not native calculation or game validation.
+    """
+    return _pob_documents.read_document(xml_ref)
+
+
+@tool
+def inspect_pob_document(
+    xml_ref: dict[str, Any], tag: str | None = None, offset: int = 0, limit: int = 20
+) -> dict[str, Any]:
+    """Inspect raw XML nodes, with stable element paths under the returned revision.
+
+    Paths count element children only. raw_attributes retain exact attribute
+    tokens for compare-and-set edits; attributes are standard XML decoded values.
+    This does not calculate or validate the build in-game.
+    """
+    return _pob_documents.inspect_document(xml_ref, tag=tag, offset=offset, limit=limit)
+
+
+def edit_pob_document(
+    xml_ref: dict[str, Any], expected_revision: str, changes: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Apply explicit XML edits as one immutable child document.
+
+    Each change requires path, tag, attribute, expected_raw_value and value.
+    op defaults to set_attribute. upsert_child_attribute additionally requires
+    child_tag, identity_attribute and identity_value, matching one direct child.
+    set_text edits a leaf body using path/tag/expected_raw_value/value, with no
+    attribute field. inspect_pob_document supplies its exact raw_text token.
+    Only selected value spans change; comments/unknown/inactive sections remain.
+    A conflict publishes nothing. This does not rebind an old spec or sidecar;
+    inspect/measure the new document before treating old evidence as current.
+    """
+    return _pob_documents.edit_document(xml_ref, expected_revision, changes)
+
+
+edit_pob_document = tool(edit_pob_document, literal_arguments=frozenset({"changes"}))
+
+
+@tool
+def get_design_record_schema() -> dict[str, Any]:
+    """Return the runtime design-record schema for explicit edits and client validation.
+
+    Schema validity alone is not revision integrity, evidence verification, or
+    in-game feasibility. Preserve sealed record_json as text across JS clients.
+    """
+    return _design_schema()
+
+
+def read_design_record(record_ref: dict[str, Any]) -> dict[str, Any]:
+    """Verify checkpoint bytes and inspect current evidence; return sealed JSON and Markdown.
+
+    Historical structural assessment is separate from current_assessment.
+    Neither assessment certifies in-game feasibility or XML/spec equivalence.
+    """
+    return _design_service.read_design(record_ref)
+
+
+read_design_record = tool(read_design_record, literal_arguments=frozenset({"record_ref"}))
+
+
+def inspect_design_record(record_ref: dict[str, Any]) -> dict[str, Any]:
+    """Verify a checkpoint and inspect current evidence without returning its full document."""
+    return _design_service.inspect_design(record_ref)
+
+
+inspect_design_record = tool(inspect_design_record, literal_arguments=frozenset({"record_ref"}))
+
+
+@tool
+def list_design_records(
+    design_id: str | None = None, offset: int = 0, limit: int = 20
+) -> dict[str, Any]:
+    """Find verified immutable design checkpoints without selecting a current head.
+
+    Pagination counts artifact directories, including legacy/nonmatching entries.
+    Follow next_offset even for an empty records page. Listing verifies stored
+    bytes, not current evidence; use inspect_design_record for a fresh inspection.
+    """
+    return _design_service.list_designs(design_id=design_id, offset=offset, limit=limit)
+
+
+def import_design_document(
+    design_id: str,
+    document_text: str | None = None,
+    source_ref: dict[str, Any] | None = None,
+    goal: str | None = None,
+) -> dict[str, Any]:
+    """Preserve legacy source and create an unclassified design record with inspection.
+
+    Supply exactly one: literal document_text (UTF-8), or source_ref with
+    artifact_id/name/sha256 for exact stored bytes. No filesystem path is accepted.
+    Legacy confirmed text never automatically becomes a user-fixed decision.
+    """
+    return _design_service.import_design(
+        design_id, document_text=document_text, source_ref=source_ref, goal=goal
+    )
+
+
+import_design_document = tool(import_design_document, literal_arguments=frozenset({"source_ref"}))
+
+
+def update_design_record(
+    record_ref: dict[str, Any],
+    expected_revision: str,
+    changes: list[dict[str, Any]],
+    user_decisions: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Apply explicit edits as a child checkpoint and automatically inspect evidence.
+
+    A stale expected_revision fails. Existing checkpoints remain immutable.
+    user_decisions records caller-reported decisions, not authenticated consent.
+    Embedded evidence references in changes stay literal and are inspected as data.
+    """
+    return _design_service.update_design(
+        record_ref, expected_revision, changes, user_decisions=user_decisions
+    )
+
+
+update_design_record = tool(
+    update_design_record,
+    literal_arguments=frozenset({"record_ref", "changes", "user_decisions"}),
+)
+
+
+def attach_pob_document_measurement(
+    record_ref: dict[str, Any],
+    expected_revision: str,
+    document_measurement_ref: dict[str, Any],
+    evidence_id: str,
+    label: str,
+    description: str,
+    path: str = "/stats",
+    usage: str = "current",
+    material_revision: str | None = None,
+    decision_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    """Link verified XML measurement evidence as an immutable design revision.
+
+    Current usage requires the current XML and compatible native selection.
+    Comparison/historical usage requires the original material_revision.
+    This does not certify game feasibility or loaded execution identity.
+    """
+    return _design_service.link_document_measurement(
+        record_ref,
+        expected_revision,
+        document_measurement_ref,
+        evidence_id=evidence_id,
+        label=label,
+        description=description,
+        path=path,
+        usage=usage,
+        material_revision=material_revision,
+        decision_ids=decision_ids or (),
+    )
+
+
+attach_pob_document_measurement = tool(
+    attach_pob_document_measurement,
+    literal_arguments=frozenset({"record_ref", "document_measurement_ref"}),
+)
 
 
 def _named(fn: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -454,6 +919,192 @@ def get_insight(id: str) -> dict[str, Any]:
     return _get_insight(id)
 
 
+def _server_capabilities() -> dict[str, Any]:
+    return {
+        "calculator_cache": {
+            "format": "pok.pob-cache.v2",
+            "binding": "xml_protocol_loaded_adapter_code_and_observed_calculator_content",
+            "unavailable_observation": "cache_disabled",
+            "changed_during_calculation": "not_published",
+            "loaded_native_modules": "not_verified",
+            "external_system_libraries": "not_verified",
+        },
+        "daemon_startup_observation": {
+            "format": "pok.daemon-startup-observation.v1",
+            "result_field": "meta.daemon_execution",
+            "inspect_tool": "inspect_pob_runtime",
+            "scope": "shared_daemon_only_for_inspection",
+            "starts_process_for_inspection": False,
+            "loaded_native_modules": "not_verified",
+        },
+        "request_execution": {
+            "format": "pok.execution-ref.v1",
+            "server_instance": _REQUESTS.instance,
+            "request_metadata": "_meta.pok_execution",
+            "default_timeout_s": _REQUEST_TIMEOUT_S,
+            "maximum_timeout_s": 1200.0,
+            "default_timeout_scope": "generic_fallback_only_see_profiles",
+            "budget_profiles": {
+                "single_calculation": {
+                    "tools": sorted(_SINGLE_CALC_TOOLS),
+                    "default_s": 180,
+                    "maximum_s": 180,
+                },
+                "selective_search": {
+                    "tools": sorted(_SEARCH_TOOLS),
+                    "default_s": 300,
+                    "maximum_s": 1200,
+                },
+                "generic": {"default_s": _REQUEST_TIMEOUT_S, "maximum_s": _REQUEST_TIMEOUT_S},
+            },
+            "cleanup_grace_s": _REQUESTS.cleanup_grace_s,
+            "status_tool": "get_execution_status",
+            "cancel_tool": "cancel_execution",
+            "result_tool": "read_execution_result",
+            "recovery_tool": "recover_execution",
+            "persistence_enabled": _REQUESTS.persist,
+            "persistence_format": "pok.execution-checkpoint.v1",
+            "retention": "bounded_live_history_and_immutable_checkpoints",
+            "restart_recovery": "verified_checkpoint_retrieval_not_replay",
+            "python_preemption": "cooperative_only",
+            "process_tree_termination": "owned_job_or_group_scope_reported_per_resource",
+            "client_wait_cancel": "does_not_imply_server_cancel",
+        },
+        "native_command_lifetime": {
+            "owned_containment_paths": [
+                "pob.runner",
+                "pob.daemon",
+                "pob.item_editor",
+                "pob.roundtrip",
+                "pob.parse_gaps",
+                "pob.item_parse_gaps",
+            ],
+            "pending_native_paths": [],
+            "daemon_default_timeout_s": 180,
+            "deadline_scope": "single_command_including_lock_wait",
+            "progress_extends_deadline": False,
+            "termination_scope": "owned_windows_job_or_posix_process_group",
+            "posix_group_escape": "not_prevented",
+            "single_driver_output": "regular_file_snapshot_no_pipe_drain",
+            "whole_request_deadline": "cooperative_request_scope",
+            "mcp_cancellation_propagation": "explicit_notification_or_cancel_execution",
+        },
+        "design_records": {
+            "format": _DESIGN_FORMAT,
+            "schema_tool": "get_design_record_schema",
+            "material_snapshot_tool": "capture_design_material",
+            "xml_measurement_attachment_tool": "attach_pob_document_measurement",
+            "provider_bindings": {
+                "build_spec": "json_pointer_value",
+                "pob_xml": "exact_subtree_at_element_path",
+                "xml_pointer_source": "inspect_pob_document",
+                "active_supplier_semantics": "not_checked",
+            },
+            "operations": [
+                "create_design_record",
+                "read_design_record",
+                "update_design_record",
+                "inspect_design_record",
+                "list_design_records",
+                "import_design_document",
+            ],
+            "current_head": "caller_owned",
+            "automatic_current_evidence_inspection": ["create", "read", "update", "import"],
+            "xml_spec_equivalence": "not_checked",
+            "game_feasibility": "not_checked",
+        },
+        "measurement_receipts": {
+            "tools": ["compute_pob", "evaluate_delta", "compute_pob_document"],
+            "result_size_independent": True,
+            "source_identity": (
+                "disk_and_scoped_memory_observations_not_full_execution_certification"
+            ),
+            "loaded_observation_field": "source.loaded_execution_observation",
+        },
+        "socket_provenance": {
+            "format": "pok.socket-sidecar.v1",
+            "create_tool": "create_socket_sidecar",
+            "rebind_tool": "rebind_socket_sidecar",
+            "restore_tool": "restore_pob_spec",
+            "binding": ["exact_xml", "restored_projection_revision", "item_text"],
+            "claim": "caller_declarations_not_drop_verification",
+        },
+        "xml_selection": {
+            "saved_active_sets": True,
+            "explicit_override_fields": [
+                "item_set",
+                "skill_set",
+                "tree_spec",
+                "config_set",
+                "weapon_set",
+                "main_group",
+            ],
+            "tree_identity": "one_based_ordinal",
+            "set_identity": "numeric_id",
+            "main_group_and_stat_mode_overrides": "main_group_only",
+            "full_xml_spec_equivalence": "not_checked",
+        },
+        "native_selection_receipt": {
+            "format": "pok.native-selection.v1",
+            "source_field": "meta.nativeSelection",
+            "cache_protocol": _POB_META_PROTOCOL,
+            "scope": "native_main_environment_not_game_legality",
+        },
+        "pob_documents": {
+            "tools": [
+                "read_pob_document",
+                "inspect_pob_document",
+                "edit_pob_document",
+                "compute_pob_document",
+                "read_pob_document_measurement",
+                "select_pob_document_effect",
+            ],
+            "edit_scope": "explicit_attributes_leaf_text_and_identified_children",
+            "edit_operations": ["set_attribute", "set_text", "upsert_child_attribute"],
+            "unknown_and_inactive_bytes": "preserved_outside_edited_span",
+            "post_edit_spec_metadata_rebinding": "required_not_automatic",
+            "measurement_ref_format": "pok.document-measurement-ref.v1",
+            "measurement_binding": "verified_exact_xml_subject_not_execution_identity",
+            "effect_selection": "observed_bounds_direct_source_mapping_then_remeasure",
+            "selection_report_format": "pok.document-selection.v1",
+        },
+    }
+
+
+@tool
+def get_server_capabilities() -> dict[str, Any]:
+    """Full runtime capability contract; server_info retains a bounded summary."""
+    return _server_capabilities()
+
+
+def _capability_summary() -> dict[str, Any]:
+    full = _server_capabilities()
+    fields = {
+        "request_execution": [
+            "format",
+            "server_instance",
+            "request_metadata",
+            "default_timeout_s",
+            "maximum_timeout_s",
+            "default_timeout_scope",
+            "cleanup_grace_s",
+            "status_tool",
+            "cancel_tool",
+            "result_tool",
+            "recovery_tool",
+        ],
+        "design_records": ["format", "schema_tool", "current_head"],
+        "measurement_receipts": ["source_identity"],
+        "socket_provenance": ["format", "claim"],
+        "native_selection_receipt": ["format", "source_field", "cache_protocol", "scope"],
+        "pob_documents": ["measurement_ref_format", "selection_report_format"],
+    }
+    return {
+        "details_tool": "get_server_capabilities",
+        **{name: {key: full[name][key] for key in keys} for name, keys in fields.items()},
+    }
+
+
 @tool
 def server_info() -> dict[str, Any]:
     """이 MCP 서버가 **어느 판인지** — 로드된 커밋·소스 커밋·도구별 파라미터 지문.
@@ -484,25 +1135,28 @@ def server_info() -> dict[str, Any]:
     #    만든 도구였다. 등록 시점에 동기로 채운 `_TOOL_PARAMS`를 읽는다.
     tools = {name: list(params) for name, params in sorted(_TOOL_PARAMS.items())}
     stale = bool(_LOADED_COMMIT and source_commit and source_commit != _LOADED_COMMIT)
+    identity_status = "verified" if _LOADED_COMMIT and source_commit else "unavailable"
     # 사본을 빼고 로드했으면 **말한다** — 조용히 빼면 "왜 이 레코드가 안 보이지"가 된다(#21)
-    from pok.kb.store import load as store_load
+    from pok.kb.store import cached_diagnostics
 
-    try:
-        skipped = list(store_load().skip_warnings)
-    except Exception:  # 진단 도구는 KB가 깨져도 답해야 한다
-        skipped = []
+    kb_diagnostics = cached_diagnostics()
     return {
-        "kb_skipped_copies": skipped,
+        "kb_skipped_copies": kb_diagnostics["skipped_copies"],
+        "kb_diagnostics": kb_diagnostics,
         "loaded_commit": _LOADED_COMMIT,
         "loaded_subject": _LOADED_SUBJECT,
         "source_commit": source_commit,
         "source_subject": source_subject,
         "stale": stale,
+        "identity_status": identity_status,
         "source_root": str(knowledge_dir().parent),
         "tools": tools,
         "tool_count": len(tools),
+        "capabilities": _capability_summary(),
         "note": (
-            "⚠ stale=true — 소스가 갱신됐지만 이 프로세스는 옛 코드다. **서버 재시작 "
+            "⚠ Git 식별을 확인하지 못했다. stale=false만으로 최신 실행을 인증하지 않는다."
+            if identity_status == "unavailable"
+            else "⚠ stale=true — 소스가 갱신됐지만 이 프로세스는 옛 코드다. **서버 재시작 "
             "전에는 새 도구·인자가 없다.**"
             if stale
             else "이 목록·지문에 없는 도구/인자는 **이 프로세스에 없다** — 소스에 "
@@ -613,6 +1267,14 @@ check_item_legality = tool(_build.check_item_legality)
 assemble_pob = tool(_build.assemble_pob)
 parse_pob = tool(_build.parse_pob)
 restore_pob_spec = tool(_build.restore_pob_spec)
+create_socket_sidecar = tool(_build.create_socket_sidecar)
+inspect_pob_runtime = tool(_build.inspect_pob_runtime)
+rebind_socket_sidecar = tool(
+    _build.rebind_socket_sidecar,
+    literal_arguments=frozenset(
+        {"source_xml_ref", "sidecar_ref", "target_xml_ref", "target_selection"}
+    ),
+)
 measure_leverage = tool(_build.measure_leverage)
 check_pob_stability = tool(_build.check_pob_stability)
 # 켠 config의 유지 비용 (#145) — 「이 표기가 팩에서도 서나」. `compute_pob`이 정적

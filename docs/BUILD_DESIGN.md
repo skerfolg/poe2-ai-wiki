@@ -429,6 +429,6 @@ KB 검증 라벨(BLUEPRINT §5)의 **설계 버전**. 문서 후반에 세 목�
 ## 5. 관계
 
 - **BLUEPRINT §10.0** — 설계 루프 7단계와 이 문서의 위치 (D25·D26).
-- **ROADMAP P4.5** — 규격 가동·제약 검사기·Exit 기준(제안).
+- **[개정 전 ROADMAP P4.5](ROADMAP_PRE_REDESIGN.md)** — 규격 가동·제약 검사기·Exit 기준(제안).
 - **PROJECT_STRUCTURE §2** — `artifacts/builds/<id>/design.md` 저장 위치, `artifacts/anchors/` 앵커 빌드.
 - **KB_INGEST KI-3** — 설계 문서에서 추출된 도메인 지식의 KB 수록은 사용자 승인 후.

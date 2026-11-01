@@ -50,6 +50,7 @@ from pok.common.paths import knowledge_dir
 from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
+from pok.engine.gem_availability import audit_gem_availability
 from pok.engine.integrity import spec_integrity
 from pok.engine.item_sockets import audit_item_sockets
 from pok.engine.items import req_shortfall, unbuilt_declarations, unread_item_lines
@@ -182,6 +183,7 @@ def _pick(
     if result.dropped_items:
         out["dropped_items"] = [dict(row) for row in result.dropped_items]
     if build_spec is not None:
+        out["gem_availability"] = audit_gem_availability(build_spec)
         acquisition = audit_item_sockets(build_spec, observed=result.items)
         out["socket_acquisition"] = acquisition
         out["item_sockets_legal"] = result.is_item_sockets_legal and acquisition["legal"]
@@ -193,7 +195,19 @@ def _pick(
         # 설계 무결성은 **적법성과 별개 축**이다 (#58 ①). 적법한데 애초에 빌드가
         # 아닌 경우를 잡는다 — 주력기 부재·트리거 미연결. 거부하지 않고 **매번**
         # 싣는다(1회성 경고는 문서와 동급이다 — #29).
-        design = spec_integrity(build_spec)
+        native_selection = result.meta.get("nativeSelection")
+        design = spec_integrity(
+            build_spec,
+            native_selection=native_selection if isinstance(native_selection, dict) else None,
+        )
+        out["selection_observation"] = {
+            "status": native_selection.get("status", "unavailable")
+            if isinstance(native_selection, dict)
+            and native_selection.get("format") == "pok.native-selection.v1"
+            else "not_reported",
+            "source_field": "meta.nativeSelection",
+            "claim": "native_observation_not_game_validation",
+        }
         if design:
             out["design_warnings"] = list(design)
         # 낡음도 **매번** 싣는다 (#58 ③). 거부하지 않는다 — 낡은 트리로 A/B를 재는
@@ -904,6 +918,9 @@ def parse_pob(
             for g in summary.skill_groups
         ],
         "tree_version": summary.tree_version,
+        "selection": summary.selection,
+        "selection_notes": list(summary.notes),
+        "items_scope": "all_stored_items_not_selected_equipment",
         "tree_node_count": len(summary.tree_nodes),
         # ⛔ tree_node_count는 전직 노드까지 센 **원시 수**다 — 예산 판정엔 points를 쓸 것
         "points": _points(summary.tree_nodes, summary.ascendancy_internal_id),
@@ -1151,6 +1168,8 @@ def assemble_pob(
         "path": str(built.path),
         "build_code": built.build_code,
         "duplicates": list(built.duplicates),
+        "socket_sidecar_ref": getattr(built, "socket_sidecar_ref", None),
+        "socket_provenance": getattr(built, "socket_provenance", {"status": "not_reported"}),
         # 예산 판정은 `len(tree_nodes)`가 아니라 여기를 볼 것 — 전직은 별도 풀이다 (#78)
         "points": _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy")),
         "axes": {
@@ -1184,6 +1203,10 @@ def assemble_pob(
             else {}
         ),
         "assumptions": {
+            "behaviour_scenarios": [
+                {"var": v.var, "value": v.value, "reason": v.reason}
+                for v in assumptions.behaviour_scenarios
+            ],
             "always_on_config": [
                 {"var": v.var, "value": v.value, "source": v.matched_in}
                 for v in assumptions.grounded
@@ -1367,7 +1390,12 @@ def audit_config_upkeep(
     return out
 
 
-def restore_pob_spec(build_code: str, assume_first_stat_set: bool = True) -> dict[str, Any]:
+def restore_pob_spec(
+    build_code: str,
+    assume_first_stat_set: bool = True,
+    socket_sidecar_ref: dict[str, Any] | None = None,
+    selection: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """PoB 공유 코드 → **우리 `build_spec`** (#67 6차). 남의 빌드를 우리 도구에 태운다.
 
     `parse_pob`은 요약(무엇이 들어 있나)이고 이건 복원(다시 계산할 수 있게)이다.
@@ -1382,14 +1410,24 @@ def restore_pob_spec(build_code: str, assume_first_stat_set: bool = True) -> dic
     - 단계형 스킬의 `stages`도 코드에 없다(코퍼스 300벌 전부). 필요하면 직접 채울 것.
     - 교체 무기 슬롯·무기 세트 전용 할당은 우리 스펙에 자리가 없어 빠진다.
 
+    selection은 item_set/skill_set/config_set ID와 tree_spec 순번(문자열), weapon_set
+    (1/2), main_group(원본 XML Skill 그룹의1기반 순번)을 명시적으로 고를 수 있다.
+    명시한 선택이 없거나 복원에서 빠지면 오류이며 다른 것으로 대체하지 않는다.
+    main_active_skill/젬 모드 override는 아직 지원하지 않는다.
+    선택 결과는 selection_resolved에, 변경하지 않은 원문은 original_xml에 남는다.
+
     실측 2026-08-12(래더 300벌): 복원 53벌 · 그중 EHP 오차 5% 이내 43% · 20% 이내 86%.
     거부 247벌은 대부분 우리 게이트(아이템 부여 스킬·단계형)가 막은 것이다.
     """
+    from pok.engine.restore_fidelity import assess_restoration
     from pok.pob.restore import spec_from_pob
 
-    out = spec_from_pob(build_code, assume_first_stat_set=assume_first_stat_set)
+    out = spec_from_pob(
+        build_code, assume_first_stat_set=assume_first_stat_set, selection=selection
+    )
+    fidelity = assess_restoration(build_code, out, socket_sidecar_ref)
     return {
-        "build_spec": out.spec,
+        **fidelity,
         "notes": list(out.notes),
         "needs_decision": list(out.needs_decision),
         "faithful": out.faithful,
@@ -1399,4 +1437,60 @@ def restore_pob_spec(build_code: str, assume_first_stat_set: bool = True) -> dic
             {"skill": name, "lost_supports": n} for name, n in out.dropped_item_granted
         ],
         "damage_comparable": out.damage_comparable,
+        "gem_availability": audit_gem_availability(fidelity["build_spec"]),
     }
+
+
+def create_socket_sidecar(
+    build_code: str,
+    expected_projection_revision: str,
+    socket_sources_by_slot: dict[str, list[str]],
+    selection: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Store declared socket routes bound to exact XML, projection revision and item text.
+
+    Get restored_projection_revision from restore_pob_spec first. Routes must be
+    explicitly supplied; nothing is inferred from socket counts. This preserves
+    declarations, not proof of an actual drop. Pass sidecar_ref on later restores.
+    If restore used explicit selection, pass the same selection here as well.
+    """
+    from pok.engine.restore_fidelity import create_socket_sidecar as capture
+
+    return capture(
+        build_code, expected_projection_revision, socket_sources_by_slot, selection=selection
+    )
+
+
+def rebind_socket_sidecar(
+    source_xml_ref: dict[str, Any],
+    sidecar_ref: dict[str, Any],
+    target_xml_ref: dict[str, Any],
+    expected_projection_revision: str,
+    target_selection: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Rebind declarations after an explicit XML edit, preserving the original.
+
+    Original bindings and target projection must verify. Every declared item
+    must retain its normalized text in the same selected slot. Changed items
+    require new explicit declarations via create_socket_sidecar instead.
+    """
+    from pok.engine.restore_fidelity import rebind_socket_sidecar as rebind
+
+    return rebind(
+        source_xml_ref,
+        sidecar_ref,
+        target_xml_ref,
+        expected_projection_revision,
+        target_selection=target_selection,
+    )
+
+
+def inspect_pob_runtime(observe_current: bool = False) -> dict[str, Any]:
+    """Inspect the existing shared daemon's startup evidence without starting one.
+
+    observe_current additionally reads current calculator files for comparison;
+    startup facts remain unchanged. Native loaded-module proof is not supplied.
+    """
+    from pok.pob.daemon import inspect_shared_execution
+
+    return inspect_shared_execution(observe_current=observe_current)

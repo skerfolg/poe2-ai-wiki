@@ -19,7 +19,7 @@
 >
 > **번호 규칙 (v0.2에서 정함)**: 번호는 **이 파일이 발급한다.** `[빌드]` 세션의 보고
 > 안 번호(#1~#8 등)와 섞이면 참조가 깨진다 — 실제로 `#17`이 두 항목에 붙어 있었고
-> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#201**다. #191·#192·#194는 PR #146과 분리한 후속 수정이다.
+> 나중 것을 **#29로 재발급**했다. 다음 발급 번호는 **#210**다. #191·#192·#194는 PR #146과 분리한 후속 수정이다.
 > ⚠ 번호 충돌이 **두 번** 났다(#97~#101 · #108). 병렬 브랜치는 서로의 발급을 못 본다 —
 > **머지 시점에 재발급**하는 것이 유일한 해소다. `Fox Idol` 항목은 #108 → **#112**로 옮겼다.
 > (이 PR이 #105~#107·#112~#118을 채운다 — main 쪽 「비어 보여도 재사용 말 것」 경고는 해소됐다.)
@@ -77,6 +77,13 @@
 
 | 항목 | 상태 | 다음 한 걸음 |
 |---|---|---|
+| **#209** 효과별 MAIN/CALCS 모드와 CALCS 주력 설정을 복원/내보내기에서 잃음 | 표현/직렬화 코어 수정·관련79/15/212검사 및 native3경로 확인(2026-11-01), 선택 API/원문 수정 남음 | 주 효과 모드 하나로 합치지 않고 환경·효과별 설정을 보존한다. 실제 모델/게임 성립 인증은 별도 |
+| **#208** 주력 활성 효과 순번을 젬 슬롯으로 오인하는 진단 | 코어/native8 및 전체 단위2295통과/2v6skip(2026-11-01), 모드 연계/배포 검증 남음 | 앞에 Unleash가 있고 Spark가 다음이면 main_active_skill=1을 보조 선택으로 오인한다. 실제 native 선택 관측과 연결 필요 |
+| **#207** PoB 활성 세트와 소수 config를 다른 입력으로 복원 | 코어/단위68검사·새 stdio4호출 통과(2026-11-01), native 통합 대기 | 첫 항목 대신 저장된 활성 ID/트리 순번을 읽고 명시 선택·소수 값을 보존한다. 주력/모드 override와 전체 XML 동등성은 별도 R3 잔여 |
+| **#206** PoB 복원에서 소켓 획득 근거 소실을 신고하지 않음 | 출고·material/스냅샷 구현, XML 선택/UI 연계 미완료(2026-11-01) | exceptional 소켓 출처가 사라져 획득 미입증 진단으로 바뀌지만 faithful=true/notes=[]다. 계산 입력 충실도와 메타데이터·획득 근거 보존을 구분해야 함(R2/R3) |
+| **#205** 이동·정지 행동 조건을 공급 기재 부재로 오거부 | 수정·단위/MCP 조립 관문 회귀 통과(2026-11-01) | conditionMoving/conditionStationary에 아이템·젬·노드 공급을 요구한다. 행동 시나리오와 실제 공급 필요 상태를 구분해야 함(R3) |
+| **#204** 승인된 제외 젬이 계산 진단에 드러나지 않음 | 수정·계산/복원 어댑터 회귀 통과(2026-11-01) | 고정0.5.4b에서 제외된 Shock Siphon을 포함해 계산되지만 제외 사유를 신고하지 않음. 계산 가능성과 해당 패치 획득 가능성을 분리해 자동 부착 필요(R3) |
+| **#203** 내장 트리거를 빈 메타 젬으로 오인하는 설계 경고 | 수정·단위/MCP 반환 회귀 통과(2026-11-01) | Wind Dancer의 Gale Force는 InbuiltTrigger인데 외부 페이로드 부재로 무효라고 경고. 실제 컨테이너의 누락 진단은 유지하며 구분 필요(R3) |
 | **#197** 고유 검사 경로가 투구 성유·일반 타락 획득 예외를 누락 | 좁은 거부 재현(2026-10-30) · 미수정 | 실제 Raven 투구의 Allocates, Loreweave의 일반 카오스 저항 타락. 전체 빌드 승인과 분리해 부위·획득·개수·공유 예산을 보존하는 처리 필요 |
 | **#198** 증폭 주얼의 장식 태그·공동 배율·내보내기 품질 정보 누락 | 층별 대조(2026-10-30) · 미수정 | crafted 태그로 접사 효과 탐지 실패. 원시 공격 품질20%가 보관된 PoB 텍스트에 없으며, 복원해도 접사 효과와 공동 판정 부족. 게임 규칙 임의 확장은 금지 |
 | **#188** 정상 생성의 이른 선택 고정과 완성 패키지 재검토 부족 | 부분 수정(2026-10-30) · 새 비교에서도 A 대비 개선 미입증 | 후보 실물·채택안 근거·트리 편집이 실제 C 최종 비교로 연결됨. 마나/저항 여유의 공동 재설계는 부족. A/B부분/C 원본 코드 보존 |
@@ -615,6 +622,295 @@ setup만 61.47초) ②캐시가 **디렉터리 단위**라 레코드 하나만 �
 만들 때 계기를 실물로 재현하는 것은 사람이 지켜야 한다.
 ## 1. 열린 결함
 
+### #209 효과별 MAIN/CALCS 모드와 CALCS 주력 설정을 복원/내보내기에서 잃음
+
+- **상태**: 표현/직렬화 코어 수정·관련79/15/212검사 및 native3경로 확인(2026-11-01).
+  명시 선택 API·원문 보존 수정 및 전체 R3 검증은 아직 미완료다.
+- **원인**: GemSpec의 단일 stat_set_index는 주 효과 하나를 MAIN/CALCS 양쪽에 썼다.
+  복원은 단일 자식이면 보조 효과의 값도 주 효과로 읽었고, 다중 효과/환경 차이와
+  mainActiveSkillCalcs를 표현하지 못했다. 게임 ID 별칭의 주 효과 조회도 정규화가 빠졌다.
+- **수정**: stat_set_indices/stat_set_calcs_indices에 효과 ID별 MAIN/CALCS 지시를
+  별도 보존하고, 그룹에 main_active_skill_calcs를 추가했다. None과 빈 맵을 구분한다.
+  기존 단일 모드 입력은 주 효과의 MAIN/기본 CALCS 지시로 유지한다. 새 MAIN 맵이
+  CALCS에 전파되지 않고 기존 단일 모드가 명시했던 CALCS 선택도 지우지 않는다.
+  명시 CALCS 맵은 빈 맵을 포함해 우선한다. 모순된 주 효과/단일 모드 값은 거절한다.
+  secondary-only 모드를 주 효과로 차용하지 않고 구형 statSetIndex 속성을 자식 지시로
+  되살리지 않는다(현재 native reader가 무시하는 속성). 원문/가정 안내는 유지한다.
+  주 효과는 canonical gem ID로 조회한다. 새 CALCS 순번과 모드 값은 정수 검증을 한다.
+- **호환 범위**: 주 효과 한 개의 MAIN/CALCS가 같으면 기존 compact 표현을 유지한다.
+  다중 효과/다른 CALCS 등 이전에 잃던 정보는 새 필드로 보존한다. 이 경우 과거 잘못된
+  투영 리비전과 같다고 위장하지 않는다. 모드 존재가 게임 기재/유지 가능성을 뜻하지 않는다.
+- **검증**: 모드/기존 복원·소켓79건, 최종 효과 모드15건, 출처/준비도/조립/계산212건 통과.
+  실제 PoB의 MAIN2/CALCS1 투영 왕복·구형 속성 비활성 유지2경로 통과와, 잘못 고른
+  별칭 fixture를 실제 Frostbolt 별칭으로 보완한 재실행1경로 통과를 보존했다.
+  v1의 Spark 별칭 부재 실패는 삭제하지 않았다. 실제 CALCS 탭 계산/GUI는 미검증이다.
+  증거: artifacts/reviews/redesign-r3-effect-mode-v2/v4.xml,
+  redesign-r3-effect-mode-callers-v4.xml, redesign-r3-effect-mode-native-v1/v2.xml.
+
+### #208 주력 활성 효과 순번을 젬 슬롯으로 오인하는 진단
+
+- **상태**: 코어 수정·Lua29/관련91/native8검사 통과(2026-11-01). 전량 회귀 및
+  새 모드 선택/경계 연계는 남아 있으며 R3 전체 완료가 아니다.
+- **관측**: [Unleash Support, Spark] 순서의 그룹에 main_active_skill=1을 주면
+  integrity가 첫 젬이 보조이므로 딜을 내지 않는 젬을 가리킨다고 경고한다.
+- **대조**: 고정 CalcSetup.lua는 socketGroupSkillList에 활성 효과를 넣고
+  mainActiveSkill을 그 목록에 적용한다. 이는 Gem 배열 순번과 다르며 내장 효과가 여러
+  개인 젬은 반대 방향으로도 순번이 어긋날 수 있다. #203의 내장 트리거 분류와 별개다.
+- **증거**: artifacts/reviews/redesign-r3-main-selection-audit/leading-support-warning.json.
+  현재 경고와 입력, 고정 소스 해석의 범위를 보존했다. 인게임/DPS 효과를 입증하지 않았다.
+- **수정·검증 필요**: native 계산에서 실제 선택한 그룹/활성 효과/소스 젬/모드를 직접
+  반환하고 캐시·단발/상주 프로토콜을 함께 갱신한다. 잘못된 슬롯 근사로 불가능이라고
+  단정하지 않으며 실제 무효 선택·빈 메타/주력 부재의 진단은 유지한다. 보조 앞/뒤,
+  단일·복수 효과, 비활성 젬, 주력/모드 경계의 양음성 대조와 native 검증을 남길 것.
+
+- **현재 구현**: 공통 scripts/pob_selection.lua가 native displaySkillList, mainSkill,
+  srcInstance와 gemList 객체의 실제 대응을 읽는다. 활성 효과 순번·젬 슬롯·효과 ID,
+  선택 모드/해석 여부·native 모드 목록·Meta 타입을 따로 반환한다. 현재 환경의
+  activeSkillList에 없는 오래된 display 객체는 빼고 결측/기본 공격을 첫 젬으로 만들지 않는다.
+  단발/상주가 동일 관측기를 쓰고 POK_META.nativeSelection으로 반환한다.
+  _META_PROTOCOL=6으로 이전 캐시를 분리했다. 관측기는 계산 데이터를 바꾸지 않는다.
+- **진단 연결**: 정적 젬 슬롯 추정으로 main_active_skill을 판정하지 않는다.
+  실제 관측이 있는 경우 Meta 효과 선택과 요청/실제 활성 순번 차이를 신고한다.
+  주력 부재·빈 메타 구조 검사는 유지한다. compute/비교/조립에 자동 연결하고
+  selection_observation은 관측 없음/있음을 표시하되 게임 성립 인증으로 쓰지 않는다.
+- **검증**: PoB를 부팅하지 않는 실제 LuaJIT 관측기/프로토콜·캐시29검사 및 기존
+  진단/조립/계산 포함91검사 통과. native 기능 경계 확인은 별도로 실행했다.
+  실제 PoB 단발의 보조 앞/뒤·순번 보정과 상주 빌드 전환/TREE4건,
+  Meta 컨테이너/연결 주문의 진단 양음성2건, 내장 효과2개/젬1개·비활성 젬2건 모두 통과했다.
+  실제 계산기 상태의 검증이며 인게임 기재 성립이나 전체 XML 동등성을 증명하지 않는다.
+  증거: artifacts/reviews/redesign-r3-native-selection-v1.xml,
+  redesign-r3-native-selection-diagnostics-v2.xml, redesign-r3-native-selection-real-v1.xml,
+  redesign-r3-native-selection-meta-real-v2.xml, redesign-r3-native-selection-extra-real-v3.xml.
+  전체 단위/PR 전 전량 native·배포 런타임 검증과 모드 선택의 값 경계 연계는 별도다.
+
+- **전체 단위 후속**:2297건 중2295통과/2skip, 실패·오류0(379.332초).
+  skip은 v6 실물 문서 부재2건이다. 증거: artifacts/reviews/redesign-r3-unit-full-v1.xml.
+  R3 전체/새 모드 연계·PR 전 전량 native·배포 검증까지 완료했다는 뜻은 아니다.
+
+### #207 PoB 활성 세트와 소수 config를 다른 입력으로 복원
+
+- **상태**: 코드/고정 PoB 원본 대조 후 코어 수정·단위68검사/새 stdio4호출 통과(2026-11-01).
+  PR 전 native 통합은 남아 있으며 R3 전체 완료가 아니다.
+- **원인**: restore.py가 Tree/Spec·Items/ItemSet·Skills/SkillSet·Config/ConfigSet의
+  첫 항목을 골랐다. 고정 PoB는 item/skill/config를 숫자 ID로, Tree/activeSpec을 순번으로
+  선택한다. 숫자 config도 _int로 읽어 conditionStationary=1.5가1로 잘렸다.
+  parse.py의 요약 트리/스킬 선택도 첫 항목이었다.
+- **권위 대조**: 고정5d173cb의 ItemsTab.Load/SetActiveItemSet,
+  SkillsTab.Load/SetActiveSkillSet, ConfigTab.Load/SetActiveConfigSet,
+  TreeTab.Load/SetActiveSpec을 읽었다. ConfigTab의 숫자 Input은 tonumber를 사용한다.
+- **수정**: pob.selection 공통 선택기가 저장된 활성 ID/트리 순번을 해석한다.
+  native와 같은 기본 대체 선택을 하되 notes로 신고하고 중복/모호한 ID는 거절한다.
+  item_set/skill_set/config_set/tree_spec 문자열과 weapon_set=1/2를 명시할 수 있고,
+  명시한 선택은 없으면 오류로 돌려 다른 것으로 바꾸지 않는다. 무기 세트는 선택된
+  ItemSet의 값을 읽는다. 소수 config는 보존하고 비유한 수는 거절한다.
+  복원·요약 결과에 실제 선택을 남기며 원문은 변경하지 않는다.
+- **근거 연계**: 새 소켓 sidecar는 선택 벡터도 결박한다. 같은 XML/스펙 값이어도 다른
+  세트 선택이면 재사용하지 않는다. 선택 필드가 없던 구형 v1은 원문의 기본 활성 선택으로만
+  해석한다. 명시 sidecar 생성/복원/설계 material 검사가 같은 선택을 전달한다.
+- **검증**: 비연속 ID, 기본 ID1이 첫 항목이 아닌 경우, 트리 순번, 무기 세트,
+  숫자 ID의 정수 소수/지수 표기, 잘못된 활성/명시 선택, 소수 config, 비유한 수,
+  원문 보존, 값은 같은 다른 세트의 근거 거절 및 기존 요약/복원/소켓/제외 회귀68검사 통과.
+  큰 지수 ID를 정수로 확장하기 전 거절하는 경계1검사도 통과했다.
+  새 stdio4호출로 요약·기본 복원·명시 선택 복원·잘못된 선택 거절을 확인했다.
+  native 산술은 실행하지 않았다. 입력 XML은 요청 로그에 보존했다.
+  증거: artifacts/reviews/redesign-r3-xml-selection-v3.xml,
+  redesign-r3-selection-id-bound-v1.xml, redesign-r3-selection-stdio-v1/receipt.json.
+- **잔여**: 주력 그룹/젬 모드 override, 미지/비활성 부분을 유지하는 XML 수정,
+  전체 XML↔스펙/선택 동등성·실제 native 계산과 UI 재적용은 별도 R3/R6 작업이다.
+  server_info는 현재 지원한5필드와 미지원 범위를 명시한다.
+
+- **주력 그룹 후속**: main_group은 원본 XML Skill 목록의1기반 순번이다.
+  복원에서 빠진 그룹 이후의 순번은 기존 remap에 따라 실제 BuildSpec 그룹으로 바꾼다.
+  명시한 그룹 자체가 빠졌다면 다른 그룹으로 바꾸지 않고 오류를 반환한다.
+  기본 주력을 명시적으로 다시 고르는 것은 동일 선택으로 비교해 기존 소켓 근거를
+  잘못 거절하지 않는다. JSON 정수1.0은1로 정규화하되 bool/비정수 순번은 거절한다.
+  관련58검사·숫자 경계1검사와 새 stdio3호출 통과. native 산술은 실행하지 않았다.
+  증거: artifacts/reviews/redesign-r3-main-group-v1.xml,
+  redesign-r3-main-pointer-json-v1.xml, redesign-r3-main-group-stdio-v1/receipt.json.
+  main_active_skill/젬 모드 선택 및 원문 보존 수정은 아직 남아 있다.
+
+- **숫자 재내보내기 후속**: 복원된1.5를 BuildSpec→XML로 쓸 때 숫자를 지원하지 않던
+  연결도 수정했다. config 타입/직렬화에 finite float를 추가해 문자열로 잘못 쓰지 않는다.
+  복원→스펙→XML→복원과 비유한 값 거절을 포함한27검사가 통과했다.
+  증거: artifacts/reviews/redesign-r3-config-export-v1.xml. 이전 전체 단위2295 결과보다
+  뒤의 변경이며 전체 회귀 통과를 그 이전 결과로 대체하지 않는다.
+
+### #206 PoB 복원에서 소켓 획득 근거 소실을 신고하지 않음
+
+- **상태**: 원본/독립 복원과 같은 검사기의 대조로 재현(2026-11-01) · **출고·설계 material/스냅샷 부분 구현, XML 선택/UI 연계 미완료(2026-11-01)**.
+  R1 추가 B 과제의 개별 아이템 적법140건 집계와 별개로 B-03 소켓 획득 검사를 읽다 발견했다.
+- **관측**: 원본 spec의 무기·투구·갑옷·장갑·신발에는 `socket_sources=["exceptional"]`이
+  있다. 해당 출처가 있는 원본을 `audit_item_sockets`로 재검사하면 legal=true다.
+  같은 최종 PoB의 독립 복원은 아이템의 slot/text만 남겨 출처를 잃고, 소켓 수는 그대로라
+  같은 검사기가5부위를 acquisition_unproven으로 신고한다. 복원 자체는
+  faithful=true/notes=[]/needs_decision=[]/damage_comparable=true를 반환한다.
+- **근거**: `artifacts/reviews/redesign-r1-followup-evaluation/socket-provenance-roundtrip-probe-v1.json`에
+  원본/복원 해시와 양쪽의 실제 검사 결과를 보존했다. 제품 코드나 참가자 원본은 바꾸지 않았다.
+- **범위**: 원본의 선언된 출처를 존중한 검사 결과가 달라진 재현이다. 실제 매물·제작
+  성공을 입증한 것은 아니다. 원본 빌드가 불법이거나 피해 수치가 바뀌었다고 판정하지
+  않는다. #192의 소켓 예산 검사 자체가 실패했다는 보고도 아니다. 출처가 있을 때와
+  없을 때를 구분하는 그 검사는 동작하며, 복원/전달에서 잃은 근거가 핵심이다.
+- **원인**: `pob/restore.py`가 아이템 문구를 복원하지만 BuildSpec의 획득 메타데이터를
+  복원하지 않고, RestoredBuild.faithful은 notes/needs_decision만 본다. 표준 PoB XML만으로
+  출처를 되찾을 수 있다는 전제도 성립하지 않는다.
+- **수정·검증 필요**: 계산 입력 충실도와 획득/설계 메타데이터 보존 범위를 반환에서
+  구분한다. 같은 구성 해시에 결박한 sidecar/설계 기록이 있으면 명시적으로 연결하고,
+  없으면 미입증으로 신고한다. 홈 수만으로 exceptional 경로를 자동 발명하거나 모든
+  가져오기를 거부하지 않는다. 실제 추가 홈, 일반 홈 대조, 근거가 다른 구성/리비전,
+  원문·비활성 XML 보존과 UI 재적용을 검증할 것. R2 리비전/이행 계약과 R3 진단에 연결한다.
+
+- **현재 구현**: restore_pob_spec은 faithful의 범위를 계산 투영으로 명시하고
+  restore_fidelity/socket_acquisition을 자동 반환한다. 미입증 소켓은 별도 진단이며
+  드롭 경로를 만들어 붙이지 않는다. original_xml을 원문 그대로 보존하고 원문 해시,
+  메타데이터 적용 전 투영 리비전과 적용 후 스펙 리비전을 구분한다.
+  create_socket_sidecar는 명시한 슬롯별 경로를 기존 artifacts/builds의 불변 묶음에
+  원문 XML과 저장한다. 복원 시 참조 바이트 해시·정확한 XML·복원 투영·아이템 문구를
+  전부 대조한 후 원자적으로 적용한다. 잘못된 참조/다른 리비전/아이템/중복 슬롯은
+  하나도 적용하지 않고 신고한다. 적용된 참조는 복원 결과에도 보존한다.
+  바이트 결박은 원래 선언의 보존이며 실제 드롭/매물의 증명이 아니다.
+- **검증**: 원문/비활성·미지 XML 보존, 일반1홈/추가1홈, 경로 부재/일치/불일치,
+  원자 적용 및 기존 복원/소켓/제외 진단92검사 통과. 참조 전달/구형 목록/서버 식별
+  관련23검사 중22통과·v6 실물 문서 부재1skip. 최초 fixture의 장갑 일반 홈
+  가정 오류로 실패한 v1은 보존했고 정본 규칙대로 고친 v2가 통과했다.
+  실제 B-03의 변경하지 않은 선언 파일로 새 stdio26호출을 수행했다. 처음5부위는
+  acquisition_unproven, 보존된 원본 선언5개를 같은 구성에 연결한 뒤 socket legal=true.
+  PoB 원본 파일과 원문 XML이 그대로임을 확인했다. native 계산은 실행하지 않았다.
+  증거: artifacts/reviews/redesign-r3-206-fidelity-v2.xml,
+  redesign-r3-206-propagation-v3.xml, redesign-r3-206-stdio-v1/receipt.json.
+- **남은 범위**: 실제 XML 선택 벡터와의 일치 검증,
+  XML 선택/다른 리비전 재적용 및 pok-ui의 저장/undo/export 휴대와 재적용은 미완료다.
+  따라서 #206 전체나 R3/R6 완료로 보고하지 않는다. PR 전 native 통합도 별도다.
+
+- **자동 연결 후속**: assemble이 실제 최종 스펙을 다시 렌더해 내보낸 아이템 문구와
+  대조한 후 같은 빌드 묶음에 socket-sidecar.json을 자동 저장한다. 대리 모델링 문구도
+  이 렌더 비교에 포함한다. 스펙 리비전·해시·참조는 manifest/validation/조립 결과에 남기고
+  MCP 응답에도 반환한다. 일치하지 않으면 not_bound 진단을 보존하고 경로를 추정하지 않는다.
+  sidecar JSON은 canonical 한 줄이라 기존 Windows 텍스트 저장의 개행 변환에도 동일하다.
+  설계 material 검사도 알려진 sidecar 형식이면 XML/투영/실제 스펙 리비전·현재 선언을
+  대조한다. 파일 해시가 전부 맞더라도 다른 XML/스펙이면 재검토 진단을 내며, 독립적으로
+  검증된 계산 스펙은 지우지 않는다. 전체 XML/선택 의미 동등성은 여전히 not_checked다.
+- **후속 검증**: 자동 출고 관련25검사와 material 결박/기존 회귀77검사 통과.
+  MCP 참조 전달 별도1검사도 통과했다. 최초 material fixture의 필수 media_type 누락은
+  v2 실패로 보존했고 스키마대로 보완한 v3가 통과했다. 실제 native 산술은 대체했으며
+  참조 전달1검사는 생산 경계를 대체한 어댑터 증거다. 전체 UI 휴대/재적용 증명이 아니다.
+  증거: artifacts/reviews/redesign-r3-206-export-v1.xml,
+  redesign-r3-206-material-v3.xml, redesign-r3-206-mcp-forward-v1.xml.
+
+- **스냅샷 공개 경로**: capture_design_material이 명시 스펙/원문 XML(또는 공유코드)/검증된
+  metadata_ref를 기존 불변 묶음에 복사하고 blob 해시·media_type·material 리비전을
+  자동 생성한다. 반환 material은 set_material 변경에 그대로 넘긴다. 원문·미지 값·큰
+  정수와 metadata 원문을 보존하며 현재 설계 head/선택을 정하지 않는다. 형태가 잘못된
+  입력은 게시 전에 거절하지만 스냅샷 자체가 빌드 성립/선택 동등성 인증은 아니다.
+  기존59검사 통과 후 실제 MCP 참조 입력/설계 연결을 포함한11검사 재확인. 실제 B-03
+  근거를 포함해 새 stdio17호출로 복원→스냅샷→설계 갱신→현재 검사를 통과했다.
+  증거: artifacts/reviews/redesign-r3-material-capture-v1/v2.xml 및
+  redesign-r3-material-stdio-v1/receipt.json. native 계산·게임 효과는 검증하지 않았다.
+
+### #205 이동·정지 행동 조건을 공급 기재 부재로 오거부
+
+- **상태**: 독립 복원 시안으로 검사기 직접 재현(2026-11-01) · **수정·단위/MCP 조립 관문 회귀 통과(2026-11-01)**.
+  R1 추가 A 과제의 보고서와 `audit_config`를 대조했다. 참가자 원본과 제품 소스는 유지했다.
+- **관측**: A-01 보고서는 이동/정지 조건을 켠 계산은 가능했으나 조립 관문에서 공급
+  기재를 요구해 공유본 config를 바꿨다고 명시한다. 해당 보고 자체만으로 결함을 확정하지 않았다.
+- **재현**: 독립 복원된 같은 스펙에 config만 바꿔 `audit_config`를 호출했다.
+  `conditionMoving=true`는 Mobility가 Moving을 요구할 뿐 공급하지 않는다고,
+  `conditionStationary=1`은 Stationary 공급 아이템·젬·노드가 없다고 ungrounded를 낸다.
+  꺼진 Moving은 neutral이며, 실제 공급이 없는 `conditionEnemyCursed=true`는
+  ungrounded다. 원본 증거는
+  `artifacts/reviews/redesign-r1-followup-evaluation/behaviour-config-probe-v1.json`이다.
+- **원인/강제 지점**: `engine/constraints/assumptions.py::audit_config`가 적 상태 외
+  조건을 관련성 키워드와 공급 문구로 판정한다. AssumptionReport.blocking은 이
+  ungrounded를 조립 차단 사유로 만들고 `mcp/tools/build.py`의 조립 경로가 사용한다.
+  행동으로 충족하는 시나리오를 장비가 공급해야 하는 상태와 같은 것으로 취급한다.
+- **수정·검증 필요**: 이동·정지 등 행동 시나리오와 자원·상태 생산을 구분하고
+  유지 비용·동시 불가능 조건은 별도 진단한다. 모든 config를 무조건 허용하거나
+  공급 없는 저주/충전까지 완화하지 않는다. 행동 조건의 양성 대조와 실제 공급
+  부족의 음성 대조, 조립 호출까지 포함한 회귀가 필요하다. 전체 config 분류는 아직
+  검증하지 않았으며 이 좁은 재현을 모든 오거부의 해결 근거로 확대하지 않는다.
+
+- **수정**: conditionMoving과 conditionStationary는 효과 공급을 요구하지 않는
+  행동 시나리오로 neutral 처리하며 기존 status 계약을 유지한다. 꺼진 값은 제외하고
+  AssumptionReport.behaviour_scenarios와 조립 결과 assumptions에 별도 기록한다.
+  이동 중 사용 가능성/상시 유지의 인증이 아니라 해당 행동 구간의 측정임을 자동 신고한다.
+  행동/꺼진 값만 검사할 때 공급 문구 로드를 하지 않는다. 저주/출혈 등 실제 효과의
+  공급 술어와 요구 전용 문구 거절은 유지했다. leeching 등 다른 상태를 일괄 면제하지 않았다.
+- **검증**: bool/문자열 이동, 정지 시간, 꺼짐, 이동+공급원 없는 저주와 기존
+  가정/유지 비용 회귀30건 통과. 실제 MCP assemble_pob 관문에서 이동/정지 통과와
+  시나리오 자동 보고, 저주 추가 시 거절을 포함한17건 통과했다.
+  native 계산·산출물 게시와 비관련 KB 경계는 대체했으며 게임 조작 가능성을 검증한 것은 아니다.
+  MCP v1/v2는 테스트 KB 대체 함수의 root 인수/subjects 누락으로 실패했고 보완 후
+  v3 통과했다. 실패 원본을 보존했다. PR 전 native 통합은 별도다.
+  증거: artifacts/reviews/redesign-r3-205-unit-v1.xml 및 redesign-r3-205-mcp-v3.xml.
+
+### #204 승인된 제외 젬이 계산 진단에 드러나지 않음
+
+- **상태**: 실제 MCP 계산과 읽기 전용 수록 감사/승인 원장을 대조해 재현(2026-10-31) · **수정·계산/복원 어댑터 회귀 통과(2026-11-01)**.
+  정본 수집 갭이나 타입 오류로 접수한 것이 아니다. 고정0.5.4b 자료 안의 판단이다.
+- **관측**: 익명 시안의 Herald of Thunder 그룹에 `Shock Siphon`이 있고 PoB ID는
+  `Metadata/Items/Gems/SkillGemEnergyShieldOnShockKillSupport`다. `compute_pob`은
+  계산값·아이템/소켓 합법·연결/포인트 결과를 반환하지만 이 젬의 승인된 제외 사유는
+  진단에 없다. 이는 계산 성공과 별개이며 해당 시안 전체를 계산 불가로 판정한 것은 아니다.
+- **검증**: MCP의 Support 검색은0건이다. 다른 타입 검색 후보인 Siphon Elements는
+  별개 엔티티라 Shock Siphon의 타입 오류 근거로 쓰지 않았다. 기존
+  `apply_skill_types(write=False)`는 Shock Siphon을 `pob_only_excluded`로 분류했다.
+  `knowledge/ingest/exclusions.json`의 `unobtainable_gems`에는 `Shock_Siphon`/
+  `support.shock-siphon`이 patch0.5.4b·사용자 승인2026-08-04로 기록돼 있다.
+  획득 카드 부재/PoB 존재를 검토해 제외한 것으로, PoB에 남아 있다는 이유로 수록하면 안 된다.
+- **범위**: 이 원장은 해당 패치의 승인된 카탈로그 판단이다. 이후 패치 부활/현재 실제
+  획득 여부까지 부정한 것이 아니다. 처음의 단순 문자열 조회는 밑줄 슬러그를 놓쳤으며
+  기존 감사와 같은 이름 정규화로 원문을 재확인했다. 정본은 수정하지 않았다.
+- **수정·검증 필요**: 자료에 이미 있는 제외/통합 사유를 계산·가져오기 결과에
+  패치/승인/해당 그룹·젬 위치와 함께 자동으로 신고한다. 과거/부분 빌드의 계산을
+  일괄 거부하지 않는다. 미수록만으로 제외를 추정하지 말고 승인 원장과 미판정을 구분한다.
+  같은 이름의 다른 엔티티, 슬러그/표시명, PoB 이름과 ID, 다른 패치의 판정을 대조하는 회귀가 필요하다.
+
+- **수정**: kb.exclusions가 원장/manifest의 실제 바이트와 패치를 읽고,
+  engine.gem_availability가 PoB native/game ID로 확인한 이름을 원장과 대조한다.
+  compute_pob/evaluate_delta의 실제 결과 투영과 restore_pob_spec에 gem_availability를
+  자동 부착한다. 위치/활성 여부·승인 문자열·원장 SHA256/항목 경로·사유·통합 대상을
+  반환하며 입력 표시명으로 다른 native 젬의 정체성을 덮어쓰지 않는다.
+  matches_kb_patch는 현재 게임 패치가 아니라 고정 KB patch와의 일치다.
+  다른/미상 패치, 승인 부재/잘못된 타입, 원장·카탈로그 장애, native ID 미해석을
+  별도로 신고한다. KB 부재로 제외를 추정하거나 계산/기존 faithful 값을 막지 않는다.
+- **검증**: 원장/ID/별칭/슬러그/패치·승인 양음성 및 기존 계산/MCP 회귀71건 통과.
+  이후 계산·복원 어댑터 경로를 포함한8건과 승인 타입/정확한 원장 경로의7건 재검증 통과.
+  실제 Shock Siphon 고정 원장 결과는 artifacts/reviews/redesign-r3-204/에 보존했다.
+  실제 PoB 산술·복원 parser의 효과를 이 단위 증거로 주장하지 않는다.
+  증거: redesign-r3-204-unit-v1/v2/v3.xml. PR 전 native 통합은 별도다.
+
+### #203 내장 트리거를 빈 메타 젬으로 오인하는 설계 경고
+
+- **상태**: 실제 MCP 계산 경고와 고정 KB 구조의 대조로 재현(2026-10-31) · **수정·단위/MCP 반환 회귀 통과(2026-11-01)**.
+  R1 첫 과제의 익명 시안 검증 중 발견했다. 빌드 원본이나 동결 엔진을 고치지 않았다.
+- **관측**: Wind Dancer가 들어 있는 그룹에 다른 액티브가 없으면 `compute_pob`의
+  `design_warnings`가 발동될 스킬이 없으며 정신력만 점유하고 아무것도 하지 않는다고 말한다.
+  아이템·트리·계산의 성공 여부와는 별개로 잘못된 수정 지시를 유발할 수 있는 경고다.
+- **검증**: `search_insights`의 durable 조회 후 `search_kb` → `get_entry`로
+  `skill.wind-dancer`를 확인했다. 본문에 피격 시 자체 Gale Force 발동이 있고,
+  `data.pob.effects`에는 Buff인 `WindDancerPlayer`와
+  `TriggeredWindDancerPlayer`(`InbuiltTrigger`, `Triggered`, `Attack`)가 함께 있다.
+  이 스킬에 외부 발동 주문을 추가하지 않았다는 사실로 무효를 판정할 수 없다.
+- **원인**: `src/pok/engine/integrity.py`의 `_META_TAGS`가 `meta`와 `trigger`를
+  같은 것으로 묶고 `_classify`/`spec_integrity`가 내부 효과와 외부 페이로드 컨테이너를
+  구분하지 않는다. 이 자료 대조가 입증한 범위는 해당 경고의 거짓 양성이며,
+  Wind Dancer의 실제 회피 배율 모델링이나 모든 트리거 스킬의 동작을 입증한 것은 아니다.
+- **수정·검증 필요**: 실제 메타 컨테이너의 누락 경고는 유지하고 내장 트리거와 분리한다.
+  이름 예외만 추가하거나 `trigger` 전체 검사를 없애지 않는다. 내장 효과만 있는 대조,
+  진짜 빈 메타 젬, 정상 페이로드, 주력 그룹 진단을 함께 회귀로 남길 것. R3 진단 계약에 연결한다.
+
+- **수정**: trigger 태그만으로 컨테이너라고 단정하지 않고 KB의 활성 효과에 있는
+  InbuiltTrigger를 읽는다. 명시 Meta 태그/타입은 우선해 진짜 외부 payload 누락을
+  계속 신고한다. 보조 반쪽의 타입은 자체 활성 효과로 오인하지 않는다.
+  이름 예외 없이 native gem ID로도 해석하고 KB Store 교체 시 분류 캐시를 갱신한다.
+  한 스펙의 모든 젬은 동일한 분류 스냅샷을 공유한다.
+- **검증**: 고정 KB get_entry 응답3개와 메타데이터 대조를
+  artifacts/reviews/redesign-r3-203/에 보존했다. 기존 주력/빈 메타/정상 payload,
+  Wind Dancer·Escape Shot·표시명 변경·명시 Meta 우선·보조 타입 음성 대조 및 실제
+  FastMCP compute_pob 반환 경로를 검사했다. 산술만 stub했고 실제 PoB 효과를
+  검증했다고 하지 않는다. 테스트 입력 ascendancy 누락의 v2 실패는 보존했고 보완 후
+  최종 코드/계산 어댑터 관련64검사가 v4에서 통과했다.
+  증거: artifacts/reviews/redesign-r3-203-regression-v4.xml. PR 전 native 통합은 별도다.
+
 ### #197 고유 검사 경로의 투구 성유·일반 타락 획득 예외 누락
 
 - **상태**: 좁은 거부 재현(2026-10-30) · **미수정**. #188 동결 실험과 별도인 v23
@@ -733,6 +1029,47 @@ setup만 61.47초) ②캐시가 **디렉터리 단위**라 레코드 하나만 �
   공유코드 손상을 주장하지 않는다. C 코드 복원 XML과 제출 XML은 바이트 동일하다.
 - **다음 검증**: 자동 시작/읽기 시간제한·재시작과 과거 timeout의 계산 지연 원인을
   확인한다. 이번 병렬 혼선 교정만으로 이전 시간 초과를 해결 처리하지 않는다.
+- **R3 추가(2026-11-01, 미출고)**: 데몬 명령의 잠금 대기부터 완료까지 기본180초
+  절대 기한, 진행 메시지에 의한 기한 연장 방지, 소유 자식 종료 확인 및 다음 명령의
+  새 프로세스 복구를 구현했다. 잠금 대기 만료는 다른 소유자의 자식을 종료하지 않는다.
+  종료 미확인은 참조를 보존하고 재사용을 막는다. 관련29단위 통과, native 선택9검사
+  통과 후 완료 시점 기한/읽기 정리를 보강하고 실제 종료→재시작1검사를 재확인했다.
+  증거는 `artifacts/reviews/pob-command-deadline-v3.xml`,
+  `pob-command-deadline-native-v1.xml`, `pob-command-deadline-native-v2.xml`이다.
+  단일 명령 범위이며 MCP 전체 요청 기한·취소 전파·하위 프로세스 트리와 과거 C의
+  계산 지연 원인까지 해결한 것은 아니다. 이 결함의 부분 수정 상태를 유지한다.
+- **단발 실행 후속(2026-11-01, 미출고)**: runner 출력 파이프를 임시 일반 파일로
+  바꿔 Windows 시간 초과 처리의 descendant 핸들 drain 대기를 제거했다. 부분 출력은
+  TimeoutExpired에 보존하며 실패 결과는 캐시에 게시하지 않는다. 실제 하위 프로세스
+  핸들 유지 재현·UTF-8·기존 동시성/명령 기한 포함16단위 및 실제 PoB2검사 통과.
+  증거: `pob-driver-timeout-v1.xml`, `pob-driver-timeout-native-v1.xml`.
+  하위 프로세스 트리 종료나 전체 MCP 요청 기한까지 구현한 것은 아니다.
+- **요청 컨텍스트 코어(2026-11-01, 미출고)**: 공통 ExecutionScope의 요청 ID/소유자·
+  불변 절대 기한·취소 요청/워커 종료·등록 자원의 종료 미확인을 구분하고 단발 runner와
+  데몬의 잠금/응답 대기에 연결했다. 취소를 일반 fallback 예외가 삼키지 않게 분리했다.
+  관련30단위와 실제 PoB 단발+데몬1검사 통과(`request-scope-native-v3.xml`,
+  `request-scope-native-pob-v1.xml`). 아직 MCP 경계에 연결하지 않았으며 전송 취소·
+  전체 프로세스 트리·저장/재연결 복구 및 과거 C 지연 원인까지 해결한 것은 아니다.
+- **MCP 감독 후속(2026-11-01, 미출고)**: 실행 참조·기한·명시 취소/조회/완료 결과 회수를
+  MCP 경계에 연결했다. 관련64검사·AnyIO 진행 알림 후속41검사 및 실제 PoB 자식 시작→
+  MCP 취소→종료 확인→후속 계산1검사 통과. 로컬 클라이언트 대기 취소는 현재 SDK에서
+  MCP 취소 통지를 자동 전송하지 않아 별도 경로로 다룬다. 증거는 계약 문서 마지막 절.
+  상태는 서버 프로세스 내 보관이며 영속 재시작 복구·모든 native/프로세스 트리와
+  과거 C 지연 원인은 남아 있다. 현재 전체 단위 재검사 진행 중이며 부분 수정 상태를 유지한다.
+- **소유 트리 연결(2026-11-01, 미출고)**: runner의 요청 유무 양 경로와 daemon을 소유
+  Job/group 생성·종료 확인에 연결했다. 자원 ledger에 정리 scope/status를 복사 보존하고
+  미확인 핸들을 유지한다. 불완전 프레임 EOF/I/O 오류도 재사용하지 않고 정리한다.
+  관련50검사·실제 PoB4검사와 살아 있는 데몬 기한 정리/재시작1검사 통과.
+  증거: `pob-owned-containment-v4.xml`, `pob-owned-containment-native-v1.xml`,
+  `pob-owned-daemon-timeout-native-v3.xml`. item_editor/roundtrip/parse_gaps 계열 호출과
+  영속 재시작 복구·POSIX 실제 검증은 남아 있어 부분 수정 상태를 유지한다.
+- **남은 PoB 호출 통합(2026-11-01, 미출고)**: item_editor/roundtrip/parse_gaps/
+  item_parse_gaps도 공통 소유 캡처 경계로 옮겼다. 공유 임시 입력을 요청별 UUID 파일로
+  바꾸고 취소 시 원래 제어 흐름/아이템 편집 부분 증거를 보존한다. 관련61검사·후속27검사와
+  실제 PoB 네 경로4검사 통과. 직접 subprocess 호출 재유입은 AST 검사로 막는다.
+  증거: `native-capture-paths-v2.xml`, `native-capture-boundary-v3.xml`,
+  `native-capture-paths-native-v1.xml`. 현재 전량 단위 v3 실행 중이며 영속 복구/플랫폼
+  검증까지 완료한 것은 아니다.
 - **근거**: [전체 경로 결과](GENERATION_FULLPATH_EVAL.md)의 재입력·실제 수행 범위. PR #146.
 
 ### #183 〔신규〕 실험 실행기의 고정 조회 단계가 미해결 질문으로 돌아가는 것을 막는다
@@ -6292,6 +6629,8 @@ Build가 쌓이면 「축별 점유·빈 자리」는 집계 쿼리다 → `desc
 
 | 결함 | 조치 | PR |
 |---|---|---|
+| 〔#201〕 stdio 서버의 Git 출력 파이프 대기·진단의 KB 콜드 검증 결합 | 실제 스택에서 _git_head와 store._untracked의 reader join 확인. DEVNULL stdin/파일 출력으로 timeout 후 파이프 배출 대기 제거. 진단은 캐시 상태만 읽고 current_validation=not_checked, Git 실패는 identity_status=unavailable로 표시. 자손 출력 핸들 회귀·유니코드·실패·콜드 KB 미호출 시험, 실제 stdio 로드 e7bd429/50도구 확인. 전체 회귀·배포는 미완료 | 미생성 |
+| 〔#202〕 MCP 직렬화 별칭 누락 및 비정형 비유한수 대량 저장 실패 | 실제 mcp.types의 structuredContent/isError 별칭으로 직렬화해 두 사본 크기/오류를 보존. 비정형 JSON Infinity/NaN의 참조 값은 null로 명시 정규화하고 원문 텍스트를 source에 보존·참조 안내. 작은/직접 반환은 유지. 관련 묶음26통과 및 실제 PoB 편집→계산→공유코드 왕복1통과. 일반 품질 개선과 구분 | 미생성 |
 | 〔#199〕 대량 측정 결과가 MCP에서 잘려 선택안·근거를 잃음 | 원결과의 기존 MCP 논리 JSON·해석 입력·출처를 해시와 보존하고 wire16KB 이하 안내, JSON pointer/페이지/문자열 전량 회수, 후보·근거 참조 입력을 제공. C16.2/13.9MB 원본이1,780바이트 안내로 전달되고 후속 구성 정확히 일치. 작은 반환·직접 Python 보존, inf/NaN은 기존 MCP의 null 규약 유지. 동시 저장의 Windows 충돌도 완성 디렉터리 단일 게시로 교정. 관련51통과/Windows symlink1skip·실제 편집→측정→참조 조립→왕복 통과. [범위와 근거](GENERATION_REOPTIMIZATION_188.md) | #149 |
 | 〔#200〕 최종 전직·유틸 재측정을 완료 관문이 거짓 거부 | 클래스/전직 소유 노드 변경으로 전직 증거를 만들고, 같은 후보·전체 변경 대상·관측 축의 현재 유틸 측정을 무관한 inventory 변경 때문에 버리지 않도록 수정. C저장 기록6→4→3, 실제 미재측정3건 유지·원본 불변. 관련107단위 및 MCP어댑터 묶음78통과. 일반 노드·별칭 변경/다른 동반 조합은 통과시키지 않음. [수행·누락](GENERATION_REOPTIMIZATION_188.md) | #149 |
 | 〔#193〕 룬 선언이 옵션 뒤에 있어 편집·저장 시 복제 | 원본 B4→8홈·C6→9홈 및 원문3→6→9 복제를 재현. 선언을 식별 헤더 직후로 옮기고 늦은 선언 입력을 고유 포함 거부. 일반/마법/희귀·룬 선택/저장/재입력 회귀 통과. [상세 근거](GENERATION_EDITOR_REGRESSION.md). GUI·상주 MCP 교체는 미검증이며 #188 품질 해결과 구분 | #146 |

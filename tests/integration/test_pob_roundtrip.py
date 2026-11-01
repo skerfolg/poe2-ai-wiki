@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 
 from pok.pob.buildxml import BuildSpec, GemSpec, ItemSpec, SkillGroupSpec
-from pok.pob.daemon import PobDaemon
+from pok.pob.daemon import PobDaemon, _exclusive
 from pok.pob.runner import run_build
 from pok.pob.versions import find_luajit, resolve_snapshot
 
@@ -178,15 +178,23 @@ def test_late_gold_rarity_preserves_native_output_across_driver_daemon_and_tree(
         assert daemon.compute_tree(gold_spec.tree_nodes).stats["LateLootRarityMod"] == 1.62
         # The raw protocol also rejects it, even without the Python preflight.
         assert daemon._proc is not None and daemon._proc.stdin is not None
-        daemon._proc.stdin.write("POWER\tLateLootRarityMod\n")
-        daemon._proc.stdin.flush()
-        response = []
-        while True:
-            line = daemon._readline().strip()
-            assert line
-            if line == "POK_DONE":
-                break
-            response.append(line)
+
+        @_exclusive
+        def raw_power_frame(daemon: PobDaemon) -> list[str]:
+            # Bypass the Python stat preflight, while retaining the production
+            # transaction lock, absolute deadline and native cleanup boundary.
+            assert daemon._proc is not None and daemon._proc.stdin is not None
+            daemon._proc.stdin.write("POWER\tLateLootRarityMod\n")
+            daemon._proc.stdin.flush()
+            response = []
+            while True:
+                line = daemon._readline().strip()
+                assert line
+                if line == "POK_DONE":
+                    return response
+                response.append(line)
+
+        response = raw_power_frame(daemon)
         assert response == [
             "POK_ERR:LateLootRarityMod is unavailable in POWER; use full XML or TREE computation"
         ]

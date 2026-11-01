@@ -116,7 +116,7 @@ def optimize_tree(
     cluster_exclude: list[str] | None = None,
     targets: list[dict[str, Any]] | None = None,
     required_anchors: list[int] | None = None,
-    time_budget_s: float | None = 600.0,
+    time_budget_s: float | None = 300.0,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
@@ -157,7 +157,7 @@ def optimize_tree(
     가지치기도 건드리지 않는다. 후보는 `corpus.missing_unanimous`(표본 전원이 찍는
     목적지)와 컨셉상 필수 노드에서 고른다.
 
-    `time_budget_s` = **시간 상한(기본 600초)**. 후보 하나가 PoB 계산 1회(실측 0.16초)라
+    `time_budget_s` = **시간 상한(기본 300초)**. 후보 하나가 PoB 계산 1회(실측 0.16초)라
     예산·후보 수에 비례해 는다 — 실측 2026-08-12: 예산 156·후보 40이 가지치기 재실행까지
     합쳐 **40분을 넘겼다**(진행 표시도 없었다). 넘기면 그 자리에서 멈추고 **남은 예산과
     함께 notes에 밝힌다** — 덜 최적화된 트리이지 완성된 트리가 아니다. `None`이면 무제한.

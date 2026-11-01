@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 
 from pok.pob.codec import decode
+from pok.pob.selection import resolve_xml_selection
 
 
 @dataclass(frozen=True)
@@ -44,6 +45,8 @@ class PobSummary:
     ascendancy_internal_id: str
     items: tuple[ItemSummary, ...]
     player_stats: dict[str, float] = field(default_factory=dict)  # 코드에 저장된 표시 스탯
+    selection: dict[str, str | int] = field(default_factory=dict)
+    notes: tuple[str, ...] = ()
 
     @property
     def main_skill_gems(self) -> tuple[str, ...]:
@@ -59,6 +62,7 @@ def parse_pob_xml(xml_text: str) -> PobSummary:
     build = root.find("Build")
     if build is None:
         raise ValueError("PoB XML에 Build 요소가 없음")
+    selection = resolve_xml_selection(root)
     stats: dict[str, float] = {}
     for ps in build.findall("PlayerStat"):
         name, value = ps.get("stat"), ps.get("value")
@@ -69,10 +73,9 @@ def parse_pob_xml(xml_text: str) -> PobSummary:
         except ValueError:
             continue  # 숫자 아닌 표시값은 요약에서 제외
     groups: list[SkillGroupSummary] = []
-    skills = root.find("Skills")
+    skills = selection.skills
     if skills is not None:
-        skill_set = skills.find("SkillSet")
-        for g in (skill_set if skill_set is not None else skills).findall("Skill"):
+        for g in skills.findall("Skill"):
             groups.append(
                 SkillGroupSummary(
                     gems=tuple(gm.get("nameSpec") or "" for gm in g.findall("Gem")),
@@ -83,8 +86,7 @@ def parse_pob_xml(xml_text: str) -> PobSummary:
             )
     nodes: tuple[int, ...] = ()
     tree_version = asc_internal = ""
-    tree = root.find("Tree")
-    spec = tree.find("Spec") if tree is not None else None
+    spec = selection.tree
     if spec is not None:
         raw_nodes = (spec.get("nodes") or "").strip()
         nodes = tuple(int(n) for n in raw_nodes.split(",") if n.strip().isdigit())
@@ -112,6 +114,8 @@ def parse_pob_xml(xml_text: str) -> PobSummary:
         ascendancy_internal_id=asc_internal,
         items=tuple(items),
         player_stats=stats,
+        selection=selection.resolved,
+        notes=selection.notes,
     )
 
 

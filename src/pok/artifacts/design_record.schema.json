@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pok:design-record:v1",
+  "title": "PoK design record v1",
+  "description": "Shape contract only. Hashes, reference validity, user authorization and game semantics require separate checks.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "design_id", "revision", "parents", "goal", "decisions", "evidence", "questions", "material", "legacy_sources"],
+  "properties": {
+    "format": {"const": "pok.design-record.v1"},
+    "design_id": {"$ref": "#/$defs/id"},
+    "revision": {"$ref": "#/$defs/hash"},
+    "parents": {"type": "array", "items": {"$ref": "#/$defs/hash"}, "uniqueItems": true},
+    "goal": {
+      "type": "object", "additionalProperties": false, "required": ["summary"],
+      "properties": {"summary": {"$ref": "#/$defs/text"}, "context": {"type": "string"}}
+    },
+    "mechanism_summary": {"type": "string"},
+    "decisions": {"type": "array", "items": {"$ref": "#/$defs/decision"}},
+    "evidence": {"type": "array", "items": {"$ref": "#/$defs/evidence"}},
+    "questions": {"type": "array", "items": {"$ref": "#/$defs/question"}},
+    "material": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/material"}]},
+    "legacy_sources": {"type": "array", "items": {"$ref": "#/$defs/blob"}},
+    "extensions": {"type": "object"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}(?![\\s\\S])"},
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"},
+    "text": {"type": "string", "minLength": 1, "pattern": "\\S"},
+    "ids": {"type": "array", "items": {"$ref": "#/$defs/id"}, "uniqueItems": true},
+    "blob": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "name", "sha256", "media_type"],
+      "properties": {
+        "artifact_id": {"type": "string", "pattern": "^[A-Za-z0-9가-힣][A-Za-z0-9가-힣._-]{0,199}(?![\\s\\S])"},
+        "name": {"type": "string", "maxLength": 512, "pattern": "^(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9가-힣][A-Za-z0-9가-힣._/-]*(?![\\s\\S])"},
+        "sha256": {"$ref": "#/$defs/hash"},
+        "media_type": {"$ref": "#/$defs/text"}
+      }
+    },
+    "scope": {
+      "type": "object", "additionalProperties": false, "required": ["description", "decision_ids"],
+      "properties": {
+        "description": {"$ref": "#/$defs/text"},
+        "decision_ids": {"$ref": "#/$defs/ids"},
+        "components": {"type": "array", "items": {"enum": ["character", "items", "jewels", "tree", "skills", "config", "selection", "acquisition"]}, "uniqueItems": true},
+        "material_revision": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "evidence_scope": {
+      "type": "object", "additionalProperties": false,
+      "required": ["description", "decision_ids", "usage"],
+      "properties": {
+        "description": {"$ref": "#/$defs/text"},
+        "decision_ids": {"$ref": "#/$defs/ids"},
+        "components": {"$ref": "#/$defs/scope/properties/components"},
+        "material_revision": {"$ref": "#/$defs/hash"},
+        "usage": {"enum": ["current", "comparison", "historical", "general"]}
+      }
+    },
+    "provider": {
+      "type": "object", "additionalProperties": false, "required": ["id", "kind", "label"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["item", "jewel", "passive", "skill", "support", "resource", "action", "other"]},
+        "label": {"$ref": "#/$defs/text"},
+        "entity_id": {"$ref": "#/$defs/text"},
+        "binding": {
+          "type": "object", "additionalProperties": false,
+          "required": ["material_revision", "representation", "pointer", "value_sha256"],
+          "properties": {
+            "material_revision": {"$ref": "#/$defs/hash"},
+            "representation": {"enum": ["build_spec", "pob_xml"]},
+            "pointer": {"type": "string"},
+            "value_sha256": {"$ref": "#/$defs/hash"}
+          }
+        }
+      }
+    },
+    "cost": {
+      "type": "object", "additionalProperties": false, "required": ["resource", "amount", "unit", "note"],
+      "properties": {
+        "resource": {"$ref": "#/$defs/text"},
+        "amount": {"type": ["number", "null"]},
+        "unit": {"type": "string"},
+        "note": {"type": "string"}
+      }
+    },
+    "decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "title", "role", "domains", "condition", "adoption", "belief", "confidence", "providers", "depends_on", "alternatives", "evidence_ids", "costs"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "title": {"$ref": "#/$defs/text"},
+        "role": {"enum": ["user_fixed", "mechanism_required", "provisional", "power_candidate"]},
+        "domains": {"type": "array", "minItems": 1, "items": {"enum": ["offence", "defence", "sustain", "utility"]}, "uniqueItems": true},
+        "condition": {
+          "type": "object", "additionalProperties": false, "required": ["statement", "scope"],
+          "properties": {"statement": {"$ref": "#/$defs/text"}, "scope": {"$ref": "#/$defs/scope"}}
+        },
+        "adoption": {"enum": ["candidate", "adopted", "rejected", "deferred"]},
+        "belief": {"enum": ["unknown", "hypothesis", "source_supported", "user_reported", "contradicted"]},
+        "confidence": {"enum": ["low", "medium", "high"]},
+        "providers": {"type": "array", "items": {"$ref": "#/$defs/provider"}},
+        "depends_on": {"$ref": "#/$defs/ids"},
+        "alternatives": {"$ref": "#/$defs/ids"},
+        "evidence_ids": {"$ref": "#/$defs/ids"},
+        "costs": {"type": "array", "items": {"$ref": "#/$defs/cost"}},
+        "rationale": {"type": "string"},
+        "limitations": {"type": "array", "items": {"type": "string"}},
+        "review_triggers": {"type": "array", "items": {"type": "string"}},
+        "review": {
+          "type": "object", "additionalProperties": false,
+          "required": ["state", "reasons", "since_revision"],
+          "properties": {
+            "state": {"enum": ["unknown", "required", "reviewed"]},
+            "reasons": {"type": "array", "items": {"$ref": "#/$defs/text"}},
+            "since_revision": {"$ref": "#/$defs/hash"}
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "kind", "label", "scope", "source"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["measurement", "catalog", "user_observation", "external", "hypothesis"]},
+        "label": {"$ref": "#/$defs/text"},
+        "scope": {"$ref": "#/$defs/evidence_scope"},
+        "source": {"type": "object"},
+        "limitations": {"type": "array", "items": {"type": "string"}}
+      },
+      "allOf": [
+        {"if": {"properties": {"kind": {"const": "measurement"}}}, "then": {"properties": {"source": {"$ref": "#/$defs/measurement_source"}, "scope": {"required": ["material_revision"], "properties": {"usage": {"enum": ["current", "comparison", "historical"]}}}}}},
+        {"if": {"properties": {"kind": {"const": "catalog"}}}, "then": {"properties": {"source": {"$ref": "#/$defs/catalog_source"}}}},
+        {"if": {"properties": {"kind": {"const": "user_observation"}}}, "then": {"properties": {"source": {"$ref": "#/$defs/user_source"}}}},
+        {"if": {"properties": {"kind": {"const": "external"}}}, "then": {"properties": {"source": {"$ref": "#/$defs/external_source"}}}},
+        {"if": {"properties": {"kind": {"const": "hypothesis"}}}, "then": {"properties": {"source": {"$ref": "#/$defs/hypothesis_source"}}}}
+      ]
+    },
+    "measurement_source": {
+      "oneOf": [{"$ref": "#/$defs/spec_measurement_source"}, {"$ref": "#/$defs/xml_measurement_source"}]
+    },
+    "xml_measurement_source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["representation", "document_measurement_ref", "xml_sha256", "path"],
+      "properties": {
+        "representation": {"const": "pob_xml"},
+        "xml_sha256": {"$ref": "#/$defs/hash"},
+        "path": {"type": "string"},
+        "document_measurement_ref": {
+          "type": "object", "additionalProperties": false,
+          "required": ["format", "artifact_id", "sha256", "manifest_sha256"],
+          "properties": {
+            "format": {"const": "pok.document-measurement-ref.v1"},
+            "artifact_id": {"type": "string", "pattern": "^[A-Za-z0-9가-힣][A-Za-z0-9가-힣._-]{0,199}(?![\\s\\S])"},
+            "sha256": {"$ref": "#/$defs/hash"},
+            "manifest_sha256": {"$ref": "#/$defs/hash"}
+          }
+        }
+      }
+    },
+    "spec_measurement_source": {
+      "type": "object", "additionalProperties": false, "required": ["$pok_result", "path", "spec_sha256"],
+      "properties": {
+        "$pok_result": {"type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])"},
+        "path": {"type": "string"},
+        "spec_sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "catalog_source": {
+      "type": "object", "additionalProperties": false, "required": ["catalog", "entity_id", "record_sha256", "field_path"],
+      "properties": {
+        "catalog": {"enum": ["kb", "insight"]},
+        "entity_id": {"$ref": "#/$defs/text"},
+        "record_sha256": {"$ref": "#/$defs/hash"},
+        "field_path": {"type": "string"},
+        "patch": {"type": "string"}
+      }
+    },
+    "user_source": {
+      "type": "object", "additionalProperties": false, "required": ["statement", "context"],
+      "properties": {"statement": {"$ref": "#/$defs/text"}, "context": {"$ref": "#/$defs/text"}, "conversation_ref": {"type": "string"}}
+    },
+    "external_source": {
+      "type": "object", "additionalProperties": false, "required": ["url", "title"],
+      "properties": {"url": {"type": "string", "pattern": "^https?://"}, "title": {"$ref": "#/$defs/text"}, "snapshot": {"$ref": "#/$defs/blob"}}
+    },
+    "hypothesis_source": {
+      "type": "object", "additionalProperties": false, "required": ["statement", "criterion"],
+      "properties": {"statement": {"$ref": "#/$defs/text"}, "criterion": {"$ref": "#/$defs/text"}}
+    },
+    "question": {
+      "type": "object", "additionalProperties": false, "required": ["id", "claim", "criterion", "owner", "state", "depends_on", "evidence_ids"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "claim": {"$ref": "#/$defs/text"},
+        "criterion": {"$ref": "#/$defs/text"},
+        "owner": {"enum": ["agent", "user_preference", "in_game"]},
+        "state": {"enum": ["open", "resolved", "deferred"]},
+        "depends_on": {"$ref": "#/$defs/ids"},
+        "evidence_ids": {"$ref": "#/$defs/ids"}
+      }
+    },
+    "material": {
+      "type": "object", "additionalProperties": false, "required": ["revision", "selection"],
+      "properties": {
+        "revision": {"$ref": "#/$defs/hash"},
+        "xml": {"$ref": "#/$defs/blob"},
+        "spec": {"$ref": "#/$defs/blob"},
+        "metadata": {"$ref": "#/$defs/blob"},
+        "selection": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "item_set": {"type": "string"}, "skill_set": {"type": "string"},
+            "tree_spec": {"type": "string"}, "config_set": {"type": "string"},
+            "weapon_set": {"enum": [1, 2]}, "main_group": {"type": "integer", "minimum": 1},
+            "main_active_skill": {"type": "integer", "minimum": 1}, "stat_set": {"type": "integer", "minimum": 1}
+          }
+        }
+      },
+      "anyOf": [{"required": ["xml"]}, {"required": ["spec"]}]
+    }
+  }
+}
