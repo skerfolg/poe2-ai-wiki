@@ -104,3 +104,11 @@ structuredContent를 소비하므로 Python SDK data Root의 파싱 차이와 �
 명시 설정 시 데이터/캐시 분리안을 준비했고 AGENTS 철칙1에 따라 사용자 협의 중이다.
 승인 전 엔진 저장 경로·UI 코드는 변경하지 않았다. 별도 번들 리소스/serve 지원도
 실제 구현을 확인해야 하며 문서의 배포 설명만으로 지원된다고 보지 않는다.
+
+사용자 승인 후 경로 계약 구현: POK_DATA_HOME→그 아래 artifacts, POK_CACHE_HOME→폴더 자체,
+미지정 기존 기본값·명시 root 우선·빈/상대/쓰기 실패 no fallback을 지원한다.
+server_info.runtime_paths의 resource_root/artifacts_root/cache_root와 runtime_storage capability로
+실제 적용을 확인한다. 관련28단위와 독립 설정13단위, 실제 stdio3서버의 재연결/기록 격리/
+index.sqlite·PoB cache hit/miss 검증 통과(r6-storage-native-v2.xml).
+UI f6bc07b의 기존 env 전달을 현재 엔진이 소비하지만 실제 GUI/번들 전체 검증은 아직 남았다.
+R5 기준/개선 동결 제품은 변경하지 않았다. 이 승인된 경로 계약은 재확인 없이 진행한다.

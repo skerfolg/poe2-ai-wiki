@@ -38,7 +38,7 @@ from pok.artifacts.design_record import canonical_bytes
 from pok.artifacts.design_record import record_schema as _design_schema
 from pok.common import telemetry
 from pok.common.execution import checkpoint, current_execution
-from pok.common.paths import knowledge_dir
+from pok.common.paths import knowledge_dir, runtime_paths
 from pok.common.stdio import force_utf8_stdio
 from pok.engine import design_service as _design_service
 from pok.engine import document_selection as _document_selection
@@ -921,6 +921,15 @@ def get_insight(id: str) -> dict[str, Any]:
 
 def _server_capabilities() -> dict[str, Any]:
     return {
+        "runtime_storage": {
+            "data_home_env": "POK_DATA_HOME",
+            "data_home_layout": "artifacts_subdirectory",
+            "cache_home_env": "POK_CACHE_HOME",
+            "cache_home_layout": "directory_itself",
+            "absolute_paths_required": True,
+            "explicit_root_precedence": True,
+            "unset_layout": "project_artifacts_and_var",
+        },
         "explicit_calculation": {
             "tool": "compute_pob",
             "argument": {"input_policy": "explicit"},
@@ -1178,6 +1187,7 @@ def server_info() -> dict[str, Any]:
         "stale": stale,
         "identity_status": identity_status,
         "source_root": str(knowledge_dir().parent),
+        "runtime_paths": runtime_paths(),
         "tools": tools,
         "tool_count": len(tools),
         "capabilities": _capability_summary(),

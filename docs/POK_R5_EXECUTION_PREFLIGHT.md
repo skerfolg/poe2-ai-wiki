@@ -100,3 +100,9 @@ Git checkout의 KB4파일 줄바꿈이 기준판 실제 바이트와 달라, CRL
 파서로 재판독해 같은 세션/turn.completed를 확인했다. 한글/이모지 중간에서 잘린 마지막
 UTF-8 로그도 완전한 이전 session ID를 보존하고, 중간 손상은 거절하는 회귀까지35검사 통과.
 이후 controller의 변경이 별도 제품 worktree를 수정하지 않는 구조를 유지한다.
+
+product_integrity.py의14검사에서는 실제 Windows junction도 사용해 선언된 공유 대상만
+허용하고, 동일 바이트라도 다른 대상을 가리키면 거절했다. 소스 추가/누락/변경과 중첩
+미선언 링크를 검출하며 __pycache__/Git 내부를 정본으로 취급하지 않는다.
+r5-integrity-real-v1/result.json의 실제 동결 개선판26379파일 및 runtime/source inventory
+검사는 status=verified/진단0이었다. 이는 캠페인 runner와 단계별 공개 연결 전의 개별 검증이다.
