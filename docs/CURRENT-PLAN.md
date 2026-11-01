@@ -1034,3 +1034,4 @@ R5 새 product_integrity 검사14통과(실제 junction 포함), 전체 동결26
 실제 적용 probe를 별도로 실행했다. 그 결과를 확인한 뒤 캠페인 runner에 연결한다.
 R5 무결성 실제 probe22621 종료0: 동결 개선판·명시 공유 경로26379파일 및 소스 inventory verified/진단0.14검사에는 실제 junction 허용/오대상 거부·추가 소스 검출 포함. SourceRoot 변경이나 R5 본 평가를 시작한 것은 아니다.
 승인 경로/기존 server_info/R5 제어를 함께 실행한65회귀 통과(r6-storage-and-r5-controls-unit-v1.xml). 실제MCP/PoB 저장 경로1통과, 전체 Ruff/442파일 format/mypy175 및 별도strict8소스 통과. 다음은 동결 제품·입력과 단계 공개를 공통 캠페인 runner에 연결하고 R6 UI 소비를 이어가는 일이다.
+R5 product_campaign.py/회귀 구현: 단계 공개·미완료 동일문맥 재개·예산 미이전·8순서 한번수집·source/종료 실패 중단을 검증했다. 관련56검사 통과, 추가 출력경계/비용기록 후7회귀 통과. 본 캠페인 descriptor/실행 스크립트 연결은 다음이며 H1/H2미실행이다.
