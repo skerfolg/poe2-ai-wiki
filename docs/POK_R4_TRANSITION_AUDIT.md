@@ -96,3 +96,22 @@ CritChance0이며 원래 트리의 노드를 보호 기반으로 강제 유지�
 현재 마나/보조, 부위 간 저항, 핵심 선택/전체 트리의 세 작은 대조는 확보했다.
 R4 종합 출구 감사에는 설계 기록과 최종 추천의 연결, 실제 스킬/클라이언트 호출 경로,
 미측정/미해결과 최종 주장 범위의 일치까지 남아 있다. 기본 전환/품질 평가는 R5~R7이다.
+
+## 최종 추천과 기록 결박 — 구현·검증 중
+
+v2의 design_ref는 불변 체크포인트를 다시 읽고 material 원본을 동일 검증기로 확인한다.
+현재 추천과 spec 서명/config가 다르거나 참조/현재 근거/공급자 결박이 미검증이거나
+채택된 결정의 review가 required이면 최종 추천을 차단한다. 진단·열린 질문·게임 성립
+미인증은 별도 층으로 보존한다. 전략의 의미나 미검증 인게임 사실을 자동 확정하지 않는다.
+최종 purpose=recommendation에서는 기록을 필수로 요구하며 require_design_record=false로
+우회할 수 없다. 비교만 보는 탐색과 기존 v1은 유지한다.
+초기 fixture의 condition/scope 모양 오류 두 실패를 보존했고 보정 후 추천/근거143검사 통과
+(r4-design-recommendation-v3.xml). 최종 필수화와 실제 MCP 기록 생성→실물 연결→추천 출고는
+별도 r4-record-native-v1 실행 중이며 아직 성공으로 처리하지 않는다.
+
+r4-record-native-v1.xml 실제 MCP/native 포함20검사 통과: 생성 기록의 material을
+실제 선택 구성에 연결하고 동일 record_ref로 input_bound 최종 조립/공유 코드 보존 확인.
+최종 require_design_record=false 우회 차단 포함. r4-design-layers-v1.xml20검사 통과:
+설계 누락이 있어도 실제 비교 층을 별도 표현하고 인게임 질문을 열린 상태로 공개한다.
+게임 미인증/선택은 호출자 판단이라는 경계를 유지한다. capability 관련3검사와
+전체 Ruff/433파일 format/mypy175소스 통과. 전체 R3/R4 출구·현재 소스 전량 검증은 별도 감사한다.

@@ -113,6 +113,13 @@ def _material(
     return report, spec
 
 
+def inspect_material_input(
+    record_text: str, *, root: Path | None = None
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Verify material through the same checks used by evidence inspection."""
+    return _material(parse_record(record_text), root)
+
+
 def _measurement_subject(
     payload: dict[str, Any], pointer: str
 ) -> tuple[dict[str, Any], Any, dict[str, Any]]:

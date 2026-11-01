@@ -1,6 +1,7 @@
 """Actual MCP comparison receipts support explicit recommendation assembly."""
 
 import asyncio
+import json
 from copy import deepcopy
 
 import pytest
@@ -35,6 +36,12 @@ def test_saved_mcp_comparison_can_assemble_without_optimizer_or_autofill(tmp_pat
     monkeypatch.setattr(store, "artifacts_dir", lambda root=None: tmp_path / "artifacts")
     server.tool(build.evaluate_delta)
     server.tool(build.assemble_pob)
+    for function in (
+        server.create_design_record,
+        server.capture_design_material,
+        server.update_design_record,
+    ):
+        server.tool(function.__wrapped__)
     base = {
         "class_name": "Sorceress",
         "ascendancy": "Sorceress1",
@@ -66,6 +73,15 @@ def test_saved_mcp_comparison_can_assemble_without_optimizer_or_autofill(tmp_pat
 
     async def run():
         async with Client(api) as client:
+
+            def value(response):
+                data = response.structured_content
+                if set(data) == {"result"}:
+                    data = data["result"]
+                if data.get("stored_tool_result"):
+                    data = tool_results.resolve_references(data["result_ref"])
+                return data
+
             measured = await client.call_tool(
                 "evaluate_delta",
                 {"base_spec": base, "variants": {"more_life": alternative}, "stats": ["Life"]},
@@ -76,8 +92,29 @@ def test_saved_mcp_comparison_can_assemble_without_optimizer_or_autofill(tmp_pat
             payload, _ = tool_results.load_result(reference["$pok_result"])
             assert payload["result"]["comparison"]["measurements_complete"], payload["result"]
             chosen = deepcopy(alternative)
+            created = value(
+                await client.call_tool(
+                    "create_design_record",
+                    {"design_id": "native-comparison", "goal": "Preserve the measured ring choice"},
+                )
+            )
+            material = value(
+                await client.call_tool("capture_design_material", {"build_spec": chosen})
+            )
+            updated = value(
+                await client.call_tool(
+                    "update_design_record",
+                    {
+                        "record_ref": created["record_ref"],
+                        "expected_revision": json.loads(created["record_json"])["revision"],
+                        "changes": [{"op": "set_material", "value": material["material"]}],
+                    },
+                )
+            )
             chosen["optimization_contract"] = {
                 "version": 2,
+                "require_design_record": True,
+                "design_ref": updated["record_ref"],
                 "required_components": ["items"],
                 "comparisons": [
                     {
@@ -98,12 +135,15 @@ def test_saved_mcp_comparison_can_assemble_without_optimizer_or_autofill(tmp_pat
                 },
             )
             assert not assembled.is_error
-            result = assembled.data
-            if "result_ref" in result:
-                result = tool_results.resolve_references(result["result_ref"])
+            result = value(assembled)
             assert result["ok"], result
             assert result["optimization_readiness"]["version"] == 2
             assert result["optimization_readiness"]["recommendation_ready"]
+            assert result["optimization_readiness"]["design_record"]["status"] == "input_bound"
+            assert (
+                result["optimization_readiness"]["design_record"]["record_ref"]
+                == updated["record_ref"]
+            )
             assert "+20 to maximum Life" in codec.decode(result["build_code"])
             assert "autofilled" not in result
 

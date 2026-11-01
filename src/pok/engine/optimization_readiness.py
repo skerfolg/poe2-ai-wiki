@@ -1452,7 +1452,9 @@ def _comparison_readiness(
     comparisons = contract.get("comparisons")
     if (
         type(contract.get("version")) is not int
-        or set(contract) != {"version", "required_components", "comparisons"}
+        or set(contract)
+        - {"version", "required_components", "comparisons", "design_ref", "require_design_record"}
+        or not isinstance(contract.get("require_design_record", False), bool)
         or not isinstance(required, list)
         or not required
         or any(not isinstance(c, str) or c not in REVIEW_COMPONENTS for c in required)
@@ -1470,6 +1472,8 @@ def _comparison_readiness(
         )
         required, comparisons = [], []
     current = derivation_context(dict(spec))
+    design_status, design_issues = _recommendation_design(spec, contract, purpose=purpose)
+    issues.extend(design_issues)
     graph = None
     if "ascendancy" in required:
         from pok.common.paths import knowledge_dir
@@ -1593,6 +1597,15 @@ def _comparison_readiness(
         "blockers": issues,
         "accepted_exceptions": [],
         "comparisons": accepted,
+        "design_record": design_status,
+        "layers": {
+            "comparison": "needs_review"
+            if any(not row["code"].startswith("design_record_") for row in issues)
+            else "verified_declared_candidates",
+            "design_record": design_status["status"],
+            "game_feasibility": "not_certified",
+            "selection": "caller_reported",
+        },
         "qualification": {
             "global_optimum_proven": False,
             "gameplay_validated": False,
@@ -1601,3 +1614,70 @@ def _comparison_readiness(
         },
         "claim": "saved_input_bound_comparisons_not_build_quality_or_game_certificate",
     }
+
+
+def _recommendation_design(
+    spec: Mapping[str, Any], contract: Mapping[str, Any], *, purpose: str
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Bind an explicitly requested design checkpoint without judging its strategy."""
+    reference = contract.get("design_ref")
+    if reference is None:
+        required = purpose == "recommendation" or contract.get("require_design_record") is True
+        return {"status": "not_supplied", "required": required}, (
+            [
+                _issue(
+                    "design_record_missing",
+                    "",
+                    "design_ref",
+                    "A design checkpoint is required by this contract",
+                )
+            ]
+            if required
+            else []
+        )
+    try:
+        from pok.artifacts.design_record import parse_record
+        from pok.engine.design_checkpoints import load_checkpoint
+        from pok.engine.design_evidence import inspect_evidence, inspect_material_input
+
+        loaded = load_checkpoint(reference)
+        text = loaded["record_json"]
+        record = parse_record(text)
+        assessment = inspect_evidence(text)
+        material, actual = inspect_material_input(text)
+        if material["status"] != "verified_blobs" or actual is None:
+            raise ValueError("Design material has no verified spec input")
+        current = derivation_context(dict(spec))
+        recorded = derivation_context(actual)
+        if any(
+            recorded.get(key) != value
+            for key, value in current.items()
+            if key.endswith("_sig") or key == "config"
+        ):
+            raise ValueError("Design material differs from the recommended input")
+        if assessment["checks"]["references"] != "valid":
+            raise ValueError("Design has unresolved references")
+        if assessment["checks"]["evidence_integrity"] == "needs_review":
+            raise ValueError("Design evidence integrity requires review")
+        if any(
+            assessment["checks"][key] == "needs_review"
+            for key in ("current_evidence_application", "provider_bindings")
+        ):
+            raise ValueError("Current evidence or provider bindings require review")
+        adopted = {entry["id"] for entry in record["decisions"] if entry["adoption"] == "adopted"}
+        pending = adopted.intersection(assessment["review_required_ids"])
+        if pending:
+            raise ValueError(f"Adopted decisions require review: {sorted(pending)}")
+        return {
+            "status": "input_bound",
+            "record_ref": dict(reference),
+            "material_revision": material["revision"],
+            "checks": assessment["checks"],
+            "diagnostics": assessment["diagnostics"],
+            "open_questions": [q for q in record["questions"] if q["state"] != "resolved"],
+            "claim": "record_and_input_binding_not_semantic_or_game_certification",
+        }, []
+    except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
+        return {"status": "needs_review", "reason": str(exc)}, [
+            _issue("design_record_unverified", "", "design_ref", str(exc))
+        ]

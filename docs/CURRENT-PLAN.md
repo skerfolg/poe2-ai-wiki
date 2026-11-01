@@ -213,7 +213,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R3·R4: macOS native 룬 편집 fixture의 공통 로더 수정과 탐색 범위 보강을 게시하고 원격 결과를 확인한다. 공동 재투자 두 사례는 v3에서 통과했고 핵심 선택·전체 트리 대조도 통과했다. 다음은 최종 추천과 설계 기록의 연결·미해결/주장 범위 및 실제 소비 경로를 감사한다. R3 최종 감사·R4 전체·R5~R7은 미완료다. 동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 worktree codex/pok-r1-replay는 보존한다. 초안 PR #150은 병합하지 않는다.**
+The only next executable step is: **S55 / R3·R4: macOS native 룬 편집 fixture의 공통 로더 수정과 탐색 범위 보강을 게시하고 원격 결과를 확인한다. 공동 재투자 두 사례는 v3에서 통과했고 핵심 선택·전체 트리 대조도 통과했다. 최종 추천/기록 결박의 실제 검증을 포함해 R3/R4 출구 요구를 대조하고 최신 전량 검사를 수행한다. R3 최종 감사·R4 전체·R5~R7은 미완료다. 동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 worktree codex/pok-r1-replay는 보존한다. 초안 PR #150은 병합하지 않는다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -959,3 +959,22 @@ R4 세 번째 대조 native session25270 종료0: crit앵커/핵심보조/전체
 대체5노드DPS6.42857. 원본 불변·전체요청대안계산 확인. 작은 fixture이며100레벨 완성
 최적빌드/인게임성능/모델효과로 확장하지 않는다. 세 출구 예시의 수치는 R4 감사에 기록했다.
 다음은 최종 추천과 설계 기록 연결·미해결/주장 범위 및 실제 소비 경로 감사다.
+
+R4 최종 추천/기록 연결 보강: v2 최종 purpose에는 design_ref를 필수 검사한다.
+원본 material과 현재 구성의 서명/config, 참조/근거/공급자 결박·채택 결정 재검토를 확인한다.
+비교-only 탐색과 v1은 유지한다. 진단·열린 질문과 인게임 미인증은 구분해 반환한다.
+조건/scope fixture 오류 두 원본 실패 보존 후 관련143검사 통과. 최종 필수/실제MCPnative
+session30132 실행 중. 원격 commit78deffb의 native41260957788 양쪽 OS 실제 success 확인.
+새 연결 경로 검증과 R4종합 출구/최신 전량 검증·R5~R7은 여전히 미완료다.
+
+R4 기록 필수 최종 경로 session30132 종료0: 실제MCP/native 포함20통과
+(r4-record-native-v1.xml). create_design_record→capture_design_material→set_material→
+v2 최종 assemble의 같은 record_ref/input_bound와 원래 장비/공유코드 보존을 확인했다.
+require_design_record=false로 최종 우회 불가 회귀 포함. capability/스킬에 design_ref
+최종 필수 조건을 반영했고 전체 Ruff/mypy175소스 통과. 기존 v1/탐색 비교는 유지한다.
+기록의 의미/인게임 성립이나 일반 모델의 자동 준수를 인증한 것은 아니다.
+
+최종 기록 층 보강 종료: r4-design-layers-v1.xml20통과, 서버 capability3통과.
+전체 Ruff/433파일 format/mypy175소스 통과. 인게임 질문을 자동 resolved로 만들지 않으며
+설계 누락과 비교 통계의 층을 구분한다. 다음은 이 실제 연결 근거와 기존 세 대조를 포함한
+R3/R4 요구별 출구 감사 및 최신 전량 검사다. 전체 목표나 R5~R7을 완료하지 않는다.
