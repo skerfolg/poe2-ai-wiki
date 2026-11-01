@@ -86,3 +86,11 @@ get_server_capabilities.request_execution.budget_profiles에서 도구별 defaul
 단일 계산180초, 선택 탐색 기본300초/최대1200초이며 메타 기한과 명시 time_budget_s가 함께
 있으면 짧은 값을 적용한다. UI/CLI 자신의 총 기한에서 정리/전송 여유를 뺀 더 짧은 한도를
 우선한다. 실제 탐색이 내부 예산으로 더 일찍 끝나는 것과 transport 상한을 구분한다.
+
+대형 결과 소비 시 주의: 실제 FastMCP Client에서 배열형 도구의 큰 응답은 원문
+structuredContent.result에 stored_tool_result/result_ref가 있지만 SDK의 자동 data 객체는
+Root로 파싱되어 참조 필드가 생략된 사례를 확인했다. transport의 원문 structuredContent
+(없으면 content의 JSON)을 먼저 해석하고 x-fastmcp-wrap-result 계약에 따라 한 번만 풀어
+공식 get_tool_result 페이지로 회수한다. data 객체를 dict로 간주하거나 미노출 참조를
+누락된 계산 결과로 판정하지 않는다. 원문 wire의 참조는 보존되어 있었으며 이것을
+PoK 저장 손실로 단정하지 않는다. R6 실제 클라이언트·모델 어댑터에서 대조할 항목이다.

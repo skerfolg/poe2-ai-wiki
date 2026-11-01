@@ -213,7 +213,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R3·R4: macOS native 룬 편집 fixture의 공통 로더 수정과 탐색 범위 보강을 게시하고 원격 결과를 확인한다. 공동 재투자 두 사례는 v3에서 통과했으며 핵심 메커니즘 변경의 완성 트리 대안·기각 근거를 다음으로 검증한다. R3 최종 감사·R4 전체·R5~R7은 미완료다. 동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 worktree codex/pok-r1-replay는 보존한다. 초안 PR #150은 병합하지 않는다.**
+The only next executable step is: **S55 / R3·R4: macOS native 룬 편집 fixture의 공통 로더 수정과 탐색 범위 보강을 게시하고 원격 결과를 확인한다. 공동 재투자 두 사례는 v3에서 통과했고 핵심 선택·전체 트리 대조도 통과했다. 다음은 최종 추천과 설계 기록의 연결·미해결/주장 범위 및 실제 소비 경로를 감사한다. R3 최종 감사·R4 전체·R5~R7은 미완료다. 동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 worktree codex/pok-r1-replay는 보존한다. 초안 PR #150은 병합하지 않는다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -946,3 +946,16 @@ v2에 보조 조기 교체 대조를 추가했고 원래/조기교체의 지속 
 일반 CI run41259946514 양쪽 OS 성공. native macOS142통과/3skip/룬 probe6오류 확인 후
 probe에 실제 공통 로더 경로를 전달하도록 수정했고 로컬 룬 재가져오기6검사 통과했다.
 공동 재투자 v3 종료2통과. 마나 조기 교체 실패/공급 후 회복과 저항 재배분의 실제 수치·대가를 R4 감사에 기록했다. 원격 run41259946493 Windows success/macOS fixture6오류로 종료를 확인했다. 전체 R4 완료 아님.
+
+R4 세 번째 대조 준비: 현재 소스의 실제 MCP KB로 Controlled Destruction의25% more hit/
+crit 금지와 True Strike61601(+10dex/20%crit), Raw Power51184의 연결/효과 확인.
+다른 전직 전용·연결 불가 초기 후보는 배제했다. 큰 search 응답은 structuredContent와
+get_tool_result 페이지로 회수했으며 SDK data 자동 Root 파싱의 참조 누락 차이를 UI 인계에
+기록했다. 실제기재변경/죽은앵커제거/전체명시트리교체 native session25270 실행 중.
+단순 지식 조회나 테스트 착수로 R4 출구를 완료하지 않는다.
+
+R4 세 번째 대조 native session25270 종료0: crit앵커/핵심보조/전체트리교체1통과.
+실제 CritChance11.7→0, 원래17노드/죽은앵커제거16노드 모두 변경 후DPS5.0,
+대체5노드DPS6.42857. 원본 불변·전체요청대안계산 확인. 작은 fixture이며100레벨 완성
+최적빌드/인게임성능/모델효과로 확장하지 않는다. 세 출구 예시의 수치는 R4 감사에 기록했다.
+다음은 최종 추천과 설계 기록 연결·미해결/주장 범위 및 실제 소비 경로 감사다.
