@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 MODULE = Path(__file__).parents[2] / "scripts" / "review_product_campaign.py"
@@ -143,3 +146,18 @@ def test_tool_use_counts_rereads_without_inventing_policy_or_success() -> None:
     assert result["input_policy_requests"]["assemble_pob:not_supplied"] == 1
     assert result["assembly_purpose_requests"] == {"exploration": 1}
     assert "not domain success" in result["claim"]
+
+
+def test_cli_outputs_utf8_when_inherited_console_encoding_is_cp949(tmp_path: Path) -> None:
+    directory = fixture(tmp_path, "completed")
+    put(directory / "phase-2" / "answer.json", {"wrong": "진단🙂"})
+    env = {**os.environ, "PYTHONIOENCODING": "cp949", "PYTHONUTF8": "0"}
+    process = subprocess.run(
+        [sys.executable, str(MODULE), str(tmp_path)],
+        env=env,
+        capture_output=True,
+        timeout=20,
+    )
+    assert process.returncode == 0, process.stderr.decode("utf-8", errors="replace")
+    report = json.loads(process.stdout.decode("utf-8"))
+    assert "🙂" in report["diagnostics"][0]["reason"]

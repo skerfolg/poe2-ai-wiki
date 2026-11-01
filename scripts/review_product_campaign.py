@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -175,6 +176,10 @@ def inventory(root: Path) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("campaign", type=Path)
     args = parser.parse_args()

@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5 실행: 같은 campaign live session94784의 동결8회 순서를 끝까지 수집한다. 첫 H1기준1은 사후 무결성 검사까지 수집 완료했고 최종 응답은 incomplete다. 현재04-H2-baseline-1은 사전검사 verified 후 새 세션/CLI27392로 실제 실행 중이다. 전체3/8 수집 완료다. 저장된 preflight 상태만으로 미실행을 판정하거나 관측 timeout으로 재시작하지 않는다. 공통 collector/제품/입력은 변경하지 않고 무거운 host 작업을 병행하지 않는다. R6는 v2 기록·원자 제안·저장 IPC/재시작 일부 검증 및 로컬 WIP d33b3c3까지이며, backend 경계 선택·원격 push 승인·실제 모델/배포와 R7 기본 전환은 남아 있다. PR #150은 이미 병합돼 로컬 main ref를 동기화했으며 후속 브랜치에서 계속한다. UI 원격 push 승인 대기는 별개다.**
+The only next executable step is: **S55 / R5 실행: 같은 campaign live session94784의 동결8회 순서를 끝까지 수집한다. 첫 H1기준1은 사후 무결성 검사까지 수집 완료했고 최종 응답은 incomplete다. 현재04-H2-baseline-1은 사전검사 verified 후 새 세션/CLI27392로 실제 실행 중이다. 전체3/8 수집 완료다. 저장된 preflight 상태만으로 미실행을 판정하거나 관측 timeout으로 재시작하지 않는다. 공통 collector/제품/입력은 변경하지 않고 무거운 host 작업을 병행하지 않는다. R6는 v2 기록·원자 제안·저장 IPC/재시작 일부 검증 및 로컬 WIP d33b3c3까지이며, backend 경계 선택·원격 push 승인·실제 모델/배포와 R7 기본 전환은 남아 있다. PR #150은 이미 병합돼 로컬 main ref를 동기화했으며 후속 브랜치에서 계속한다. 후속 PR #151은 draft이며 병합하지 않는다. UI 원격 push 승인 대기는 별개다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1483,3 +1483,32 @@ main 위로 재배치해 foundation173파일이 다시 diff에 잡히지 않게 
 bytes로 복원해 SHA 동일/제어 소스20개 불일치0을 재검증했다. stash와 .local은 보존했다.
 증거: root-followup-rebase-v1/before.json/after.json. 후속 diff는 root docs5개+검토기/단위7개
 파일이며 UI 소스·실험 원본은 포함하지 않는다. R5 같은 제어 세션은 계속 유지했다.
+
+### Root 후속 draft PR151 준비 — 2026-11-01
+
+root codex/pok-r5-r6-followup을 원격에 반영했다. diff는 main/d624ce4 대비7파일,
+검토기/합성 단위와 검증 문서뿐이며 별도 UI 소스·실험 원본·.local은 포함하지 않는다.
+GitHub 연동 앱 create PR은403 Resource not accessible by integration으로 거절됐고,
+기존 CLI 인증의 동일 root 작업으로 draft #151 생성에 성공했다. 자동 승인 검토의
+UI push 거절을 우회한 것이 아니며 별도 UI source는 전송하지 않았다.
+
+실제 PR metadata를 재조회해 open/draft=true, base main/d624ce4,
+head codex/pok-r5-r6-followup/ef29ae5, changed_files7/commits3를 확인했다.
+https://github.com/skerfolg/poe2-ai-wiki/pull/151
+R5 전체 평가·R6 backend/모델/설치 검증·R7 기본 전환은 미완료라고 설명했다.
+main 병합/배포를 하지 않았고 UI push·backend 경계 두 판단 대기는 유지한다.
+
+### Root PR151 CI 범위·결과 CLI UTF-8 회귀 수정 — 2026-11-01
+
+head ef29ae5의 CI run41287477249는 completed/success다. 실제 Windows/macOS job에서
+lint/types/import-linter/pytest steps success를 확인했다. ci.yml은 catalog Lua만 받고
+HeadlessWrapper/LuaJIT 실행은 의도 skip하므로 이 성공을 전체 native PoB 검증으로 세지 않는다.
+
+새 scripts/review_product_campaign.py는 기존 CI의 script lint/type 목록에 없었다.
+해당 파일을 ruff check/format 및 strict mypy 목록에 추가했다. 또한 한국어/이모지 오류
+진단을 CP949 상속 환경에서 출력하는 CLI subprocess test가 UnicodeEncodeError로 실제
+실패했다(r5-inventory-encoding-v1.xml). CLI 진입에서 stdout/stderr만 UTF-8로 재설정해
+고쳤고 기존 본문/원문은 재직렬화하지 않았다. 검토기8+CI 경로2=10단위 통과
+(r5-inventory-encoding-v2.xml), strict mypy/Ruff 통과. 동결 controller/product source를
+바꾸지 않은 후속 검토 도구 수정이다. 최신 변경의 CI는 다시 확인해야 하며 ef29 CI를
+수정 후 결과로 소급하지 않는다. R5 같은 handle94784와 기준 H2 실행은 유지한다.
