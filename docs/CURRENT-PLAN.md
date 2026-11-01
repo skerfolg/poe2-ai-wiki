@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `codex/pok-redesign-blueprint` (#149 병합 e7bd429 기준, 사용자 지시 청사진 재설계·원인 분리 검증)
+**Integration branch**: `codex/pok-r5-r6-followup` (기반 PR #150 병합 d624ce4; R5/R6 후속 검증·기록. R5 실험의 별도 동결 제품은 유지)
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5 실행: 같은 campaign live session94784의 동결8회 순서를 끝까지 수집한다. 첫 H1기준1은 사후 무결성 검사까지 수집 완료했고 최종 응답은 incomplete다. 현재02-H1-improved-1 phase1 CLI43480을 실제 생존 확인했다. 저장된 preflight 상태만으로 미실행을 판정하거나 관측 timeout으로 재시작하지 않는다. 공통 collector/제품/입력은 변경하지 않고 무거운 host 작업을 병행하지 않는다. R6는 v2 기록·원자 제안·저장 IPC/재시작 일부 검증 및 로컬 WIP d33b3c3까지이며, backend 경계 선택·원격 push 승인·실제 모델/배포와 R7 기본 전환은 남아 있다. PR #150은 병합하지 않는다.**
+The only next executable step is: **S55 / R5 실행: 같은 campaign live session94784의 동결8회 순서를 끝까지 수집한다. 첫 H1기준1은 사후 무결성 검사까지 수집 완료했고 최종 응답은 incomplete다. 현재04-H2-baseline-1은 사전검사 verified 후 새 세션/CLI27392로 실제 실행 중이다. 전체3/8 수집 완료다. 저장된 preflight 상태만으로 미실행을 판정하거나 관측 timeout으로 재시작하지 않는다. 공통 collector/제품/입력은 변경하지 않고 무거운 host 작업을 병행하지 않는다. R6는 v2 기록·원자 제안·저장 IPC/재시작 일부 검증 및 로컬 WIP d33b3c3까지이며, backend 경계 선택·원격 push 승인·실제 모델/배포와 R7 기본 전환은 남아 있다. PR #150은 이미 병합돼 로컬 main ref를 동기화했으며 후속 브랜치에서 계속한다. UI 원격 push 승인 대기는 별개다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1324,3 +1324,148 @@ Canonical Next Step의 첫 시험 시작 전 표기를 실제 첫 수집 완료/
 재확인했으며 동결 소스/입력과 제어 핸들은 바꾸지 않았다. 결과 검토기 mypy에서 진단
 목록의 값 타입을 문자열로 너무 좁게 추론하던1건을 확인해 명시 타입으로 수정했다.
 이는 실행 결과 선택/평가 동작을 바꾸지 않는 타입 수정이다.
+
+### R6 UI 전량 합성 단위 회귀 — 2026-11-01
+
+현재 UI d33b3c3의 *.test.ts 14파일이 합성 catalog/runtime·대역 JSONL/MCP를 사용하고
+실제 모델/PoB smoke는 별도 .cjs임을 확인했다. 무거운 실행 대신 --test-concurrency=1로
+파일별 직렬 검사했다. r6-ui-unit-serial-v1.txt:165통과/실패·skip0,22.258초.
+동일 소스의 tsc --noEmit/계층 검사는 이미 통과했다. npm run check의 기본 병렬 실행
+명령을 그대로 실행했다고 표기하지 않고 동일 단위 집합의 직렬 실행과 정적 검사를 구분한다.
+제품/수집기/동결 입력은 변경하지 않았고 R5는 계속 같은 핸들94784에서 실행 중이다.
+전체 배포 build·실제 모델·독립 backend/현재 엔진 연결 지원 완료로 승격하지 않는다.
+UI draft PR 설명은 artifacts/reviews/pok-ui-r6-draft-pr-body.md에 로컬 준비하며 push/PR을
+실행하지 않는다. 원격 전송 승인과 backend 경계 선택은 여전히 대기다.
+
+### R6 실제 앱 번들 빌드·file UI — 2026-11-01
+
+npm.cmd run build(typecheck→main/preload esbuild→renderer Vite)가 exit0으로 완료됐다.
+Vite 변환1601모듈/848ms, renderer JS416.30kB·CSS27.92kB. main/preload/html 파일의 실제
+SHA/크기를 r6-ui-app-build-v1.json에 보존했다. PowerShell 로그 읽기는 접근 오류가 났고
+첫 Python 출력은 cp949로 checkmark를 인코딩하지 못했다. UTF-8 read/출력으로 원본 로그를
+확인해 성공과 경고를 대조했다. 경고는 향후 Vite native config loader의 확장자 문제이며
+현재 빌드 실패가 아니다. 설치/배포 패키지나 PoB/모델은 실행하지 않았다.
+
+r6-electron-file-ui-v1/result.json은 현재 생성된 dist/main/preload/renderer를 실제
+Electron44.5.1에서 실행했다. development URL을 지우고 실제 file:// UI를 읽었으며 창만
+시험 wrapper에서 숨겼다. preload/허용된 실제 IPC로 합성 v2 문서를 저장(rev1)하고 페이지
+재로드 후 rev1·4개 설계 카드·새 XML과 과거 설계의 불일치 표시를 확인했다. Electron exit0,
+번들 SHA는 위 앱 빌드 manifest와 일치한다. 설치 패키지/실제 backend·모델 연동을 대신하지 않는다.
+R5 캠페인 핸들94784·개선판H1 실행은 유지했고 동결 제품/입력은 수정하지 않았다.
+
+### R5 개선판 H1 1차 완료·후속 검사 — 2026-11-01
+
+02-H1-improved-1/phase-1/execution.json은 timed_out=false/exit0/answer_valid=true/
+turn_completed=true, cleanup confirmed, state completed다. session ID는
+01a19585-5520-78a2-9690-bf137dfe1f34, elapsed 포함2271.828초다. 모델 answer_status는
+complete지만 이는 모델의 초안 자기 보고이며 build_quality_verified=false를 유지한다.
+H1의 필수 후속 ring 변경이 남아 있어 최종 제출/과제 완주로 세지 않는다.
+CLI43480은 종료됐고 동일 campaign94784는 살아 있다. 사후 frozen check 후 동일 세션
+phase2 시작을 확인한다. baseline의 이전 초안이나 결과를 대체/튜닝하지 않는다.
+
+### R5 개선판 H1 같은 세션 2차 재개 — 2026-11-01
+
+02-H1-improved-1의 after_phase_1 검사가 verified다. phase-2/process.json의 PID4344와
+Get-Process 생존/시작14:50:55, thread.started의 원래 ID
+01a19585-5520-78a2-9690-bf137dfe1f34 일치를 확인했다. budget_s=2999.937이며
+phase2 cap3000과 전체5400의 짧은 한계를 그대로 적용했다. 첫 단계 미사용 예산을 cap
+위로 넘기지 않았다. 같은 campaign94784에서 재개됐고 별도 재시도하지 않았다.
+최종 변경안 수집·품질/비용 평가와 이후6회는 남아 있다. 첫 모델의 complete 표기를
+인게임 성립/최적화 완료로 읽지 않는다. 현재 사용자 판단 대기 두 항목도 그대로다.
+
+### R5 개선판 H1 2차 응답 완료 — 2026-11-01
+
+02-H1-improved-1/phase-2/execution.json은 timed_out=false/exit0/answer_valid=true/
+turn_completed=true, Windows Job cleanup confirmed, state completed다. 실제 CLI4344는
+종료됐으며 같은 캠페인94784는 살아 있다. 원래 session ID
+01a19585-5520-78a2-9690-bf137dfe1f34를 유지했고 elapsed 포함2191.218초다.
+모델 answer_status는 complete지만 build_quality_verified=false를 그대로 유지한다.
+사후 source/입력 검사를 통과해 수집된 뒤에만 최종 응답으로 집계한다.
+첫 기준판 응답이나 개선판1차를 선택 대체하지 않고 변경하지 않았다. 실제 과제 제약/
+인게임 성립/6축 품질·비용 비교는 아직 평가 전이며 이 결과 하나로 #188을 닫지 않는다.
+
+### R5 H1 두 시험 수집·H2 개선판 사전 검사 — 2026-11-01
+
+02-H1-improved-1은 before/after_phase_1/after_phase_2가 모두 verified이고 trial finished,
+campaign item collected다. 캠페인은03-H2-improved-1 running으로 넘어갔다. 이 관측 시점에는
+세 번째 모델 process 영수증이 아직 없으므로 실제 모델 시작을 인증하지 않았다.
+r5-outcome-inventory-live-v3.json은 최종 응답2개(모델 상태 incomplete/complete), 진단0이다.
+8회 중2회가 수집됐으며 실제 제약·성립성·6축 품질과 비용은 아직 평가 전이다.
+같은 제어 세션94784를 유지하고 결과/입력/제품을 바꾸거나 추가 모델을 병행하지 않았다.
+
+### R5 개선판 H2 실제 시작 — 2026-11-01
+
+03-H2-improved-1의 before_participant_start가 verified다. phase-1/process.json의
+PID40704와 실제 시작15:29:48/생존을 확인했고 native thread.started는
+01a195cc-ccd4-7bd3-8ff3-f16e54b22aa3다. budget_s=5399.890이며 H2의 단일5400초 상한을
+그대로 적용했다. 다른 시험의 세션/답안을 이어받지 않는 독립 실행이다.
+저장 trial 상태가 preflight로 남는 관측 한계는 실제 process/PTY94784로 보완했다.
+이 collector의 시작 상태 게시 시점 문제는 캠페인 source 동결을 해제한 뒤 수정/회귀할
+항목이며 현재 실행 중에는 코드를 바꾸지 않는다. 현재2/8 수집 완료·3회째 실행 중,
+전체 품질/실현 가능성/비용 평가는 아직 하지 않았다.
+
+### R5 완료 H1의 도구 경로·전달량 관측 — 2026-11-01
+
+결과 검토기에 실제 native-audit의 도구별 요청수, input_policy/purpose 요청값,
+페이지 target/offset 재조회와 Unicode 청크 문자·UTF-8량을 추가했다. 도메인 성공이나
+정책의 실제 효과/빌드 품질을 요청값만으로 인증하지 않는다. 관련7단위와 mypy/Ruff 통과
+(r5-outcome-inventory-tests-v3.xml). 실제 보고서는 r5-outcome-inventory-live-v4.json이다.
+
+| 시험/단계 | get_tool_result 요청 | 서로 다른 target | 같은 offset 재요청 | 읽은 청크 UTF-8 bytes |
+| --- | ---: | ---: | ---: | ---: |
+| H1 기준1 1차 | 694 | 49 | 175 | 2209692 |
+| H1 기준1 2차 | 1348 | 68 | 154 | 4408951 |
+| H1 개선1 1차 | 1031 | 40 | 5 | 3501712 |
+| H1 개선1 2차 | 2748 | 45 | 0 | 9494907 |
+
+개선 H1은 compute_pob explicit13+4회·assemble_pob explicit2+2회 요청이 있었고 양판의
+assemble purpose 요청은 모두 exploration이었다. 이는 추천 게이트/최종 품질까지
+실제 행사됐다는 증거와 구분한다. 페이지 호출 수는 모델 추론 turn이나 native PoB
+계산 횟수가 아니다. 청크량은 재조회 포함/transport envelope·중복 text copy 제외다.
+
+초기 limit100을 작은 JSON 문자 수로 해석할 가능성을 점검했으나 실제 API는 limit을
+entries 수에 쓰고 mode=json 청크는 별도 PAGE_BYTES4096에 따른다. 검토한 pager 원문이
+동결 개선판과 byte 동일하고 실제 응답은 정상 chunk였다. 작은 limit/중첩 ref 때문이라는
+가설은 이 자료로 지지되지 않는다. 개선판의 더 큰 읽기량은 결과 크기/읽은 경로/실제 작업이
+다를 수 있어 원인을 단정하지 않는다. 이후 전달/기록 비용 평가에 사용하되 현재 제품/
+수집기/입력은 변경하지 않고 전체 품질 점수도 만들지 않는다.
+
+### R5 개선판 H2 응답 완료 — 2026-11-01
+
+03-H2-improved-1/phase-1/execution.json은 timed_out=false/exit0/answer_valid=true/
+turn_completed=true, Windows Job cleanup confirmed, state completed다. session은
+01a195cc-ccd4-7bd3-8ff3-f16e54b22aa3이며 elapsed 포함3638.656초다. CLI40704는 종료했고
+제어 세션94784는 계속 살아 있다. 모델 answer_status complete와 build_quality_verified=false를
+구분한다. 사후 source/입력 검사가 통과해 수집된 뒤에만 최종 제출로 집계한다.
+다음04-H2-baseline-1을 동결 순서대로 관찰하며 이미 수집한 시안이나 현재 제품을 수정하지 않는다.
+
+### R5 세 번째 수집 완료·기준판 H2 사전 검사 — 2026-11-01
+
+03-H2-improved-1은 before_participant_start/after_phase_1 모두 verified,
+trial finished/campaign item collected다. 같은 캠페인은04-H2-baseline-1 running으로
+넘어갔다. 해당 관측에는 네 번째 모델 process 영수증이 아직 없어 모델 시작과 구분했다.
+r5-outcome-inventory-live-v5.json은 최종 응답3개·진단0이다. 모델 상태는 H1 기준
+incomplete, H1 개선 complete, H2 개선 complete이며 실제 제약/품질 평가는 여전히 전이다.
+실행 순서/모델/입력/소스를 바꾸지 않고94784를 계속 관찰한다.
+
+### R5 기준판 H2 실제 시작 — 2026-11-01
+
+04-H2-baseline-1 before_participant_start가 verified다. native thread.started의 새 ID는
+01a19606-7ee5-7f03-8c19-72cce72baf0d, process PID27392와 실제 시작16:32:49/생존을
+확인했다. 단일 단계 budget_s=5399.891이다. trial.json의 preflight 잔존은 receipt/실제
+프로세스로 구분했다. 같은 제어 세션94784를 유지하고 입력/제품/순서나 이전 답안을
+수정하지 않았다.3회 수집 완료·4회째 실행 중이며 실물6축 품질/비용 평가는 아직 전이다.
+
+### PR150 병합 확인·main ref 동기화·후속 브랜치 — 2026-11-01
+
+GitHub 실제 PR metadata를 조회해 #150이2026-11-01T03:57:49Z에 merged/closed이며
+merge SHA d624ce4251969d5aaec445eb6cbcaefe9681e31d임을 확인했다. 기존 'draft/미병합'
+표기는 이 사실로 대체한다. 닫힌 PR의 설명/상태를 바꾸거나 옛 branch를 갱신하지 않는다.
+
+fetch 후 main61167b1→origin/main d624ce4의 조상 관계를 확인했다. main은 어떤 worktree에도
+체크아웃돼 있지 않아 refs/heads/main을 명시 refspec fetch로 fast-forward했다. 두 ref의
+SHA 일치 확인. 기존 main을 체크아웃/pull하면 active R5 제어 파일이 잠시 구판이 될 수
+있어 작업 파일을 바꾸지 않는 방식으로 동기화했다. native/수집기 재시작은 하지 않았다.
+전후 controller_files20개의 SHA 불일치0을 확인했다. 별도 baseline e7bd429/improved7875ea2
+제품과 source/입력/바이너리는 그대로다. 새 후속 브랜치 codex/pok-r5-r6-followup은 기존
+local1766b60에서 만들었고 미커밋 검증 기록은 유지했다. UI push·backend 승인 대기는 그대로다.

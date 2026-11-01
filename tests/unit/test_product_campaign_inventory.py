@@ -103,3 +103,43 @@ def test_process_start_receipt_is_not_proof_of_a_live_process(tmp_path: Path) ->
     assert phase["recorded_state"] == "started_without_terminal_record"
     assert phase["liveness"] == "not_probed"
     assert result["final_submissions_recorded"] == 0
+
+
+def test_tool_use_counts_rereads_without_inventing_policy_or_success() -> None:
+    def page(offset: int, chunk: str) -> dict:
+        return {
+            "tool": "get_tool_result",
+            "arguments": {
+                "result_id": "id",
+                "path": "/result",
+                "mode": "json",
+                "limit": 100,
+                "offset": offset,
+            },
+            "result": {"structured_content": {"chunk": chunk}},
+        }
+
+    result = REPORT.observed_tool_use(
+        {
+            "mcp_calls": [
+                page(0, "é🙂"),
+                page(0, "é🙂"),
+                page(2, "x"),
+                {
+                    "tool": "compute_pob",
+                    "arguments": {"input_policy": "explicit"},
+                    "result": {"ok": False},
+                },
+                {"tool": "assemble_pob", "arguments": {"purpose": "exploration"}},
+            ]
+        }
+    )
+    assert result["page_requests"] == 3
+    assert result["distinct_page_targets"] == 1
+    assert result["repeated_page_offset_requests"] == 1
+    assert result["chunk_characters_read"] == 5
+    assert result["chunk_utf8_bytes_read"] == 13
+    assert result["input_policy_requests"]["compute_pob:explicit"] == 1
+    assert result["input_policy_requests"]["assemble_pob:not_supplied"] == 1
+    assert result["assembly_purpose_requests"] == {"exploration": 1}
+    assert "not domain success" in result["claim"]

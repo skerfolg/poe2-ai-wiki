@@ -20,6 +20,54 @@ def _read(path: Path, sources: dict[str, str], root: Path) -> Any:
     return json.loads(raw)
 
 
+def observed_tool_use(audit: dict[str, Any]) -> dict[str, Any]:
+    """Count recorded requests, never infer domain success or build quality."""
+    calls = [call for call in audit.get("mcp_calls", []) if isinstance(call, dict)]
+    tools: Counter[str] = Counter()
+    policies: Counter[str] = Counter()
+    purposes: Counter[str] = Counter()
+    page_offsets: Counter[tuple[str, ...]] = Counter()
+    page_modes: Counter[str] = Counter()
+    targets = set()
+    characters = byte_count = 0
+    for call in calls:
+        name = str(call.get("tool", "unknown"))
+        tools[name] += 1
+        arguments = call.get("arguments")
+        args = arguments if isinstance(arguments, dict) else {}
+        if name in {"compute_pob", "assemble_pob", "evaluate_delta"}:
+            policies[f"{name}:{args.get('input_policy', 'not_supplied')}"] += 1
+        if name == "assemble_pob":
+            purposes[str(args.get("purpose", "not_supplied"))] += 1
+        if name != "get_tool_result":
+            continue
+        target = tuple(str(args.get(key, "not_supplied")) for key in ("result_id", "path", "mode"))
+        targets.add(target)
+        page_offsets[(*target, str(args.get("offset", "not_supplied")))] += 1
+        page_modes[f"{args.get('mode', 'not_supplied')}:{args.get('limit', 'not_supplied')}"] += 1
+        raw_result = call.get("result")
+        result = raw_result if isinstance(raw_result, dict) else {}
+        page = result.get("structured_content", result.get("structuredContent"))
+        if isinstance(page, dict) and set(page) == {"result"}:
+            page = page["result"]
+        if isinstance(page, dict) and isinstance(page.get("chunk"), str):
+            characters += len(page["chunk"])
+            byte_count += len(page["chunk"].encode("utf-8"))
+    return {
+        "claim": "recorded requests, not domain success, effective policy or quality",
+        "tool_counts": dict(tools),
+        "input_policy_requests": dict(policies),
+        "assembly_purpose_requests": dict(purposes),
+        "page_requests": tools["get_tool_result"],
+        "distinct_page_targets": len(targets),
+        "repeated_page_offset_requests": sum(count - 1 for count in page_offsets.values()),
+        "page_mode_limit_requests": dict(page_modes),
+        "chunk_characters_read": characters,
+        "chunk_utf8_bytes_read": byte_count,
+        "chunk_scope": "includes rereads; excludes transport envelopes and duplicate text copies",
+    }
+
+
 def inventory(root: Path) -> dict[str, Any]:
     sources: dict[str, str] = {}
     plan = _read(root / "plan.json", sources, root)
@@ -73,6 +121,7 @@ def inventory(root: Path) -> dict[str, Any]:
                     audit = _read(audit_path, sources, root)
                     summary["tool_failures_recorded"] = len(audit.get("mcp_call_failures", []))
                     summary["usage_recorded"] = audit.get("usage_raw", [])
+                    summary["observed_tool_use"] = observed_tool_use(audit)
                 item["phases"].append(summary)
             final = phase_records.get(expected_phases, {}).get("execution", {})
             # A valid earlier draft never substitutes for the task's last phase.
