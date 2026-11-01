@@ -19,7 +19,7 @@ package.preload['lua-utf8'] = function()
   return setmetatable({}, { __index = string })
 end
 
-dofile("HeadlessWrapper.lua")
+dofile((arg[0]:match("^(.*[/\\])") or "") .. "pob_headless.lua")
 
 local xml = [[<?xml version="1.0" encoding="UTF-8"?>
 <PathOfBuilding2>

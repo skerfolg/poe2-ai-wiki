@@ -870,3 +870,26 @@ raw frame 전체에 같은 잠금/기한/정리 경계를 적용했다. Lua 오�
 계산 검증은 유지했다. 해당 파일 전체7건 재검증 통과(session24545 종료0),
 근거 redesign-r3-roundtrip-recheck-v1.xml. 기존 실패 보고서는 보존했다.
 R3 전량 검증 증거를 갱신했으며 원격 native matrix/최종 감사와 R4~R7은 미완료다.
+
+S55 foundation 커밋0ef75412c0ed5c262248766d124af0d4b1208c9c 게시 및 초안 PR #150 생성:
+https://github.com/skerfolg/poe2-ai-wiki/pull/150
+137파일의 구현/테스트/문서만 포함했으며 .local 및 비공개 artifacts/external/knowledge 변경 없음.
+생성 실행기 strict mypy5소스도 통과. 원격 pob-smoke run41258088777 시작을 확인했다.
+원격 결과는 아직 미확인으로 유지한다. 병합하지 않았으며 R3 최종 감사/R4~R7은 미완료다.
+다음 실행: 원격 native matrix 실패를 확인·수정하면서 R4의 v2 추천/명시 장비 계약을
+기존 v1과 분리하여 구현한다. 실제 근거 검사를 유지하고 호출 순서·도장 의존을 제거한다.
+
+S55 R4 첫 구현: compute_pob(input_policy=explicit)은 명시 입력을 자동 완성 없이 계산하고
+기존 procedure 누락을 calculation_contract 진단으로 반환한다. legacy 기본/조립 관문 유지.
+실제 MCP 포함23검사 통과(r4-explicit-calculation-v1.xml), Ruff/mypy2소스 통과.
+이는 추천 v2 전체가 아니라 독립 계산 계약이다. 대체 근거/추천·스킬 개편은 계속 미완료.
+원격 CI 실패 확인: MCP 최신 major의 wire/types 변경과 macOS LuaJIT의 #@ header 거부,
+Windows 수집 시 McpError 이름 변경. 검증된 mcp1.x 범위를 명시하고 공통 headless 로더가
+PoB 원본 변경 없이 launcher header만 메모리에서 제거하도록 수정했다. 실제 native 관련
+재검증 진행 중이며 원격 통과로 간주하지 않는다.
+
+CI 호환 보정 로컬 검증 종료: native-ci-compatibility-v1.xml 12통과,
+아이템 편집 경로 추가 적용 후 native-loader-all-paths-v1.xml 8통과.
+#@/shebang/헤더 없음과 원본 bytes·오류 line2 보존을 실제 LuaJIT로 검증했다.
+전량 Ruff/429파일 format/mypy175소스 통과. mcp1.x/fastmcp4미만 호환 범위를 명시했다.
+원격 재실행 결과는 아직 미검증이며 이 수정으로 macOS 통과를 선포하지 않는다.

@@ -15,7 +15,8 @@ dependencies = [
     "jsonschema>=4.23",       # P1a: KB 레코드 스키마 검증 (KB_DATA_MODEL §9)
     "httpx>=0.27",            # P1b: ingest fetch (KB_INGEST §1)
     "beautifulsoup4>=4.12",   # P1b: poe2db HTML 파싱
-    "fastmcp>=2.10",          # P2: MCP 서버 (D6/AD-4)
+    "fastmcp>=2.10,<4",       # Current wire integration; major upgrades require validation.
+    "mcp>=1.29,<2",           # MCP 1.x wire/types; 2.x requires an explicit migration.
 ]
 
 [project.optional-dependencies]

@@ -18,7 +18,7 @@ local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
 local craftItem = dofile(adapterDir .. "pob_item_craft.lua")
 local lateUtilityStats = dofile(adapterDir .. "pob_late_utility.lua")
 local nativeSelection = dofile(adapterDir .. "pob_selection.lua")
-dofile("HeadlessWrapper.lua")
+dofile((arg[0]:match("^(.*[/\\])") or "") .. "pob_headless.lua")
 
 local function jesc(s)
   return tostring(s):gsub('[\\"]', '\\%0'):gsub("[%c]", " ")

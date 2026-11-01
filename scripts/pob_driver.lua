@@ -28,7 +28,7 @@ end
 local xmlText = f:read("*a")
 f:close()
 
-dofile("HeadlessWrapper.lua")
+dofile((arg[0]:match("^(.*[/\\])") or "") .. "pob_headless.lua")
 loadBuildFromXML(xmlText, "pok")
 if not build or not build.calcsTab then
   print("POK_ERR:빌드 로드 실패")

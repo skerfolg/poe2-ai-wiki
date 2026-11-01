@@ -128,6 +128,36 @@ def test_능력치_선택_누락을_훅_없이_거부한다(tool: str, boundarie
     assert not any(boundaries.values()), "검사 전에 계산·자동 채움·출고하면 안 된다"
 
 
+@pytest.mark.parametrize("missing_choices", [False, True])
+def test_explicit_calculation_reports_deficits_without_replacing_input(boundaries, missing_choices):
+    from copy import deepcopy
+
+    async def run():
+        spec = _spec(items=[{"slot": "Ring 1", "text": _RARE}])
+        if missing_choices:
+            spec["attribute_choices"] = []
+        original = deepcopy(spec)
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "compute_pob", {"build_spec": spec, "input_policy": "explicit"}
+            )
+        assert not result.is_error
+        out = result.data
+        assert isinstance(out, dict)
+        contract = out["calculation_contract"]
+        assert contract["version"] == 2
+        assert contract["procedure_diagnostics"]
+        assert not contract["recommendation_checked"]
+        assert not contract["input_completed_automatically"]
+        assert not contract["game_feasibility_certified"]
+        assert spec == original
+        assert len(boundaries["compute"]) == 1
+        assert not boundaries["optimize"] and not boundaries["assemble"]
+        assert boundaries["compute"][0].items[0].text == _RARE
+
+    asyncio.run(run())
+
+
 def test_assembly_mcp_preserves_automatic_sidecar_reference(monkeypatch, boundaries):
     from pok.mcp.tools import build
 

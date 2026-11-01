@@ -11,7 +11,7 @@ if not inputPath or not outputPath then
   os.exit(2)
 end
 
-dofile('HeadlessWrapper.lua')
+dofile((arg[0]:match("^(.*[/\\])") or "") .. "pob_headless.lua")
 local json = require('dkjson')
 local inputFile = assert(io.open(inputPath, 'rb'))
 local entries, _, decodeError = json.decode(inputFile:read('*a'))

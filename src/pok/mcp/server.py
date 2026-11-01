@@ -921,6 +921,15 @@ def get_insight(id: str) -> dict[str, Any]:
 
 def _server_capabilities() -> dict[str, Any]:
     return {
+        "explicit_calculation": {
+            "tool": "compute_pob",
+            "argument": {"input_policy": "explicit"},
+            "contract_version": 2,
+            "procedure_deficits": "reported_not_blocking",
+            "automatic_completion": False,
+            "recommendation_checked": False,
+            "legacy_default_preserved": True,
+        },
         "calculator_cache": {
             "format": "pok.pob-cache.v2",
             "binding": "xml_protocol_loaded_adapter_code_and_observed_calculator_content",

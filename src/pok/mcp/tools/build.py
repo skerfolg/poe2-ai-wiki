@@ -559,8 +559,15 @@ def _procedure_refusal(build_spec: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> dict[str, Any]:
+def compute_pob(
+    build_spec: dict[str, Any],
+    stats: list[str] | None = None,
+    input_policy: str = "legacy",
+) -> dict[str, Any]:
     """빌드 스펙(dict)을 headless PoB로 계산. stats로 반환 스탯 선별
+    input_policy="explicit"은 주어진 입력을 자동 완성 없이 계산하며 절차 누락을
+    calculation_contract.procedure_diagnostics에 신고한다. 추천/인게임 성립 인증이 아니다.
+    기본 legacy는 기존 계산 전 관문을 유지한다.
     (생략=핵심 24종+곱연산 축, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
     비연결 노드가 있다는 뜻 — 그 노드는 계산에 반영되지 않았다.
 
@@ -605,10 +612,26 @@ def compute_pob(build_spec: dict[str, Any], stats: list[str] | None = None) -> d
     바꿔 두 번 돌렸는데 `CombinedDPS`가 소수점까지 동일했다(`790958.0612`).
     ⚠ `check_item_legality`는 같은 텍스트를 **줄별 전부 LEGAL**로 통과시킨다 —
     적법성과 계산 가능성은 다른 축이다."""
-    refusal = _procedure_refusal(build_spec)
-    if refusal is not None:
-        return refusal
+    if input_policy not in {"legacy", "explicit"}:
+        raise ValueError("input_policy는 legacy 또는 explicit이어야 한다")
+    # Explicit calculation measures the supplied input, including incomplete
+    # exploration candidates. Procedure deficits remain visible diagnostics;
+    # neither optimizer history nor recommendation readiness is a prerequisite.
+    procedure_diagnostics = list(check_procedures(build_spec)) if input_policy == "explicit" else []
+    if input_policy == "legacy":
+        refusal = _procedure_refusal(build_spec)
+        if refusal is not None:
+            return refusal
     out = _pick(_compute(spec_from_dict(build_spec)), stats, build_spec)
+    if input_policy == "explicit":
+        out["calculation_contract"] = {
+            "version": 2,
+            "input_policy": "explicit",
+            "procedure_diagnostics": procedure_diagnostics,
+            "recommendation_checked": False,
+            "game_feasibility_certified": False,
+            "input_completed_automatically": False,
+        }
     out["points"] = _points(build_spec.get("tree_nodes"), build_spec.get("ascendancy"))
     scalers = _stat_scalers(build_spec)
     if scalers:
