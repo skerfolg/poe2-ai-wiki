@@ -1004,6 +1004,9 @@ def optimization_readiness(
     """
     if purpose not in PURPOSES:
         raise ValueError(f"purpose는 {PURPOSES} 중 하나여야 한다")
+    alternative = spec.get("optimization_contract")
+    if isinstance(alternative, Mapping) and alternative.get("version") == 2:
+        return _comparison_readiness(spec, alternative, purpose=purpose)
     issues: list[dict[str, Any]] = []
     contract = spec.get("optimization_contract")
     required: Mapping[str, Any] = {}
@@ -1428,4 +1431,157 @@ def optimization_readiness(
             "model_context_verified": False,
         },
         "claim": "declared_evidence_contract_only_not_global_optimum_or_game_validation",
+    }
+
+
+def _comparison_readiness(
+    spec: Mapping[str, Any], contract: Mapping[str, Any], *, purpose: str
+) -> dict[str, Any]:
+    """Validate saved explicit comparisons; the agent owns scope and selection.
+
+    This path never accepts caller-written statistics or optimizer execution
+    stamps as measurements. The local content-addressed result store remains
+    the trust boundary; this is not a cryptographic attestation of native work.
+    """
+    from pok.artifacts.tool_results import load_result
+
+    issues: list[dict[str, Any]] = []
+    accepted: list[dict[str, Any]] = []
+    covered: set[str] = set()
+    required = contract.get("required_components")
+    comparisons = contract.get("comparisons")
+    if (
+        type(contract.get("version")) is not int
+        or set(contract) != {"version", "required_components", "comparisons"}
+        or not isinstance(required, list)
+        or not required
+        or any(not isinstance(c, str) or c not in REVIEW_COMPONENTS for c in required)
+        or len(set(required)) != len(required)
+        or not isinstance(comparisons, list)
+        or not comparisons
+    ):
+        issues.append(
+            _issue(
+                "invalid_contract",
+                "",
+                "optimization_contract",
+                "v2 requires explicit components and saved comparisons",
+            )
+        )
+        required, comparisons = [], []
+    current = derivation_context(dict(spec))
+    for index, reference in enumerate(comparisons):
+        path = f"comparisons[{index}]"
+        try:
+            if (
+                not isinstance(reference, Mapping)
+                or set(reference) != {"result_id", "selected", "reason"}
+                or not all(
+                    isinstance(reference[k], str) and reference[k].strip() for k in reference
+                )
+            ):
+                raise ValueError(
+                    "Expected result_id, selected label (baseline or variant), and selection reason"
+                )
+            payload, _ = load_result(reference["result_id"])
+            if payload["tool"] != "evaluate_delta":
+                raise ValueError("A saved evaluate_delta comparison is required")
+            inputs, result = payload["inputs"], payload["result"]
+            candidates = {"baseline": inputs["base_spec"], **inputs["variants"]}
+            if "baseline" in inputs["variants"]:
+                raise ValueError("Variant label baseline is ambiguous")
+            selected = reference["selected"]
+            subject = candidates[selected]
+            actual = derivation_context(subject)
+            if any(
+                actual.get(key) != value
+                for key, value in current.items()
+                if key.endswith("_sig") or key == "config"
+            ):
+                raise ValueError("Selected measured input differs from the current build")
+            comparison = result["comparison"]
+            measured = comparison["measured_comparisons"]
+            if not measured or comparison.get("unresolved"):
+                raise ValueError("Comparison is incomplete or has unresolved measurement limits")
+            if set(measured) != set(inputs["variants"]):
+                raise ValueError("Not every requested alternative was measured")
+            outputs = {"baseline": result["base"], **result["variants"]}
+            for output in outputs.values():
+                if any(
+                    output.get(key) is False
+                    for key in ("items_legal", "tree_connected", "item_sockets_legal")
+                ) or any(
+                    output.get(key)
+                    for key in (
+                        "pruned_nodes",
+                        "dropped_items",
+                        "req_shortfall",
+                        "unbuilt_declarations",
+                    )
+                ):
+                    raise ValueError("Saved measurement reports unresolved build limitations")
+            for label in ("baseline", *measured):
+                output = outputs[label]
+                stats = output["stats"]
+                if (
+                    output.get("ok") is False
+                    or not stats
+                    or any(
+                        isinstance(value, bool)
+                        or not isinstance(value, int | float)
+                        or not math.isfinite(value)
+                        for value in stats.values()
+                    )
+                ):
+                    raise ValueError("Saved comparison contains failed or nonfinite statistics")
+            changed: set[str] = set()
+            for label, candidate in candidates.items():
+                if label == selected:
+                    continue
+                context = derivation_context(candidate)
+                if context.get("config") != actual.get("config") or any(
+                    candidate.get(key) != subject.get(key) for key in ("class_name", "level")
+                ):
+                    raise ValueError("Compare candidates under the same config, class and level")
+                for component, axes in _REVIEW_AXES.items():
+                    if any(context.get(axis) != actual.get(axis) for axis in axes):
+                        changed.add(component)
+            if not changed:
+                raise ValueError("Identical candidates do not establish a component comparison")
+            covered.update(changed)
+            accepted.append(
+                {
+                    **reference,
+                    "compared_components": sorted(changed),
+                    "candidate_count": len(candidates),
+                }
+            )
+        except (ValueError, KeyError, TypeError, AttributeError, OverflowError) as exc:
+            issues.append(_issue("invalid_comparison_evidence", "", path, str(exc)))
+    for component in required:
+        if component not in covered:
+            issues.append(
+                _issue(
+                    "comparison_missing",
+                    component,
+                    "comparisons",
+                    "No saved comparison changes this component",
+                )
+            )
+    return {
+        "version": 2,
+        "purpose": purpose,
+        "status": "not_ready" if issues else "ready",
+        "recommendation_ready": not issues,
+        "scope": required,
+        "blockers": issues,
+        "accepted_exceptions": [],
+        "comparisons": accepted,
+        "qualification": {
+            "global_optimum_proven": False,
+            "gameplay_validated": False,
+            "selection_reason": "caller_judgment_not_engine_quality_certification",
+            "coverage": "explicit_compared_candidates_only",
+        },
+        "claim": "saved_input_bound_comparisons_not_build_quality_or_game_certificate",
     }

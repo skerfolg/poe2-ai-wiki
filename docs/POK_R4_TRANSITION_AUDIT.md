@@ -28,3 +28,22 @@
 이는 불완전 탐색안을 계산하는 계약이다. XML/스펙 자체가 파싱되지 않거나 native 계산이
 실패하는 경우까지 성공으로 바꾸지 않는다. 추천 v2의 저장 근거 검증, 유한 탐색 감사,
 공동 재투자 실물 및 생성/조립 스킬 개편은 아직 구현하지 않았다.
+
+## 추천 v2 저장 비교 경로 — 구현 중
+
+optimization_contract={version:2,required_components:["items"],comparisons:[{result_id,
+selected:"baseline" 또는 실제 variant 라벨,reason}]}를 명시하면 저장된 evaluate_delta
+원본을 내용 해시로 읽고 실제 선택 입력의 서명/config와 현재 구성을 대조한다.
+실제 변경된 구성 영역만 커버하며 비교 누락/미측정/진단 미해결/빈 통계/동일 대안은 거부한다.
+optimizer 호출 도장은 요구하지 않는다. 선택 이유는 호출자 판단으로 표시하며 게임 성립·
+전역 최적/품질 인증은 하지 않는다. 저장소는 로컬 신뢰 경계이며 암호학적 실행 인증이 아니다.
+기존 v1과 합계105검사 통과(r4-comparison-readiness-v2.xml), 해당 mypy/Ruff 통과.
+이는 첫 비교 검증 경로다. 실제 MCP/native 추천·출고·수동 아이템 경로와 전체 다층 판정,
+대안 재개방·유한 탐색 및 스킬 개편은 계속 미완료다. 아직 제품 기본 경로로 전환하지 않았다.
+
+실제 통합 보강: assemble_pob(input_policy=explicit)은 수동 희귀의 실행 도장 요구와
+숨은 autofill만 생략하고 능력치 선택/정적/아이템/소켓/실제 native 편집 검사와 추천 근거
+검사를 유지한다. r4-comparison-native-v3.xml에서 실제 MCP evaluate_delta 저장→v2 선택→
+명시 조립→공유 코드·원래 선택 장비 보존을 확인했다. 관련 단위127검사 통과.
+출고 엔진에서 정규화한 스펙으로도 근거 일치를 다시 검사했다. capability에 지원 범위를
+추가했다. 전체 R4나 게임 성립 검증을 완료한 것은 아니다.

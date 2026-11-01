@@ -1,6 +1,6 @@
 ---
 name: build-generation
-description: PoE2 빌드를 설계 루프로 생성·개정한다. 컨셉을 받아 KB 조회 → 성립 질문 → 제약 원장 기계 검증 → 3티어 조립 → PoB 실측까지. 빌드 설계·수정·검증, design.md 작성·갱신, 스킬/보조젬/트리/장비 선택, PoB 코드 생성 요청에 쓴다.
+description: PoE2 빌드를 탐색·설계·개정한다. 사용자 고정과 메커니즘 필요조건, 잠정 구현, 성능 후보 및 실제 근거를 기록한다. v2 설계 기록 경로와 기존 계약을 구분하며 조립·PoB 출고는 build-assembly로 연결한다.
 ---
 
 # build-generation

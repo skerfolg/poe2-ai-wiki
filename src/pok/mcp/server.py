@@ -930,6 +930,22 @@ def _server_capabilities() -> dict[str, Any]:
             "recommendation_checked": False,
             "legacy_default_preserved": True,
         },
+        "explicit_assembly": {
+            "tool": "assemble_pob",
+            "argument": {"input_policy": "explicit"},
+            "automatic_item_replacement": False,
+            "attribute_choices_required": True,
+            "legality_and_native_checks_preserved": True,
+            "legacy_default_preserved": True,
+        },
+        "comparison_recommendation": {
+            "contract_version": 2,
+            "evidence": "saved_evaluate_delta_result_id",
+            "scope": "declared_components_and_compared_candidates",
+            "input_binding": "selected_signatures_and_config",
+            "game_feasibility_certified": False,
+            "global_optimum_proven": False,
+        },
         "calculator_cache": {
             "format": "pok.pob-cache.v2",
             "binding": "xml_protocol_loaded_adapter_code_and_observed_calculator_content",

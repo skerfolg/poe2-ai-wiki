@@ -893,3 +893,36 @@ CI 호환 보정 로컬 검증 종료: native-ci-compatibility-v1.xml 12통과,
 #@/shebang/헤더 없음과 원본 bytes·오류 line2 보존을 실제 LuaJIT로 검증했다.
 전량 Ruff/429파일 format/mypy175소스 통과. mcp1.x/fastmcp4미만 호환 범위를 명시했다.
 원격 재실행 결과는 아직 미검증이며 이 수정으로 macOS 통과를 선포하지 않는다.
+
+S55 R4 저장 비교 기반 추천 v2 첫 구현: 실제 저장 evaluate_delta 원본/현재 선택 입력의
+서명과 config를 대조하고 요청 영역이 실제로 비교되었는지 검사한다. v1 회귀 포함105통과,
+Ruff/mypy 통과. 실제 MCP/native 출고·다층 판정과 스킬 개편은 미완료이며 기본 전환 아님.
+원격 CI run41258676748은 SDK/type 단계를 통과했으나 tests 전체 수집에서 새 unit/integration
+동명 파일2개 충돌. 통합 파일에 _native 접미를 붙이고 전체 collect-only로 재검증 중이다.
+원격 native run41258676698/41258671643의 마지막 관측은 실행 중이며 종료 확인 전 재시작 안 함.
+전체 tests collect-only session9507 종료0, 동명 충돌 해소 확인. 수집 성공은 전체 테스트 통과가 아니다.
+
+R4 실제 MCP/native 추천 v3 통과: evaluate_delta로 저장된 비교 결과를 v2 계약에서 읽고
+선택한 수동 희귀 장비를 input_policy=explicit 조립으로 전달해 실제 PoB 공유 코드와
+version2 recommendation_ready를 확인했다. 자동 희귀 탐색/교체 없음.
+v1은 잘못된 저장 경로 fixture로 시작 전 실패, v2는 Spark20의 지능142 부족을 비교기가
+정확히 신고해 차단했다. v3은 요구치 충족 fixture로 정상 흐름을 검증했으며 실패 원본 보존.
+근거 r4-comparison-native-v3.xml. 다층 성립 판정/범위 일반화·스킬 개편·R5~R7은 미완료다.
+
+R4 명시 조립·추천 기존/신규 관련 단위127통과(r4-explicit-assembly-unit-v1.xml).
+전체 Ruff/431파일 format 통과. 실제 native 추천 v3 통과를 전환 감사에 반영했다.
+macOS 완료 job124707200652 로그에서 Launch.lua의 중첩 #@ header 거부를 확인했다.
+공통 loadfile/dofile을 메모리 호환 로더로 감싸고 원본 bytes/오류 줄 번호와 중첩 모듈
+합성 및 실제 PoB 왕복을 재검증 중이다. 해당 원격 실행 Windows 작업은 마지막 관측 실행 중.
+
+중첩 헤더 로더 native-nested-loader-v1.xml 종료:12통과(실제 LuaJIT 중첩/원본 보존·
+줄 번호5건과 실제 PoB 왕복7건). R4 스킬에 명시 v2 자율 설계/조립 경로를 추가했다.
+기록의 역할·조건/공급자 구분·근거/리비전·질문 재개방을 안내하고 고정 호출 순서나
+요청하지 않은3티어는 v2에 요구하지 않는다. v1 지침은 이행 전 소비자용으로 보존했다.
+Codex/Claude 등록 설명4개를 동일 지원 범위로 갱신했다. validator 기본 cp949 읽기 실패를
+확인했으며 UTF-8 모드 재검증한다. 문서 규율의 자동 준수/모델 품질 개선은 아직 미입증이다.
+
+원격 native run41258676698 Windows job124707200484 성공: POK_OK 및149통과/598.33초.
+이는 커밋2702a38 범위의 Windows 증거다. macOS는 Launch.lua 헤더 실패로 현재 로컬 보강을
+재게시해야 한다. v2 스킬 등록4개 UTF-8 quick_validate 통과, 등록 회귀6통과,
+추가 capability/CI 관련4통과. 현재 R4 전체/모델 효과·R5~R7은 미완료다.

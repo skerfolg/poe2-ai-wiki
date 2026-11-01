@@ -33,10 +33,10 @@ def _spec(**over: Any) -> dict[str, Any]:
     }
 
 
-def _call(tool: str, spec: dict[str, Any]) -> dict[str, Any]:
+def _call(tool: str, spec: dict[str, Any], **extra: Any) -> dict[str, Any]:
     async def run() -> dict[str, Any]:
         async with Client(mcp) as client:
-            args: dict[str, Any] = {"build_spec": spec}
+            args: dict[str, Any] = {"build_spec": spec, **extra}
             if tool == "assemble_pob":
                 args["slug"] = "test-procedure-gate"
             result = await asyncio.wait_for(client.call_tool(tool, args), timeout=20)
@@ -126,6 +126,22 @@ def test_능력치_선택_누락을_훅_없이_거부한다(tool: str, boundarie
     out = _call(tool, _spec(attribute_choices=[]))
     assert out["ok"] is False and "10100" in " ".join(out["blocking"])
     assert not any(boundaries.values()), "검사 전에 계산·자동 채움·출고하면 안 된다"
+
+
+def test_explicit_assembly_preserves_unstamped_manual_rare(boundaries):
+    spec = _spec(items=[{"slot": "Ring 1", "text": _RARE}])
+    out = _call("assemble_pob", spec, input_policy="explicit")
+    assert out["ok"], out
+    assert out["input_policy"] == "explicit"
+    assert not boundaries["optimize"]
+    assert boundaries["assemble"][0]["items"][0]["text"] == _RARE
+
+
+def test_explicit_assembly_still_requires_attribute_choices(boundaries):
+    out = _call("assemble_pob", _spec(attribute_choices=[]), input_policy="explicit")
+    assert not out["ok"]
+    assert "10100" in " ".join(out["blocking"])
+    assert not any(boundaries.values())
 
 
 @pytest.mark.parametrize("missing_choices", [False, True])

@@ -1022,9 +1022,13 @@ def assemble_pob(
     stats: list[str] | None = None,
     ctx: Context | None = None,
     purpose: str = "exploration",
+    input_policy: str = "legacy",
 ) -> dict[str, Any]:
     """빌드 조립→검증→계산→artifacts/builds/<build-id>/ 기록. 비합법이면
     거부하고 사유 반환. 성공 시 PoB 공유 코드(build_code) 포함.
+
+    input_policy="explicit"은 제공한 장비를 자동 희귀 탐색으로 교체하지 않는다.
+    능력치 선택·적법성·실제 계산/편집 검사와 추천 근거 검사는 유지한다.
 
     purpose='recommendation'은 build_spec.optimization_contract의 선언 범위와
     실제 최적화 증거가 충족되어야 한다. 계약 누락/부분 탐색/미해결 증거는 계산 전에
@@ -1046,9 +1050,20 @@ def assemble_pob(
             "reason": "최종 추천에 필요한 최적화 증거가 부족하다",
             "optimization_readiness": readiness,
         }
-    refusal = _procedure_refusal(build_spec)
-    if refusal is not None:
-        return refusal
+    if input_policy not in {"legacy", "explicit"}:
+        raise ValueError("input_policy는 legacy 또는 explicit이어야 한다")
+    if input_policy == "legacy":
+        refusal = _procedure_refusal(build_spec)
+        if refusal is not None:
+            return refusal
+    else:
+        problems = check_procedures(build_spec, require_rare_provenance=False)
+        if problems:
+            return {
+                "ok": False,
+                "reason": "명시 입력의 능력치 선택을 확인할 수 없다",
+                "blocking": list(problems),
+            }
     probes = find_probe_lines(build_spec)
     if probes:
         # **출고 게이트** (회차 종결 R1): 탐침은 천장을 재는 가정치다 — 측정
@@ -1077,7 +1092,7 @@ def assemble_pob(
     #    지어내지 않는다). 선언이 없으면 위의 공통 절차 검사가 거부한다.
     # ⚠ 비용은 슬롯당 2~8분이다(실측 2026-09-09: 접사 풀 64~82개에서 133~156초, 보고
     #    세션의 큰 빌드는 4칸에 32분). 정상 절차를 밟은 조립은 도장이 있어 **0초**다.
-    from pok.engine.autofill import autofill_rares
+    from pok.engine.autofill import AutofillReport, autofill_rares
     from pok.engine.constraints.assumptions import check_assumptions
 
     def _blocked(report: Any) -> dict[str, Any]:
@@ -1113,9 +1128,12 @@ def assemble_pob(
 
         return _opt(spec, slot, base_type, weights)
 
-    build_spec, autofill = autofill_rares(
-        build_spec, _run_rare, budget_s=_autofill_budget_s(), progress=_progress_reporter(ctx)
-    )
+    if input_policy == "legacy":
+        build_spec, autofill = autofill_rares(
+            build_spec, _run_rare, budget_s=_autofill_budget_s(), progress=_progress_reporter(ctx)
+        )
+    else:
+        autofill = AutofillReport()
 
     # ⛔ **절차 검사가 넘긴 것을 조립이 못 채웠으면 거부한다.** 자동 실행을 믿고
     # 비켜 준다(가중치 선언이 있으면 통과) — 그런데 실제로 못 채우면 손으로 지은
@@ -1184,6 +1202,7 @@ def assemble_pob(
 
     return {
         "ok": True,
+        "input_policy": input_policy,
         "purpose": purpose,
         "optimization_readiness": built.optimization_readiness,
         "item_editor": getattr(built, "item_editor", {"checked": False, "compatible": False}),
