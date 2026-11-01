@@ -1469,3 +1469,17 @@ SHA 일치 확인. 기존 main을 체크아웃/pull하면 active R5 제어 파�
 전후 controller_files20개의 SHA 불일치0을 확인했다. 별도 baseline e7bd429/improved7875ea2
 제품과 source/입력/바이너리는 그대로다. 새 후속 브랜치 codex/pok-r5-r6-followup은 기존
 local1766b60에서 만들었고 미커밋 검증 기록은 유지했다. UI push·backend 승인 대기는 그대로다.
+
+### Root 후속 이력 정리와 보류 문서 보존 — 2026-11-01
+
+PR150은 squash였다(main d624ce4의 부모e7bd429). main과 기존 PR head f10946e의 Git tree가
+23d4da6f81187acebc94c76cd5c67ac18236a8b5로 byte 동일함을 확인했다. 공개하지 않은 후속2커밋만
+main 위로 재배치해 foundation173파일이 다시 diff에 잡히지 않게 했다. 새2커밋은
+1252ab8/b7eb366이며 정리 전 de86408과 정리 후 b7eb366의 committed tree 일치를 확인했다.
+원격 이력 force push나 main 커밋/PR 병합을 하지 않았다.
+
+보류 POK_R5_EXECUTION_PREFLIGHT.md는 원본 bytes를 별도 보존하고 해당 파일만 stash/apply했다.
+첫 복구 byte 검사는 줄바꿈 변환으로 실패했다. 내용의 LF 정규화 동등성을 확인한 뒤 원본
+bytes로 복원해 SHA 동일/제어 소스20개 불일치0을 재검증했다. stash와 .local은 보존했다.
+증거: root-followup-rebase-v1/before.json/after.json. 후속 diff는 root docs5개+검토기/단위7개
+파일이며 UI 소스·실험 원본은 포함하지 않는다. R5 같은 제어 세션은 계속 유지했다.
