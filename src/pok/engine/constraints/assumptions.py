@@ -23,7 +23,7 @@
 ifMod·ifCond)을 반대로 쓴다: 설정된 config의 조건 키워드가 빌드 문구(아이템·젬·
 패시브) 어디에도 없으면 **근거 없음**이다.
 
-    neutral    적·퀘스트·표시 설정 — 플레이어 파워가 아니다 (감사 대상 아님)
+    neutral    적·퀘스트·표시/행동 시나리오 — 별도 효과 공급원을 요구하지 않는다
     grounded   빌드에 공급원이 있다 — 단 **가정**임은 남긴다(상시 참이 아닐 수 있다)
     ungrounded 공급원이 전무하다 — 이 측정은 빌드를 왜곡한다
 
@@ -47,6 +47,12 @@ _NEUTRAL_EXACT = frozenset(
 )
 # 꺼져 있거나 0인 값은 파워를 만들지 않는다
 _OFF_VALUES = frozenset({"false", "nil", "0", "", "none"})
+# These describe the player's action during the measured window. They do not
+# assert a supplied buff, ailment, charge, leech effect, or resource state.
+_BEHAVIOUR_SCENARIOS = {
+    "conditionMoving": "이동하는 동안의 측정",
+    "conditionStationary": "정지한 동안의 측정",
+}
 
 
 @dataclass(frozen=True)
@@ -90,6 +96,16 @@ class AssumptionReport:
         return tuple(v for v in self.verdicts if v.status == "grounded")
 
     @property
+    def behaviour_scenarios(self) -> tuple[ConfigVerdict, ...]:
+        return tuple(
+            v
+            for v in self.verdicts
+            if v.var in _BEHAVIOUR_SCENARIOS
+            and v.status == "neutral"
+            and v.value.lower() not in _OFF_VALUES
+        )
+
+    @property
     def blocking(self) -> tuple[str, ...]:
         """조립을 막아야 하는 사유들 — 측정이 빌드를 왜곡한다."""
         out = [
@@ -111,6 +127,13 @@ class AssumptionReport:
     @property
     def notes(self) -> tuple[str, ...]:
         out: list[str] = []
+        if self.behaviour_scenarios:
+            out.append(
+                "행동 시나리오: "
+                + ", ".join(f"{v.var}={v.value}" for v in self.behaviour_scenarios)
+                + " — 해당 행동 구간의 측정이며 상시 유지나 스킬의 이동 중 사용 가능성을 "
+                "인증하지 않는다. 이동/정지 구간을 구분해 비교할 것"
+            )
         if self.grounded:
             out.append(
                 f"⚠ 상시 참으로 가정한 config {len(self.grounded)}건 — 공급원은 있으나 "
@@ -338,7 +361,8 @@ def audit_config(
     """설정된 config가 빌드에 근거를 갖는지 판정한다 — 없으면 근거 없음.
 
     적 상태이상(`conditionEnemy*`)은 **공급 술어**로, 나머지는 PoB 관련성 키워드로
-    판정한다. 전자가 일반형이고 후자는 아직 단어 존재만 보는 근사다.
+    판정한다. 이동·정지 시간은 플레이어 행동 시나리오로 구분한다.
+    전자가 일반형이고 후자는 아직 단어 존재만 보는 근사다.
     """
     from pok.pob.catalog import config_options
 
@@ -348,7 +372,7 @@ def audit_config(
     if not config:
         return ()
     options = {o.var: o for o in config_options(root)}
-    sources = build_text_sources(build_spec, root=root)
+    sources: dict[str, list[str]] | None = None
 
     verdicts: list[ConfigVerdict] = []
     for var, raw_value in config.items():
@@ -361,7 +385,21 @@ def audit_config(
                 ConfigVerdict(var, value, "neutral", reason="꺼짐 — 파워를 만들지 않는다")
             )
             continue
+        if var in _BEHAVIOUR_SCENARIOS:
+            verdicts.append(
+                ConfigVerdict(
+                    var,
+                    value,
+                    "neutral",
+                    label="행동 시나리오",
+                    reason=_BEHAVIOUR_SCENARIOS[var]
+                    + " — 플레이어 행동으로 정한 조건이다. 공급원/상시 유지의 인증은 아니다",
+                )
+            )
+            continue
         # 적 상태이상은 **공급 술어**로 판정한다 (요구/공급 구분 — 일반형)
+        if sources is None:
+            sources = build_text_sources(build_spec, root=root)
         status_verdict = _status_grounding(var, sources, root=root)
         if status_verdict is not None:
             verdicts.append(

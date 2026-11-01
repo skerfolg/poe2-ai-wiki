@@ -116,7 +116,7 @@ def optimize_tree(
     cluster_exclude: list[str] | None = None,
     targets: list[dict[str, Any]] | None = None,
     required_anchors: list[int] | None = None,
-    time_budget_s: float | None = 600.0,
+    time_budget_s: float | None = 300.0,
 ) -> dict[str, Any]:
     """현재 빌드 문맥에서 포인트 예산만큼 트리를 개선한다. 후보 노드 효율은
     전부 PoB 델타 실측 — 채택된 각 수(step)에 근거 델타가 담긴다.
@@ -157,7 +157,7 @@ def optimize_tree(
     가지치기도 건드리지 않는다. 후보는 `corpus.missing_unanimous`(표본 전원이 찍는
     목적지)와 컨셉상 필수 노드에서 고른다.
 
-    `time_budget_s` = **시간 상한(기본 600초)**. 후보 하나가 PoB 계산 1회(실측 0.16초)라
+    `time_budget_s` = **시간 상한(기본 300초)**. 후보 하나가 PoB 계산 1회(실측 0.16초)라
     예산·후보 수에 비례해 는다 — 실측 2026-08-12: 예산 156·후보 40이 가지치기 재실행까지
     합쳐 **40분을 넘겼다**(진행 표시도 없었다). 넘기면 그 자리에서 멈추고 **남은 예산과
     함께 notes에 밝힌다** — 덜 최적화된 트리이지 완성된 트리가 아니다. `None`이면 무제한.
@@ -207,6 +207,11 @@ def optimize_tree(
     )
     search_evidence = {
         "scope": {
+            "search_mode": "grow_from_protected_base_with_new_branch_pruning",
+            "base_tree_nodes": list(build_spec.get("tree_nodes") or []),
+            "excluded_nodes": list(exclude_nodes or []),
+            "existing_tree_reallocation": False,
+            "global_optimum_proven": False,
             "jewel_templates_used": bool(jewel_templates),
             "cluster_scan": bool(cluster_include),
             "required_anchors": list(required_anchors or []),
@@ -222,6 +227,7 @@ def optimize_tree(
         "termination": {
             "reason": out.termination_reason,
             "converged": out.termination_reason == "no_positive_candidate",
+            "convergence_scope": "evaluated_candidates_under_protected_base_and_objective",
         },
         "unresolved": [],
     }
@@ -788,14 +794,43 @@ def optimize_rare(
         suffix_count=suffix_count,
         radius=radius,
     )
+    search_evidence = {
+        "scope": {
+            "slots": [slot],
+            "base_type": base_type,
+            "search_mode": "single_affix_ranking_then_greedy_rendered_combinations",
+            "other_equipment_reallocated": False,
+            "tree_reallocated": False,
+            "global_optimum_proven": False,
+        },
+        "settings": {
+            "weights": dict(weights),
+            "floors": dict(floors or {}),
+            "prefix_count": prefix_count,
+            "suffix_count": suffix_count,
+            "roll": "mid",
+            "radius": radius,
+        },
+        "termination": {
+            "reason": "completed_local_pass",
+            "converged": False,
+            "ranked_affixes": len(result.table),
+            "claim": "completed_algorithm_not_exhaustive_combination_search",
+        },
+        "unresolved": [
+            {"code": "unmeasurable_affix", "id": option.label} for option in result.unmeasurable
+        ],
+    }
     return {
         "text": result.text,
+        "search_evidence": search_evidence,
         "derived_from": _stamp(
             _with_item(build_spec, slot, result.text),
             "rares",
             tool="optimize_rare",
             weights=dict(weights),
             preserve_existing=False,
+            search_evidence=search_evidence,
         ),
         # **PoB 명세**(모드 id) — 문구가 아니다(#34 A). `text`는 이 명세를 PoB에
         # 태워 되받은 정본이고, `pob_rendered: false`면 아직 우리가 쓴 문구다.

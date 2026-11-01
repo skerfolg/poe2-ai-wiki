@@ -70,21 +70,26 @@ def _untracked(kdir: Path) -> frozenset[Path]:
     찾는 데 몇 분이 걸렸다 — 무인 세션이었으면 그대로 멈췄을 것이다).
     """
     try:
-        proc = subprocess.run(
-            ["git", "-C", str(kdir), "ls-files", "--others", "--exclude-standard", "-z"],
-            capture_output=True,
-            text=True,
-            # 로케일 디코딩 금지(#166). ⚠ `errors`는 **기본(strict)로 둔다** — 여기
-            # 나오는 것은 라벨이 아니라 **경로**라, 뭉개면 있지도 않은 파일을 가리킨다.
-            # 깨지면 아래 `except`가 빈 집합을 내고 판정을 포기하는 편이 맞다.
-            encoding="utf-8",
-            timeout=20,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return frozenset()  # git 없음·저장소 아님 — 판정 못 하면 아무 말도 하지 않는다
-    if proc.returncode != 0:
+        # Do not drain pipes after timeout on Windows: a descendant may keep
+        # those handles open. Git also must not inherit the MCP protocol stdin.
+        with tempfile.TemporaryFile() as output:
+            proc = subprocess.run(
+                ["git", "-C", str(kdir), "ls-files", "--others", "--exclude-standard", "-z"],
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.DEVNULL,
+                text=True,
+                encoding="utf-8",
+                timeout=20,
+            )
+            if proc.returncode != 0:
+                return frozenset()
+            output.seek(0)
+            # Paths require strict decoding; replacement would invent filenames.
+            names = output.read().decode("utf-8")
+    except (OSError, subprocess.SubprocessError, UnicodeError):
         return frozenset()
-    return frozenset(kdir / name for name in proc.stdout.split("\0") if name)
+    return frozenset(kdir / name for name in names.split("\0") if name)
 
 
 def _redundant_copies(kdir: Path, paths: Iterable[Path]) -> dict[Path, Path]:
@@ -333,6 +338,59 @@ def _fingerprint(kdir: Path) -> tuple[int, int, int]:
 
 
 _LOAD_CACHE: dict[Path, tuple[tuple[int, int, int], Store]] = {}
+
+
+def cached_diagnostics(root: Path | None = None) -> dict[str, Any]:
+    """Inspect an existing snapshot without loading or revalidating the KB.
+
+    This is liveness metadata, never a claim that current KB contents validate.
+    """
+    kdir = root if root is not None and root.name == "knowledge" else knowledge_dir(root)
+    cached = _LOAD_CACHE.get(kdir.resolve())
+    return {
+        "status": "cached_snapshot" if cached is not None else "not_loaded",
+        "current_validation": "not_checked",
+        "skipped_copies": list(cached[1].skip_warnings) if cached is not None else [],
+    }
+
+
+def loaded_snapshot_identity(root: Path | None = None) -> dict[str, Any]:
+    """Hash the existing memory snapshot, without loading or rereading disk data.
+
+    Record dictionaries are mutable despite the frozen Store envelope. Hash
+    their current contents rather than reusing a load-time content declaration.
+    """
+    kdir = root if root is not None and root.name == "knowledge" else knowledge_dir(root)
+    cached = _LOAD_CACHE.get(kdir.resolve())
+    if cached is None:
+        return {"status": "not_loaded", "current_disk_validation": "not_checked"}
+    snapshot = cached[1]
+    try:
+        payload = {
+            "records": {identity: record.raw for identity, record in snapshot.records.items()},
+            "subjects": snapshot.subjects,
+        }
+        digest = hashlib.sha256(
+            json.dumps(
+                payload,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
+    except (ValueError, TypeError, RuntimeError) as exc:
+        return {"status": "unavailable", "reason": str(exc)}
+    return {
+        "status": "observed_memory",
+        "sha256": digest,
+        "snapshot_id": hex(id(snapshot)),
+        "records": len(snapshot.records),
+        "root": str(kdir.resolve()),
+        "scope": "current_in_memory_record_raw_and_subjects",
+        "current_disk_validation": "not_checked",
+    }
+
 
 #: 캐시 상한 — **레코드 수**로 잰다(LRU 축출). 실사용은 정본 하나지만 시험이 임시
 #: 디렉터리마다 사본 정본을 만들어 키가 계속 늘었고, 스냅샷 하나가 19,758 레코드의 파싱된

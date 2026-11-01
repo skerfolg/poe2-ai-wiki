@@ -24,7 +24,7 @@ end
 local xmlText = f:read("*a")
 f:close()
 
-dofile("HeadlessWrapper.lua")
+dofile((arg[0]:match("^(.*[/\\])") or "") .. "pob_headless.lua")
 loadBuildFromXML(xmlText, "pok")
 if not build or not build.spec or not build.spec.tree then
   print("POK_ERR:빌드/트리 로드 실패")

@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `codex/generation-reoptimization-188` (#188 개선·새 정상 생성 검증; #191·#192·#194는 별도 에이전트가 PR #147 병합·main 동기화 완료)
+**Integration branch**: `codex/pok-redesign-blueprint` (#149 병합 e7bd429 기준, 사용자 지시 청사진 재설계·원인 분리 검증)
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -16,7 +16,7 @@ M5(3층 제안) — 반사실 캠페인의 창의 층. **무인 라운드 배치
 무너진다(사용자 지시 2026-08-20). M3 캠페인을 수십 시간 무인으로 돌린 것과 같은 형태다.
 
 사람은 **판정자**로만 남는다 — 정본 진입은 M6 큐레이션 게이트뿐이라 라운드가 아무리
-돌아도 정본은 안 움직인다. 상세 설계는 [ROADMAP §M5 확정 설계](ROADMAP.md).
+돌아도 정본은 안 움직인다. 기존 기술 설계는 [개정 전 ROADMAP §M5 확정 설계](ROADMAP_PRE_REDESIGN.md). 현재 개선 순서와 통과 기준은 [개정 ROADMAP](ROADMAP.md)을 따른다.
 
 ## Status Graph
 
@@ -76,11 +76,21 @@ flowchart TD
   SERLE[S51 Serle 룬 접미·총한도 수정<br/>done]
   ACQUIRE[S52 소켓 획득·종류 검사<br/>done]
   EDITOR[S53 B/C 편집 결함·완료 판정 수정<br/>done]
-  REOPT[S54 #188 정상 비교 종료·전달/계산/완료 판정 수정<br/>in_progress]
+  REOPT[S54 #188 기존 비교·수정 이력<br/>in_progress]
+  REDESIGN[S55 PoK 재설계<br/>in_progress]
+  REDESIGN --> R0BASE --> R1RUN --> R2CONTRACT --> R3CORE
+  R0BASE[R0 실행 기반·입력 동결<br/>done]
+  R1RUN[R1 기준 실험·초기 기술 검토<br/>done]
+  R2CONTRACT[R2 식별·근거·이행 계약<br/>done]
+  R3CORE[R3 기반 구현 · 범위별 검증 완료<br/>done]
+  R3CORE --> R4FLOW
+  R4FLOW[R4 명시 계산/조립 · 저장 비교 · 자율 스킬 · 공동 재투자<br/>in_progress]
+  R4FLOW -. 행동 검증 준비 병행 .-> R5PREP
+  R5PREP[R5 제품 격리/재개 사전 검증 · 동결/실행기 준비<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
-  EVAL -. 사용자 지시 · 새 정상 생성 검증 .-> REOPT --> M6
+  EVAL -. 사용자 지시 · 새 정상 생성 검증 .-> REOPT --> REDESIGN --> M6
   JUDGE -. 결함 발견 .-> FIX --> REMEAS --> REAGG --> RESUME --> AXES --> NEXT2
   NEXT2 --> DEF --> FIXDELTA --> WIDEN --> NARROW --> CPL --> FULL
   WIDEN --> CFG --> CPL
@@ -199,11 +209,29 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S53 | B/C 원본 더블클릭 오류를 재현하고 #193 생성 선언 위치·입력 검사와 #195 실제 native 편집 출고 검사를 수정했다. 원본 코드 보존, A19+B/C 교정37아이템 콜백 성공, 사전 명세·최종 XML 대조와 별도 진단 코드 제공. 루트의 별도 Serle·획득·종류 변경을 제외한 분리본 전체 단위1,768+통합99=1,867통과/9skip. 문서 큐 누락1건은 수정 후14개 재검사 통과. 구현/시험13파일 해시 불변. PR #146 반영 범위는 편집 결함 수정이다. GUI·상주MCP 교체·새 생성 품질 검증은 미수행. [결함 대조](GENERATION_EDITOR_REGRESSION.md), [진단 코드](GENERATION_EDITOR_REPAIR_CODES.md) | done |
 
-| S54 | #188 정상 비교 종료: A79.6분 제출, B최종 제출 누락/마지막 ready 조립 보존, C90분·파일 존재/not_ready. 이번 이동 맵핑 목표에는 A가 가장 일관되고 C 품질 우위 미입증. 후보20개 반환 및 근거·트리 편집의 후속 연결 확인, A19/B18/C17아이템 native·stock 재입력 통과. #199대량 전달·#189병렬 상태/응답·#200완료 증거 연결 수정·재현 검증 완료. 최종 전체 단위1,991/5skip·PoB통합110통과, 최종 저장 수정 후 관련 native1건 재확인. #189 자동 시간제한·재시작과 #188 품질은 남음. 원본·공유코드 보존, 후속수정은 동결 C에 소급 안 함. [수행·누락과 결함 대조](GENERATION_REOPTIMIZATION_188.md), [공유코드](GENERATION_REOPTIMIZATION_188_CODES.md). PR #149 검토 중, #147·#148/main d66f26f 하위 모델 병합 완료 | in_progress |
+| S54 | #188 정상 비교 종료: A79.6분 제출, B최종 제출 누락/마지막 ready 조립 보존, C90분·파일 존재/not_ready. 이번 이동 맵핑 목표에는 A가 가장 일관되고 C 품질 우위 미입증. 후보20개 반환 및 근거·트리 편집의 후속 연결 확인, A19/B18/C17아이템 native·stock 재입력 통과. #199대량 전달·#189병렬 상태/응답·#200완료 증거 연결 수정·재현 검증 완료. 최종 전체 단위1,991/5skip·PoB통합110통과, 최종 저장 수정 후 관련 native1건 재확인. #189 자동 시간제한·재시작과 #188 품질은 남음. 원본·공유코드 보존, 후속수정은 동결 C에 소급 안 함. [수행·누락과 결함 대조](GENERATION_REOPTIMIZATION_188.md), [공유코드](GENERATION_REOPTIMIZATION_188_CODES.md). PR #149 병합 e7bd429 완료, #147·#148/main d66f26f 하위 모델 병합 완료 | in_progress |
+
+| S55 | PoK R0~R7 재설계. R0~R3 범위 완료: 생산38c17cd 단위2509통과/2기존문서skip, 실제 통합149통과 및 양쪽 OS 원격 CI 성공. R4 명시 계산/조립·저장 비교·설계 결박·스킬·세 작은 실측 확보, 일반 AI 행동 검증은 R5에 남음. R5 전체 제품 표면/격리·수집/명시 재개32검사와 두 제품 Astra 비게임2턴 재개 통과. 개선 제품7875ea2 동결 완료, 공통 캠페인 runner·본 평가/R6~R7 미완료. 저장 경로 분리 승인·엔진 검증 완료, 실제 UI/번들 검증은 남음. [R3 판정](POK_R3_AUDIT.md) · [R4 감사](POK_R4_TRANSITION_AUDIT.md) · [R5 준비](POK_R5_EXECUTION_PREFLIGHT.md) | in_progress |
 
 ## Canonical Next Step
 
-The only next executable step is: **S54: 남은 #188 핵심별 트리·주얼·보조·접사 공동 재설계와 여유 재투자를 실제 전체 구성으로 검증한다. 실제 실패 입력의 #199 전달 절단·#189 병렬 상태/응답 혼선·#200 완료 증거 누락 수정과 한글 대조 보고서는 PR #149에 반영했고 구현 ed51a6d의 Windows/macOS CI가 모두 통과했다. 이번 A 대비 품질 개선은 미입증이고 #189 자동 시간제한·재시작도 미해결이다. 하위 모델의 PR #147·#148 병합과 main d66f26f 동기화는 완료했고 원래 Serle 작업폴더의 미커밋 변경은 보존한다.**
+The only next executable step is: **S55 / R5 준비: 동결한 개선 제품7875ea2와 기준판에 공통 source/KB/PoB/실행 파일·허용 junction 무결성 검사와 단계별 입력 공개·예산을 연결하는 캠페인 runner를 완성한다. 두 제품 Astra 비게임 재개는 성공했지만 H1/H2 본 실행·품질/자율 행동 평가는 미실행이다. R6 저장 경로 분리는 승인·엔진 범위 검증을 마쳤다. 동결 R5 제품은 수정하지 않는다. 원래 R0~R7 목표·동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 codex/pok-r1-replay를 보존한다. 초안 PR #150은 병합하지 않는다.**
+
+R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
+별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
+UI HEAD d3817f6/원격 main 동일/clean을 재확인했다. 실험 엔진·지침·자료와 참가자 해법은
+변경하지 않으며 새 설계 스키마나 R6 전체 통합 완료로 세지 않는다. 무거운 PoB/모델 병행 시험은 하지 않는다.
+U0 후속: UI의 참조 소비 실패3회귀를 재현하고 자동 결과 회수·원문 해시·연결 세대·공유 기한을
+수정했다. 경계/타입/전체64검사와 최종 빌드 통과, 초안 [pok-ui PR #2](https://github.com/skerfolg/pok-ui/pull/2)를
+생성했다(병합 안 함). 실제 앱/최신 엔진/모델/번들 통합은 R6에 남는다.
+최종 UI HEAD f6bc07b의 원격 App checks(check+build)도 SUCCESS로 확인했다.
+O-2 중 UI 의존성 설치·검사·빌드의 호스트 부하 영향은 미측정이며 원장에 혼란 변수로 기록한다.
+
+R1 첫 과제의 [원본 조건 기술 검증](POK_REDESIGN_RESULTS.md)과
+[동일 config 측정](POK_REDESIGN_COMMON_CONFIGS.md)을 분리했다.
+검사 통과/안정성/출력 형식과6축 빌드 품질은 구분하며 사용자 선호 평가는 별도로 요청한 상태다.
+첫 과제의 [초기 기술 평가](POK_REDESIGN_QUALITY_REVIEW.md)와
+[가설/실행 대조](POK_REDESIGN_FIRST_TASK_FINDINGS.md)를 작성했다. 품질 개선 효과나 R1 전체 완료를 뜻하지 않는다.
 
 사용자가 PR #146 원격 반영과 완성 빌드·PoB 공유코드를 남기는 전체 경로 재비교를
 명시 승인했다(2026-10-20). 정정 커밋 `4b52cf6`과 `b971a4e`는 반영 완료다.
@@ -304,6 +332,16 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | 원격 브랜치 21개 | stale | 스쿼시 머지 뒤 안 지워진 잔재(`fix/restore-item-granted-groups` 등). 일괄 정리는 **사용자 판정** — 소유 세션을 특정할 수 없다 |
 
 ## Open Decisions
+
+2026-10-30 R1 무개입 보조 관측: 기존 문서 파서·BuildSpec·receipt·산출물/결과 참조의 책임은 [형식 감사](POK_DESIGN_FORMAT_AUDIT.md)에 기록했다. 외부 PoB 앵커·트리 target·설계 조건 앵커의 뜻이 다름을 명시했다. 이는 R2 입력이며 목표 스키마/새 경계를 확정하거나 동결 코드를 변경한 것이 아니다.
+
+2026-10-30 R1 진행 중 보조 작업: 동결된 코드/자료/지침과 참가자 해법은 변경하지 않는다. 비동결 CI 타입 검사 목록을 신규 실행기까지 확대했고 실제5파일 strict 통과·기존 CI 규율2검사 통과. UI HEAD d3817f6/clean을 읽기 전용 재확인하고 [소비 계약 감사](POK_UI_CONTRACT_AUDIT.md)를 작성했다. 이는 R2/R6의 입력이며 UI 구현이나 R1 품질 평가 완료가 아니다.
+
+2026-10-30 사용자 합의: 설계 기록 형식과 근거 의무를 고정하되 생성 호출 순서는 고정하지 않는다. 사용자 고정/필수 조건/잠정 구현/성능 후보를 구분한다. 기존 F/O/P/R 비교 후 별도 앵커 기록 시험을 진행하며 R2에서 정본·파생 및 계약을 확정한다. R0의 다음 실행은 바꾸지 않는다. 문서 개정은 품질/자동 진행 개선의 입증이 아니다.
+
+2026-10-30 추가 사용자 지시: 개선 로드맵을 R0~R7로 전면 개정한다. 현재 R0만 실행 대상으로 두며 구현/품질/UI 통합은 미완료다. 기존 M5 기술 참조와 이력은 개정 전 로드맵에 보존한다.
+
+2026-10-30 사용자 지시: #149를 고정 기준으로 청사진을 전면 개정하고 원인 분리 검증부터 진행한다. 기존 M5 레인과 S7 blocked/M6 대기는 보존하며 S55를 우선 실행한다. 구조 이동/도구 삭제/UI 저장소 수정은 이번 문서 개정에 포함하지 않는다. This lane targets `codex/pok-redesign-blueprint` instead of `main` for this PR only. 기존 S54 직접 재최적화보다 S55 preflight를 먼저 수행한다.
 
 | Decision | Outcome | Date |
 | --- | --- | --- |
@@ -666,3 +704,334 @@ Snap의 기본 쿨다운 **4초**가 순환 전체의 회전수를 정한다. Sn
 
 **재개 조건**: 「Power를 곱연산으로 바꾸는 담체」가 새로 나오면(시즌 갱신 등).
 그전까지는 위 목록을 **평범하지만 저점 높은 무술가 철퇴 빌드**의 재료로만 쓴다.
+
+### S55 R3 후속 — XML 측정 연결 공개 (2026-11-01)
+
+현재 근거를 정확한 XML 및 native 선택 관측에 연결하는 형식과
+`attach_pob_document_measurement`를 구현했다. 관련88검사, 실제 PoB1검사,
+MCP/서비스19검사 통과. 계약 문서의 XML 측정 근거 연결 추가 검증 절에 범위를 기록했다.
+R3는 진행 중이며 위 S55의 XML 근거 형식 미완료 표기는 이 좁은 범위에서 대체한다.
+다음은 원문 XML 공급자 binding과 편집 후 설계/획득 근거 재결박이다.
+실행 정체성/전체 수명, UI와 R4~R7은 여전히 미완료다. Mermaid의 R3 진행 상태는 유지한다.
+
+S55 R3 XML 공급자 binding 추가: 원문 element 경로와 정확한 subtree 해시를 대조한다.
+관련74검사 통과. 값 변경/노드 소실은 재검토, 다른 material의 동일 값은 별도 상태로 보고한다.
+활성 공급자 의미/게임 성립은 미검증이며 편집 후 획득 근거 재결박·실행 정체성/수명,
+UI 채택과 R4~R7이 남아 있다. R3 진행 상태는 유지한다. 상세는 계약 마지막 절 참조.
+
+S55 R3 소켓 선언 재결박: 원본/목표 XML과 기존 sidecar 검증 후 같은 selected slot의
+아이템 문구가 유지된 경우만 새 불변 근거를 발행하는 엔진/MCP 경로를 추가했다.
+관련18검사 통과, 기존 묶음/설계 현재 참조 불변을 유지한다. 계약 마지막 절에 범위 기록.
+다음 주요 잔여는 실행 정체성·요청 소유/기한/취소/복구이며 UI 원자적 적용도 미완료다.
+R3 및 R4~R7 완료로 보고하지 않는다.
+
+S55 R3 실행 수명 일부: 상주 PoB 명령의 절대 기한/잠금 대기 제한·소유 자식 종료 확인·
+새 프로세스 복구를 추가했다. 관련29단위, native9검사 및 마지막 변경 뒤 복구1검사 통과.
+#189와 계약 문서에 증거/한계를 갱신했다. 전체 MCP 요청 기한·취소 전파·프로세스 트리,
+단발 runner 정리와 실행 정체성은 남아 있다. R3 진행 상태를 유지하며 R4~R7도 미완료다.
+
+S55 R3 단발 runner 출력 정리: 임시 일반 파일과 고정 크기 스냅샷으로 시간 초과 후
+하위 프로세스 출력 파이프의 무한 drain을 피한다. 실제 재현 포함16단위·실제 PoB2검사
+통과. 부분 출력/오류는 예외에 보존하고 실패 시 캐시를 발행하지 않는다. #189/계약 갱신.
+다음은 전체 MCP 요청의 소유 ID·절대 기한·취소 전파·종료 상태 연결과 실행 정체성이다.
+R3 전체 및 R4~R7은 미완료다.
+
+S55 R3 요청 컨텍스트 코어: 요청 ID/소유자·절대 기한·취소와 종료 확인 구분을 추가하고
+단발 runner/데몬에 전달했다. 관련30단위·실제 PoB 단발+데몬1검사 통과. #189/계약 갱신.
+다음은 MCP 경계 생성/취소/조회·예외 변환과 전체 예산/저장/재연결 복구다.
+등록 자원 범위의 내부 구현이며 전체 프로세스 트리·모든 native 경로·실행 정체성 및
+R3 전체와 R4~R7 완료를 의미하지 않는다.
+
+S55 R3 MCP 요청 감독: 실행 ID/소유자·기한을 MCP 경계에서 만들고 상태/취소/완료 결과
+회수를 추가했다. 관련64검사 및 AnyIO 진행 보고 후속41검사, 실제 PoB 시작→MCP취소→
+종료 확인→후속 계산1검사 통과. 로컬 대기 취소만으로 서버 취소가 되지 않는 SDK 동작도
+분리해 검증했다. 전체 단위 검사 session75045 실행 중이며 아직 전량 통과로 보고하지 않는다.
+서버 재시작 영속 복구·모든 native/프로세스 트리·실행 정체성·R3 전체 및 R4~R7은 남아 있다.
+상세 계약과 UI 인계 문서를 갱신했다. UI 저장소/번들 채택은 아직 미수행이다.
+
+전체 단위 session75045에서 실패1건 관측(검사 계속 실행 중). 원인/종료 결과 확인 전
+전량 통과로 보고하지 않는다. 구현 소스는 검사 중 유지했다. 별도 격리 cache-key 감사에서
+protocol/commit/XML이 같으면 driver 바이트 변경에도 키가 같은 것을 재현했고 계약에 기록했다.
+실제 산술 오류를 주장하는 증거는 아니며 후속 실행/캐시 식별 보강 대상이다.
+
+전체 단위 session75045 종료:2412개 중2408통과/2v6문서부재 skip/2실패.
+환경 가드와 server_info 크기 회귀 수정 후 관련13검사 통과. 런타임 부재 가드도
+1건 skip/실패0을 확인했다. 전체 실패 원본과 교정 범위를 계약/완료 판정에 기록했다.
+다음은 격리 감사에서 재현한 실행/캐시 내용 식별 보강이다. 수정 후 전체 단위 재실행과
+PR 직전 전량 통합은 아직 수행하지 않았으며 R3 진행 상태를 유지한다.
+
+S55 R3 캐시 내용 결박: XML/protocol/commit과 loaded 어댑터 code object 및 실제 파일 내용
+관측으로 캐시 키를 만들고 결과 체크섬/키를 검증한다. 관측 불가 때 캐시 비활성화,
+계산 중 변경/사후 관측 실패 때 미게시와 상태 구분을 추가했다. 관련59검사·후속22검사,
+실제 PoB4검사·최종 캐시 재사용/격리 Lua 변경 무효화1검사 통과. 비용/범위는 계약에 기록.
+전체 KB/Python 메모리 및 데몬 로드 정체성·영속 실행 복구·프로세스 트리·UI/R4~R7은 남아 있다.
+현재 전량 단위/통합을 다시 완료한 것은 아니며 R3 진행 상태를 유지한다.
+
+S55 R3 로드 메모리 관측: 실제 코드 객체와 이미 캐시된 KB raw/subjects 내용을 디스크
+관측과 분리해 측정 receipt에 자동 보존한다. 불안정했던 marshal 직렬화 해시는 정규화한
+코드 필드 해시로 교정했고 캐시와 공유한다. 관련44검사·실제 MCP 측정1검사·실제 캐시1검사 통과.
+실제 KB19758레코드의 관측 비용1.131/1.157초를 별도 기록했다. 관측 API의 강제 KB로드는 없다.
+다음은 장수명 native 데몬의 로드 관측/현재 파일 분리와 영속 복구·프로세스 트리다.
+관측 범위 밖 globals/서드파티/native 모듈은 미검증이며 R3 전체 및 R4~R7은 미완료다.
+
+S55 R3 데몬 시작 관측: PID/generation에 결박된 시작 전후 관측을 계산/TREE/POWER에
+보존하고 현재 파일과 분리했다. inspect_pob_runtime은 기존 공유 데몬만 비차단 조회하며
+큰 현재 파일 비교는 명시 요청에만 수행한다. 선택 driver/LUA_PATH도 캐시 입력에 포함했다.
+관련30검사·MCP/비차단 후속20검사 및 실제 PoB11검사 통과. 원본 PoB/Lua는 유지했다.
+다음 잔여는 영속 요청/서버 재시작 복구·전체 프로세스 트리·추가 native 경로와 R3 종합 감사다.
+관측 범위 밖 native 모듈 인증과 R3 전체·UI/R4~R7은 미완료다. 계약에 범위/증거를 갱신했다.
+
+S55 R3 소유 프로세스 기반: Windows 정지 생성→Job 배정→재개와 Job 전체 종료 확인을
+common 모듈에 추가했다. 실제 Windows5검사(손자 구성원·다른 소유 작업 격리·배정 실패
+미실행·소유 프로세스 종료·동시 정리) 통과. Ruff/mypy 통과, 계약에 근거/한계를 기록했다.
+아직 PoB runner/daemon 연결 전이며 현재 제품의 트리 정리 완료로 보고하지 않는다.
+다음은 연결과 자원 ledger/미확인 핸들 보존·실제 PoB 회귀, 그 뒤 영속 복구다.
+POSIX 실제 검증 및 R3 전체·UI/R4~R7도 미완료다.
+
+S55 R3 소유 트리 연결: runner(scope 유무 양 경로)/daemon에 연결하고 자원 원장의
+정리 scope/status/미확인 핸들을 보존했다. 불완전 EOF/I/O 프레임도 정리한다.
+관련50검사·실제 PoB4검사·실행 중 데몬 기한 정리/재시작1검사 통과. #189/계약 갱신.
+다음은 item_editor/roundtrip/parse_gaps 계열의 남은 native 호출 통합과 영속 요청 복구다.
+POSIX 실제 검증·전량 재검증·R3 종합 감사 및 UI/R4~R7은 미완료다.
+
+S55 R3 남은 native 네 경로 통합: 공통 캡처/소유 수명 경계로 이동하고 공유 입력 파일을
+호출별 UUID로 분리했다. 취소 시 아이템 편집 부분 증거를 보존하며 AST로 직접 spawn
+재유입을 막는다. 관련61검사·후속27검사·실제 PoB 네 경로4검사 통과. #189/계약 갱신.
+전체 단위 v3(session99258) 실행 중. 구현 소스는 전량 검사 중 유지하고 결과를 확인한다.
+다음은 영속 요청/서버 재시작 복구이며 POSIX 실제 검증·R3 전체 및 UI/R4~R7은 미완료다.
+
+영속 복구 사전 점검: 기존 artifacts/builds 불변 저장을 재사용하고 execution-checkpoint를
+기존 빌드 목록과 구분할 계약을 정리했다. 시작만 있는 기록은 unknown/nonterminal,
+과거 PID 자동 종료/자동 재실행은 하지 않는 방향이다. 아직 구현 전이며 계약 마지막 절 참조.
+전체 단위 v3 session99258은 계속 실행 중이고 구현 소스는 그 검사 동안 유지한다.
+
+영속 저장 사전 실험은 byte 보존/manifest 검증에 성공했고 새 execution-checkpoint kind가
+현재 legacy 빌드 목록에 섞이는 것을 재현했다. 다음 구현에서 필터/회귀를 함께 보강한다.
+증거: execution-checkpoint-storage-probe-v2/result.json. 요청 영속 복구 구현 자체는 아직 미완료.
+전체 단위 v3 session99258은 실행 중이며 아직 종료 판정을 내리지 않는다.
+
+S55 전량 단위 v3 종료:2450개 중2448통과/기존 v6문서2skip/실패0(479.919초).
+그 뒤 영속 저널 기반을 추가해 실제 저장/해시/입력·종료 상태/부모 연결과 목록 분리를
+관련52통과/기존문서1skip으로 검증했다. RequestManager/MCP 연결·실제 서버 재기동은 아직 미완료.
+다음은 연결과 저장 실패/재기동 검증이며 R3 전체·UI/R4~R7은 진행 대상이다.
+
+S55 R3 영속 연결: RequestManager/MCP에 시작 전 저장·종료 게시·과거 서버 증거 회수를
+연결했다. 시작 저장 실패는 작업 미실행, 종료 저장 실패는 실제 live 결과와 별도 표시한다.
+관련21검사·MCP/설계 서비스57검사, 실제 stdio 재기동/중단 및 PoB 취소 회수3검사 통과.
+다음은 R3 요구별 종합 감사와 누락 수정·비용/원문 편집 범위/플랫폼 및 전량 검증이다.
+영속 증거를 자동 재실행/빌드 적용/PID 종료로 사용하지 않는다. R3 전체 및 UI/R4~R7은 미완료다.
+
+S55 R3 요구 감사: POK_R3_AUDIT.md에 현재 요구/증거/미완료를 대조했다. Item 본문 편집
+누락을 발견해 set_text를 추가하고 원자 속성+텍스트 batch/원문 보존을 구현했다.
+관련56검사·실제 PoB 장비+노드+젬 변경/원본 재계산1검사 통과. 비용 목표는 계약 §12에
+이미 고정돼 있으며 다음은100결정/500근거7회와 변경 요약8KiB 직접 측정이다.
+예산 상세·POSIX 실제 검증·전량 단위/통합 및 R3 전체·UI/R4~R7은 아직 미완료다.
+
+S55 R3 비용 목표: 고정100결정/500근거 입력의 중앙값1.373초 미달을 반복 schema 검증
+메모로 교정했다. 같은 입력 중앙값0.139초/최초0.631초로1초 목표 충족. 기본 MCP 요약도
+정보 누락을 보강해1883바이트(8KiB 목표), 변경/재검토 건수·미검증 상태·상세 참조를 보존했다.
+관련118/119검사·후속13검사 통과. 근거/소스 해시는 계약과 benchmark artifacts에 보존했다.
+다음은 예산 정합성·플랫폼과 최근 변경 후 전량 검증으로 R3 출구를 재감사한다.
+
+S55 R3 예산 정합성: 단일 계산180초, 선택 탐색300/1200초, generic600초를 분리하고
+optimize_tree 기본도300초로 맞췄다. 관련26검사 통과. 기존 Ubuntu Python3.12.3에서 실제
+POSIX 자식/손자 그룹 정리·별도 소유자 격리 확인. Linux helper 검증이며 macOS/PoB Linux가 아니다.
+현재 전체 단위 v4(session46952) 실행 시작.
+종료 결과/전량 통합·macOS 실제/CI와 R3 출구 감사 및 UI/R4~R7은 미완료다.
+
+CI 사전 감사: 일반 CI의 macOS는 native 환경을 준비하지 않고, 기존 native smoke는
+pob_smoke.lua만 실행해 새 adapter/수명/복구 전체를 검증하지 않는다. 전량 단위 v4 종료 뒤
+이 CI 간극을 보강할 대상이며 현재 macOS 실제 통과로 간주하지 않는다.
+
+S55 R3 v4 대기 중 읽기 전용 정적 검사: ruff check src/tests/skills-build-generation 통과,
+mypy175소스 통과, import-linter175파일/514의존·계약1 kept/0 broken 확인.
+format --check는 test_mcp_server_info.py의 한 assert 표현 서식1건을 보고했다.
+현재 전량 단위 session46952 종료 뒤 형식 교정/재검증할 예정이며 검사 중 구현은 유지했다.
+
+S55 전량 단위 v4 종료:2484통과/기존문서2skip/실패0(2486개,524.030초).
+서식1건 교정 후 전체 ruff/428파일 format/mypy175소스 통과. native CI를 실제 integration과
+소유 프로세스 검사로 확장했고 관련10검사/pin/YAML 확인. 원격 macOS 실행은 아직 미검증이다.
+현재 전체 통합 v1 session42931 실행 중이며 구현은 유지한다. R3 출구/원격 matrix 확인이 남았다.
+
+통합 검사 중 R4 사전 대조를 읽기 전용으로 수행해 POK_R4_TRANSITION_AUDIT.md에
+기존 procedure/readiness/출처 도장/3티어·조립 순서 강제 지점과 보존할 사실 의무를 기록했다.
+이는 전환 위치 식별이며 R4 구현이나 효과 입증이 아니다. 현재 전체 통합 session42931은 실행 중.
+
+PR 사전 확인: 저장소 skerfolg/poe2-ai-wiki, 현재 codex/pok-redesign-blueprint 브랜치의
+열린 PR 없음. 최신 fetch 후 HEAD..origin/main 비어 있음. Git 전역 설정은 변경하지 않았다.
+통합 종료 후 게시할 R0~R3 foundation draft 설명을 artifacts/reviews/redesign-foundation-draft-pr-body.md에
+준비했다. 현재 문서에 integration RUNNING 표시가 있어 종료 결과를 대조/갱신하기 전 게시하지 않는다.
+R4~R7 미완료/품질효과 미입증과 private artifacts/.local 제외를 명시했다.
+
+전량 통합 v1 session42931에서 실패1건 관측. 실행은 계속 진행 중이며 원인/최종 합계는
+종료 보고서를 받은 뒤 확인한다. 원본 로그/부분 산출물을 보존하고 현재 소스를 바꾸지 않았다.
+전체 통합 통과나 R3 완료로 표시하지 않는다.
+
+S55 전량 통합 v1 종료:140건/139통과/1실패/skip0,978.448초.
+실패는 test_pob_roundtrip의 raw POWER 검증이 _exclusive 명령 경계 없이 _readline을
+직접 호출해 deadline assertion에 도달한 것이다. 제품 기한을 완화하지 않고 테스트의
+raw frame 전체에 같은 잠금/기한/정리 경계를 적용했다. Lua 오류 응답과 이후 정상 TREE
+계산 검증은 유지했다. 해당 파일 전체7건 재검증 통과(session24545 종료0),
+근거 redesign-r3-roundtrip-recheck-v1.xml. 기존 실패 보고서는 보존했다.
+R3 전량 검증 증거를 갱신했으며 원격 native matrix/최종 감사와 R4~R7은 미완료다.
+
+S55 foundation 커밋0ef75412c0ed5c262248766d124af0d4b1208c9c 게시 및 초안 PR #150 생성:
+https://github.com/skerfolg/poe2-ai-wiki/pull/150
+137파일의 구현/테스트/문서만 포함했으며 .local 및 비공개 artifacts/external/knowledge 변경 없음.
+생성 실행기 strict mypy5소스도 통과. 원격 pob-smoke run41258088777 시작을 확인했다.
+원격 결과는 아직 미확인으로 유지한다. 병합하지 않았으며 R3 최종 감사/R4~R7은 미완료다.
+다음 실행: 원격 native matrix 실패를 확인·수정하면서 R4의 v2 추천/명시 장비 계약을
+기존 v1과 분리하여 구현한다. 실제 근거 검사를 유지하고 호출 순서·도장 의존을 제거한다.
+
+S55 R4 첫 구현: compute_pob(input_policy=explicit)은 명시 입력을 자동 완성 없이 계산하고
+기존 procedure 누락을 calculation_contract 진단으로 반환한다. legacy 기본/조립 관문 유지.
+실제 MCP 포함23검사 통과(r4-explicit-calculation-v1.xml), Ruff/mypy2소스 통과.
+이는 추천 v2 전체가 아니라 독립 계산 계약이다. 대체 근거/추천·스킬 개편은 계속 미완료.
+원격 CI 실패 확인: MCP 최신 major의 wire/types 변경과 macOS LuaJIT의 #@ header 거부,
+Windows 수집 시 McpError 이름 변경. 검증된 mcp1.x 범위를 명시하고 공통 headless 로더가
+PoB 원본 변경 없이 launcher header만 메모리에서 제거하도록 수정했다. 실제 native 관련
+재검증 진행 중이며 원격 통과로 간주하지 않는다.
+
+CI 호환 보정 로컬 검증 종료: native-ci-compatibility-v1.xml 12통과,
+아이템 편집 경로 추가 적용 후 native-loader-all-paths-v1.xml 8통과.
+#@/shebang/헤더 없음과 원본 bytes·오류 line2 보존을 실제 LuaJIT로 검증했다.
+전량 Ruff/429파일 format/mypy175소스 통과. mcp1.x/fastmcp4미만 호환 범위를 명시했다.
+원격 재실행 결과는 아직 미검증이며 이 수정으로 macOS 통과를 선포하지 않는다.
+
+S55 R4 저장 비교 기반 추천 v2 첫 구현: 실제 저장 evaluate_delta 원본/현재 선택 입력의
+서명과 config를 대조하고 요청 영역이 실제로 비교되었는지 검사한다. v1 회귀 포함105통과,
+Ruff/mypy 통과. 실제 MCP/native 출고·다층 판정과 스킬 개편은 미완료이며 기본 전환 아님.
+원격 CI run41258676748은 SDK/type 단계를 통과했으나 tests 전체 수집에서 새 unit/integration
+동명 파일2개 충돌. 통합 파일에 _native 접미를 붙이고 전체 collect-only로 재검증 중이다.
+원격 native run41258676698/41258671643의 마지막 관측은 실행 중이며 종료 확인 전 재시작 안 함.
+전체 tests collect-only session9507 종료0, 동명 충돌 해소 확인. 수집 성공은 전체 테스트 통과가 아니다.
+
+R4 실제 MCP/native 추천 v3 통과: evaluate_delta로 저장된 비교 결과를 v2 계약에서 읽고
+선택한 수동 희귀 장비를 input_policy=explicit 조립으로 전달해 실제 PoB 공유 코드와
+version2 recommendation_ready를 확인했다. 자동 희귀 탐색/교체 없음.
+v1은 잘못된 저장 경로 fixture로 시작 전 실패, v2는 Spark20의 지능142 부족을 비교기가
+정확히 신고해 차단했다. v3은 요구치 충족 fixture로 정상 흐름을 검증했으며 실패 원본 보존.
+근거 r4-comparison-native-v3.xml. 다층 성립 판정/범위 일반화·스킬 개편·R5~R7은 미완료다.
+
+R4 명시 조립·추천 기존/신규 관련 단위127통과(r4-explicit-assembly-unit-v1.xml).
+전체 Ruff/431파일 format 통과. 실제 native 추천 v3 통과를 전환 감사에 반영했다.
+macOS 완료 job124707200652 로그에서 Launch.lua의 중첩 #@ header 거부를 확인했다.
+공통 loadfile/dofile을 메모리 호환 로더로 감싸고 원본 bytes/오류 줄 번호와 중첩 모듈
+합성 및 실제 PoB 왕복을 재검증 중이다. 해당 원격 실행 Windows 작업은 마지막 관측 실행 중.
+
+중첩 헤더 로더 native-nested-loader-v1.xml 종료:12통과(실제 LuaJIT 중첩/원본 보존·
+줄 번호5건과 실제 PoB 왕복7건). R4 스킬에 명시 v2 자율 설계/조립 경로를 추가했다.
+기록의 역할·조건/공급자 구분·근거/리비전·질문 재개방을 안내하고 고정 호출 순서나
+요청하지 않은3티어는 v2에 요구하지 않는다. v1 지침은 이행 전 소비자용으로 보존했다.
+Codex/Claude 등록 설명4개를 동일 지원 범위로 갱신했다. validator 기본 cp949 읽기 실패를
+확인했으며 UTF-8 모드 재검증한다. 문서 규율의 자동 준수/모델 품질 개선은 아직 미입증이다.
+
+원격 native run41258676698 Windows job124707200484 성공: POK_OK 및149통과/598.33초.
+이는 커밋2702a38 범위의 Windows 증거다. macOS는 Launch.lua 헤더 실패로 현재 로컬 보강을
+재게시해야 한다. v2 스킬 등록4개 UTF-8 quick_validate 통과, 등록 회귀6통과,
+추가 capability/CI 관련4통과. 현재 R4 전체/모델 효과·R5~R7은 미완료다.
+
+R4 유한 탐색 감사: 트리는 보호 기반 성장/새 가지 정리이며 기존 트리 전체 재배분 아님,
+희귀는 지정 슬롯·베이스/롤의 단독 접사 순위·조립 그리디임을 search_evidence에 자동 부착했다.
+보호 기반/예산/제외/희귀/추천 회귀146통과(r4-search-scope-audit-v1.xml), 관련 mypy/Ruff 통과.
+v2에서 일반 패시브 tree_sig 변경을 전직 비교로 과대 인정할 수 있음을 찾아 실제 노드
+소유 정보로 분리했다. component-scope 회귀 실행을 별도로 보존한다. 공동 재투자 출구
+세 실제 사례와 전체 R4 감사는 여전히 남아 있다. 원격 최신 run41259946514 및 native
+41259946493/41259941382는 마지막 조회 시 실제 실행 중이며 종료 전 재시작하지 않는다.
+전직/일반 트리 범위 구분 회귀13통과(r4-component-scope-v1.xml). 검색 결과 서식1건 교정 완료.
+
+R4 공동 재투자 v1의2개 계산 성공 뒤 수치를 재감사했다. 마나 기본안은 이미 비용 보조
+없이도 지속 가능해 인과 대조로 약했으므로 필수 공급을 입증했다고 하지 않는다.
+v2에 보조 조기 교체 대조를 추가했고 원래/조기교체의 지속 경계는 갈렸으나 최종안도
+31.2<19*1.642857143으로 미세 부족했다. 원본 실패 보존. 회복 접사25% 명시안으로 v3 재검증.
+저항 사례는 부족한 저항을 캡핑한 빌드가 아니라 같은 저항을 유지하는 부위 재배분 fixture다.
+일반 CI run41259946514 양쪽 OS 성공. native macOS142통과/3skip/룬 probe6오류 확인 후
+probe에 실제 공통 로더 경로를 전달하도록 수정했고 로컬 룬 재가져오기6검사 통과했다.
+공동 재투자 v3 종료2통과. 마나 조기 교체 실패/공급 후 회복과 저항 재배분의 실제 수치·대가를 R4 감사에 기록했다. 원격 run41259946493 Windows success/macOS fixture6오류로 종료를 확인했다. 전체 R4 완료 아님.
+
+R4 세 번째 대조 준비: 현재 소스의 실제 MCP KB로 Controlled Destruction의25% more hit/
+crit 금지와 True Strike61601(+10dex/20%crit), Raw Power51184의 연결/효과 확인.
+다른 전직 전용·연결 불가 초기 후보는 배제했다. 큰 search 응답은 structuredContent와
+get_tool_result 페이지로 회수했으며 SDK data 자동 Root 파싱의 참조 누락 차이를 UI 인계에
+기록했다. 실제기재변경/죽은앵커제거/전체명시트리교체 native session25270 실행 중.
+단순 지식 조회나 테스트 착수로 R4 출구를 완료하지 않는다.
+
+R4 세 번째 대조 native session25270 종료0: crit앵커/핵심보조/전체트리교체1통과.
+실제 CritChance11.7→0, 원래17노드/죽은앵커제거16노드 모두 변경 후DPS5.0,
+대체5노드DPS6.42857. 원본 불변·전체요청대안계산 확인. 작은 fixture이며100레벨 완성
+최적빌드/인게임성능/모델효과로 확장하지 않는다. 세 출구 예시의 수치는 R4 감사에 기록했다.
+다음은 최종 추천과 설계 기록 연결·미해결/주장 범위 및 실제 소비 경로 감사다.
+
+R4 최종 추천/기록 연결 보강: v2 최종 purpose에는 design_ref를 필수 검사한다.
+원본 material과 현재 구성의 서명/config, 참조/근거/공급자 결박·채택 결정 재검토를 확인한다.
+비교-only 탐색과 v1은 유지한다. 진단·열린 질문과 인게임 미인증은 구분해 반환한다.
+조건/scope fixture 오류 두 원본 실패 보존 후 관련143검사 통과. 최종 필수/실제MCPnative
+session30132 실행 중. 원격 commit78deffb의 native41260957788 양쪽 OS 실제 success 확인.
+새 연결 경로 검증과 R4종합 출구/최신 전량 검증·R5~R7은 여전히 미완료다.
+
+R4 기록 필수 최종 경로 session30132 종료0: 실제MCP/native 포함20통과
+(r4-record-native-v1.xml). create_design_record→capture_design_material→set_material→
+v2 최종 assemble의 같은 record_ref/input_bound와 원래 장비/공유코드 보존을 확인했다.
+require_design_record=false로 최종 우회 불가 회귀 포함. capability/스킬에 design_ref
+최종 필수 조건을 반영했고 전체 Ruff/mypy175소스 통과. 기존 v1/탐색 비교는 유지한다.
+기록의 의미/인게임 성립이나 일반 모델의 자동 준수를 인증한 것은 아니다.
+
+최종 기록 층 보강 종료: r4-design-layers-v1.xml20통과, 서버 capability3통과.
+전체 Ruff/433파일 format/mypy175소스 통과. 인게임 질문을 자동 resolved로 만들지 않으며
+설계 누락과 비교 통계의 층을 구분한다. 다음은 이 실제 연결 근거와 기존 세 대조를 포함한
+R3/R4 요구별 출구 감사 및 최신 전량 검사다. 전체 목표나 R5~R7을 완료하지 않는다.
+
+R3/R4 출구 감사 착수:38c17cd 전체 단위 session57336 실행 중, 구현은 고정했다.
+R3 표의 오래된 비용/플랫폼 미완료 표기를 실제 근거로 교정하고 최신 전량 미완료와 분리했다.
+R4 각 요구의 소스/작은 실측/실제 모델 미검증 범위를 표로 대조했다.
+R5 사전 조사에서 기존 native CLI 명령의 --ephemeral, 단발 run_codex와 R1 카탈로그 제한을
+확인했다. 공식 non-interactive 문서와 고정 CLI exec resume --help는 명시 session ID 재개를
+지원하지만 현재 실행기는 그 경로를 구현/검증하지 않았다. 실제 모델 재개는 아직 미실행이다.
+단위 완료 전 소스 변경/모델 실행·기준판 변경은 하지 않는다.
+R5 실행 사전 감사는 POK_R5_EXECUTION_PREFLIGHT.md에 기록했다. 실제 native 도움말의 명시 ID 재개/출력 스키마 지원과 기존 --ephemeral/R1 표면 제한을 구분했으며 실제 모델 재개는 미실행이다. 전체 단위 session57336은 진행 중으로 확인했다.
+
+R6 읽기 전용 재확인: UI HEAD f6bc07b, clean. v1/XML-only undo이며 새 기록 소비는 미구현.
+UI의 POK_DATA_HOME/POK_CACHE_HOME을 현재 core가 읽지 않아 실제 쓰기 경로 계약이 어긋난다.
+기존 경로 기본 유지·명시 절대 환경변수 분리안을 POK_RUNTIME_PATH_PROPOSAL.md로 준비하고
+AGENTS 철칙1의 저장 위치 협의 질문을 비동기로 전달했다. 답 전 의존 경로 수정은 보류하되
+전체 단위 session57336 및 R5 준비는 계속한다. 전체 목표 일시정지나 blocked 상태가 아니다.
+
+전체 단위57336 종료:2511개 중2509통과/기존 v6문서2skip/실패0,533.562초.
+전체 통합27612 시작 후 진행 중. R3/R4 kernel은 유지하고 R5 별도 product_server만 추가했다.
+R5 경로/기계 근거 쓰기/전체 카탈로그 보존10검사 통과, strict mypy6소스 통과.
+실제 stdio probe51949 종료0: baseline51/improved-working74도구(제품50/73+공통1),
+각2회 재연결 후 메모 유지·기계 근거 쓰기 거부·기준판921파일 변경0 확인.
+모델 재개/개선판 동결/본평가는 미실행이며 제품 도구 목록을 R1 제한으로 줄이지 않았다.
+
+R3 범위 출구 완료를 POK_R3_AUDIT.md에 근거별 판정했다. 생산src/scripts/knowledge 변경 없음,
+38c17cd 전체 단위2509/2skip·실제통합149 및 원격 일반/native 양쪽OS success 확인.
+R5 별도 수집32검사·strict7소스/Ruff438파일 통과. 최초0.14초 정리 미확인 실패를 보존했다.
+비게임 Astra/ultra toy79678 종료0: baseline/improved-working 각2턴, 같은 UUID 재개,
+대화 전용값·기존 메모·후속 공개 입력 확인, 각턴MCP2호출·정리confirmed, 기준921파일 변경0.
+이것은 모델 문맥/서버 격리의 증거이지 빌드 자율 설계·품질 효과가 아니다. R4의 실제빌드행동/
+R5품질·개선판동결/캠페인·R6/R7은 미완료, 사용자 저장경로 협의 답도 아직 없다.
+
+R5 개선 제품worktree codex/pok-r5-improved 준비 및 실제 동결v2 완료:
+7875ea2 /1292소스/공통KB697/외부25087 검증, archive3054a475e15e5f397a828c16f37fa4fb726d4b0d1c8c50be82da5a143d1dd1be,
+manifest921812e4538721713fb61b620c035a603b3f7a5845d185afe15114d2b86b426c.
+KB4줄바꿈 재현 overlay만 허용, v1 clean 검사 실패 보존. heldout 논리0149922a...와
+원문4742edb5... 구분 및9입력 검증. 공통 collector는 별도이며 UTF-8 잘린 꼬리35회귀·
+기존 실제4로그 재판독 통과. 다음은 두 제품/공유 입력 무결성과 단계 공개를 캠페인 runner에
+연결하는 일이다. H1/H2미실행, R4행동/품질·R6/R7미완료, 저장경로 협의 답도 아직 없다.
+
+사용자 명시 승인: POK_DATA_HOME/POK_CACHE_HOME 선택 경로 분리를 적용한다.
+현재 paths.py는 unset 기본 유지/명시 root 우선/절대 경로·실패 no fallback을 구현했고
+server_info.runtime_paths 및 capability에 표시한다. 관련28단위 통과, 변수 타입 추론/unused
+import 정적 검사 오류 보정 후 mypy2소스/Ruff 통과. 실제 stdio v1은 응답에 없는 cached
+필드를 테스트가 가정해 실패; 실제 meta.execution_inputs.cache로 고쳐 v2(session7652) 진행 중.
+R5 동결 제품과 기준판은 수정하지 않았다. 승인 대기 상태를 해제했으며 전체 R6는 미완료다.
+
+승인한 R6 저장 경로 연결의 engine 범위 검증 완료: r6-storage-native-v2 실제1통과
+(새 stdio3서버, 기록 재연결/별도 공간 미존재, index 및PoB cache miss/hit/miss),
+기본/실패/명시 root/독립 설정13단위 통과, 기존server_info/무결성 포함28통과 및 mypy175/Ruff.
+전체 R6 GUI/번들은 미완료이며 저장 경로 승인 대기는 해제했다.
+R5 새 product_integrity 검사14통과(실제 junction 포함), 전체 동결26379파일/예상 밖 소스
+실제 적용 probe를 별도로 실행했다. 그 결과를 확인한 뒤 캠페인 runner에 연결한다.
+R5 무결성 실제 probe22621 종료0: 동결 개선판·명시 공유 경로26379파일 및 소스 inventory verified/진단0.14검사에는 실제 junction 허용/오대상 거부·추가 소스 검출 포함. SourceRoot 변경이나 R5 본 평가를 시작한 것은 아니다.
+승인 경로/기존 server_info/R5 제어를 함께 실행한65회귀 통과(r6-storage-and-r5-controls-unit-v1.xml). 실제MCP/PoB 저장 경로1통과, 전체 Ruff/442파일 format/mypy175 및 별도strict8소스 통과. 다음은 동결 제품·입력과 단계 공개를 공통 캠페인 runner에 연결하고 R6 UI 소비를 이어가는 일이다.
+R5 product_campaign.py/회귀 구현: 단계 공개·미완료 동일문맥 재개·예산 미이전·8순서 한번수집·source/종료 실패 중단을 검증했다. 관련56검사 통과, 추가 출력경계/비용기록 후7회귀 통과. 본 캠페인 descriptor/실행 스크립트 연결은 다음이며 H1/H2미실행이다.

@@ -33,10 +33,10 @@ def _spec(**over: Any) -> dict[str, Any]:
     }
 
 
-def _call(tool: str, spec: dict[str, Any]) -> dict[str, Any]:
+def _call(tool: str, spec: dict[str, Any], **extra: Any) -> dict[str, Any]:
     async def run() -> dict[str, Any]:
         async with Client(mcp) as client:
-            args: dict[str, Any] = {"build_spec": spec}
+            args: dict[str, Any] = {"build_spec": spec, **extra}
             if tool == "assemble_pob":
                 args["slug"] = "test-procedure-gate"
             result = await asyncio.wait_for(client.call_tool(tool, args), timeout=20)
@@ -68,7 +68,13 @@ def boundaries(monkeypatch: pytest.MonkeyPatch) -> dict[str, list[Any]]:
         )
         for node in (10100, 20200)
     }
-    monkeypatch.setattr(store, "load", lambda: SimpleNamespace(records=records))
+    monkeypatch.setattr(
+        store,
+        "load",
+        lambda root=None: SimpleNamespace(
+            records=records, subjects={"enemy.status": {"values": ["cursed"]}}
+        ),
+    )
     monkeypatch.setattr(telemetry, "record", lambda *a, **kw: None)
     monkeypatch.setattr(buildxml, "_validate_catalog", lambda spec: None)
     monkeypatch.setattr(build, "_get_checker", lambda: object())
@@ -120,6 +126,104 @@ def test_능력치_선택_누락을_훅_없이_거부한다(tool: str, boundarie
     out = _call(tool, _spec(attribute_choices=[]))
     assert out["ok"] is False and "10100" in " ".join(out["blocking"])
     assert not any(boundaries.values()), "검사 전에 계산·자동 채움·출고하면 안 된다"
+
+
+def test_explicit_assembly_preserves_unstamped_manual_rare(boundaries):
+    spec = _spec(items=[{"slot": "Ring 1", "text": _RARE}])
+    out = _call("assemble_pob", spec, input_policy="explicit")
+    assert out["ok"], out
+    assert out["input_policy"] == "explicit"
+    assert not boundaries["optimize"]
+    assert boundaries["assemble"][0]["items"][0]["text"] == _RARE
+
+
+def test_explicit_assembly_still_requires_attribute_choices(boundaries):
+    out = _call("assemble_pob", _spec(attribute_choices=[]), input_policy="explicit")
+    assert not out["ok"]
+    assert "10100" in " ".join(out["blocking"])
+    assert not any(boundaries.values())
+
+
+@pytest.mark.parametrize("missing_choices", [False, True])
+def test_explicit_calculation_reports_deficits_without_replacing_input(boundaries, missing_choices):
+    from copy import deepcopy
+
+    async def run():
+        spec = _spec(items=[{"slot": "Ring 1", "text": _RARE}])
+        if missing_choices:
+            spec["attribute_choices"] = []
+        original = deepcopy(spec)
+        async with Client(mcp) as client:
+            result = await client.call_tool(
+                "compute_pob", {"build_spec": spec, "input_policy": "explicit"}
+            )
+        assert not result.is_error
+        out = result.data
+        assert isinstance(out, dict)
+        contract = out["calculation_contract"]
+        assert contract["version"] == 2
+        assert contract["procedure_diagnostics"]
+        assert not contract["recommendation_checked"]
+        assert not contract["input_completed_automatically"]
+        assert not contract["game_feasibility_certified"]
+        assert spec == original
+        assert len(boundaries["compute"]) == 1
+        assert not boundaries["optimize"] and not boundaries["assemble"]
+        assert boundaries["compute"][0].items[0].text == _RARE
+
+    asyncio.run(run())
+
+
+def test_assembly_mcp_preserves_automatic_sidecar_reference(monkeypatch, boundaries):
+    from pok.mcp.tools import build
+
+    previous = build.assemble
+    reference = {
+        "artifact_id": "fixture",
+        "name": "socket-sidecar.json",
+        "sha256": "sha256:" + "0" * 64,
+    }
+    provenance = {
+        "status": "bound_declarations",
+        "claim": "caller_declarations_not_drop_verification",
+    }
+
+    def assemble_with_reference(*args, **kwargs):
+        result = previous(*args, **kwargs)
+        result.socket_sidecar_ref = reference
+        result.socket_provenance = provenance
+        return result
+
+    monkeypatch.setattr(build, "assemble", assemble_with_reference)
+    out = _call("assemble_pob", _spec())
+    assert out["ok"] is True
+    assert out["socket_sidecar_ref"] == reference
+    assert out["socket_provenance"] == provenance
+
+
+@pytest.mark.parametrize("config", [{"conditionMoving": True}, {"conditionStationary": 1}])
+def test_behaviour_scenario_passes_actual_assembly_gate_and_is_reported(
+    monkeypatch, boundaries, config
+):
+    from pok.engine.constraints import assumptions
+
+    # Retain the real config audit while the existing fixture substitutes
+    # unrelated node legality, native arithmetic, and artifact publication.
+    monkeypatch.setattr(
+        assumptions,
+        "check_assumptions",
+        lambda spec: assumptions.AssumptionReport(assumptions.audit_config(spec)),
+    )
+    out = _call("assemble_pob", _spec(config=config))
+    assert out["ok"] is True
+    assert len(boundaries["assemble"]) == 1
+    assert out["assumptions"]["behaviour_scenarios"][0]["var"] == next(iter(config))
+    assert out["assumptions"]["always_on_config"] == []
+    assert any("상시 유지" in note for note in out["assumptions"]["notes"])
+    denied = _call("assemble_pob", _spec(config={**config, "conditionEnemyCursed": True}))
+    assert denied["ok"] is False
+    assert any("conditionEnemyCursed" in reason for reason in denied["blocking"])
+    assert len(boundaries["assemble"]) == 1
 
 
 @pytest.mark.parametrize("tool", ["compute_pob", "assemble_pob"])

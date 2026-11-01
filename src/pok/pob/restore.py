@@ -15,12 +15,14 @@ raw 텍스트·주얼·능력치 선택까지 전부 필요하다.
 
 from __future__ import annotations
 
+import math
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from typing import Any
 
 from pok.pob.codec import decode
+from pok.pob.selection import resolve_xml_selection
 
 # PoB 슬롯명 그대로 쓴다. 주얼은 슬롯이 아니라 `Spec/Sockets`에 있어 따로 처리한다.
 # 교체 세트(2세트) 슬롯 → 1세트 슬롯. 우리 스펙은 무기 세트를 하나만 들고 있어서,
@@ -91,6 +93,7 @@ class RestoredBuild:
     # **활성 무기 세트**의 무기인데 싣지 못한 슬롯 (#143). 무기가 빠진 공격 빌드의 딜은
     # 원본과 무관한 수치인데 「비교 가능」이라고 말하면 그 위의 비교가 전부 틀린다.
     dropped_weapons: tuple[str, ...] = ()
+    selection: dict[str, str | int] = field(default_factory=dict)
 
     @property
     def damage_comparable(self) -> bool:
@@ -100,7 +103,10 @@ class RestoredBuild:
 
     @property
     def faithful(self) -> bool:
-        """빠뜨린 것 없이 되돌렸나. False여도 계산은 되지만 **원본과 다르다**."""
+        """계산 투영에서 알려진 손실/가정이 없나. XML 밖 획득·설계 근거는 별도다.
+
+        True is not metadata preservation, native equivalence, or game legality.
+        """
         return not self.notes and not self.needs_decision
 
 
@@ -160,6 +166,33 @@ def _items_by_id(items_el: ET.Element) -> dict[str, str]:
     return {it.get("id", ""): "".join(it.itertext()).strip() for it in items_el.findall("Item")}
 
 
+def _stat_set_map(gem: ET.Element, tag: str) -> dict[str, int]:
+    from pok.pob.buildxml import _mode_index
+
+    result: dict[str, int] = {}
+    for child in gem.findall(tag):
+        effect = child.get("grantedEffect") or ""
+        index = (child.get("index") or "").strip()
+        if not effect:
+            raise ValueError(f"Malformed {tag} effect/index assignment")
+        result[effect] = _mode_index(index, tag)  # Native reader also uses the last assignment.
+    return result
+
+
+def _primary_id(gem_id: str) -> str:
+    from pok.kb.skill_facts import primary_effect
+
+    known = primary_effect(gem_id)
+    if known:
+        return known
+    try:
+        from pok.pob.catalog import canonical_gem_id
+
+        return primary_effect(canonical_gem_id(gem_id))
+    except (OSError, RuntimeError):
+        return ""
+
+
 def _stat_set_index(gem: ET.Element, gem_id: str) -> int | None:
     """이 젬이 **어느 모드(statSet)로 계산됐는지** — 코드에 있으면 그 값, 없으면 None.
 
@@ -172,32 +205,14 @@ def _stat_set_index(gem: ET.Element, gem_id: str) -> int | None:
     버리면 복원본이 **원본과 다른 모드로 계산된다** — 실측 2026-08-10: 구형 번개의
     파트 1/2/3이 2,387 / 32,231 / 47,329로 20배 갈렸다. 오류도 경고도 없다.
     """
-    by_effect: dict[str, int] = {}
-    for child in gem.findall("StatSetIndex"):
-        effect = child.get("grantedEffect") or ""
-        index = (child.get("index") or "").strip()
-        if effect and index.isdigit():
-            by_effect[effect] = int(index)
+    by_effect = _stat_set_map(gem, "StatSetIndex")
     if not by_effect:
-        attr = (gem.get("statSetIndex") or "").strip()
-        return int(attr) if attr.isdigit() else None
-    if len(by_effect) == 1:
-        return next(iter(by_effect.values()))
+        # The pinned SkillsTab reader overwrites this legacy attribute with an
+        # empty per-effect table. Do not revive a mode the native reader ignores.
+        return None
     # 젬 하나가 부여 효과를 여럿 가지면(녹아내린 폭발 = 주 + 파편) **주 효과** 것을 쓴다.
     # 못 짚으면 가정으로 떨어뜨린다 — 아무 값이나 고르면 조용히 틀린 모드가 된다.
-    from pok.kb.skill_facts import primary_effect
-
-    candidates = [primary_effect(gem_id)]
-    try:  # 래더 코드는 **게임 id**로 적혀 있다. 별칭표는 PoB 스냅샷을 읽으므로 없으면 건너뛴다
-        from pok.pob.catalog import canonical_gem_id
-
-        candidates.append(primary_effect(canonical_gem_id(gem_id)))
-    except (OSError, RuntimeError):
-        pass
-    for candidate in candidates:
-        if candidate in by_effect:
-            return by_effect[candidate]
-    return None
+    return by_effect.get(_primary_id(gem_id))
 
 
 @dataclass
@@ -218,18 +233,18 @@ class _SkillScan:
     dropped_names: dict[int, list[str]]  # 뺀 그룹의 원래 위치 → 젬 이름들
 
 
-def _skills(root: ET.Element, assume_first_stat_set: bool, assume_stages: int | None) -> _SkillScan:
-    holder = root.find("Skills")
+def _skills(
+    holder: ET.Element | None, assume_first_stat_set: bool, assume_stages: int | None
+) -> _SkillScan:
     if holder is None:
         return _SkillScan([], [], 0, [], [], {})
-    sset = holder.find("SkillSet")
     groups: list[dict[str, Any]] = []
     assumed: list[str] = []
     from_items = 0
     granted_groups: list[tuple[str, int]] = []
     kept_positions: list[int] = []
     dropped_names: dict[int, list[str]] = {}
-    for position, skill in enumerate((sset if sset is not None else holder).findall("Skill"), 1):
+    for position, skill in enumerate(holder.findall("Skill"), 1):
         # PoB는 **아이템이 준 스킬 그룹**에 `source`를 붙인다. 그걸 젬으로 다시 실으면
         # 이중 계산이고, 우리 게이트도 "젬으로 못 켠다"며 막는다. 아이템을 장착하면
         # PoB가 알아서 되살리므로 여기서는 싣지 않는다.
@@ -269,7 +284,22 @@ def _skills(root: ET.Element, assume_first_stat_set: bool, assume_stages: int | 
                 entry["stat_set_index"] = found
             elif assume_first_stat_set:
                 entry["stat_set_index"] = 1
-                assumed.append(entry["name"] or gem_id)
+                label = entry["name"] or gem_id
+                if gem.get("statSetIndex") is not None:
+                    label += " (구형 statSetIndex 속성은 현재 PoB가 무시함)"
+                assumed.append(label)
+            main_modes = _stat_set_map(gem, "StatSetIndex")
+            calcs_modes = _stat_set_map(gem, "StatSetCalcsIndex")
+            primary = _primary_id(gem_id)
+            legacy_equivalent = (
+                primary
+                and set(main_modes) <= {primary}
+                and set(calcs_modes) <= {primary}
+                and main_modes.get(primary, 1) == calcs_modes.get(primary, 1)
+            )
+            if (main_modes or calcs_modes) and not legacy_equivalent:
+                entry["stat_set_indices"] = main_modes
+                entry["stat_set_calcs_indices"] = calcs_modes
             # 단계 수는 **어느 코드에도 없다**(실측: 코퍼스 300벌 전부 skillStageCount
             # 미포함). 유지 단계는 설계 판단이라 기본값을 두지 않는다 — 필요하면
             # 호출자가 정해서 넘긴다.
@@ -277,14 +307,15 @@ def _skills(root: ET.Element, assume_first_stat_set: bool, assume_stages: int | 
                 entry["stages"] = assume_stages
             gems.append(entry)
         if gems:
-            groups.append(
-                {
-                    "gems": gems,
-                    "slot": skill.get("slot") or "Weapon 1",
-                    "enabled": (skill.get("enabled") or "true") != "false",
-                    "main_active_skill": _int(skill.get("mainActiveSkill"), 1),
-                }
-            )
+            group_data = {
+                "gems": gems,
+                "slot": skill.get("slot") or "Weapon 1",
+                "enabled": (skill.get("enabled") or "true") != "false",
+                "main_active_skill": _int(skill.get("mainActiveSkill"), 1),
+            }
+            if _int(skill.get("mainActiveSkillCalcs"), 1) != 1:
+                group_data["main_active_skill_calcs"] = _int(skill.get("mainActiveSkillCalcs"), 1)
+            groups.append(group_data)
             kept_positions.append(position)
         else:
             dropped_names[position] = [g.get("nameSpec") or "" for g in skill.findall("Gem")]
@@ -350,26 +381,36 @@ def _fold_weapon_sets(
     return groups, disabled
 
 
-def _config(root: ET.Element) -> list[list[Any]]:
+def _config(holder: ET.Element | None) -> list[list[Any]]:
     """`Config/ConfigSet/Input` → 계산 조건.
 
     ⚠ 이걸 빼면 **버프·충전·적 상태가 전부 꺼진 채** 계산된다. 실측 2026-08-12:
     config 없이 복원하니 EHP가 원본 대비 14~44% 낮았다. 오류도 경고도 없이 낮게
     나오므로 "복원했다"고 믿으면 그대로 틀린 수치를 쓴다.
     """
-    holder = root.find("Config")
     if holder is None:
         return []
-    cfg_set = holder.find("ConfigSet")
     out: list[list[Any]] = []
-    for item in (cfg_set if cfg_set is not None else holder).findall("Input"):
+    for item in holder.findall("Input"):
         name = item.get("name")
         if not name:
             continue
         if item.get("boolean") is not None:
             out.append([name, item.get("boolean") == "true"])
         elif item.get("number") is not None:
-            out.append([name, _int(item.get("number"), 0)])
+            raw = (item.get("number") or "").strip()
+            if raw in {"", "nil"}:
+                number: int | float = 0
+            else:
+                try:
+                    number = int(raw)
+                except ValueError:
+                    number = float(raw)
+                    if not math.isfinite(number):
+                        raise ValueError(f"Nonfinite config number: {name}") from None
+                    if number.is_integer():
+                        number = int(number)
+            out.append([name, number])
         elif item.get("string") is not None:
             out.append([name, item.get("string")])
     return out
@@ -395,7 +436,11 @@ def _attribute_choices(spec_el: ET.Element) -> list[list[Any]]:
 
 
 def spec_from_pob_xml(
-    xml_text: str, *, assume_first_stat_set: bool = True, assume_stages: int | None = None
+    xml_text: str,
+    *,
+    assume_first_stat_set: bool = True,
+    assume_stages: int | None = None,
+    selection: dict[str, Any] | None = None,
 ) -> RestoredBuild:
     """PoB XML → `spec_from_dict`가 받는 사전. 못 되돌린 것은 notes에."""
     root = ET.fromstring(_keep_attr_whitespace(xml_text))
@@ -403,11 +448,12 @@ def spec_from_pob_xml(
     tree_el = root.find("Tree")
     if build is None or tree_el is None:
         raise ValueError("PoB XML에 <Build>/<Tree>가 없다 — 코드가 손상됐거나 형식이 다르다")
-    spec_el = tree_el.find("Spec")
+    chosen = resolve_xml_selection(root, selection)
+    spec_el = chosen.tree
     if spec_el is None:
         raise ValueError("PoB XML에 <Tree><Spec>이 없다")
 
-    notes: list[str] = []
+    notes: list[str] = list(chosen.notes)
     items_el = root.find("Items")
     by_id = _items_by_id(items_el) if items_el is not None else {}
 
@@ -416,13 +462,10 @@ def spec_from_pob_xml(
     folded: list[str] = []
     use_second = False
     if items_el is not None:
-        itemset = items_el.find("ItemSet")
-        holder = itemset if itemset is not None else items_el
+        holder = chosen.items if chosen.items is not None else items_el
         # **활성 무기 세트** — `useSecondWeaponSet`은 `<ItemSet>` 속성이다(구형 코드는
         # `<Items>` 속성, `ItemsTab.lua:1153·1189`). 참이면 주무기는 **Swap 슬롯**에 있다.
-        use_second = (
-            holder.get("useSecondWeaponSet") or items_el.get("useSecondWeaponSet") or ""
-        ) == "true"
+        use_second = chosen.resolved["weapon_set"] == 2
         for slot in holder.findall("Slot"):
             name, iid = slot.get("name") or "", slot.get("itemId") or "0"
             if iid in ("0", ""):
@@ -498,7 +541,7 @@ def spec_from_pob_xml(
     if (spec_el.get("masteryEffects") or "").strip():
         notes.append("masteryEffects가 있는데 스펙에 자리가 없다 — 그만큼 빠진 채 계산된다")
 
-    scan = _skills(root, assume_first_stat_set, assume_stages)
+    scan = _skills(chosen.skills, assume_first_stat_set, assume_stages)
     groups, assumed, from_items, granted_groups = (
         scan.groups,
         scan.assumed,
@@ -506,9 +549,12 @@ def spec_from_pob_xml(
         scan.granted_groups,
     )
     # ⛔ `mainSocketGroup`을 그대로 복사하지 않는다 (#144) — 빠진 그룹만큼 당긴다.
-    main_index, main_notes, main_needs = _remap_main_group(
-        _int(build.get("mainSocketGroup"), 1), scan
-    )
+    raw_main = int(chosen.resolved.get("main_group", _int(build.get("mainSocketGroup"), 1)))
+    if "main_group" in chosen.resolved and raw_main not in scan.kept_positions:
+        raise ValueError(
+            "Explicit main_group was dropped during restoration; no replacement selected"
+        )
+    main_index, main_notes, main_needs = _remap_main_group(raw_main, scan)
     notes.extend(main_notes)
     if use_second:
         groups, disabled = _fold_weapon_sets(groups, main_index)
@@ -555,7 +601,7 @@ def spec_from_pob_xml(
         "skills": groups,
         "jewels": jewels,
         "attribute_choices": _attribute_choices(spec_el),
-        "config": _config(root),
+        "config": _config(chosen.config),
     }
     needs: list[str] = list(main_needs)
     if assume_stages is not None:
@@ -579,15 +625,21 @@ def spec_from_pob_xml(
         needs_decision=tuple(needs),
         dropped_item_granted=tuple(granted_groups),
         dropped_weapons=tuple(dropped_weapons),
+        selection=chosen.resolved,
     )
 
 
 def spec_from_pob(
-    build_code: str, *, assume_first_stat_set: bool = True, assume_stages: int | None = None
+    build_code: str,
+    *,
+    assume_first_stat_set: bool = True,
+    assume_stages: int | None = None,
+    selection: dict[str, Any] | None = None,
 ) -> RestoredBuild:
     """PoB 공유 코드(base64) → 스펙 사전."""
     return spec_from_pob_xml(
         decode(build_code),
         assume_first_stat_set=assume_first_stat_set,
         assume_stages=assume_stages,
+        selection=selection,
     )

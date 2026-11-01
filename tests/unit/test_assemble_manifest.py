@@ -30,7 +30,7 @@ def recorded_assembly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Mock:
     monkeypatch.setattr(module, "ItemLegalityChecker", lambda _: checker)
     monkeypatch.setattr(module, "to_xml", lambda _: "<PathOfBuilding2/>")
     monkeypatch.setattr(module, "pinned_commit", lambda: "test-pob")
-    monkeypatch.setattr(module, "spec_integrity", lambda _: ())
+    monkeypatch.setattr(module, "spec_integrity", lambda *args, **kwargs: ())
     monkeypatch.setattr(module, "find_design_doc", lambda _: None)
     monkeypatch.setattr(module, "record_build", partial(store.record_build, root=tmp_path))
     monkeypatch.setattr(module, "new_build_id", partial(store.new_build_id, root=tmp_path))
@@ -112,6 +112,87 @@ def test_editor_receives_exported_item_text_after_substitutions(
     assert "20% increased Spell Damage" in raw
     assert raw == module._editor_inputs(to_xml(source))[next(iter(captured[0]))]
     assert built.item_editor["compatible"] is True
+
+
+@pytest.mark.parametrize("substitutes", [(), ("+1 to Strength",)])
+def test_socket_declarations_are_automatically_bound_in_export_bundle(
+    recorded_assembly, monkeypatch, tmp_path, substitutes
+):
+    import pok.engine.assemble as module
+    from pok.engine.restore_fidelity import projection_revision
+    from pok.pob.buildxml import to_xml
+
+    monkeypatch.setattr(module, "to_xml", to_xml)
+    monkeypatch.setattr(
+        module,
+        "audit_item_editor",
+        lambda _: {
+            "checked": True,
+            "compatible": True,
+            "items": [],
+            "problems": [],
+        },
+    )
+    source = BuildSpec(
+        class_name="Mercenary",
+        ascendancy="Mercenary3",
+        items=(
+            ItemSpec(
+                slot="Gloves",
+                text="Rarity: RARE\nExport Gloves\nAdorned Wraps\nItem Level: 80\nSockets: S S",
+                socket_sources=("exceptional",),
+                substitutes=substitutes,
+            ),
+        ),
+    )
+    built = assemble(source, "automatic-provenance")
+    assert built.socket_provenance["status"] == "bound_declarations"
+    assert built.socket_sidecar_ref is not None
+    raw = store.read_build_blob(**built.socket_sidecar_ref, root=tmp_path)
+    payload = json.loads(raw)
+    assert payload["items"][0]["socket_sources"] == ["exceptional"]
+    saved = json.loads((built.path / "spec.json").read_text(encoding="utf-8"))
+    assert payload["source_spec_revision"] == projection_revision(saved)
+    manifest = json.loads((built.path / "manifest.json").read_text(encoding="utf-8"))
+    validation = json.loads((built.path / "validation.json").read_text(encoding="utf-8"))
+    assert manifest["socket_sidecar_ref"] == built.socket_sidecar_ref
+    assert validation["socket_provenance"] == built.socket_provenance
+
+
+def test_foreign_export_does_not_inherit_socket_declarations(recorded_assembly, monkeypatch):
+    import pok.engine.assemble as module
+    from pok.pob.buildxml import to_xml
+
+    source = BuildSpec(
+        class_name="Mercenary",
+        ascendancy="Mercenary3",
+        items=(
+            ItemSpec(
+                slot="Gloves",
+                text="Rarity: RARE\nSource Gloves\nAdorned Wraps\nItem Level: 80\nSockets: S S",
+                socket_sources=("exceptional",),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        module, "to_xml", lambda spec: to_xml(spec).replace("Source Gloves", "Other Gloves")
+    )
+    monkeypatch.setattr(
+        module,
+        "audit_item_editor",
+        lambda _: {
+            "checked": True,
+            "compatible": True,
+            "items": [],
+            "problems": [],
+        },
+    )
+    built = assemble(source, "foreign-provenance")
+    assert built.socket_sidecar_ref is None
+    assert built.socket_provenance["status"] == "not_bound"
+    assert not (built.path / "socket-sidecar.json").exists()
+    manifest = json.loads((built.path / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["socket_provenance"]["status"] == "not_bound"
 
 
 def test_saved_spec_preserves_choices_settings_and_provenance(recorded_assembly: Mock) -> None:

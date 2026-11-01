@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
-from pok.engine.integrity import spec_integrity
+import pytest
+
+from pok.engine.integrity import _record_kind, spec_integrity
 
 COEA = {
     "gem_id": "Metadata/Items/Gems/SkillGemCastOnElementalAilment",
@@ -33,11 +35,49 @@ def test_unconnected_trigger_group_is_reported() -> None:
 
 
 def test_main_active_skill_pointing_at_a_meta_gem_is_reported() -> None:
-    """`mainActiveSkill`은 그룹 안 **순번**이다 — 메타 젬을 가리키면 딜이 0으로 잡힌다."""
-    problems = spec_integrity({"skills": [{"gems": [COEA, SPARK], "main_active_skill": 1}]})
-    assert any("딜을 내지 않는 젬" in p and "2='Spark'" in p for p in problems), (
-        "어느 번호를 가리켜야 하는지까지 줘야 고칠 수 있다"
+    """The verdict follows native effect identity, not a guessed gem slot."""
+    native = {
+        "format": "pok.native-selection.v1",
+        "status": "observed",
+        "actual": {
+            "selected": True,
+            "group_index": 1,
+            "active_index": 1,
+            "gem_index": 1,
+            "effect_id": "MetaCastOnElementalAilmentPlayer",
+            "meta_container": True,
+        },
+    }
+    problems = spec_integrity(
+        {"skills": [{"gems": [COEA, SPARK], "main_active_skill": 1}]}, native_selection=native
     )
+    assert any("메타 컨테이너" in p and "MetaCastOnElementalAilmentPlayer" in p for p in problems)
+
+
+def test_leading_support_never_becomes_a_false_selected_gem_verdict():
+    spec = {"skills": [{"gems": [UNLEASH, SPARK], "main_active_skill": 1}]}
+    assert spec_integrity(spec) == ()  # No observation is not permission to guess.
+    native = {
+        "format": "pok.native-selection.v1",
+        "status": "observed",
+        "actual": {
+            "selected": True,
+            "group_index": 1,
+            "active_index": 1,
+            "gem_index": 2,
+            "effect_id": "SparkPlayer",
+            "meta_container": False,
+        },
+    }
+    assert spec_integrity(spec, native_selection=native) == ()
+    native["actual"]["active_index"] = 2
+    problems = spec_integrity(spec, native_selection=native)
+    assert any("요청과 PoB 실제" in row for row in problems)
+
+
+def test_unobserved_or_untrusted_format_does_not_invent_an_ordinal_diagnosis():
+    spec = {"skills": [{"gems": [UNLEASH, SPARK], "main_active_skill": 1}]}
+    assert spec_integrity(spec, native_selection={"actual": {"meta_container": True}}) == ()
 
 
 def test_out_of_range_main_socket_group_is_reported() -> None:
@@ -57,3 +97,88 @@ def test_a_normal_build_is_silent() -> None:
 
 def test_empty_spec_is_reported() -> None:
     assert spec_integrity({"skills": []})[0].startswith("스킬 그룹이 하나도 없다")
+
+
+@pytest.mark.parametrize(
+    "name,gem_id",
+    [
+        ("Wind Dancer", "Metadata/Items/Gems/SkillGemWindDancer"),
+        ("Escape Shot", "Metadata/Items/Gems/SkillGemEscapeShot"),
+    ],
+)
+def test_inbuilt_trigger_does_not_need_an_external_payload(name, gem_id):
+    gem = {"name": name, "gem_id": gem_id}
+    assert spec_integrity({"skills": [{"gems": [SPARK]}, {"gems": [gem]}]}) == ()
+    assert spec_integrity({"skills": [{"gems": [gem]}]}) == ()
+    # Native identity wins over a stale/translated display name.
+    assert spec_integrity({"skills": [{"gems": [{**gem, "name": "renamed"}]}]}) == ()
+
+
+def test_explicit_meta_marker_wins_over_an_ancillary_inbuilt_effect():
+    assert (
+        _record_kind(
+            frozenset({"meta", "trigger"}),
+            [
+                {"types": ["Meta"]},
+                {"types": ["InbuiltTrigger", "Attack"]},
+            ],
+        )
+        == "meta"
+    )
+    assert _record_kind(frozenset({"trigger"}), [{"types": ["Meta"]}]) == "meta"
+    assert (
+        _record_kind(
+            frozenset({"trigger"}),
+            [
+                {"support": True, "types": ["InbuiltTrigger"]},
+            ],
+        )
+        == "meta"
+    )
+    assert _record_kind(frozenset({"attack"}), [{"types": ["Attack", "Triggerable"]}]) == "active"
+
+
+def test_public_calculation_boundary_preserves_real_empty_meta_warning(monkeypatch, tmp_path):
+    """Stub native arithmetic only; keep the actual result diagnostic path."""
+    import asyncio
+
+    from fastmcp import Client, FastMCP
+
+    from pok.artifacts import tool_results
+    from pok.mcp import server
+    from pok.mcp.tools import build
+    from pok.pob.runner import PobResult
+
+    api = FastMCP("inbuilt-trigger-diagnostic-test")
+    monkeypatch.setattr(server, "mcp", api)
+    monkeypatch.setattr(server, "_TOOL_PARAMS", {})
+    monkeypatch.setattr(server, "observe_sources", lambda: {})
+    monkeypatch.setattr(tool_results, "artifacts_dir", lambda root=None: tmp_path / "artifacts")
+    monkeypatch.setattr(build, "_compute", lambda spec: PobResult({"Life": 100}, {}, (), (), False))
+    monkeypatch.setattr(build, "_procedure_refusal", lambda spec: None)
+    server.tool(build.compute_pob)
+
+    async def exercise():
+        async with Client(api) as client:
+            for gem in (
+                {"name": "Wind Dancer", "gem_id": "Metadata/Items/Gems/SkillGemWindDancer"},
+                {"name": "Escape Shot", "gem_id": "Metadata/Items/Gems/SkillGemEscapeShot"},
+                COEA,
+            ):
+                response = await client.call_tool(
+                    "compute_pob",
+                    {
+                        "build_spec": {
+                            "class_name": "Monk",
+                            "ascendancy": "Monk1",
+                            "level": 90,
+                            "skills": [{"gems": [SPARK]}, {"gems": [gem]}],
+                        },
+                        "stats": ["Life"],
+                    },
+                )
+                warnings = response.data.get("design_warnings", [])
+                assert any("발동될 스킬이 없다" in row for row in warnings) == (gem == COEA)
+                assert response.data["stats"]["Life"] == 100
+
+    asyncio.run(exercise())

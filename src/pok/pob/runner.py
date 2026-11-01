@@ -12,14 +12,20 @@ import json
 import os
 import re
 import subprocess
+import sys
+import tempfile
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from time import monotonic, sleep
-from typing import Any
+from types import CodeType
+from typing import Any, cast
 from uuid import uuid4
 from xml.sax.saxutils import unescape
 
+from pok.common.code_identity import code_sha256
+from pok.common.execution import ExecutionStopped, checkpoint, current_execution, remaining_timeout
+from pok.common.owned_process import spawn_owned, terminate_owned
 from pok.common.paths import project_root, var_dir
 from pok.pob.buildxml import BuildSpec, to_xml
 from pok.pob.versions import PobSnapshot, find_luajit, resolve_snapshot
@@ -31,7 +37,7 @@ _DRIVER = "scripts/pob_driver.lua"
 #  읽혀 「갭 없음」·「속도 정상」이라는 **거짓 안심**을 준다(형태 ①의 캐시 재발).
 #  4 = items[].slot/grant/corrupted(#120) · 3 = items[](#120)
 #  2 = mainSkillShowsAverage(#113) · 1 = gap*(#110) · 0 = 그 이전
-_META_PROTOCOL = 5  # Post-calculation LateLootRarity axes; preserve native early output.
+_META_PROTOCOL = 6  # Native selection: active effect ordinal, source gem and stat set.
 _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
 
 #: PoB **아이템 상세보기**가 만드는 룬 드롭다운 수 (`Classes/ItemsTab.lua:696` `for i = 1, 6`).
@@ -322,12 +328,70 @@ class PobRunError(RuntimeError):
     """드라이버가 POK_OK 없이 끝났다 — stderr/stdout 꼬리를 담는다."""
 
 
-def _cache_path(xml_text: str, commit: str) -> Path:
+def _execution_observation(snapshot: PobSnapshot | None = None) -> dict[str, Any]:
+    from pok.pob.execution_identity import observe_execution_inputs
+
+    try:
+        digest = hashlib.sha256(sys.version.encode("utf-8"))
+        for function in (
+            run_xml,
+            _run_driver,
+            _run_owned_driver,
+            run_native_capture,
+            _parse,
+            parse_lines,
+        ):
+            code = getattr(function, "__code__", None)
+            if not isinstance(code, CodeType):
+                raise ValueError("Loaded adapter code identity is unavailable")
+            digest.update(code_sha256(code).encode("ascii"))
+        return observe_execution_inputs(
+            snapshot or resolve_snapshot(),
+            adapter_root=project_root(),
+            executable=Path(find_luajit()),
+            adapter_code_sha256=digest.hexdigest(),
+            launch_config={
+                "driver": str((project_root() / _DRIVER).resolve()),
+                "lua_path": _LUA_PATH,
+            },
+        )
+    except (OSError, ValueError, RuntimeError) as exc:
+        return {"status": "unavailable", "diagnostics": [{"reason": str(exc)}]}
+
+
+def _cache_path(
+    xml_text: str,
+    commit: str,
+    *,
+    snapshot: PobSnapshot | None = None,
+    observation: dict[str, Any] | None = None,
+) -> Path:
     # ⛔ 판 번호가 키에 **들어가야 한다**(#119) — 빼면 드라이버 개정이 캐시를
     #    무효화하지 못해 옛 payload가 적중한다. 캐시는 `var/` 파생물이라
     #    무효화 비용이 없다(재계산 ~2초/건).
-    digest = hashlib.sha256(f"{_META_PROTOCOL}\n{commit}\n{xml_text}".encode()).hexdigest()[:32]
+    observed = observation if observation is not None else _execution_observation(snapshot)
+    digest = hashlib.sha256(
+        json.dumps(
+            {
+                "format": "pok.pob-cache.v2",
+                "protocol": _META_PROTOCOL,
+                "commit": commit,
+                "xml": xml_text,
+                "execution": observed,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()[:32]
     return var_dir() / "pob-cache" / f"{digest}.json"
+
+
+def _payload_digest(payload: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8"
+        )
+    ).hexdigest()
 
 
 def _publish_cache(cache: Path, payload: dict[str, object]) -> None:
@@ -393,22 +457,69 @@ def run_xml(
     timeout: float = 120.0,
 ) -> PobResult:
     """XML 하나를 PoB로 계산한다. requested_nodes를 주면 잘린 노드를 판정."""
+    checkpoint()
     snap = snapshot or resolve_snapshot()
-    cache = _cache_path(xml_text, snap.commit)
+    before = _execution_observation(snap)
+    cache = _cache_path(xml_text, snap.commit, observation=before)
+    cache_enabled = use_cache and before["status"] == "observed"
     hit = False
-    if use_cache:
+    if cache_enabled:
         try:
-            payload = json.loads(cache.read_text(encoding="utf-8"))
-            hit = True
-        except (FileNotFoundError, json.JSONDecodeError):
+            envelope = json.loads(cache.read_text(encoding="utf-8"))
+            payload = envelope["result"]
+            hit = (
+                envelope["format"] == "pok.pob-cache.v2"
+                and envelope["cache_key"] == cache.stem
+                and envelope["execution_sha256"] == before["sha256"]
+                and envelope["result_sha256"] == _payload_digest(payload)
+                and isinstance(payload, dict)
+                and all(
+                    isinstance(payload.get(name), expected)
+                    for name, expected in (
+                        ("stats", dict),
+                        ("meta", dict),
+                        ("alloc", list),
+                    )
+                )
+            )
+        except (FileNotFoundError, ValueError, TypeError, KeyError):
             pass  # 없거나 구 버전의 중간 쓰기 잔재이면 오라클로 재계산한다.
+    after = before
     if not hit:
         payload = _run_driver(xml_text, snap, timeout)
-        if use_cache:
-            _publish_cache(cache, payload)
+        checkpoint()
+        after = _execution_observation(snap)
+        if cache_enabled and before == after:
+            _publish_cache(
+                cache,
+                {
+                    "format": "pok.pob-cache.v2",
+                    "cache_key": cache.stem,
+                    "execution_sha256": before["sha256"],
+                    "result_sha256": _payload_digest(payload),
+                    "result": payload,
+                },
+            )
     allocated = tuple(int(n) for n in payload["alloc"])
     pruned = tuple(sorted(set(requested_nodes) - set(allocated)))
     meta = dict(payload["meta"])
+    meta["execution_inputs"] = {
+        "observation": before,
+        "after_sha256": after.get("sha256"),
+        **({"after_observation": after} if after != before else {}),
+        "status": "unavailable"
+        if before["status"] != "observed"
+        else "unverified_after_calculation"
+        if after["status"] != "observed"
+        else "stable_at_lookup"
+        if hit
+        else "stable_observation"
+        if before == after
+        else "changed_during_calculation",
+        "cache": "hit" if hit else "miss" if cache_enabled else "disabled",
+        "loaded_native_modules": "not_verified",
+    }
+    checkpoint()
     return PobResult(
         stats=dict(payload["stats"]),
         meta=meta,
@@ -494,7 +605,124 @@ def run_build(spec: BuildSpec, **kwargs: object) -> PobResult:
     return run_xml(to_xml(spec), requested_nodes=spec.tree_nodes, **kwargs)  # type: ignore[arg-type]
 
 
+def _run_owned_driver(
+    command: list[str], *, timeout: float, **options: Any
+) -> subprocess.CompletedProcess[bytes]:
+    scope = current_execution()
+    checkpoint()
+    deadline = monotonic() + remaining_timeout(timeout)
+    try:
+        proc = spawn_owned(command, **options)
+    except BaseException as exc:
+        retained = getattr(exc, "owned_process", None)
+        cleanup = getattr(exc, "owned_cleanup", None)
+        if retained is not None and scope is not None:
+            key = f"pob-driver:{id(retained)}"
+            scope.acquire_resource(
+                key, kind="pob_driver", identity=str(retained.pid), handle=retained
+            )
+            scope.release_resource(
+                key,
+                state="terminated"
+                if cleanup and cleanup["status"] == "confirmed"
+                else "unconfirmed",
+                details=cleanup,
+            )
+        if isinstance(exc, ExecutionStopped) and cleanup is not None:
+            exc.details["native_spawn_cleanup"] = cleanup
+        raise
+    key = f"pob-driver:{id(proc)}"
+    if scope is not None:
+        scope.acquire_resource(key, kind="pob_driver", identity=str(proc.pid), handle=proc)
+    try:
+        while True:
+            checkpoint()
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise subprocess.TimeoutExpired(command, timeout)
+            try:
+                code = proc.wait(timeout=min(0.05, remaining))
+                break
+            except subprocess.TimeoutExpired:
+                continue
+        checkpoint()
+    except BaseException as exc:
+        cleanup = terminate_owned(proc)
+        cast(Any, exc).owned_cleanup = cleanup
+        if scope is not None:
+            scope.release_resource(
+                key,
+                state="unconfirmed" if cleanup["status"] != "confirmed" else "terminated",
+                details=cleanup,
+            )
+        elif cleanup["status"] != "confirmed":
+            cast(Any, exc).owned_process = proc
+        if isinstance(exc, ExecutionStopped):
+            exc.details["native_cleanup"] = cleanup
+        exc.add_note(f"PoB native cleanup: {cleanup}")
+        raise
+    cleanup = terminate_owned(proc)
+    if scope is not None:
+        scope.release_resource(
+            key,
+            state="released" if cleanup["status"] == "confirmed" else "unconfirmed",
+            details=cleanup,
+        )
+    if cleanup["status"] != "confirmed":
+        error = PobRunError(f"Native cleanup unconfirmed: {cleanup}")
+        cast(Any, error).owned_process = proc
+        raise error
+    return subprocess.CompletedProcess(command, code)
+
+
+def run_native_capture(
+    command: list[str],
+    *,
+    cwd: Path,
+    env: dict[str, str],
+    timeout: float,
+    encoding: str = "utf-8",
+    errors: str = "replace",
+) -> subprocess.CompletedProcess[str]:
+    """Owned native command with bounded file-backed output and cooperative cancellation."""
+    if encoding != "utf-8":
+        raise ValueError("Native protocol encoding must be UTF-8")
+    command = [str(Path(command[0]).resolve()), *command[1:]]
+    with tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as error:
+
+        def snapshot(stream: Any) -> bytes:
+            size = os.fstat(stream.fileno()).st_size
+            stream.seek(0)
+            return bytes(stream.read(size))
+
+        try:
+            process = _run_owned_driver(
+                command,
+                cwd=cwd,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=error,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            exc.output = snapshot(output)
+            exc.stderr = snapshot(error)
+            raise
+        except ExecutionStopped as exc:
+            exc.details["native_stdout"] = snapshot(output).decode(encoding, errors=errors)
+            exc.details["native_stderr"] = snapshot(error).decode(encoding, errors=errors)
+            raise
+        return subprocess.CompletedProcess(
+            command,
+            process.returncode,
+            snapshot(output).decode(encoding, errors=errors),
+            snapshot(error).decode(encoding, errors=errors),
+        )
+
+
 def _run_driver(xml_text: str, snap: PobSnapshot, timeout: float) -> dict[str, object]:
+    checkpoint()
     driver = project_root() / _DRIVER
     digest = hashlib.sha256(xml_text.encode()).hexdigest()[:16]
     # 같은 XML도 동시 실행되므로 콘텐츠 해시만으로는 요청 소유권을 나눌 수 없다.
@@ -503,28 +731,16 @@ def _run_driver(xml_text: str, snap: PobSnapshot, timeout: float) -> dict[str, o
     xml_file.write_text(xml_text, encoding="utf-8", newline="\n")
     env = {**os.environ, "LUA_PATH": _LUA_PATH}
     try:
-        proc = subprocess.run(
-            [find_luajit(), str(driver), str(xml_file)],
+        proc = run_native_capture(
+            [str(Path(find_luajit()).resolve()), str(driver), str(xml_file)],
             cwd=snap.src_dir,
             env=env,
-            input="",  # PoB가 stdin을 읽는 경로 차단 (스파이크에서 echo "" 파이프와 동일)
-            capture_output=True,
-            text=True,
-            # ⛔ **인코딩을 코드에서 고정한다** — `text=True`만 쓰면 Windows에서
-            #    로케일 코드페이지(한국어면 cp949)로 디코딩한다. 예전엔 드라이버
-            #    출력이 전부 ASCII라 안 드러났는데, `POK_META.items`가 **아이템
-            #    이름**을 싣는 순간(#120) 한글 이름이 깨지거나 `json.loads`가 죽는다.
-            #    환경변수(`PYTHONUTF8`)로는 못 막는다 — `common/stdio.py`가 같은
-            #    이유로 진입점 코드에 강제 지점을 둔다(철칙 5).
-            #    `errors="replace"`인 이유: 이름 한 글자 때문에 **측정 전체**를
-            #    죽이지 않는다. 이름은 거부 사유의 라벨일 뿐 판정은 숫자로 한다.
-            encoding="utf-8",
-            errors="replace",
             timeout=timeout,
         )
+        stdout, stderr = proc.stdout, proc.stderr
     finally:
         xml_file.unlink(missing_ok=True)
-    if proc.returncode != 0 and "POK_" not in proc.stdout:
-        raise PobRunError(f"luajit 종료 코드 {proc.returncode}:\n{proc.stderr[-2000:]}")
-    stats, meta, alloc = _parse(proc.stdout)
+    if proc.returncode != 0 and "POK_" not in stdout:
+        raise PobRunError(f"luajit 종료 코드 {proc.returncode}:\n{stderr[-2000:]}")
+    stats, meta, alloc = _parse(stdout)
     return {"stats": stats, "meta": meta, "alloc": list(alloc)}

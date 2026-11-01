@@ -37,7 +37,7 @@ if not fh then
   os.exit(2)
 end
 
-dofile("HeadlessWrapper.lua")
+dofile((arg[0]:match("^(.*[/\\])") or "") .. "pob_headless.lua")
 
 local function clean(s)
   return tostring(s):gsub("[%c]", " ")

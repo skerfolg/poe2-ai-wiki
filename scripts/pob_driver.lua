@@ -13,6 +13,7 @@ end
 
 local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
 local lateUtilityStats = dofile(adapterDir .. "pob_late_utility.lua")
+local nativeSelection = dofile(adapterDir .. "pob_selection.lua")
 
 local xmlPath = arg and arg[1]
 if not xmlPath then
@@ -27,7 +28,7 @@ end
 local xmlText = f:read("*a")
 f:close()
 
-dofile("HeadlessWrapper.lua")
+dofile((arg[0]:match("^(.*[/\\])") or "") .. "pob_headless.lua")
 loadBuildFromXML(xmlText, "pok")
 if not build or not build.calcsTab then
   print("POK_ERR:빌드 로드 실패")
@@ -218,11 +219,11 @@ local points, asc, secAsc = build.spec:CountAllocNodes()
 --    잘린다. 그래서 먼저 받아 둔다(`gapMirageSkills`가 0으로 굳는 자리였다).
 local gapTrig, gapMirage, gapMainTrig = pokOracleGaps()
 print(string.format(
-  'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"mainSkillShowsAverage":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d,"items":%s}',
+  'POK_META:{"class":"%s","ascendancy":"%s","level":%d,"allocPoints":%d,"allocAscendancy":%d,"allocSecondaryAscendancy":%d,"mainSkillShowsAverage":%d,"gapTriggeredSkills":%d,"gapMirageSkills":%d,"gapMainSkillTriggered":%d,"items":%s,"nativeSelection":%s}',
   jesc(build.spec.curClassName or ""),
   jesc(build.spec.curAscendClassName or ""),
   build.characterLevel or 0, points or 0, asc or 0, secAsc or 0, pokShowsAverage(),
-  gapTrig, gapMirage, gapMainTrig, pokItems()))
+  gapTrig, gapMirage, gapMainTrig, pokItems(), nativeSelection(build, SkillType)))
 
 local ids = {}
 for id, node in pairs(build.spec.allocNodes) do

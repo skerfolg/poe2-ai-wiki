@@ -27,11 +27,60 @@ def isolated(monkeypatch, tmp_path):
 def wire_bytes(response) -> int:
     wire = CallToolResult(
         content=response.content,
-        structured_content=response.structured_content,
-        is_error=response.is_error,
+        structuredContent=response.structured_content,
+        isError=response.is_error,
         _meta=response.meta,
     )
     return len(wire.model_dump_json(by_alias=True, exclude_none=True).encode("utf-8"))
+
+
+@pytest.mark.parametrize("name", ["compute_pob", "evaluate_delta"])
+@pytest.mark.parametrize("large", [False, True])
+def test_measurement_receipt_exists_for_small_and_large_results(isolated, monkeypatch, name, large):
+    observations = iter(
+        [
+            {"python_source": {"status": "observed", "sha256": "before"}},
+            {"python_source": {"status": "observed", "sha256": "after"}},
+        ]
+    )
+    monkeypatch.setattr(server, "observe_sources", lambda: next(observations))
+    result = {"stats": {"Life": 1234}, "detail": "한글" * (100000 if large else 1)}
+
+    def measure(build_spec: dict[str, Any]) -> dict[str, Any]:
+        return result
+
+    measure.__name__ = name
+    direct = server.tool(measure)
+    assert direct({"class": "Monk"}) is result
+    assert "measurement_ref" not in result
+
+    async def exercise():
+        async with Client(isolated) as client:
+            response = await client.call_tool(name, {"build_spec": {"class": "Monk"}})
+            public = response.data
+            receipt = public["measurement_ref"]
+            payload, manifest = tool_results.load_result(receipt["$pok_result"])
+            assert payload["inputs"] == {"build_spec": {"class": "Monk"}}
+            assert payload["tool"] == name
+            assert payload["source"]["source_observation"]["changed"] == ["python_source"]
+            assert payload["source"]["source_observation"]["execution_identity"] == (
+                "not_verified_disk_observation_only"
+            )
+            memory = payload["source"]["loaded_execution_observation"]
+            assert memory["before"]["format"] == "pok.loaded-execution-observation.v1"
+            assert len(memory["after"]["python"]["sha256"]) == 64
+            assert memory["after"]["entrypoint"] == "observed_code_object"
+            assert memory["after"]["native_process"] == "not_verified"
+            assert tool_results.select(payload, receipt["path"]) == result
+            assert "measurement_ref" not in payload["result"]
+            assert manifest["result_sha256"] == tool_results.digest(result)
+            assert wire_bytes(response) <= server._WIRE_RESULT_BYTES
+            if large:
+                assert public["stored_tool_result"] is True
+            else:
+                assert public["stats"] == result["stats"]
+
+    asyncio.run(exercise())
 
 
 @pytest.mark.parametrize("value", [{"ok": True, "text": "한글"}, [{"id": "one"}], "normal text"])
@@ -61,7 +110,9 @@ def test_small_mcp_and_direct_python_returns_match_original(isolated, value):
             assert after.content == before.content
             assert after.structured_content == before.structured_content
             assert after.data == before.data
-            assert after.meta == before.meta
+            assert {key: value for key, value in after.meta.items() if key != "pok_execution"} == (
+                before.meta or {}
+            )
 
     asyncio.run(compare())
 
@@ -149,6 +200,58 @@ def test_saved_candidate_and_selected_receipt_flow_into_followup_call(isolated):
             assert payload["result"]["received"] == expected
 
     asyncio.run(run())
+
+
+def test_literal_evidence_metadata_is_not_expanded_but_actual_input_still_is(isolated):
+    actual_spec = {"tree_nodes": [1, 2], "level": 100}
+    stored = tool_results.store_result("fixture", {"spec": actual_spec}, {"value": 17})
+    evidence_data = [
+        {
+            "op": "upsert_evidence",
+            "value": {
+                "id": "e-one",
+                "source": {
+                    "$pok_result": "0" * 64,
+                    "path": "/result",
+                    "spec_sha256": "sha256:" + "1" * 64,
+                },
+            },
+        }
+    ]
+    seen = []
+
+    def consume_metadata(
+        build_spec: dict[str, Any], changes: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        seen.append((build_spec, changes))
+        return {"large": "x" * 20000}
+
+    server.tool(consume_metadata, literal_arguments=frozenset({"changes"}))
+
+    async def run():
+        async with Client(isolated) as client:
+            reply = await client.call_tool(
+                "consume_metadata",
+                {
+                    "build_spec": {"$pok_result": stored["id"], "path": "/inputs/spec"},
+                    "changes": evidence_data,
+                },
+            )
+            assert not reply.is_error
+            payload, _ = tool_results.load_result(reply.data["result_ref"]["$pok_result"])
+            assert payload["inputs"] == {"build_spec": actual_spec, "changes": evidence_data}
+            assert seen == [(actual_spec, evidence_data)]
+
+    asyncio.run(run())
+
+
+def test_unknown_literal_argument_is_a_registration_error(isolated):
+    def sample(value: dict[str, Any]) -> dict[str, Any]:
+        return value
+
+    with pytest.raises(ValueError, match="Unknown literal"):
+        server.tool(sample, literal_arguments=frozenset({"typo"}))
+    assert "sample" not in server._TOOL_PARAMS
 
 
 def test_large_string_chunks_stay_bounded_on_actual_mcp_wire(isolated):
@@ -334,13 +437,19 @@ def test_nonfinite_values_preserve_existing_mcp_json_contract(isolated, shape, p
             after = await bounded.call_tool("original", {})
             # The unstructured Any/list result has no .data; its logical JSON is text.
             expected = (
-                json.loads(before.content[0].text) if shape == "untyped-list" else before.data
+                json.loads(before.content[0].text, parse_constant=lambda token: None)
+                if shape == "untyped-list" and padding
+                else json.loads(before.content[0].text)
+                if shape == "untyped-list"
+                else before.data
             )
             if not padding:
                 assert after.content == before.content
                 assert after.structured_content == before.structured_content
                 assert after.data == before.data
-                assert after.meta == before.meta
+                assert {
+                    key: value for key, value in after.meta.items() if key != "pok_execution"
+                } == (before.meta or {})
                 return
             assert wire_bytes(after) <= 16000
             notice = json.loads(after.content[0].text)
@@ -348,6 +457,9 @@ def test_nonfinite_values_preserve_existing_mcp_json_contract(isolated, shape, p
             assert await full_json(bounded, result_id, "/result") == expected
             payload, manifest = tool_results.load_result(result_id)
             assert payload["result"] == expected
+            if shape == "untyped-list":
+                assert payload["source"]["unstructured_json_text"] == before.content[0].text
+                assert notice["normalization"]["nonfinite_numbers"] == "null"
             assert manifest["result_sha256"] == tool_results.digest(expected)
             followup = await bounded.call_tool(
                 "consume",

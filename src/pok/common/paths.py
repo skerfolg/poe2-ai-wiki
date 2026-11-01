@@ -5,9 +5,19 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 _ROOT_MARKERS = ("pyproject.toml", "knowledge")
+
+
+def _configured_path(name: str) -> Path | None:
+    raw = os.environ.get(name)
+    if raw is None:
+        return None
+    if not raw.strip() or not Path(raw).is_absolute():
+        raise ValueError(f"{name} must be a nonempty absolute path")
+    return Path(raw).resolve()
 
 
 def project_root(start: Path | None = None) -> Path:
@@ -31,7 +41,11 @@ def schema_dir(root: Path | None = None) -> Path:
 
 def var_dir(root: Path | None = None) -> Path:
     """③ 파생/캐시 (gitignore, 삭제 무해). 없으면 생성."""
-    p = (root or project_root()) / "var"
+    if root is not None:
+        p = root / "var"
+    else:
+        cache = _configured_path("POK_CACHE_HOME")
+        p = cache if cache is not None else project_root() / "var"
     p.mkdir(parents=True, exist_ok=True)
     return p
 
@@ -43,6 +57,19 @@ def index_db_path(root: Path | None = None) -> Path:
 
 def artifacts_dir(root: Path | None = None) -> Path:
     """② 산출물 (gitignore, 재생성 불가 — 계보 manifest와 함께 보존). 없으면 생성."""
-    p = (root or project_root()) / "artifacts"
+    if root is not None:
+        p = root / "artifacts"
+    else:
+        data = _configured_path("POK_DATA_HOME")
+        p = (data if data is not None else project_root()) / "artifacts"
     p.mkdir(parents=True, exist_ok=True)
     return p
+
+
+def runtime_paths() -> dict[str, str]:
+    """Report actual configured storage separately from read-only resources."""
+    return {
+        "resource_root": str(project_root()),
+        "artifacts_root": str(artifacts_dir()),
+        "cache_root": str(var_dir()),
+    }

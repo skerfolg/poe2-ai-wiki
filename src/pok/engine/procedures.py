@@ -27,7 +27,9 @@ def attribute_choice_nodes() -> frozenset[int]:
     )
 
 
-def check_procedures(build_spec: dict[str, Any]) -> tuple[str, ...]:
+def check_procedures(
+    build_spec: dict[str, Any], *, require_rare_provenance: bool = True
+) -> tuple[str, ...]:
     """빠진 절차와 수정 경로. 복원본·명시한 수동 출처는 기존 예외를 유지한다."""
     if build_spec.get("restored_from"):
         return ()
@@ -59,7 +61,7 @@ def check_procedures(build_spec: dict[str, Any]) -> tuple[str, ...]:
         and _RARE.search(str(item.get("text") or ""))
         and not item.get("derived_from")
     ]
-    if handmade:
+    if handmade and require_rare_provenance:
         try:
             weights = declared_weights(build_spec)
         except (TypeError, ValueError) as exc:

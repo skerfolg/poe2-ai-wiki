@@ -21,6 +21,69 @@ SCHEMA = {
 }
 
 
+def test_native_command_scopes_one_server_and_removes_conflicting_flags(runtime, tmp_path):
+    out = tmp_path / "artifacts/native"
+    command = runtime.build_native_command(
+        out,
+        model="gpt-6-astra",
+        reasoning_effort="ultra",
+        cwd=out,
+        repo_root=tmp_path,
+        arm="F",
+        server_run_dir=out / "server",
+    )
+    disabled = {command[i + 1] for i, token in enumerate(command) if token == "--disable"}
+    assert {"code_mode", "code_mode_host"}.isdisjoint(disabled)
+    assert {"shell_tool", "apps", "plugins", "multi_agent"} <= disabled
+    assert "--ignore-user-config" in command
+    config = next(
+        command[i + 1]
+        for i, token in enumerate(command)
+        if token == "-c" and command[i + 1].startswith("mcp_servers.pok=")
+    )
+    server = tomllib.loads(config)["mcp_servers"]["pok"]
+    assert server["required"] is True
+    assert server["args"][-3:] == ["F", "--run-dir", str(out / "server")]
+    assert server["default_tools_approval_mode"] == "approve"
+    assert server["env"]["PYTHONPATH"] == str(tmp_path / "src")
+
+
+@pytest.mark.parametrize("arm", ["F", "O", "P"])
+def test_native_command_rejects_working_directory_outside_experiment(runtime, tmp_path, arm):
+    with pytest.raises(ValueError, match="inside repository artifacts"):
+        runtime.build_native_command(
+            tmp_path,
+            model="gpt-6-astra",
+            reasoning_effort="ultra",
+            cwd=tmp_path,
+            repo_root=tmp_path,
+            arm=arm,
+            server_run_dir=tmp_path / "artifacts/server",
+        )
+
+
+def test_native_command_pins_the_oracle_environment(runtime, tmp_path):
+    out = tmp_path / "artifacts/run"
+    oracle = tmp_path / "oracle"
+    oracle.write_bytes(b"pinned binary; not executed")
+    command = runtime.build_native_command(
+        out,
+        model="gpt-6-astra",
+        reasoning_effort="ultra",
+        cwd=out,
+        repo_root=tmp_path,
+        arm="R",
+        server_run_dir=out / "server",
+        luajit_exe=str(oracle),
+    )
+    config = next(
+        command[i + 1]
+        for i, token in enumerate(command)
+        if token == "-c" and command[i + 1].startswith("mcp_servers.pok=")
+    )
+    assert tomllib.loads(config)["mcp_servers"]["pok"]["env"]["POK_LUAJIT"] == str(oracle)
+
+
 @pytest.fixture
 def runtime(monkeypatch, tmp_path):
     spec = importlib.util.spec_from_file_location("generation_codex_runtime", MODULE)

@@ -66,3 +66,27 @@ def test_지문_등록부는_FastMCP_스키마와_같다() -> None:
     assert server.server_info()["tools"] == expected
     # 주입 인자(FastMCP Context)는 클라이언트가 주는 것이 아니다 — 지문에서 빠져야 한다
     assert "ctx" not in expected["assemble_pob"]
+
+
+def test_identity_stays_inline_and_full_capabilities_are_retrievable():
+    from fastmcp import Client
+    from fastmcp.tools.function_tool import FunctionTool
+
+    from pok.mcp import server
+
+    info = server.server_info()
+    encoded = FunctionTool.from_function(server.server_info.__wrapped__).convert_result(info)
+    assert server._wire_size(encoded) <= server._WIRE_RESULT_BYTES - 512
+    assert info["capabilities"]["details_tool"] == "get_server_capabilities"
+
+    async def exercise():
+        async with Client(mcp) as client:
+            response = await client.call_tool("get_server_capabilities", {})
+            assert response.data == server.get_server_capabilities()
+            assert (
+                response.data["request_execution"]["server_instance"]
+                == (info["capabilities"]["request_execution"]["server_instance"])
+            )
+            assert response.data["pob_documents"]["effect_selection"]
+
+    asyncio.run(exercise())

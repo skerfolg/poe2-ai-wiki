@@ -6,6 +6,8 @@
 
 ---
 
+> **2026-10-30 재설계 정합성**: 제품/에이전트/도구 책임과 pok-ui 연동 정책은 개정 [BLUEPRINT](BLUEPRINT.md)가 우선한다. 기존 D/AD/RC·절 번호의 출처는 [개정 전 전문](BLUEPRINT_PRE_REDESIGN.md)이다. 물리 디렉터리·의존 방향·저장 경계는 이번 개정에서 변경하지 않는다. [검증 계획](POK_REDESIGN_VALIDATION.md)에서 원인을 분리한 뒤 필요한 경계만 별도 이행한다. UI는 별도 저장소, PoB/게임 의미 코어는 PoK 소유다.
+
 ## 0. 거버넌스 — 구조 변경 규칙 (최우선)
 
 > ⛔ **프로젝트 구조(디렉터리 구성·모듈 경계·저장 위치·의존 방향)는 임의로 변경하지 않는다.**
@@ -114,6 +116,13 @@ poe2-ai-wiki/
 
 - **KB 정본 = 파일**(`knowledge/`, git). **인덱스 = SQLite**(`var/index.sqlite`, gitignore). 정본 데이터는 SQLite에 저장하지 않는다 — SQLite는 검색 속도용 인덱스일 뿐.
 - ②와 ③의 차이: ③은 정본에서 결정적으로 **재생성 가능**(삭제 무해), ②는 런타임 산물이라 **재생성 불가**(삭제 시 정보 손실).
+- **런타임 쓰기 경로 선택**(사용자 승인 2026-11-01): 환경변수 `POK_DATA_HOME`을 설정하면
+  산출물은 `<POK_DATA_HOME>/artifacts`, `POK_CACHE_HOME`을 설정하면 캐시/검색 인덱스는
+  그 폴더 자체를 사용한다. 미지정 시 위의 `artifacts/`·`var/` 기본값을 유지한다.
+  함수의 명시 `root`가 환경변수보다 우선한다. 빈/상대 설정이나 쓰기 실패는 오류이며
+  다른 경로로 폴백하거나 기존 데이터를 자동 이동하지 않는다. KB·스키마·PoB 리소스의
+  읽기 위치와 쓰기 위치는 구분한다. 실제 위치는 `server_info.runtime_paths`, 지원 계약은
+  `get_server_capabilities.runtime_storage`에 표시한다.
 - **② 중 `ingest-raw/`는 로컬 전용이 아니라 별도 데이터 repo**([poe2-ai-wiki-data](https://github.com/skerfolg/poe2-ai-wiki-data))의 clone — 사용자가 여러 PC에서 작업하므로, 재생성 불가 데이터의 유일본이 특정 PC에 존재하면 안 된다는 원칙([KB_INGEST](KB_INGEST.md) KI-1). 추후 feedback·sessions 동기화도 같은 메커니즘으로 확장 가능.
 
 ---

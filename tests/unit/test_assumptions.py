@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from pok.engine.constraints.assumptions import (
+    AssumptionReport,
     audit_config,
     build_text_sources,
     check_ascendancy_entry,
@@ -22,6 +25,52 @@ from pok.engine.constraints.assumptions import (
 ORACLE_ONLY = [60014, 48079, 8248]
 BLOOD_MAGE_START = 59822
 SANGUIMANCY = 8415  # 블러드 메이지 노터블
+
+
+@pytest.mark.parametrize(
+    "var,value",
+    [
+        ("conditionMoving", True),
+        ("conditionMoving", "true"),
+        ("conditionStationary", 1),
+        ("conditionStationary", 4),
+    ],
+)
+def test_behaviour_scenario_needs_no_item_supplier(monkeypatch, var, value):
+    from pok.engine.constraints import assumptions
+
+    def unexpected_sources(*args, **kwargs):
+        raise AssertionError("Player movement must not need a purchased supplier")
+
+    monkeypatch.setattr(assumptions, "build_text_sources", unexpected_sources)
+    verdicts = audit_config({"config": {var: value}})
+    assert verdicts[0].status == "neutral"
+    assert verdicts[0].label == "행동 시나리오"
+    report = AssumptionReport(verdicts)
+    assert report.blocking == ()
+    assert report.behaviour_scenarios == verdicts
+    assert any("상시 유지" in note for note in report.notes)
+
+
+@pytest.mark.parametrize("value", [False, "false", 0, "0"])
+def test_disabled_behaviour_is_not_reported_as_an_active_scenario(value):
+    report = AssumptionReport(audit_config({"config": {"conditionMoving": value}}))
+    assert report.blocking == ()
+    assert report.behaviour_scenarios == ()
+    assert report.notes == ()
+
+
+def test_movement_does_not_exempt_a_real_missing_effect_supplier():
+    report = AssumptionReport(
+        audit_config(
+            {
+                "config": {"conditionMoving": True, "conditionEnemyCursed": True},
+            }
+        )
+    )
+    assert [v.var for v in report.behaviour_scenarios] == ["conditionMoving"]
+    assert [v.var for v in report.ungrounded] == ["conditionEnemyCursed"]
+    assert len(report.blocking) == 1
 
 
 def test_locked_nodes_are_detected_for_wrong_ascendancy() -> None:

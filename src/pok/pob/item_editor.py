@@ -14,8 +14,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from pok.common.execution import ExecutionStopped
 from pok.common.paths import project_root, var_dir
-from pok.pob.runner import _LUA_PATH
+from pok.pob.runner import _LUA_PATH, run_native_capture
 from pok.pob.versions import PobSnapshot, find_luajit, resolve_snapshot
 
 _SCRIPT = Path("scripts") / "pob_item_editor.lua"
@@ -74,12 +75,10 @@ def audit_item_editor(
                 newline="\n",
             )
             try:
-                proc = subprocess.run(
+                proc = run_native_capture(
                     [lua, str(project_root() / _SCRIPT), str(input_path), str(output_path)],
                     cwd=snap.src_dir,
                     env={**os.environ, "LUA_PATH": _LUA_PATH},
-                    input="",
-                    capture_output=True,
                     encoding="utf-8",
                     errors="replace",
                     timeout=timeout,
@@ -91,6 +90,19 @@ def audit_item_editor(
                     )
             except subprocess.TimeoutExpired:
                 runtime_problem = f"PoB item editor timed out after {timeout:g}s"
+            except ExecutionStopped as exc:
+                # The TemporaryDirectory will be removed on propagation. Keep
+                # partial native evidence before leaving the owned directory.
+                for key, path in (
+                    ("item_editor_input", input_path),
+                    ("item_editor_partial_output", output_path),
+                ):
+                    try:
+                        if path.is_file():
+                            exc.details[key] = path.read_bytes().decode("utf-8", errors="replace")
+                    except OSError as error:
+                        exc.details[key + "_unavailable"] = str(error)
+                raise
             if output_path.is_file():
                 try:
                     decoded = json.loads(output_path.read_text(encoding="utf-8"))

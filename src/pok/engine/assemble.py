@@ -31,6 +31,7 @@ from pok.engine.item_sockets import audit_item_sockets
 from pok.engine.legality import ItemLegalityChecker, LegalityReport
 from pok.engine.optimization_readiness import OptimizationNotReadyError, optimization_readiness
 from pok.engine.provenance import missing_procedures, stale_components
+from pok.engine.restore_fidelity import socket_sidecar_for_export
 from pok.pob import codec
 from pok.pob.buildxml import BuildSpec, spec_from_dict, to_xml
 from pok.pob.item_editor import audit_item_editor
@@ -51,6 +52,8 @@ class AssembledBuild:
     optimization_readiness: dict[str, Any] = dataclasses.field(default_factory=dict)
     socket_acquisition: dict[str, Any] = dataclasses.field(default_factory=dict)
     item_editor: dict[str, Any] = dataclasses.field(default_factory=dict)
+    socket_sidecar_ref: dict[str, str] | None = None
+    socket_provenance: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     @property
     def is_legal(self) -> bool:
@@ -184,7 +187,18 @@ def assemble(
         )
     build_code = codec.encode(xml)
     build_id = new_build_id(slug)
+    sidecar_text, socket_provenance = socket_sidecar_for_export(build_code, saved_spec)
+    socket_sidecar_ref = (
+        {
+            "artifact_id": build_id,
+            "name": "socket-sidecar.json",
+            "sha256": socket_provenance["sha256"],
+        }
+        if sidecar_text is not None
+        else None
+    )
     validation: dict[str, Any] = {
+        "socket_provenance": socket_provenance,
         "purpose": purpose,
         "optimization_readiness": readiness,
         "item_editor": item_editor,
@@ -222,7 +236,11 @@ def assemble(
         "validation.json": json.dumps(validation, ensure_ascii=False, indent=1, sort_keys=True)
         + "\n",
     }
+    if sidecar_text is not None:
+        files["socket-sidecar.json"] = sidecar_text
     manifest: dict[str, Any] = {
+        "socket_provenance": socket_provenance,
+        "socket_sidecar_ref": socket_sidecar_ref,
         "purpose": purpose,
         "optimization_readiness": readiness,
         "item_editor_checked": item_editor["checked"],
@@ -243,7 +261,11 @@ def assemble(
     # 설계 무결성 경고는 **산출물에 각인한다** (#58 ①, 보고자 요청 2026-08-11).
     # 반환값에만 실으면 그 자리에서만 보이고 사라진다 — 다음 세션은 `build.pob`만
     # 받아 이어받으므로, 「주력기가 없는 채로 출고됐다」는 사실이 기록에 남아야 한다.
-    design = spec_integrity(dataclasses.asdict(spec))
+    native_selection = result.meta.get("nativeSelection")
+    design = spec_integrity(
+        dataclasses.asdict(spec),
+        native_selection=native_selection if isinstance(native_selection, dict) else None,
+    )
     if design:
         manifest["design_warnings"] = list(design)
     # 낡음도 각인한다 — 정본 출고물만 받은 다음 세션이 "이 트리가 어느 문맥에서
@@ -326,6 +348,8 @@ def assemble(
         optimization_readiness=readiness,
         socket_acquisition=socket_acquisition,
         item_editor=item_editor,
+        socket_sidecar_ref=socket_sidecar_ref,
+        socket_provenance=socket_provenance,
     )
 
 

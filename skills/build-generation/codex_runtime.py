@@ -165,6 +165,95 @@ def build_command(
     return args
 
 
+def build_native_command(
+    outdir: Path,
+    *,
+    model: str,
+    reasoning_effort: str,
+    cwd: Path,
+    repo_root: Path,
+    arm: str,
+    server_run_dir: Path,
+    codex_exe: str | None = None,
+    luajit_exe: str | None = None,
+) -> list[str]:
+    """Build a scoped F/O/P native-MCP experiment command, not a provider run.
+
+    The JSON-only provider and its zero-native-tool audit remain unchanged.
+    This command requires a separate native-call audit and an arm manifest.
+    No user config or credentials are changed by constructing it.
+    """
+    if arm not in {"F", "O", "P", "R"}:
+        raise ValueError("Expected an explicit experimental arm F/O/P/R")
+    root = repo_root.resolve()
+    run = server_run_dir.resolve()
+    if not run.is_relative_to(root / "artifacts") or not cwd.resolve().is_relative_to(
+        root / "artifacts"
+    ):
+        raise ValueError("Native experiment directories must remain inside repository artifacts")
+    base = build_command(
+        outdir,
+        model=model,
+        reasoning_effort=reasoning_effort,
+        cwd=cwd,
+        repo_root=root,
+        codex_exe=codex_exe,
+    )
+    # CLI enable/disable collections are not ordered overrides: remove the
+    # JSON-only provider's conflicting disables before enabling code mode.
+    args: list[str] = []
+    index = 0
+    while index < len(base):
+        if base[index] == "--disable" and base[index + 1] in {"code_mode", "code_mode_host"}:
+            index += 2
+        else:
+            args.append(base[index])
+            index += 1
+    server_args = [
+        str(root / "skills/build-generation/redesign_server.py"),
+        "--arm",
+        arm,
+        "--run-dir",
+        str(run),
+    ]
+    env = {
+        "PYTHONPATH": str(root / "src"),
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "safe.directory",
+        "GIT_CONFIG_VALUE_0": str(root),
+    }
+    if luajit_exe is not None:
+        if not Path(luajit_exe).is_file():
+            raise FileNotFoundError("Pinned LuaJIT executable is unavailable")
+        env["POK_LUAJIT"] = str(Path(luajit_exe).resolve())
+    environment = "{" + ",".join(key + "=" + json.dumps(value) for key, value in env.items()) + "}"
+    config = (
+        "mcp_servers.pok={command="
+        + json.dumps(sys.executable)
+        + ",args="
+        + json.dumps(server_args)
+        + ",cwd="
+        + json.dumps(str(root))
+        + ",env="
+        + environment
+        + ',enabled=true,required=true,default_tools_approval_mode="approve",'
+        + "startup_timeout_sec=60,tool_timeout_sec=1800}"
+    )
+    args[-1:-1] = [
+        "--enable",
+        "code_mode",
+        "--enable",
+        "code_mode_host",
+        "-c",
+        "mcp_optional_startup_grace_ms=0",
+        "-c",
+        config,
+    ]
+    return args
+
+
 def audit_events(path: Path) -> dict[str, Any]:
     """Audit recorded item types; this cannot certify absence from the tool schema."""
     events: Counter[str] = Counter()
