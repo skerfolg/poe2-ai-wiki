@@ -82,9 +82,11 @@ flowchart TD
   R0BASE[R0 실행 기반·입력 동결<br/>done]
   R1RUN[R1 기준 실험·초기 기술 검토<br/>done]
   R2CONTRACT[R2 식별·근거·이행 계약<br/>done]
-  R3CORE[R3 기반 구현 · 원격 플랫폼 검증/최종 감사<br/>in_progress]
-  R3CORE -. 플랫폼 검증과 병행 .-> R4FLOW
+  R3CORE[R3 기반 구현 · 범위별 검증 완료<br/>done]
+  R3CORE --> R4FLOW
   R4FLOW[R4 명시 계산/조립 · 저장 비교 · 자율 스킬 · 공동 재투자<br/>in_progress]
+  R4FLOW -. 행동 검증 준비 병행 .-> R5PREP
+  R5PREP[R5 제품 격리/재개 사전 검증 · 동결/실행기 준비<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
@@ -209,11 +211,11 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S54 | #188 정상 비교 종료: A79.6분 제출, B최종 제출 누락/마지막 ready 조립 보존, C90분·파일 존재/not_ready. 이번 이동 맵핑 목표에는 A가 가장 일관되고 C 품질 우위 미입증. 후보20개 반환 및 근거·트리 편집의 후속 연결 확인, A19/B18/C17아이템 native·stock 재입력 통과. #199대량 전달·#189병렬 상태/응답·#200완료 증거 연결 수정·재현 검증 완료. 최종 전체 단위1,991/5skip·PoB통합110통과, 최종 저장 수정 후 관련 native1건 재확인. #189 자동 시간제한·재시작과 #188 품질은 남음. 원본·공유코드 보존, 후속수정은 동결 C에 소급 안 함. [수행·누락과 결함 대조](GENERATION_REOPTIMIZATION_188.md), [공유코드](GENERATION_REOPTIMIZATION_188_CODES.md). PR #149 병합 e7bd429 완료, #147·#148/main d66f26f 하위 모델 병합 완료 | in_progress |
 
-| S55 | PoK R0~R7 재설계. R0~R2 범위 완료. R3 기반 구현·로컬 전량 검사와 원격 Windows native149통과, macOS native142통과/3skip/룬 fixture6오류를 후속 수정 중. R4 명시 계산/조립·저장 비교 v2·자율 설계 스킬·탐색 범위 및 공동 재투자 검증 진행. 일반 CI 양쪽 OS 통과. R3 최종 감사·R4 출구와 R5~R7은 미완료. [계약/증거](POK_REDESIGN_CONTRACTS.md) · [완료 기준](POK_REDESIGN_ACCEPTANCE.md) · [로드맵](ROADMAP.md) | in_progress |
+| S55 | PoK R0~R7 재설계. R0~R3 범위 완료: 생산38c17cd 단위2509통과/2기존문서skip, 실제 통합149통과 및 양쪽 OS 원격 CI 성공. R4 명시 계산/조립·저장 비교·설계 결박·스킬·세 작은 실측 확보, 일반 AI 행동 검증은 R5에 남음. R5 전체 제품 표면/격리·수집/명시 재개32검사와 두 제품 Astra 비게임2턴 재개 통과. 제품 동결/본 캠페인·R6~R7 미완료. 저장 경로 변경은 사용자 협의 중. [R3 판정](POK_R3_AUDIT.md) · [R4 감사](POK_R4_TRANSITION_AUDIT.md) · [R5 준비](POK_R5_EXECUTION_PREFLIGHT.md) | in_progress |
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R3·R4: macOS native 룬 편집 fixture의 공통 로더 수정과 탐색 범위 보강을 게시하고 원격 결과를 확인한다. 공동 재투자 두 사례는 v3에서 통과했고 핵심 선택·전체 트리 대조도 통과했다. 최종 추천/기록 결박의 실제 검증을 포함해 R3/R4 출구 요구를 대조하고 최신 전량 검사를 수행한다. R3 최종 감사·R4 전체·R5~R7은 미완료다. 동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 worktree codex/pok-r1-replay는 보존한다. 초안 PR #150은 병합하지 않는다.**
+The only next executable step is: **S55 / R5 준비: 검증한 제품 서버/수집·명시 재개 경로에 동결 source/KB/PoB/실행 파일·허용 junction 무결성 검사와 단계별 입력 공개·예산을 연결하고 개선판을 별도로 동결한다. 두 제품 Astra 비게임 재개는 성공했지만 H1/H2 본 실행·품질/자율 행동 평가는 미실행이다. R6 저장 경로 변경은 POK_RUNTIME_PATH_PROPOSAL.md 협의 답 전 적용하지 않으며 독립 준비는 계속한다. 원래 R0~R7 목표·동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 codex/pok-r1-replay를 보존한다. 초안 PR #150은 병합하지 않는다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -978,3 +980,33 @@ require_design_record=false로 최종 우회 불가 회귀 포함. capability/�
 전체 Ruff/433파일 format/mypy175소스 통과. 인게임 질문을 자동 resolved로 만들지 않으며
 설계 누락과 비교 통계의 층을 구분한다. 다음은 이 실제 연결 근거와 기존 세 대조를 포함한
 R3/R4 요구별 출구 감사 및 최신 전량 검사다. 전체 목표나 R5~R7을 완료하지 않는다.
+
+R3/R4 출구 감사 착수:38c17cd 전체 단위 session57336 실행 중, 구현은 고정했다.
+R3 표의 오래된 비용/플랫폼 미완료 표기를 실제 근거로 교정하고 최신 전량 미완료와 분리했다.
+R4 각 요구의 소스/작은 실측/실제 모델 미검증 범위를 표로 대조했다.
+R5 사전 조사에서 기존 native CLI 명령의 --ephemeral, 단발 run_codex와 R1 카탈로그 제한을
+확인했다. 공식 non-interactive 문서와 고정 CLI exec resume --help는 명시 session ID 재개를
+지원하지만 현재 실행기는 그 경로를 구현/검증하지 않았다. 실제 모델 재개는 아직 미실행이다.
+단위 완료 전 소스 변경/모델 실행·기준판 변경은 하지 않는다.
+R5 실행 사전 감사는 POK_R5_EXECUTION_PREFLIGHT.md에 기록했다. 실제 native 도움말의 명시 ID 재개/출력 스키마 지원과 기존 --ephemeral/R1 표면 제한을 구분했으며 실제 모델 재개는 미실행이다. 전체 단위 session57336은 진행 중으로 확인했다.
+
+R6 읽기 전용 재확인: UI HEAD f6bc07b, clean. v1/XML-only undo이며 새 기록 소비는 미구현.
+UI의 POK_DATA_HOME/POK_CACHE_HOME을 현재 core가 읽지 않아 실제 쓰기 경로 계약이 어긋난다.
+기존 경로 기본 유지·명시 절대 환경변수 분리안을 POK_RUNTIME_PATH_PROPOSAL.md로 준비하고
+AGENTS 철칙1의 저장 위치 협의 질문을 비동기로 전달했다. 답 전 의존 경로 수정은 보류하되
+전체 단위 session57336 및 R5 준비는 계속한다. 전체 목표 일시정지나 blocked 상태가 아니다.
+
+전체 단위57336 종료:2511개 중2509통과/기존 v6문서2skip/실패0,533.562초.
+전체 통합27612 시작 후 진행 중. R3/R4 kernel은 유지하고 R5 별도 product_server만 추가했다.
+R5 경로/기계 근거 쓰기/전체 카탈로그 보존10검사 통과, strict mypy6소스 통과.
+실제 stdio probe51949 종료0: baseline51/improved-working74도구(제품50/73+공통1),
+각2회 재연결 후 메모 유지·기계 근거 쓰기 거부·기준판921파일 변경0 확인.
+모델 재개/개선판 동결/본평가는 미실행이며 제품 도구 목록을 R1 제한으로 줄이지 않았다.
+
+R3 범위 출구 완료를 POK_R3_AUDIT.md에 근거별 판정했다. 생산src/scripts/knowledge 변경 없음,
+38c17cd 전체 단위2509/2skip·실제통합149 및 원격 일반/native 양쪽OS success 확인.
+R5 별도 수집32검사·strict7소스/Ruff438파일 통과. 최초0.14초 정리 미확인 실패를 보존했다.
+비게임 Astra/ultra toy79678 종료0: baseline/improved-working 각2턴, 같은 UUID 재개,
+대화 전용값·기존 메모·후속 공개 입력 확인, 각턴MCP2호출·정리confirmed, 기준921파일 변경0.
+이것은 모델 문맥/서버 격리의 증거이지 빌드 자율 설계·품질 효과가 아니다. R4의 실제빌드행동/
+R5품질·개선판동결/캠페인·R6/R7은 미완료, 사용자 저장경로 협의 답도 아직 없다.

@@ -94,3 +94,13 @@ Root로 파싱되어 참조 필드가 생략된 사례를 확인했다. transpor
 공식 get_tool_result 페이지로 회수한다. data 객체를 dict로 간주하거나 미노출 참조를
 누락된 계산 결과로 판정하지 않는다. 원문 wire의 참조는 보존되어 있었으며 이것을
 PoK 저장 손실로 단정하지 않는다. R6 실제 클라이언트·모델 어댑터에서 대조할 항목이다.
+
+R6 현재 코드 읽기 감사(수정 없음): UI는 f6bc07b/작업트리 clean이며 schemaVersion1,
+workspace.v1.json, XML-only undo/제안·계산 상태다. 새 design_ref/record_json/material/메타데이터를
+같은 리비전으로 보존하는 저장·원자 적용/undo는 미구현이다. main/pok.ts는 실제 원문
+structuredContent를 소비하므로 Python SDK data Root의 파싱 차이와 구분한다.
+또한 UI가 전송하는 POK_DATA_HOME/POK_CACHE_HOME을 현재 engine/common/paths.py가
+읽지 않는 실제 불일치가 있다. POK_RUNTIME_PATH_PROPOSAL.md에 기존 기본 경로 유지와
+명시 설정 시 데이터/캐시 분리안을 준비했고 AGENTS 철칙1에 따라 사용자 협의 중이다.
+승인 전 엔진 저장 경로·UI 코드는 변경하지 않았다. 별도 번들 리소스/serve 지원도
+실제 구현을 확인해야 하며 문서의 배포 설명만으로 지원된다고 보지 않는다.

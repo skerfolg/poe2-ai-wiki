@@ -72,6 +72,8 @@ jobs:
           skills/build-generation/redesign_server.py
           skills/build-generation/redesign_raw.py
           skills/build-generation/redesign_run.py
+          skills/build-generation/product_server.py
+          skills/build-generation/product_run.py
       - name: Layer boundaries (import-linter)   # PROJECT_STRUCTURE §4 — 위반 = 실패
         run: lint-imports
       - name: Tests (pytest)
