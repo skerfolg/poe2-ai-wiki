@@ -86,7 +86,10 @@ flowchart TD
   R3CORE --> R4FLOW
   R4FLOW[R4 명시 계산/조립 · 저장 비교 · 자율 스킬 · 공동 재투자<br/>in_progress]
   R4FLOW -. 행동 검증 준비 병행 .-> R5PREP
-  R5PREP[R5 제품 격리/재개 사전 검증 · 동결/실행기 준비<br/>in_progress]
+  R5PREP[R5 동결 제품 고정 순서8회 실행<br/>in_progress]
+  R3CORE -. UI 사전 통합 .-> R6UI
+  R5PREP --> R6UI[R6 설계 기록·원자 저장·실제 IPC 일부 검증<br/>in_progress]
+  R6UI --> R7SWITCH[R7 저장 복귀 사전 시험 · 기본 전환 대기<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
@@ -215,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5 준비: 동결한 개선 제품7875ea2와 기준판에 공통 source/KB/PoB/실행 파일·허용 junction 무결성 검사와 단계별 입력 공개·예산을 연결하는 캠페인 runner를 완성한다. 두 제품 Astra 비게임 재개는 성공했지만 H1/H2 본 실행·품질/자율 행동 평가는 미실행이다. R6 저장 경로 분리는 승인·엔진 범위 검증을 마쳤다. 동결 R5 제품은 수정하지 않는다. 원래 R0~R7 목표·동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 codex/pok-r1-replay를 보존한다. 초안 PR #150은 병합하지 않는다.**
+The only next executable step is: **S55 / R5 실행: 같은 campaign live session94784의 동결8회 순서를 끝까지 수집한다. 첫 H1기준1은 사후 무결성 검사까지 수집 완료했고 최종 응답은 incomplete다. 현재02-H1-improved-1 phase1 CLI43480을 실제 생존 확인했다. 저장된 preflight 상태만으로 미실행을 판정하거나 관측 timeout으로 재시작하지 않는다. 공통 collector/제품/입력은 변경하지 않고 무거운 host 작업을 병행하지 않는다. R6는 v2 기록·원자 제안·저장 IPC/재시작 일부 검증 및 로컬 WIP d33b3c3까지이며, backend 경계 선택·원격 push 승인·실제 모델/배포와 R7 기본 전환은 남아 있다. PR #150은 병합하지 않는다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -332,6 +335,8 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 | 원격 브랜치 21개 | stale | 스쿼시 머지 뒤 안 지워진 잔재(`fix/restore-item-granted-groups` 등). 일괄 정리는 **사용자 판정** — 소유 세션을 특정할 수 없다 |
 
 ## Open Decisions
+
+2026-11-01 현재 사용자 판단 대기: 독립 PoB backend의 A/B 경계 선택은 [구체안](POK_UI_STANDALONE_BACKEND_PROPOSAL.md)을 따른다. 선택 환경변수 저장 경로는 이미 승인·검증 완료라 재확인하지 않는다. UI WIP d33b3c3의 skerfolg/pok-ui → skerfolg/pok-r6-design-records push는 자동 승인 검토가 구체적 전송 승인 부재로 거절해 별도 승인 질문을 보냈으며 아직 실행하지 않았다. 두 판단을 일반 goal 계속 메시지로 대신 승인하지 않는다.
 
 2026-10-30 R1 무개입 보조 관측: 기존 문서 파서·BuildSpec·receipt·산출물/결과 참조의 책임은 [형식 감사](POK_DESIGN_FORMAT_AUDIT.md)에 기록했다. 외부 PoB 앵커·트리 target·설계 조건 앵커의 뜻이 다름을 명시했다. 이는 R2 입력이며 목표 스키마/새 경계를 확정하거나 동결 코드를 변경한 것이 아니다.
 
@@ -1035,3 +1040,287 @@ R5 새 product_integrity 검사14통과(실제 junction 포함), 전체 동결26
 R5 무결성 실제 probe22621 종료0: 동결 개선판·명시 공유 경로26379파일 및 소스 inventory verified/진단0.14검사에는 실제 junction 허용/오대상 거부·추가 소스 검출 포함. SourceRoot 변경이나 R5 본 평가를 시작한 것은 아니다.
 승인 경로/기존 server_info/R5 제어를 함께 실행한65회귀 통과(r6-storage-and-r5-controls-unit-v1.xml). 실제MCP/PoB 저장 경로1통과, 전체 Ruff/442파일 format/mypy175 및 별도strict8소스 통과. 다음은 동결 제품·입력과 단계 공개를 공통 캠페인 runner에 연결하고 R6 UI 소비를 이어가는 일이다.
 R5 product_campaign.py/회귀 구현: 단계 공개·미완료 동일문맥 재개·예산 미이전·8순서 한번수집·source/종료 실패 중단을 검증했다. 관련56검사 통과, 추가 출력경계/비용기록 후7회귀 통과. 본 캠페인 descriptor/실행 스크립트 연결은 다음이며 H1/H2미실행이다.
+
+R5 실제 고정8회 캠페인94784 시작. config eed457fe38b55d28c5abc8692719f7e8516705a3d399e6218330993304e5ab16,
+controller20파일·두제품/입력/공유자료/바이너리 최종preflight verified. oracle preflight15097 종료0:
+새 어댑터의 두 동결제품 모두 기존비보류45,052.68404/Life2394/ES5085 재현.
+현재H1기준1의 모델시작전 검사, process.json 없음으로 확인했다. 모델시작/결과를 소급추정하지
+않는다. 다음턴은94784 실제handle을 계속 관측하고 시험을 재시작하지 않는다. source20파일과
+동결제품/입력은 바꾸지 않으며 heavyhost 작업을 병행하지 않는다. 전체평가/R6/R7미완료.
+
+R5 94784 handle 실제live 확인. H1기준1 phase1 Codex PID39528 Get-Process로 살아 있음을
+확인했고 turn.started/완료MCP76콜 관측(결과·성공 아님). trial.json의 preflight 표시는
+phase실행중 RAM상태 미저장으로 늦게 갱신되는 관측 한계다. 수집기코드 변경 없이 실제handle/PID로 본다.
+UI PR2 병합d15bdab 확인 후 원본main을ff동기화. Orca 격리작업트리
+C:/Users/SKKim1107/orca/workspaces/pok-ui/pok-r6-design-records, branchskerfolg/pok-r6-design-records
+생성(에이전트·setup없음). coho4b86309 최신사용자요구/128검사기록 읽음: 독립PoB수동작업,
+PoK선택연동, 백엔드공유방식미결정. POK_UI_STANDALONE_BACKEND_PROPOSAL.md의기존pob코어
+독립worker(A)/공통패키지분리(B)를구체화해사용자협의질문전달. R5는계속하며승인전백엔드경계는변경안함.
+격리UI브랜치에서coho+main/U0병합5충돌을양쪽검증/진단보존방향으로해소·staging했다.
+UI check/build/GUI는R5큰부하금지중미실행이며병합완료/전체R6완료로보고하지않는다.
+
+### R6 UI 입력 스냅샷 보강 — 2026-11-01
+
+별도 Orca 작업 트리 `pok-r6-design-records` / 브랜치
+`skerfolg/pok-r6-design-records`에서 main/d15bdab과 coho/4b86309를 통합 중이다.
+coho 원본은 수정하지 않았고, merge는 전체 검증 전이므로 아직 commit하지 않았다.
+새 shared/build-revision은 XML·설계 JSON 원문/참조·획득 메타데이터를 같은 입력 단위로
+적용/undo하며 UI 리비전과 설계 기준 리비전을 모두 비교한다. 설계 없음도 null로
+명시하고 안전 정수 리비전 상한을 검사한다. 원문 숫자 재직렬화 없이 보존한다.
+
+`artifacts/reviews/r6-ui-input-revision-v1.txt`: 원자 적용/undo·낡은 기준 거절·잘못된 기록의
+반쪽 적용 방지·수동 XML 변경 시 과거 설계 보존·설계 제거 복구·동일 입력 무변경의
+작은 단위7개 통과. 기존 의존성에 junction으로 연결했으며 설치/전체 빌드는 하지 않았다.
+이 helper는 아직 workspace.v2 저장/렌더러/AI 제안에 연결되지 않았다. 엔진 근거 검증이나
+실제 앱 동작의 증거로 사용하지 않는다. v1 파일에 새 필드를 저장하지 않았다.
+
+R5 PTY94784와 CLI39528의 실제 생존 및 새 MCP 이벤트를 확인했다. 같은 실행을 유지하고
+무거운 빌드/전량 검사는 대기한다. 독립 PoB backend의 새 공개 실행 경계는
+POK_UI_STANDALONE_BACKEND_PROPOSAL의 사용자 판단을 기다리며, 이와 독립적인
+v2 입력/저장 연결을 계속한다. 승인된 환경변수 경로 분리와 별개의 결정이다.
+
+### R6 v2 저장·편집 경로 연결 — 2026-11-01
+
+UI 별도 브랜치에서 workspace.v2.json 저장과 v1 원본/백업을 보존하는 읽기 이행을 연결했다.
+v2가 존재하면 v1을 자동 승격하지 않고, 미지원 미래 버전은 손상 복구와 구분한다.
+수동 편집/기존 AI XML 제안은 전체 입력 snapshot undo를 사용하고 JSON v2 왕복은
+설계/획득 JSON 원문과 undo를 유지한다. 브라우저 개발 저장도 별도 v2 키로 분리했다.
+
+r6-ui-storage-v1.txt의16단위, 추가 JSON 왕복을 포함한 r6-ui-storage-v2.txt의17단위,
+실제 기존 AI 제안 경로 r6-ui-existing-proposal-v1.txt의6단위가 통과했다.
+v2 실행 명령에 없는 main-build-proposals.test.ts 경로를 포함했으나 tsx는 그 경로를
+검사하지 않았음을 확인했고, 실제 build-context.test.ts를 별도로 실행한 결과가6개다.
+TypeScript는 최초 병합 테스트 닫기 구문 누락으로 실패했고 수정 후 통과했다.
+UI 계층 경계 검사 통과. 전체 check/build·실제 앱·설계 수신 검증은 아직 남아 있다.
+R5 수집기/동결 제품은 수정하지 않았다.
+
+### R6 설계 조회 소비 무결성 — 2026-11-01
+
+UI PokConnection.readDesign은 read_design_record 결과를 큰 결과 회수 경로로 읽고
+연결 generation 변경을 거절한다. main/design-records는 요청 참조 일치·원문 UTF-8 SHA·
+설계/현재 보고서 리비전을 비교한다. XML blob이 verified_blobs일 때만 실제 보고서와
+선언 hash를 비교해 입력 hash를 연결하고, unavailable/unbound를 검증 완료로 승격하지 않는다.
+shared의 설계 전용 shape 검사는 XML 검사와 분리했다.
+
+r6-ui-design-consumer-v1.txt 관련10단위 통과. r6-ui-design-real-v1/result.json과
+consumer.json은 현재 엔진 create_design의 실제 불변 저장/읽기 결과를 UI 소비 코드에
+전달해 record_json 원문·참조가 보존되는 것을 확인했다. 이 합성 기록은 XML 미연결이다.
+이는 MCP IPC/앱 화면/인게임 성립/계산 호환 전체 검증이 아니다. 최신 TypeScript·계층·
+git diff 검사 통과. IPC·화면에서 기록을 연결하고 후보/앵커/재검토를 표시하는 작업은 남았다.
+
+R5 PTY94784/CLI39528은 계속 살아 있고 새 compute_pob 이벤트를 확인했다.
+수집기·제품·공통 입력은 변경하지 않았다.
+
+### R6 설계 화면·IPC와 시각 확인 — 2026-11-01
+
+별도 UI 브랜치에 readDesignRecord DesktopApi/preload/IPC를 연결하고 빌드 설계 화면을
+추가했다. 사용자 고정/필수/잠정/성능 후보와 채택 상태, 공급자, 근거/질문/재검토 보고서,
+원문 문서를 표시한다. 조회와 적용은 분리하고 기준 UI/설계 리비전을 검사한 뒤 전체 입력
+snapshot으로 적용/undo한다. 저장된 보고서를 현재 문서의 새 검증으로 표시하지 않는다.
+
+브라우저 미리보기에서 실제 엔진 합성 설계와 합성 XML을 사용해 1920×1080·1024×768을
+확인했다. 최초 visual-v1은 요소 존재/가로 넘침 검사만 통과했으나 스크린샷 직접 확인에서
+내용이 잘린 것을 발견했다. 제목 표시줄 없는 브라우저에도 첫 grid 행이 예약된 기존
+window-frame 문제를 browser 전용 행으로 고쳤다. visual-v2에서 실제 section 높이
+965/659px·가로 넘침0·페이지 오류0, 두 스크린샷을 직접 확인했다.
+Playwright 기본 browser가 없어 첫 launch는 실패했고 설치 없이 기존 Chrome을 사용했다.
+로컬 Vite 서버79411은 확인 후 Ctrl-C로 종료했다. 전체 배포 build는 하지 않았다.
+
+MCP 병합 단위 v1은36중34통과/2실패였다. 과거 테스트가 needs_decision이 남은 복원도
+계산하기를 기대하고, 새 restoration 진단을 예상값에 포함하지 않은 계약 충돌이었다.
+계산 차단은 유지하고 페이지 복원 fixture를 해결된 선택으로 고쳐 v2에서36통과했다.
+실패 원본/시각 원본은 보존했다. 실제 Electron IPC/연결·설계 적용 사용자 동선과 내용이
+있는 여러 앵커의 시각 시험은 남아 있다. R6 완료를 뜻하지 않는다.
+
+### R6 실제 기록을 사용한 렌더러 적용 동선 — 2026-11-01
+
+엔진 API로 4종 역할의 합성 후보·미해결 질문·실제 XML material snapshot을 생성했다.
+r6-ui-design-flow-v1은 sandbox 임시 게시 디렉터리 권한으로 실패했고, 별도 v2 경로에서
+동일 API를 권한 허용 실행해 verified_blobs를 확인했다. 게임 지식/실제 사용자 빌드가 아니다.
+
+r6-ui-design-flow-v2/flow-evidence.json: 실제 엔진 기록을 UI 소비 코드로 읽고 DesktopApi
+대역을 통해 실제 렌더러의 조회→적용(rev1)→저장→페이지 재로드→undo(rev2)→낡은 조회
+적용 거절을 통과했다. 원문 JSON·Unknown XML·4개 카드가 보존됐다. 두 해상도에서
+가로 넘침/페이지 오류0, 실제 표시 높이를 확인하고 스크린샷을 직접 읽었다.
+서버50995는 Ctrl-C로 종료했다. Electron IPC/MCP 실제 연결을 사용한 시험은 아니며,
+대역 연결을 제품의 실제 connected 상태 검증으로 사용하지 않는다.
+
+다음 UI 검증은 실제 엔진/IPC의 연결 지원과 XML+설계+획득 메타데이터가 함께 바뀌는
+AI 제안 경로다. 독립 backend 공개 경계 협의 전에도 기존 저장·원문 계약 보강은 계속한다.
+R5 PTY94784는 같은 실행에서 관찰 중이며 자동 재실행하지 않았다.
+
+### R5 첫 1차 단계 종료 관측 — 2026-11-01
+
+01-H1-baseline-1/phase-1/execution.json은 timed_out=true, answer_valid=false,
+turn_completed=false, cleanup.status=confirmed(scope=windows_job)를 기록했다.
+실제 CLI39528은 종료됐고 원래 캠페인 PTY94784는 살아 있다. 같은 canonical session ID
+01a19532-0e83-74a1-b7a2-ed63c6002cc6가 기록돼 있다. 현재는 단계 사이 무결성 검사 중이며
+2차 프로세스는 아직 관측하지 않았다. 1차를 성공/빌드 품질 확인으로 세지 않는다.
+사후 최선 부분 답안 선택이나 실행 재시도 없이 동결 프로토콜을 유지한다.
+
+### R5 같은 세션 2차 시작·R6 AI 원자 제안 — 2026-11-01
+
+R5 after_phase_1 검사가 verified인 것을 확인했다. phase-2는 CLI42648로 실제 시작했고
+thread.started가 원래 ID 01a19532-0e83-74a1-b7a2-ed63c6002cc6와 일치했다.
+2차 budget_s=2925.797은 단계 사이 검사 시간이 전체5400초에서 차감된 결과다.
+같은 PTY94784와 CLI 생존 및 새 optimize_rare 이벤트를 확인했다. 첫 단계 timeout을
+고치기 위한 재시도나 소급 성공 처리 없이 계획한 후속 사용자 변경 단계를 계속한다.
+
+UI에는 pok_ui_propose_build_inputs를 추가했다. 기준 UI/XML/설계 리비전과 전체 XML,
+엔진 설계 ref 또는 null, 획득 JSON 원문 또는 null을 받아 한 제안으로 만든다.
+설계 본문은 AI 제공 본문 대신 PokConnection.readDesign으로 조회한다. 조회 중 취소·
+turn 변경이면 게시하지 않는다. main은 저장된 문서에서 현재 designRef/획득 원문을
+AI 요청에 공급하고, BuildProposals는 XML 일치·설계 기준 검사·입력 shape를 확인한다.
+수락 시 전체 입력을 적용/undo하고 제안 등록 시 caller mutation과 분리해 snapshot한다.
+기존 XML-only 도구는 유지한다. 검토창에는 설계 문서와 획득 메타데이터도 표시한다.
+
+r6-ui-atomic-agent-v1.txt 관련38단위 통과, TypeScript/계층/diff 검사 통과.
+검사는 브리지 대역·제안 host 단위이며 실제 모델/앱 연결 검증을 뜻하지 않는다.
+획득 JSON의 문법/보존과 인게임 획득 적법성·설계 material과의 전체 의미 일치는 별개다.
+실제 Electron·연결 호환·전체 check/build 및 R6 최종 감사는 아직 남아 있다.
+
+### R6 로컬 설계 무결성·획득 입력 신고 — 2026-11-01
+
+가져오기/저장/제안의 설계 검사가 해시 형식만 보던 빈틈을 확인해 main의
+assertLocalDesignIntegrity로 실제 record_json UTF-8 SHA를 비교하고, XML/획득 binding
+hash가 원문 material 선언과 일치하는지 검사했다. 이는 로컬 bytes/link 검사이며
+manifest/게임 의미/전체 스키마 검증을 대신하지 않는다. 엔진 조회 경로는 별도로 유지한다.
+
+verified_blobs 기록의 metadata SHA도 snapshot에 보존한다. 제안 검토와 설계 화면에서
+현재 획득 메타데이터의 입력 불일치/연결 미확인을 표시한다. 의미를 알고 채택할 수 있도록
+불일치 자체는 거부가 아니라 신고다. 획득 JSON은 엔진 material과 같은 객체 형식을
+요구하며 null/배열/원시값이면 XML도 게시하지 않는다.
+
+r6-ui-local-integrity-v1.txt 관련30단위 통과. r6-ui-acquisition-binding-v1.txt 관련17단위는
+추가로 큰 정수 원문이 다른 JSON의 hash 차이를 검출하고 신고 후 명시 적용이 가능함,
+비객체 JSON의 반쪽 적용 방지를 확인했다(중복 검사를 합산하지 않는다).
+TypeScript·계층 검사 통과. 실제 Electron/새 획득 표시의 시각 확인과 전량 check/build는
+남아 있다. R5 PTY94784와 2차 CLI42648의 실제 생존을 확인하고 그대로 유지했다.
+
+### R6 비동기 입력 hash의 원문 귀속 — 2026-11-01
+
+기존 effect에서 입력이 바뀐 다음 hash state를 지우므로 그 전 render에 이전 hash가
+새 입력의 결과처럼 보일 여지를 확인했다. renderer/state/useInputDigest가 원문+문서 ID에
+귀속한 결과만 render에서 즉시 사용하도록 하고 App XML/DesignView metadata에 연결했다.
+옛 effect의 늦은 결과는 cleanup으로도 버리며 계산 오류는 입력에 귀속해 표시한다.
+
+r6-ui-input-digest-v1은 실제 엔진 API로 XML+획득 blob을 캡처/연결한 합성 기록이다.
+브라우저 DesktopApi 대역에서 최초 두 입력 일치→AI 변경 대역 적용→WebCrypto 두 응답
+의도 보류→두 항목 확인 중/옛 일치 표시 없음→응답 재개→두 항목 불일치를 확인했다.
+큰 정수 메타데이터의 원문도 바뀌는 사례다. evidence.json과 두 mismatch 스크린샷 보존,
+1920×1080·1024×768 직접 확인/가로 넘침·page error0. 서버86923 종료 확인.
+실제 Electron IPC/모델 검증으로 세지 않는다. TypeScript는 helper 연결 직후 통과했고
+최신 계층·diff 정적 검사를 이어서 확인한다. R5 캠페인과 2차 CLI42648은 유지했다.
+
+### R7 저장 이행·복귀 사전 시험 — 2026-11-01
+
+r7-ui-storage-rollback-v1/result.json: 실제 원본 UI main/d15bdab과 새 브랜치의
+StateStore/pob-files/state 모듈을 불러 합성 v1 작성→v2 이행/설계·획득 추가→구 UI v1
+읽기·변경 저장→새 UI v2 재개를 시험했다. 원본 v1은 이행에서 바뀌지 않았고 구 UI 저장은
+v2 bytes를 바꾸지 않았다. 새 UI는 낡은 v1을 승격하지 않고 v2 원문/설계/metadata를 유지했다.
+구 UI의 v2 JSON 명시 거절과 새 UI의 v1 JSON 가져오기 통과. 각 실제 소스 hash 보존.
+원본 UI 저장소 파일/브랜치는 수정하지 않았다. 실제 앱/엔진 버전 복귀·배포 고정·기본 전환은
+남았다. R7 완료로 세지 않는다. acceptance와 UI 인계 문서의 해당 최신 상태를 갱신했다.
+
+### R6 호스트 저장 충돌·동시 편집 보존 — 2026-11-01
+
+기존 save-state는 저장 당시 current와 비교하지 않아 AI 적용 뒤 늦은 renderer 상태가
+최신 입력을 덮을 수 있었다. DesktopApi/preload에 기준 입력 식별 map을 연결하고,
+호스트는 UI/XML/설계/획득 원문을 포함한 실제 입력 버전을 대조한다. 숫자 리비전이 더
+높아도 다른 분기 기준이면 거절하고, 같은 입력 재동기화는 허용한다. 확인·store write·
+state 게시와 AI 적용은 WorkspaceMutations에서 직렬화하고 전체 작업을 종료 추적에 넣었다.
+WeakMap cache도 비교용 원시 필드 snapshot을 함께 보관해 같은 객체의 입력 변경을 놓치지 않는다.
+
+AI 응답 대기 중 renderer 수동 편집이 생기면 적용 결과는 원래 문서에 두고 수동 입력은
+새 ID의 동시 편집 초안으로 보존한다. 로컬 입력을 조용히 교체하지 않는다. 새 초안의
+과거 계산은 원래 buildId provenance라 현재 계산으로 승격하지 않는다.
+
+r6-ui-state-race-v1.txt 관련17단위와 TypeScript 통과. 실제 다른 분기의 같은/높은 숫자
+리비전 거절, 상태 결정/쓰기 순서와 거절 뒤 후속 작업, 원문/설계가 있는 수동 초안 보존을
+확인했다. 실제 Electron IPC 병행 시험·새 API 전체 회귀는 아직 남아 있다. R5 같은 실행은
+유지했다. UI 브랜치 merge/전량 check/build를 완료한 것으로 보고하지 않는다.
+
+### R6 실제 Electron 저장 IPC·재시작과 엔진 연결 거절 — 2026-11-01
+
+현재 main/preload만 격리 artifacts에 esbuild하고 기존 coho의 Electron44.5.1을 읽기 전용으로
+사용했다. 창 show를 시험 wrapper에서 억제하고 합성 userData를 POK_UI_DATA_DIR로 지정했다.
+실제 제품의 registerIpc/preload 및 renderer의 workspaceInputVersions를 사용했다.
+v1은 workspace 하위 폴더가 아닌 상위에 fixture를 둔 시험 준비 오류, v2는 Start-Process의
+공백 경로 인자 오류였다. 소유 PID43420/tree만 확인 종료했고 두 실패 원본을 보존했다.
+
+r6-electron-ipc-v3/result.json: 실제 IPC에서 낡은 저장 거절, 같은 기준 병행 저장의 한 건만
+반영, 설계 원문/획득 JSON 원문 유지, 최종 rev3를 확인했다. 새 Electron 프로세스의
+reopen.json은 같은 데이터에서 rev3와 원문 복구를 확인했다. 둘 다 Electron exit0이며
+실제 runtime/compiled main/preload SHA를 보존한다. PoB/KB/모델은 실행하지 않았다.
+Vite60546은 종료했다. 전체 배포 build·실제 AI 적용/취소/오라클 왕복을 대신하지 않는다.
+
+r6-ui-current-engine-connect-v1/result.json: 실제 UI stdio transport가 현재 엔진73도구와
+read_design_record를 관측했으나 compute_pob_xml/render_pob_item 계약 부재를 incompatible로
+거절하고 close했다. 현재 조합은 지원 완료가 아니다. 엔진/Desktop backend 경계 협의와
+실제 대응 구현·연결 검증이 필요하며 이 거절을 우회하지 않는다.
+
+### UI WIP 소스 체크포인트·push 승인 대기 — 2026-11-01
+
+UI main/d15bdab + coho/4b86309와 R6 변경을 로컬 WIP merge commit
+ d33b3c30477a5e4f5ae7c5610b055d5484ffa7cb로 보존했다. 두 부모와 clean 작업 트리를 확인했다.
+원격 skerfolg/pok-ui의 skerfolg/pok-r6-design-records push는 자동 승인 검토가 구체적인
+저장소/브랜치 전송 승인 부재를 이유로 거절했다. push는 실행되지 않았고 우회하지 않았다.
+해당 브랜치 push 승인 질문을 보냈다. main 병합/배포 권한으로 확장하지 않는다.
+전체 check/build·실제 모델/지원 backend 연결은 남아 있고 완료 PR로 취급하지 않는다.
+R5와 독립 작업은 계속한다.
+
+### R6 backend 계약 차이·지원 조합 감사 — 2026-11-01
+
+POK_UI_STANDALONE_BACKEND_PROPOSAL에 실제 엔진/현재 UI의 XML 계산·아이템 생성·raw
+카탈로그·실행 identity·수명 대응표를 추가했다. 현재 core 함수가 있다는 것과 UI 기대
+API/manifest를 제공한다는 것을 구분했다. 특히 native 입력 관측의 시각 제외 SHA를
+UI raw catalog/sourceDigest로 옮기는 식의 동등성 우회를 하지 않는다.
+결정 후 검증할 독립 수동/선택 PoK 조합과 실제 앱/모델/취소·재연결 기준을 구체화했다.
+이는 구조/제품 선택을 대신한 구현 승인이 아니다. 두 승인 질문은 그대로 대기 상태다.
+R5 캠페인 첫 H1 기준1의2차 CLI42648/PTY94784 생존을 확인했고 변경·재시작하지 않았다.
+
+### R5 결과 수집 검토기 준비 — 2026-11-01
+
+scripts/review_product_campaign.py는 frozen plan 순서의 결과만 읽고 마지막 phase의
+완료/answer schema/turn/정리 기록과 campaign 수집 상태를 대조한다. 앞선 유효 초안을
+최종 timeout 대신 고르지 않으며 incomplete 답안 제출과 좋은 빌드를 구분한다.
+시작 process.json은 생존 증거로 취급하지 않고 not_probed로 표시한다. 실제 읽은 파일의
+SHA를 보존하고 품질 점수/입력 재검증/프로세스 제어는 하지 않는다. 동결 수집기·제품·
+입력·참가자 prompt/answer는 변경하지 않았다.
+
+관련6단위 통과(r5-outcome-inventory-tests-v2.xml), Ruff check/format 통과.
+실제 읽기 보고서 r5-outcome-inventory-live-v1.json은8회 중 running 기록1/not_recorded7,
+최종 제출0, 진단0이었다. 첫 단계 timeout/정리 confirmed·도구 실패10건과 미보고 usage를
+그대로 구분했다. 두 번째 단계의 start receipt만 있고 종료 기록이 없음을 표시했다.
+이는 process 생존 판정이 아니다. 실제 CLI42648/PTY94784는 별도로 살아 있음을 확인했다.
+R5의 품질/비용/선호 평가는 아직 하지 않았으며 전체 완료와 구분한다.
+
+### R5 첫 시험 수집 완료·두 번째 사전 검사 — 2026-11-01
+
+01-H1-baseline-1의2차는 timed_out=false/exit0/answer_valid=true/turn_completed=true,
+Windows Job cleanup confirmed로 종료됐다. 같은 canonical session ID를 유지했다.
+모델의 answer_status는 incomplete이며 PoB code/build_id가 있고 remaining_work5개다.
+프로토콜 위반 기록0,2차 도구 실패7개를 보존했다. 품질/성립성 평가는 아직 하지 않았다.
+
+before_participant_start/after_phase_1/after_phase_2의 실제 check 상태가 모두 verified이고
+trial finished/campaign item collected를 확인했다. 캠페인은02-H1-improved-1 running으로
+넘어갔다. 당시 두 번째 모델 process receipt는 아직 없으므로 모델 시작을 인증하지 않았다.
+PTY94784는 계속 살아 있다. r5-outcome-inventory-live-v2.json은 최종 응답1개(상태 incomplete),
+전체8회 중 첫 수집 완료를 기록한다. 앞선 partial을 대체하지 않았고 재시도하지 않았다.
+
+### R5 개선판 H1 첫 실행 시작 — 2026-11-01
+
+02-H1-improved-1의 before_participant_start는 verified다. phase-1/process.json의
+PID43480과 실제 Get-Process 생존을 확인했고, native events의 thread.started도 읽었다.
+첫 단계 budget_s=2399.875이다. collector의 running 상태가 phase 반환 전 저장되지 않는
+기존 관측 한계 때문에 trial.json은 preflight로 남아 있었으며 그것을 미실행으로 오인하지 않았다.
+동일 캠페인 PTY94784를 유지하고 새 세션을 별도로 재시작하지 않았다. 모델/입력/제품을
+첫 결과에 맞춰 수정하지 않고 동결된 순서를 계속한다.
+
+### R5/R6 현재 지시 정렬·결과 검토기 타입 — 2026-11-01
+
+Canonical Next Step의 첫 시험 시작 전 표기를 실제 첫 수집 완료/두 번째 개선판 실행으로
+갱신했다. 두 사용자 판단 대기를 Open Decisions 앞에 명시했다. R5 CLI43480의 생존을
+재확인했으며 동결 소스/입력과 제어 핸들은 바꾸지 않았다. 결과 검토기 mypy에서 진단
+목록의 값 타입을 문자열로 너무 좁게 추론하던1건을 확인해 명시 타입으로 수정했다.
+이는 실행 결과 선택/평가 동작을 바꾸지 않는 타입 수정이다.

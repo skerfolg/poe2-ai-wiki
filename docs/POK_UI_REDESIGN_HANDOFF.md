@@ -112,3 +112,25 @@ server_info.runtime_paths의 resource_root/artifacts_root/cache_root와 runtime_
 index.sqlite·PoB cache hit/miss 검증 통과(r6-storage-native-v2.xml).
 UI f6bc07b의 기존 env 전달을 현재 엔진이 소비하지만 실제 GUI/번들 전체 검증은 아직 남았다.
 R5 기준/개선 동결 제품은 변경하지 않았다. 이 승인된 경로 계약은 재확인 없이 진행한다.
+
+## 2026-11-01 현재 소비 상태와 복귀 시험
+
+과거 f6bc07b 미구현/협의 중 표기는 관측 시점 기록이다. UI PR2는 병합됐고 원본
+UI 저장소 main은 d15bdab으로 동기화했다. 새 R6 작업은 별도 Orca worktree
+pok-r6-design-records / skerfolg/pok-r6-design-records에서 main과 coho/4b86309를 통합 중이다.
+merge는 전량 check/build 전이므로 아직 commit/PR 완료로 보고하지 않는다.
+
+- 새 v2 문서는 XML·설계 원문/참조·획득 원문을 같은 입력 리비전/undo로 보존한다.
+- 설계 조회/표시·엔진 원문 hash·현재 XML/metadata hash·AI 전체 입력 제안은 구현했고
+  단위와 실제 렌더러 대역 동선/두 해상도/늦은 hash 응답을 확인했다.
+- 실제 Electron IPC·실제 모델·연결/배포 조합·독립 수동 계산은 미완료다.
+  현재 coho의 compute_pob_xml/render_pob_item 및 runtime identity 계약과 엔진 공개 계약의
+  차이를 우회해 ready로 표시하지 않는다. standalone backend 경계 협의는 별도 대기다.
+- 승인된 POK_DATA_HOME/POK_CACHE_HOME은 엔진에서 구현/실제 stdio 검증됐다.
+  R5 동결 개선판7875ea2와 이후 현재 엔진의 storage 변경은 같은 제품 버전이 아니다.
+
+r7-ui-storage-rollback-v1/result.json은 실제 구/신 저장 모듈로 v1→v2 이행→구 UI 재사용→
+새 UI 재개의 보존을 확인했다. 구 UI에서 v1을 저장해도 v2는 바뀌지 않고 새 UI는 v2를
+계속 사용한다. v2 수정은 구 UI로 자동 역변환하지 않는다. v2 파일/JSON export를 유지한 채
+구 UI는 보존된 v1 분기로 돌아가며, 이후 분기 합치기는 명시적인 가져오기/제안으로 처리한다.
+이 시험은 합성 데이터의 저장/파일 모듈 범위이며 구 실행 바이너리/PoB 버전 복귀는 아니다.
