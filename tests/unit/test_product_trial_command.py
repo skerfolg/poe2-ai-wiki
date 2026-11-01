@@ -106,3 +106,23 @@ def test_interior_log_corruption_is_not_a_truncated_tail(module, tmp_path):
     path.write_text('{broken\n{"type":"turn.completed"}\n', encoding="utf-8")
     with pytest.raises(ValueError, match="interior"):
         module.session_from_events(path)
+
+
+@pytest.mark.parametrize("tail", [b'{"text":"\xed\x95', b'{"text":"\xf0\x9f'])
+def test_interrupted_utf8_tail_preserves_prior_session_and_original_bytes(module, tmp_path, tail):
+    identity = str(uuid4())
+    raw = json.dumps({"type": "thread.started", "thread_id": identity}).encode() + b"\n" + tail
+    path = tmp_path / "events.jsonl"
+    path.write_bytes(raw)
+    diagnostics = []
+    assert len(list(module.complete_events(path, diagnostics))) == 1
+    assert diagnostics == [{"code": "TRUNCATED_FINAL_EVENT", "line": 2}]
+    assert module.session_from_events(path) == identity
+    assert path.read_bytes() == raw
+
+
+def test_invalid_utf8_inside_log_is_not_silently_removed(module, tmp_path):
+    path = tmp_path / "events.jsonl"
+    path.write_bytes(b'{"text":"\xed\x95\n{"type":"turn.completed"}\n')
+    with pytest.raises(ValueError, match="interior"):
+        list(module.complete_events(path))

@@ -1328,3 +1328,10 @@ Windows는 MSYS2 LuaJIT 경로를 POK_LUAJIT로 전달한다. 캐시는 OS/새 �
 현재 로컬 전체 통합 redesign-r3-integration-full-v1.xml을 시작했다. 아직 종료 결과는
 미확인이고 검사 중 구현을 유지한다. 통합 결과와 원격 native matrix를 확인한 뒤 R3
 출구를 다시 대조하며 R4~R7 전체 완료를 미리 선언하지 않는다.
+
+R5 동결 참조 보강: 개선 제품7875ea2는 r5-improved-freeze-v2/manifest.json의1292파일/공통
+KB697/외부25087 검증과 source.zip SHA3054a475e15e5f397a828c16f37fa4fb726d4b0d1c8c50be82da5a143d1dd1be로 고정했다.
+KB4파일은 기준판과 동일한 실제 바이트를 위한 검증된 줄바꿈 overlay로 명시한다.
+원래 heldout manifest0149922a...는 자기 manifest_sha256 필드를 제외한 canonical JSON
+해시이며 원문 파일 해시4742edb5...와 구분한다.9개 원문 해시/바이너리를 모두 재확인했다.
+제품/공통 수집기 버전을 분리하고 후자는 캠페인 시행 전에 추가 고정한다. 본 모델 평가는 미실행이다.

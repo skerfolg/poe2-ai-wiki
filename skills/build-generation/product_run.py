@@ -7,6 +7,7 @@ import math
 import subprocess
 import sys
 import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -112,30 +113,36 @@ def build_product_command(
     return command
 
 
-def session_from_events(path: Path) -> str:
-    """Accept one complete thread ID, retaining interrupted trailing output as raw.
-
-    A truncated final event cannot erase a prior complete session-start record.
-    Interior corruption or ambiguous IDs never falls back to another session.
-    """
-    identities = set()
-    with path.open(encoding="utf-8") as events:
-        for line in events:
+def complete_events(
+    path: Path, diagnostics: list[dict[str, Any]] | None = None
+) -> Iterator[dict[str, Any]]:
+    """Read complete UTF-8 JSON records without decoding an interrupted byte tail."""
+    with path.open("rb") as events:
+        for line_number, line in enumerate(events, 1):
             if not line.strip():
                 continue
             try:
                 event = json.loads(line)
-            except json.JSONDecodeError as exc:
-                if not line.endswith("\n") and not events.read(1):
-                    break
+            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                if not line.endswith(b"\n") and not events.read(1):
+                    if diagnostics is not None:
+                        diagnostics.append({"code": "TRUNCATED_FINAL_EVENT", "line": line_number})
+                    return
                 raise ValueError("Malformed interior event in session log") from exc
             if not isinstance(event, dict):
                 raise ValueError("Session events must be JSON objects")
-            if event.get("type") == "thread.started":
-                identity = event.get("thread_id")
-                if not isinstance(identity, str) or str(UUID(identity)) != identity:
-                    raise ValueError("Recorded thread ID is not a canonical UUID")
-                identities.add(identity)
+            yield event
+
+
+def session_from_events(path: Path) -> str:
+    """Accept one recorded ID despite a truncated last event; never guess context."""
+    identities = set()
+    for event in complete_events(path):
+        if event.get("type") == "thread.started":
+            identity = event.get("thread_id")
+            if not isinstance(identity, str) or str(UUID(identity)) != identity:
+                raise ValueError("Recorded thread ID is not a canonical UUID")
+            identities.add(identity)
     if len(identities) != 1:
         raise ValueError("Expected exactly one recorded session ID")
     return identities.pop()
@@ -233,23 +240,14 @@ def execute_phase(
         summary["session_id"] = session_from_events(output / "events.jsonl")
     except (ValueError, OSError) as exc:
         summary.update(session_id=None, session_error=str(exc))
-    malformed = []
+    event_diagnostics: list[dict[str, Any]] = []
     try:
-        with (output / "events.jsonl").open(encoding="utf-8") as events:
-            for line_number, line in enumerate(events, 1):
-                if not line.strip():
-                    continue
-                try:
-                    event = json.loads(line)
-                    if not isinstance(event, dict):
-                        raise ValueError("Expected an event object")
-                    if event.get("type") == "turn.completed":
-                        summary["turn_completed"] = True
-                except ValueError:
-                    malformed.append(line_number)
+        for event in complete_events(output / "events.jsonl", event_diagnostics):
+            if event.get("type") == "turn.completed":
+                summary["turn_completed"] = True
     except (OSError, ValueError) as exc:
         summary["event_error"] = str(exc)
-    summary["malformed_event_lines"] = malformed
+    summary["event_diagnostics"] = event_diagnostics
     answer = output / "answer.json"
     if answer.is_file():
         try:
@@ -272,7 +270,7 @@ def execute_phase(
         or not summary["answer_valid"]
         or not summary.get("session_id")
         or not summary["turn_completed"]
-        or malformed
+        or event_diagnostics
         or summary.get("event_error")
         else "completed"
     )

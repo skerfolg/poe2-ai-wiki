@@ -211,11 +211,11 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 | S54 | #188 정상 비교 종료: A79.6분 제출, B최종 제출 누락/마지막 ready 조립 보존, C90분·파일 존재/not_ready. 이번 이동 맵핑 목표에는 A가 가장 일관되고 C 품질 우위 미입증. 후보20개 반환 및 근거·트리 편집의 후속 연결 확인, A19/B18/C17아이템 native·stock 재입력 통과. #199대량 전달·#189병렬 상태/응답·#200완료 증거 연결 수정·재현 검증 완료. 최종 전체 단위1,991/5skip·PoB통합110통과, 최종 저장 수정 후 관련 native1건 재확인. #189 자동 시간제한·재시작과 #188 품질은 남음. 원본·공유코드 보존, 후속수정은 동결 C에 소급 안 함. [수행·누락과 결함 대조](GENERATION_REOPTIMIZATION_188.md), [공유코드](GENERATION_REOPTIMIZATION_188_CODES.md). PR #149 병합 e7bd429 완료, #147·#148/main d66f26f 하위 모델 병합 완료 | in_progress |
 
-| S55 | PoK R0~R7 재설계. R0~R3 범위 완료: 생산38c17cd 단위2509통과/2기존문서skip, 실제 통합149통과 및 양쪽 OS 원격 CI 성공. R4 명시 계산/조립·저장 비교·설계 결박·스킬·세 작은 실측 확보, 일반 AI 행동 검증은 R5에 남음. R5 전체 제품 표면/격리·수집/명시 재개32검사와 두 제품 Astra 비게임2턴 재개 통과. 제품 동결/본 캠페인·R6~R7 미완료. 저장 경로 변경은 사용자 협의 중. [R3 판정](POK_R3_AUDIT.md) · [R4 감사](POK_R4_TRANSITION_AUDIT.md) · [R5 준비](POK_R5_EXECUTION_PREFLIGHT.md) | in_progress |
+| S55 | PoK R0~R7 재설계. R0~R3 범위 완료: 생산38c17cd 단위2509통과/2기존문서skip, 실제 통합149통과 및 양쪽 OS 원격 CI 성공. R4 명시 계산/조립·저장 비교·설계 결박·스킬·세 작은 실측 확보, 일반 AI 행동 검증은 R5에 남음. R5 전체 제품 표면/격리·수집/명시 재개32검사와 두 제품 Astra 비게임2턴 재개 통과. 개선 제품7875ea2 동결 완료, 공통 캠페인 runner·본 평가/R6~R7 미완료. 저장 경로 변경은 사용자 협의 중. [R3 판정](POK_R3_AUDIT.md) · [R4 감사](POK_R4_TRANSITION_AUDIT.md) · [R5 준비](POK_R5_EXECUTION_PREFLIGHT.md) | in_progress |
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5 준비: 검증한 제품 서버/수집·명시 재개 경로에 동결 source/KB/PoB/실행 파일·허용 junction 무결성 검사와 단계별 입력 공개·예산을 연결하고 개선판을 별도로 동결한다. 두 제품 Astra 비게임 재개는 성공했지만 H1/H2 본 실행·품질/자율 행동 평가는 미실행이다. R6 저장 경로 변경은 POK_RUNTIME_PATH_PROPOSAL.md 협의 답 전 적용하지 않으며 독립 준비는 계속한다. 원래 R0~R7 목표·동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 codex/pok-r1-replay를 보존한다. 초안 PR #150은 병합하지 않는다.**
+The only next executable step is: **S55 / R5 준비: 동결한 개선 제품7875ea2와 기준판에 공통 source/KB/PoB/실행 파일·허용 junction 무결성 검사와 단계별 입력 공개·예산을 연결하는 캠페인 runner를 완성한다. 두 제품 Astra 비게임 재개는 성공했지만 H1/H2 본 실행·품질/자율 행동 평가는 미실행이다. R6 저장 경로 변경은 POK_RUNTIME_PATH_PROPOSAL.md 협의 답 전 적용하지 않으며 독립 준비는 계속한다. 원래 R0~R7 목표·동결 R5 입력 manifest0149922a039a5584a618a3f1d8855f758540cdf61d601e9c546a9af241b3b6f0과 기준 codex/pok-r1-replay를 보존한다. 초안 PR #150은 병합하지 않는다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1010,3 +1010,11 @@ R5 별도 수집32검사·strict7소스/Ruff438파일 통과. 최초0.14초 정�
 대화 전용값·기존 메모·후속 공개 입력 확인, 각턴MCP2호출·정리confirmed, 기준921파일 변경0.
 이것은 모델 문맥/서버 격리의 증거이지 빌드 자율 설계·품질 효과가 아니다. R4의 실제빌드행동/
 R5품질·개선판동결/캠페인·R6/R7은 미완료, 사용자 저장경로 협의 답도 아직 없다.
+
+R5 개선 제품worktree codex/pok-r5-improved 준비 및 실제 동결v2 완료:
+7875ea2 /1292소스/공통KB697/외부25087 검증, archive3054a475e15e5f397a828c16f37fa4fb726d4b0d1c8c50be82da5a143d1dd1be,
+manifest921812e4538721713fb61b620c035a603b3f7a5845d185afe15114d2b86b426c.
+KB4줄바꿈 재현 overlay만 허용, v1 clean 검사 실패 보존. heldout 논리0149922a...와
+원문4742edb5... 구분 및9입력 검증. 공통 collector는 별도이며 UTF-8 잘린 꼬리35회귀·
+기존 실제4로그 재판독 통과. 다음은 두 제품/공유 입력 무결성과 단계 공개를 캠페인 runner에
+연결하는 일이다. H1/H2미실행, R4행동/품질·R6/R7미완료, 저장경로 협의 답도 아직 없다.
