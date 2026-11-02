@@ -186,11 +186,16 @@ class PobDaemon:
     """with PobDaemon() as d: d.compute_build(spec) — 프로세스 1개, 계산 N회."""
 
     def __init__(
-        self, snapshot: PobSnapshot | None = None, *, command_timeout_s: float = 180.0
+        self,
+        snapshot: PobSnapshot | None = None,
+        *,
+        command_timeout_s: float = 180.0,
+        adapter_root: Path | None = None,
     ) -> None:
         if not math.isfinite(command_timeout_s) or command_timeout_s <= 0:
             raise ValueError("command_timeout_s must be finite and positive")
         self.command_timeout_s = command_timeout_s
+        self._adapter_root = adapter_root.resolve() if adapter_root is not None else None
         self._snap = snapshot or resolve_snapshot()
         self._proc: subprocess.Popen[str] | None = None
         self._lock = RLock()
@@ -233,7 +238,10 @@ class PobDaemon:
         self._last_cleanup = None
         try:
             self._proc = spawn_owned(
-                [str(Path(find_luajit()).resolve()), str(project_root() / _DAEMON)],
+                [
+                    str(Path(find_luajit()).resolve()),
+                    str((self._adapter_root or project_root()) / _DAEMON),
+                ],
                 cwd=self._snap.src_dir,
                 env={**os.environ, "LUA_PATH": _LUA_PATH},
                 stdin=subprocess.PIPE,
@@ -307,11 +315,11 @@ class PobDaemon:
                 )
             observed = observe_execution_inputs(
                 self._snap,
-                adapter_root=project_root(),
+                adapter_root=self._adapter_root or project_root(),
                 executable=Path(find_luajit()).resolve(),
                 adapter_code_sha256=digest.hexdigest(),
                 launch_config={
-                    "driver": str((project_root() / _DAEMON).resolve()),
+                    "driver": str(((self._adapter_root or project_root()) / _DAEMON).resolve()),
                     "lua_path": _LUA_PATH,
                 },
             )

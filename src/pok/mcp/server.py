@@ -76,7 +76,16 @@ def _git_head(root: Path) -> tuple[str, str]:
     try:
         with tempfile.TemporaryFile() as output:
             result = subprocess.run(
-                ["git", "-C", str(root), "log", "-1", "--format=%h%n%s"],
+                [
+                    "git",
+                    "-c",
+                    f"safe.directory={root.resolve().as_posix()}",
+                    "-C",
+                    str(root),
+                    "log",
+                    "-1",
+                    "--format=%h%n%s",
+                ],
                 stdin=subprocess.DEVNULL,
                 stdout=output,
                 stderr=subprocess.DEVNULL,
@@ -1162,8 +1171,11 @@ def _capability_summary() -> dict[str, Any]:
 
 
 @tool
-def server_info() -> dict[str, Any]:
+def server_info(include_kb_diagnostics: bool = True) -> dict[str, Any]:
     """이 MCP 서버가 **어느 판인지** — 로드된 커밋·소스 커밋·도구별 파라미터 지문.
+
+    `include_kb_diagnostics=False`면 진단은 null로 생략한다. `pob_runtime_declaration`은
+    설정 pin 선언이며 실제 Native 실행 identity나 수동 worker와의 계산 동등성 인증이 아니다.
 
     ⚠ **이관·수정 통보를 받으면 가장 먼저 부를 것.** MCP 서버는 기동 시점의 코드로
     상주하므로 재시작 전에는 새 도구·새 인자가 없다.
@@ -1194,11 +1206,16 @@ def server_info() -> dict[str, Any]:
     identity_status = "verified" if _LOADED_COMMIT and source_commit else "unavailable"
     # 사본을 빼고 로드했으면 **말한다** — 조용히 빼면 "왜 이 레코드가 안 보이지"가 된다(#21)
     from pok.kb.store import cached_diagnostics
+    from pok.pob.versions import runtime_declaration
 
-    kb_diagnostics = cached_diagnostics()
+    kb_diagnostics = cached_diagnostics() if include_kb_diagnostics else None
     return {
-        "kb_skipped_copies": kb_diagnostics["skipped_copies"],
+        "kb_skipped_copies": kb_diagnostics["skipped_copies"]
+        if kb_diagnostics is not None
+        else None,
         "kb_diagnostics": kb_diagnostics,
+        "kb_diagnostics_included": include_kb_diagnostics,
+        "pob_runtime_declaration": runtime_declaration(),
         "loaded_commit": _LOADED_COMMIT,
         "loaded_subject": _LOADED_SUBJECT,
         "source_commit": source_commit,
