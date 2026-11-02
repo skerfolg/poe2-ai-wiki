@@ -166,3 +166,25 @@ def test_excluded_transit_is_not_added_by_node_or_bundle(graph: TreeGraph) -> No
     else:
         assert nodes[0].path == tuple(legal_path) == bundle.path
     assert not excluded.intersection(bundle.path)
+
+
+def test_final_selection_preserves_target_with_native_tradeoff():
+    """Native calculator probes, not obtainable-item or build-quality claims."""
+    from pok.engine.objective import Target
+    from pok.engine.tree.optimize import _better
+    from pok.pob.daemon import PobDaemon
+
+    damage = dataclasses.replace(SPEC, config=(("customMods", "100% increased Spell Damage"),))
+    life = dataclasses.replace(SPEC, config=(("customMods", "+100 to maximum Life"),))
+    with PobDaemon() as daemon:
+        damage_result = daemon.compute_build(damage)
+        life_result = daemon.compute_build(life)
+    assert life_result.stats["Life"] > damage_result.stats["Life"]
+    assert damage_result.stats["CombinedDPS"] > life_result.stats["CombinedDPS"]
+    objective = Objective(
+        weights={"CombinedDPS": 1.0},
+        targets=(Target("Life", ">=", life_result.stats["Life"]),),
+    )
+    selected = _better(objective, (damage, damage_result), (life, life_result))
+    assert selected[0] is life
+    assert selected[1].stats["Life"] >= objective.targets[0].value

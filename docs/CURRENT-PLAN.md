@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: R6 엔진 `skerfolg/pok-r6-worker` (draft PR #153, main/6fd7f32 기준 독립 작업 트리), UI `skerfolg/pok-r6-design-records` (draft PR #3). R5 후속 `codex/pok-r5-quality-followup`은 draft PR #152로 검토 대기이며 동결 실험은 유지한다.
+**Integration branch**: #188 품질 후속 `skerfolg/pok-188-quality`, main/dd81067 기준. PR #152/#153은 병합되었다. pok-ui는 별도 세션 담당이며 이 세션의 구현 범위에서 보류한다.
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -88,7 +88,7 @@ flowchart TD
   R4FLOW -. 행동 검증 준비 병행 .-> R5PREP
   R5PREP[R5 8회 수집 완료·품질/결함 후속<br/>in_progress]
   R3CORE -. UI 사전 통합 .-> R6UI
-  R5PREP --> R6UI[R6 Windows 독립 계산·UI 검증<br/>in_progress]
+  R5PREP --> R6UI[R6 UI 별도 세션·후속 보류<br/>deferred]
   R6UI --> R7SWITCH[R7 저장 복귀 사전 시험 · 기본 전환 대기<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R6: 검증된 Windows 독립 worker/수동 UI와 선택 PoK 연결 후속 변경을 draft PR #153/#3에 반영하고 배포/설치·프로바이더·macOS 독립 런타임을 검증한다. 엔진22a2959는 Windows/macOS 실제 통합156개씩 실패/skip0으로 원격 통과했다. UI 수동 데이터 v2·main 연결·별도 agent 프로필을 구현하고192검사·앱 build가 통과했다. 실제 Electron에서 PoK 없이 문서 생성·편집·Native 계산(Life78, Ranger/level2)·저장과 두 해상도를 확인했고 두 번의 재시작에서 원문/계산 보존·콜드 과거값 구분을 확인했다. 수치 패널의 검증 연결 누락과 null→0 오표시를 수정했다. 선택 PoK 실제 stdio/동일 pin 수락·다른 pin 거부도 확인했다. Node CLI의 txt 접근 오류와 Electron의 정상 실행은 분리 기록한다. R5 동결 실험·미승인 보충 시행은 변경하지 않으며 R6 전체 출고·R7 기본 전환과 최종 품질 판정은 미완료다.**
+The only next executable step is: **S55 / R5·#188: 동결 최종 입력 복사본 3개의 노드 선택 기여를 같은 조건에서 측정하고, 비교 근거·최종 채택·자원 충족 후 재배분을 추적한다. #212 목표 선택/중단 복구 수정은 관련72단위·최종 native7개 통과 후 PR 준비 단계이며 CI/병합은 별도다. 품질 개선은 미입증이고 전체 모델 실험은 재실행하지 않는다. pok-ui 상세 작업은 별도 세션에 맡긴다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1820,3 +1820,49 @@ pin 거부를 확인했다. 새 메타데이터10검사와 타입/스타일 검�
 
 후속 서버 식별6검사는 모두 통과했고 변경5파일의 pre-commit·계층 검사도 통과했다.
 초기 경계 초과 기록은 보존하며, 최종 통과로 초기 실패를 지우지 않는다.
+
+### #188 품질 우선 재개 — 2026-11-02
+
+사용자 재개 지시를 따라 main/dd81067의 별도 품질 작업 트리에서 진행한다.
+개선판 H1 두 실행의 패시브 최적화가 각각 150/200초에 시간 초과되었고,
+완료된 측정 후보를 복구할 정보가 오류 응답에 없음을 확인했다. 이를 전체 품질
+차이의 유일한 원인으로 단정하지 않는다. 중단 시 정확히 측정한 입력/수치만
+미완료 체크포인트로 보존하며 완료 결과나 추천으로 승격하지 않는 수정 중이다.
+관련 단위 49개 통과. 예산을 30초로 줄인 별도 실제 PoB 진단에서는 복구 응답이
+나오지 않았다. 최초 측정 전 중단 가능성과 저장된 실행 기록을 확인해야 하며,
+이 진단을 R5 재시행이나 품질 향상 증거로 세지 않는다. 원본 이벤트는 불변이다.
+
+실제 PoB 후속 진단: 복사한 H1 입력/원래 150초 예산에서 timed_out을 유지하며
+pok.interrupted-search.v1 응답으로 측정된 76노드 후보를 복구했다. CombinedDPS
+7744.247277 / Life 2944 / EnergyShield 3200이다. 이는 최종 빌드의 개선 수치가
+아니며 탐색 중간 후보의 계산값이다. 별도 새 캐시 재계산으로 대응을 확인 중이다.
+명시 취소 및 서버 관리자 재시작 후 복구 회귀도 통과했다. 관련 단위 50개와
+저장 기록 포함 별도 14개, 수정 소스 2개 mypy와 Ruff가 통과했다.
+
+별도 새 캐시 native 재계산 완료: cached=false, 저장된 모든 수치 차이 0,
+할당/해제 노드 동일, dropped_items=[]다. 복구 정확성 검증이며 더 나은 최종
+빌드의 증거는 아니다. 전체 단위 회귀를 진행한다.
+
+전체 단위 첫 회귀는 2633통과/33skip/2실패(654.46초)였다. 실패는 server_info의
+인라인 예산 초과로, 같은 환경에서 병합 기준 dd81067과 수정본 모두 15568바이트로
+15488바이트 상한을 넘었다. 이번 중단 복구의 신규 회귀로 단정하지 않는다.
+도구/인자·capability 필드를 보존하고 중복 설명 note만 줄이는 좁은 후속 수정 중이다.
+정상 최적화의 best_solution과 중단 복구 상태도 분리했으며 관련 60회귀가 통과했다.
+
+후속 검증: server_info의 필드 보존·note 축약 후 관련9개 통과. 최종 변경의
+관련 단위60개·소스2개 mypy·Ruff 통과. PR 전 실제 PoB 통합 회귀를 진행 중이며
+전체 단위 최초 결과(2633통과/33skip/2실패)를 최종 전량 통과로 바꾸지 않는다.
+skip33개는 원시 수집 스냅샷 또는 로컬 빌드 산출물 부재다.
+
+#212 추가 재현: 최종 트리 비교 _better가 targets를 무시해 후보 채택 정책과
+불일치했다. 합성9회귀 중6실패를 확인하고 달성 경계·호출자 목표 순서 보존을
+구현해 검증 중이다. 현재 전량 native 실행은 이 후속 수정 전 시작한 회귀이므로
+최종 수정의 native 검증과 구분한다. R5 실제 품질 인과는 아직 미입증이다.
+
+전량 PoB 회귀157개 통과(1424.27초, skip/실패0). 이 실행은 #212 수정 전 시작했으므로
+최종 수정의 대체 증거로 쓰지 않는다. 최종 목표/복구 관련72단위 통과, 새 프로세스의
+트리 native7개를 재검증 중이다. 목표 측정 누락·경계 충족 후 다음 목표도 검사한다.
+
+최종 #212 수정본의 실제 PoB 트리7개 통과(104.69초, skip/실패0). 관련72단위와
+정적 검사도 통과했다. 전량 native157개는 이전 시작 실행으로 별도 기록하며
+#188 최종 품질 효과와 정상 생성의 완성을 선언하지 않는다. 다음은 선택 기여 분석이다.

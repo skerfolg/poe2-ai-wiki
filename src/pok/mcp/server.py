@@ -30,7 +30,7 @@ from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_context
 from fastmcp.tools.base import ToolResult
 from fastmcp.tools.function_tool import FunctionTool
-from mcp.types import CallToolResult
+from mcp.types import CallToolResult, TextContent
 
 from pok.artifacts import tool_results
 from pok.artifacts.design_record import FORMAT as _DESIGN_FORMAT
@@ -43,7 +43,7 @@ from pok.common.stdio import force_utf8_stdio
 from pok.engine import design_service as _design_service
 from pok.engine import document_selection as _document_selection
 from pok.engine import pob_documents as _pob_documents
-from pok.engine.execution_requests import RequestManager
+from pok.engine.execution_requests import RequestExecutionError, RequestManager
 from pok.engine.measurement_provenance import (
     compare_observations,
     observe_loaded_execution,
@@ -407,16 +407,53 @@ def tool[F: Callable[..., Any]](fn: F, *, literal_arguments: frozenset[str] = fr
                 raise ValueError("Execution result exceeds the reserved MCP wire budget")
             return _wire_json(value)
 
-        result, reference = await _REQUESTS.run(
-            functools.partial(wire_wrapper, *args, **kwargs),
-            owner=owner,
-            tool=fn.__name__,
-            timeout_s=float(timeout),
-            request_id=options.get("request_id"),
-            input_revision=revision,
-            request_json=canonical_bytes(arguments).decode("utf-8"),
-            result_encoder=encode_result,
-        )
+        try:
+            result, reference = await _REQUESTS.run(
+                functools.partial(wire_wrapper, *args, **kwargs),
+                owner=owner,
+                tool=fn.__name__,
+                timeout_s=float(timeout),
+                request_id=options.get("request_id"),
+                input_revision=revision,
+                request_json=canonical_bytes(arguments).decode("utf-8"),
+                result_encoder=encode_result,
+            )
+        except RequestExecutionError as stopped:
+            status = _REQUESTS.status(stopped.reference)
+            details = (status.get("error") or {}).get("details", {})
+            partial = details.get("tree_search_checkpoint")
+            if fn.__name__ != "optimize_tree" or not isinstance(partial, dict):
+                raise
+            if partial.get("format") != "pok.tree-search-checkpoint.v1":
+                raise
+            # This remains a failed/incomplete request. Expose recovery rather
+            # than silently discarding an independently measured prior input.
+            return ToolResult(
+                content=[
+                    TextContent(
+                        type="text",
+                        text=f"{stopped}; a measured partial tree is available via "
+                        "get_execution_status. "
+                        "It is not a completed search or a recommendation.",
+                    )
+                ],
+                structured_content={
+                    "format": "pok.interrupted-search.v1",
+                    "ok": False,
+                    "state": status["state"],
+                    "result_available": False,
+                    "execution_ref": stopped.reference,
+                    "partial_checkpoint": {
+                        "status_tool": "get_execution_status",
+                        "status_arguments": {"execution_ref": stopped.reference},
+                        "path": "/error/details/tree_search_checkpoint",
+                        "claim": "measured_partial_not_complete_or_recommended",
+                    },
+                    "finished_checkpoint_ref": status["persistence"]["finished_ref"],
+                },
+                is_error=True,
+                meta={"pok_execution": stopped.reference},
+            )
         result.meta = {**(result.meta or {}), "pok_execution": reference}
         if _wire_size(result) > _WIRE_RESULT_BYTES:
             raise ValueError("Execution result exceeds the reserved MCP wire budget")
@@ -1228,13 +1265,11 @@ def server_info(include_kb_diagnostics: bool = True) -> dict[str, Any]:
         "tool_count": len(tools),
         "capabilities": _capability_summary(),
         "note": (
-            "⚠ Git 식별을 확인하지 못했다. stale=false만으로 최신 실행을 인증하지 않는다."
+            "Git 식별 불가: 최신 실행 미확인."
             if identity_status == "unavailable"
-            else "⚠ stale=true — 소스가 갱신됐지만 이 프로세스는 옛 코드다. **서버 재시작 "
-            "전에는 새 도구·인자가 없다.**"
+            else "소스 변경됨: 서버 재시작 필요."
             if stale
-            else "이 목록·지문에 없는 도구/인자는 **이 프로세스에 없다** — 소스에 "
-            "있어도 재시작 전에는 호출되지 않는다."
+            else "등록된 도구·인자만 호출 가능. 소스 변경 후 재시작 필요."
         ),
     }
 
