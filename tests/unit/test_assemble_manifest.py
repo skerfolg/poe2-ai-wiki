@@ -79,6 +79,13 @@ def test_diagnostic_output_preserves_editor_failure_and_is_not_legal(
     assert built.is_legal is False
     assert manifest["legal"] is False
     assert manifest["item_editor_checked"] is False
+    # Delivery references describe stored bytes, not pre-write text hashes.
+    for name in ("build.xml", "build.pob"):
+        reference = built.artifact_files[name]
+        assert (
+            store.read_build_blob(**reference, root=built.path.parents[2])
+            == (built.path / name).read_bytes()
+        )
 
 
 def test_editor_receives_exported_item_text_after_substitutions(
@@ -112,6 +119,42 @@ def test_editor_receives_exported_item_text_after_substitutions(
     assert "20% increased Spell Damage" in raw
     assert raw == module._editor_inputs(to_xml(source))[next(iter(captured[0]))]
     assert built.item_editor["compatible"] is True
+
+
+def test_buff_stage_warning_is_preserved_in_saved_manifest(recorded_assembly, monkeypatch):
+    import pok.engine.assemble as module
+    from pok.engine.integrity import spec_integrity
+
+    monkeypatch.setattr(module, "spec_integrity", spec_integrity)
+    source = BuildSpec(
+        class_name="Sorceress",
+        ascendancy="Sorceress1",
+        skills=(
+            SkillGroupSpec(
+                gems=(
+                    GemSpec(
+                        name="Spark", gem_id="Metadata/Items/Gems/SkillGemSpark", stat_set_index=1
+                    ),
+                )
+            ),
+            SkillGroupSpec(
+                gems=(
+                    GemSpec(
+                        name="Wind Dancer",
+                        gem_id="Metadata/Items/Gems/SkillGemWindDancer",
+                        stages=3,
+                    ),
+                )
+            ),
+        ),
+        config=(("windDancerStacks", 0),),
+    )
+    built = assemble(source, "buff-stage-diagnostic", strict=False)
+    manifest = json.loads((built.path / "manifest.json").read_text(encoding="utf-8"))
+    assert any("config.windDancerStacks" in row for row in manifest["design_warnings"])
+    assert any("현재 0" in row for row in manifest["design_warnings"])
+    saved = json.loads((built.path / "spec.json").read_text(encoding="utf-8"))
+    assert saved["config"]["windDancerStacks"] == 0
 
 
 @pytest.mark.parametrize("substitutes", [(), ("+1 to Strength",)])

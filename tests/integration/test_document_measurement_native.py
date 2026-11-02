@@ -2,7 +2,7 @@
 
 import pytest
 
-from pok.artifacts.store import record_immutable_build
+from pok.artifacts.store import read_build_blob, record_immutable_build
 from pok.engine.document_selection import select_effect
 from pok.engine.pob_documents import (
     edit_document,
@@ -24,6 +24,49 @@ def ready():
 
 
 pytestmark = pytest.mark.skipif(not ready(), reason="LuaJIT or pinned PoB unavailable")
+
+
+def test_direct_xml_buff_stage_warning_keeps_native_input_and_receipt(tmp_path):
+    xml = to_xml(
+        BuildSpec(
+            class_name="Sorceress",
+            ascendancy="Sorceress1",
+            level=90,
+            skills=(
+                SkillGroupSpec(
+                    gems=(
+                        GemSpec(
+                            gem_id="Metadata/Items/Gems/SkillGemSpark",
+                            name="Spark",
+                            stat_set_index=1,
+                        ),
+                    )
+                ),
+                SkillGroupSpec(
+                    gems=(
+                        GemSpec(
+                            gem_id="Metadata/Items/Gems/SkillGemWindDancer",
+                            name="Wind Dancer",
+                            stages=3,
+                        ),
+                    )
+                ),
+            ),
+            config=(("windDancerStacks", 0),),
+        )
+    )
+    saved = record_immutable_build("buff-source", {"input.xml": xml.encode()}, {}, root=tmp_path)
+    reference = {
+        "artifact_id": "buff-source",
+        "name": "input.xml",
+        "sha256": saved["files"]["input.xml"]["sha256"],
+    }
+    result = measure_document(reference, stats=["Life"], use_cache=False, root=tmp_path)
+    assert result["stats"]["Life"] > 0
+    assert any("config.windDancerStacks" in row for row in result["design_warnings"])
+    loaded = load_document_measurement(result["document_measurement_ref"], reference, root=tmp_path)
+    assert loaded["measurement"]["design_warnings"] == result["design_warnings"]
+    assert read_build_blob(**reference, root=tmp_path) == xml.encode()
 
 
 def test_measure_edit_remeasure_keeps_each_observation_on_its_document(tmp_path):

@@ -86,7 +86,7 @@ flowchart TD
   R3CORE --> R4FLOW
   R4FLOW[R4 명시 계산/조립 · 저장 비교 · 자율 스킬 · 공동 재투자<br/>in_progress]
   R4FLOW -. 행동 검증 준비 병행 .-> R5PREP
-  R5PREP[R5 초기 검토·PR152 CI 통과<br/>in_progress]
+  R5PREP[R5 8회 수집 완료·품질/결함 후속<br/>in_progress]
   R3CORE -. UI 사전 통합 .-> R6UI
   R5PREP --> R6UI[R6 Windows 독립 계산·UI 검증<br/>in_progress]
   R6UI --> R7SWITCH[R7 저장 복귀 사전 시험 · 기본 전환 대기<br/>in_progress]

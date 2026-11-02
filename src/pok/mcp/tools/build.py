@@ -1209,6 +1209,7 @@ def assemble_pob(
         "build_id": built.build_id,
         "path": str(built.path),
         "build_code": built.build_code,
+        "artifact_files": getattr(built, "artifact_files", {}),
         "duplicates": list(built.duplicates),
         "socket_sidecar_ref": getattr(built, "socket_sidecar_ref", None),
         "socket_provenance": getattr(built, "socket_provenance", {"status": "not_reported"}),

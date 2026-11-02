@@ -572,6 +572,22 @@ def read_pob_document(xml_ref: dict[str, Any]) -> dict[str, Any]:
 
 
 @tool
+def prepare_pob_delivery(
+    xml_ref: dict[str, Any],
+    code_ref: dict[str, Any] | None = None,
+    include_code: bool = False,
+) -> dict[str, Any]:
+    """Publish an exact XML/code bundle for file delivery instead of model transcription.
+
+    References require artifact_id/name/sha256. A supplied code must decode to
+    the exact XML or fail; it is never silently repaired. Omit code_ref to encode
+    the XML directly. include_code is for direct machine consumption, not prose
+    recopying. This checks transport bytes, not game feasibility or build quality.
+    """
+    return _pob_documents.prepare_delivery(xml_ref, code_ref=code_ref, include_code=include_code)
+
+
+@tool
 def inspect_pob_document(
     xml_ref: dict[str, Any], tag: str | None = None, offset: int = 0, limit: int = 20
 ) -> dict[str, Any]:
@@ -1099,6 +1115,7 @@ def _server_capabilities() -> dict[str, Any]:
         "pob_documents": {
             "tools": [
                 "read_pob_document",
+                "prepare_pob_delivery",
                 "inspect_pob_document",
                 "edit_pob_document",
                 "compute_pob_document",
@@ -1111,6 +1128,8 @@ def _server_capabilities() -> dict[str, Any]:
             "post_edit_spec_metadata_rebinding": "required_not_automatic",
             "measurement_ref_format": "pok.document-measurement-ref.v1",
             "measurement_binding": "verified_exact_xml_subject_not_execution_identity",
+            "delivery_format": "pok.pob-delivery.v1",
+            "delivery_scope": "verified_exact_xml_code_bytes_not_build_validation",
             "effect_selection": "observed_bounds_direct_source_mapping_then_remeasure",
             "selection_report_format": "pok.document-selection.v1",
         },
