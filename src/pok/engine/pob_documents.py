@@ -14,6 +14,9 @@ from pok.artifacts.store import (
     record_immutable_build,
 )
 from pok.common.execution import current_execution
+from pok.common.paths import artifacts_dir
+from pok.engine.integrity import xml_buff_stage_diagnostics
+from pok.pob import codec
 from pok.pob.document import (
     inspect_xml,
     set_xml_attribute,
@@ -29,7 +32,7 @@ def _read(reference: dict[str, Any], root: Path | None) -> str:
     if not required <= set(reference) <= required | {"media_type"} or not all(
         isinstance(value, str) for value in reference.values()
     ):
-        raise ValueError("Expected an XML artifact_id/name/sha256 reference")
+        raise ValueError("Expected a UTF-8 artifact_id/name/sha256 reference")
     return read_build_blob(
         reference["artifact_id"], reference["name"], reference["sha256"], root=root
     ).decode("utf-8")
@@ -42,6 +45,69 @@ def read_document(reference: dict[str, Any], *, root: Path | None = None) -> dic
         "xml_text": xml,
         "xml_revision": xml_revision(xml),
         "claim": "verified_source_bytes_not_build_validation",
+    }
+
+
+def prepare_delivery(
+    xml_ref: dict[str, Any],
+    *,
+    code_ref: dict[str, Any] | None = None,
+    include_code: bool = False,
+    root: Path | None = None,
+) -> dict[str, Any]:
+    """Publish verified transport files, without model transcription or calculation.
+
+    An existing code must decode to the exact XML bytes, including line endings.
+    A bad supplied code is rejected, never silently replaced with a new encoding.
+    New encoding is permitted only when the caller did not supply a code source.
+    """
+    xml = _read(xml_ref, root)
+    nodes = inspect_xml(xml)
+    if not nodes or nodes[0].tag not in {"PathOfBuilding", "PathOfBuilding2"}:
+        raise ValueError("Expected a PoB XML root")
+    code_text = _read(code_ref, root) if code_ref is not None else codec.encode(xml) + "\n"
+    if codec.decode(code_text) != xml:
+        raise ValueError("PoB code does not decode to the exact referenced XML")
+    identity = new_build_id("pob-delivery", root=root)
+    saved = record_immutable_build(
+        identity,
+        {"build.xml": xml.encode("utf-8"), "build.pob": code_text.encode("utf-8")},
+        {
+            "kind": "pob-delivery",
+            "source_xml_ref": dict(xml_ref),
+            "source_code_ref": dict(code_ref) if code_ref is not None else None,
+            "claim": "verified_transport_bytes_not_build_validation",
+        },
+        root=root,
+    )
+    # Verify the published bundle, rather than attesting only pre-write values.
+    _, published = read_immutable_build(identity, saved["manifest_sha256"], root=root)
+    if codec.decode(published["build.pob"].decode("utf-8")) != published["build.xml"].decode(
+        "utf-8"
+    ):
+        raise ValueError("Published PoB delivery mismatch")
+    directory = artifacts_dir(root) / "builds" / identity
+    references = {
+        name: {
+            "artifact_id": identity,
+            "name": name,
+            "sha256": descriptor["sha256"],
+        }
+        for name, descriptor in saved["files"].items()
+    }
+    return {
+        "format": "pok.pob-delivery.v1",
+        "artifact_id": identity,
+        "manifest_sha256": saved["manifest_sha256"],
+        "xml_ref": references["build.xml"],
+        "code_ref": references["build.pob"],
+        "xml_path": str(directory / "build.xml"),
+        "code_path": str(directory / "build.pob"),
+        "code_source": "verified_existing_blob" if code_ref is not None else "encoded_exact_xml",
+        "decoded_xml_matches": True,
+        "delivery_instruction": "Deliver the saved file; do not transcribe the code in model prose",
+        "claim": "verified_transport_bytes_not_build_validation",
+        **({"build_code": published["build.pob"].decode("utf-8").strip()} if include_code else {}),
     }
 
 
@@ -64,6 +130,7 @@ def measure_document(
         raise ValueError("native_timeout_s must be between 0 and 180 seconds")
     xml = _read(reference, root)
     revision = xml_revision(xml)
+    design_warnings = xml_buff_stage_diagnostics(xml)
     result = run_xml(xml, timeout=native_timeout_s, use_cache=use_cache)
     measured = {
         "format": "pok.document-measurement.v1",
@@ -75,6 +142,7 @@ def measure_document(
         "cached": result.cached,
         "claim": "native_xml_calculation_not_game_validation",
         "execution_identity": "not_verified",
+        **({"design_warnings": list(design_warnings)} if design_warnings else {}),
     }
     identity = new_build_id("pob-document-measurement", root=root)
     saved = record_immutable_build(
@@ -119,6 +187,7 @@ def measure_document(
         "manifest_sha256": saved["manifest_sha256"],
         "cached": result.cached,
         "claim": measured["claim"],
+        **({"design_warnings": list(design_warnings)} if design_warnings else {}),
         "execution_identity": "not_verified",
         "lifecycle_deadline": "bound_request_absolute_deadline"
         if current_execution() is not None

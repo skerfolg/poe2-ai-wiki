@@ -7,8 +7,14 @@ from fastmcp import Client, FastMCP
 
 from pok.artifacts.design import list_builds
 from pok.artifacts.store import read_build_blob, record_immutable_build
-from pok.engine.pob_documents import edit_document, inspect_document, read_document
+from pok.engine.pob_documents import (
+    edit_document,
+    inspect_document,
+    prepare_delivery,
+    read_document,
+)
 from pok.mcp import server
+from pok.pob import codec
 
 XML = (
     '\ufeff<PathOfBuilding2 mode="1">\r\n<!--keep--><Unknown/>'
@@ -42,6 +48,62 @@ def raw(reference, root):
     return read_build_blob(
         **{key: reference[key] for key in ("artifact_id", "name", "sha256")}, root=root
     )
+
+
+@pytest.mark.parametrize("existing_code", [False, True])
+def test_delivery_binds_exact_xml_and_code_without_model_transcription(
+    document, tmp_path, existing_code
+):
+    code = codec.encode(XML).rstrip("=") + "\r\n"
+    code_ref = None
+    if existing_code:
+        saved = record_immutable_build("code-input", {"code.txt": code.encode()}, {}, root=tmp_path)
+        code_ref = {
+            "artifact_id": "code-input",
+            "name": "code.txt",
+            "sha256": saved["files"]["code.txt"]["sha256"],
+        }
+    delivered = prepare_delivery(document, code_ref=code_ref, root=tmp_path)
+    assert "build_code" not in delivered
+    assert delivered["decoded_xml_matches"] is True
+    assert raw(delivered["xml_ref"], tmp_path) == XML.encode()
+    output_code = raw(delivered["code_ref"], tmp_path).decode()
+    assert codec.decode(output_code) == XML
+    if existing_code:
+        assert output_code == code  # Preserve the supplied blob, not a new encoding.
+    assert raw(document, tmp_path) == XML.encode()
+    machine = prepare_delivery(document, include_code=True, root=tmp_path)
+    assert codec.decode(machine["build_code"]) == XML
+
+
+@pytest.mark.parametrize("code", ["broken-code", codec.encode(XML.replace("\r\n", "\n"))])
+def test_bad_delivery_code_is_not_repaired_or_published(document, tmp_path, code):
+    saved = record_immutable_build("bad-code", {"code.txt": code.encode()}, {}, root=tmp_path)
+    code_ref = {
+        "artifact_id": "bad-code",
+        "name": "code.txt",
+        "sha256": saved["files"]["code.txt"]["sha256"],
+    }
+    before = set((tmp_path / "artifacts/builds").iterdir())
+    with pytest.raises(ValueError):
+        prepare_delivery(document, code_ref=code_ref, root=tmp_path)
+    assert set((tmp_path / "artifacts/builds").iterdir()) == before
+
+
+def test_delivery_rejects_tampered_source_hash(document, tmp_path):
+    with pytest.raises(ValueError):
+        prepare_delivery({**document, "sha256": "sha256:" + "0" * 64}, root=tmp_path)
+
+
+def test_delivery_does_not_export_arbitrary_xml(tmp_path):
+    saved = record_immutable_build("other-xml", {"source.xml": b"<Other/>"}, {}, root=tmp_path)
+    reference = {
+        "artifact_id": "other-xml",
+        "name": "source.xml",
+        "sha256": saved["files"]["source.xml"]["sha256"],
+    }
+    with pytest.raises(ValueError, match="PoB XML root"):
+        prepare_delivery(reference, root=tmp_path)
 
 
 def test_published_child_preserves_parent_and_unknown_content(document, tmp_path):
@@ -108,6 +170,11 @@ def test_mcp_inspection_to_explicit_edit_roundtrip(monkeypatch, document, tmp_pa
     monkeypatch.setattr(server, "_TOOL_PARAMS", {})
     monkeypatch.setattr(
         server._pob_documents,
+        "prepare_delivery",
+        lambda *args, **kwargs: prepare_delivery(*args, root=tmp_path, **kwargs),
+    )
+    monkeypatch.setattr(
+        server._pob_documents,
         "inspect_document",
         lambda reference, **kwargs: inspect_document(reference, root=tmp_path, **kwargs),
     )
@@ -123,6 +190,7 @@ def test_mcp_inspection_to_explicit_edit_roundtrip(monkeypatch, document, tmp_pa
     )
     server.tool(server.inspect_pob_document.__wrapped__)
     server.tool(server.read_pob_document.__wrapped__)
+    server.tool(server.prepare_pob_delivery.__wrapped__)
     server.tool(server.edit_pob_document.__wrapped__, literal_arguments=frozenset({"changes"}))
 
     async def exercise():
@@ -148,6 +216,13 @@ def test_mcp_inspection_to_explicit_edit_roundtrip(monkeypatch, document, tmp_pa
                 await client.call_tool("read_pob_document", {"xml_ref": result["xml_ref"]})
             ).data
             assert loaded["xml_text"] == XML.replace('mode="1"', 'mode="2"')
+            delivery = (
+                await client.call_tool(
+                    "prepare_pob_delivery", {"xml_ref": result["xml_ref"], "include_code": True}
+                )
+            ).data
+            assert delivery["decoded_xml_matches"] is True
+            assert codec.decode(delivery["build_code"]) == loaded["xml_text"]
             inserted = (
                 await client.call_tool(
                     "edit_pob_document",
