@@ -386,3 +386,39 @@ def test_campaign_forwards_one_frozen_answer_contract_to_every_trial(case):
     assert seen == [plan["answer_contract"], plan["answer_contract"]]
     assert result["answer_contract"]["sha256"] == args["input_hashes"][plan["answer_contract"]]
     assert not result["quality_evaluated"]
+
+
+@pytest.mark.parametrize("answer_valid", [True, False])
+def test_file_delivery_audit_runs_only_for_valid_new_contract_answer(case, answer_valid):
+    module, args = case
+    add_answer_contract(args)
+    identity = str(uuid4())
+    artifacts = args["trial_root"] / "server/artifacts"
+
+    def run(command, output, **kwargs):
+        output.mkdir()
+        (artifacts / "final.xml").write_text("<PathOfBuilding/>", encoding="utf-8")
+        answer = {
+            "status": "complete",
+            "pob_code": None,
+            "artifacts": [{"format": "pob_xml", "reference": "final.xml"}],
+        }
+        (output / "answer.json").write_text(
+            json.dumps(answer) if answer_valid else "invalid JSON", encoding="utf-8"
+        )
+        return {
+            "state": "completed",
+            "answer_valid": answer_valid,
+            "cleanup": {"status": "confirmed"},
+            "session_id": identity,
+        }
+
+    result = module.run_trial(**args, verify=lambda: {"status": "verified"}, phase_executor=run)
+    assert result["state"] == "finished"
+    for phase in [1, 2]:
+        report = args["trial_root"] / f"phase-{phase}/delivery-audit.json"
+        assert report.exists() == answer_valid
+        if answer_valid:
+            audit = json.loads(report.read_bytes())
+            assert audit["transport_verified"]
+            assert not audit["build_quality_verified"]

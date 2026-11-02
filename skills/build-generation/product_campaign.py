@@ -12,6 +12,7 @@ from typing import Any
 from uuid import uuid4
 
 from jsonschema import Draft202012Validator, SchemaError
+from product_delivery import audit_submission
 from product_integrity import relative_name
 from product_run import build_product_command, execute_phase
 from product_server import CONTROL_ROOT
@@ -251,6 +252,17 @@ def run_trial(
                 timeout_s=remaining,
             )
             terminal_at = time.monotonic()
+            answer_path = output / "answer.json"
+            if (
+                answer_contract_file is not None
+                and execution.get("answer_valid")
+                and answer_path.is_file()
+            ):
+                submitted = json.loads(answer_path.read_bytes())
+                if isinstance(submitted, dict) and isinstance(submitted.get("artifacts"), list):
+                    write_json(
+                        output / "delivery-audit.json", audit_submission(submitted, namespace)
+                    )
             result["phases"].append(
                 {"phase": number, "execution": execution, "exposed_inputs": files}
             )
