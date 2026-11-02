@@ -195,3 +195,12 @@ R 명시 실행 연결 검증(2026-11-03): 카탈로그 JSON 정책의 경로+SH
 보고 preflight/reference-stdio-probe/report.json. 참가자 모델은 미실행이며
 전체 controller/자료/바이너리 최종 동결과 모의 campaign 사전 시험은 남아 있다.
 추가 시험8/12회 범위는 여전히 사용자 답변 대기다.
+
+모델 없는 모의 캠페인 완료(2026-11-03): R/B/N×H1/H2 6개 흐름·9단계·
+무결성15검사와 모든 제출 파일 회수를 확인했다. mock-report의 model_calls=0/
+native_pob_calculations=0/quality_verified=false이며 실제6회 품질 시행으로 세지 않는다.
+실제 CLI 원격 추론·native 모델 이벤트 감사는 이 모의 실행에서 검증하지 않았다.
+고정 PoB1896파일과 Codex/LuaJIT/code-mode 실행 파일3개의 기존 SHA256도 일치했다.
+`prepared-materials-v1.json`에12개 근거 파일의 해시와 제어 코드c83a877을 묶었다.
+이는 자료/런타임 준비 묶음이며 시행 범위·순서·실제 캠페인 계획의 최종 동결은 미완료다.
+추가8/12회 범위가 확정되면 순서를 고정하고 매 시도 전후 검증·원본 결과 보존으로 실행한다.
