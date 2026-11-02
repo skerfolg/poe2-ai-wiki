@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `skerfolg/pok-final-quality` (main 기준 품질 실행 준비). PR #154는 병합됐고 PR #155는 양 플랫폼 CI 통과·검토 대기다. UI는 별도 세션 담당이며 전역 PoK 설정 전환은 보류한다.
+**Integration branch**: `skerfolg/pok-final-quality` (main 기준 품질 실행 준비, draft PR #156). PR #154는 병합됐고 PR #155는 양 플랫폼 CI 통과·검토 대기다. UI는 별도 세션 담당이며 전역 PoK 설정 전환은 보류한다.
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -1973,3 +1973,38 @@ B loaded/source=`bab73a1`, N loaded/source=`afc98d1`, 두 제품 모두 identity
 stale=false와 정확한 source_root를 확인했다.
 `effective-identity-mcp-verification.json`에 보존했고 미커밋 시점의 과거 보고는 수정하지 않았다.
 추가 모델 추론은 없으며 전체 통합 검사는 같은 세션65454에서 실행 중이다.
+
+비교 실행기 draft PR #156 생성: https://github.com/skerfolg/poe2-ai-wiki/pull/156.
+원격 HEAD0476db0을 확인한 변경으로, 통합 검사는 세션65454에서 계속 실행 중이다.
+최종 빌드 품질 판정/추가 모델 시행 범위는 미확정이며 병합하지 않았다.
+
+공통 입력 최종 묶음 준비(2026-11-03): `final-inputs-v1`의7파일과
+`final-inputs-manifest.json` SHA256
+9d45d399132ef25823e4508137e6ce5b3b166e34b3f416aa1e2b2e5a9983ab14를 확인했다.
+원래 시나리오3개/공통 규칙2개/후속 반지1개는 기존 영수증과 바이트 동일하고
+공통 제출 계약1개를 추가했다. 원래 과제·단계별 시간·공개 파일 매핑을 유지하며
+새 시험 순서/횟수는 미확정(null)이다. 참가자 모델 실행을 승인하거나 시작한 기록이 아니다.
+
+통합 검사 중간 관측(2026-11-03): 같은 세션65454의 출력에서 실패2건(FF)을
+확인했다. 아직 실행 중이며 상세 traceback/최종 JUnit은 미수집이다.
+실패 원인을 추정해 수정하지 않고 전체 결과를 회수한 뒤 수정·해당 회귀를 재검증한다.
+PR #156은 draft를 유지하며 통합 통과/병합 가능으로 보고하지 않는다.
+
+통합 실패 위치 진단(2026-11-03): 출력35/36번째 실패와 수집 순서상 대응하는
+`test_generation_discovery.py`2개를 별도 실행해 둘 다 통과(15.15초)했다.
+원장 `final-quality-generation-discovery-diagnostic.xml`. 원래 전체 실행은45%까지
+진행 중이며 그 실패를 성공으로 덮지 않는다. 실제 전체 traceback을 받아 시간/상태
+영향 여부를 판정할 때까지 회귀 원인은 미확정이다.
+
+PR #156 CI 관측(2026-11-03): 원격0476db0의 Windows/macOS 일반 CI가 모두
+SUCCESS다(run41500559873). 로컬 전체 native 통합 세션65454의 실패2건과
+상세 오류 대기는 별개로 유지하며 CI 성공으로 로컬 실패를 덮지 않는다.
+
+전체 통합 종료와 원인 확정(2026-11-03):158개 중156통과/2실패/skip0,1397.175초,
+종료1. 두 실패의 보존 server-info는 loaded25daac3/source0476db0/stale=true다.
+실행 도중 에이전트가 문서 커밋0476db0을 추가해 적절한 stale 차단을 유발했다.
+두 커밋 차이는 CURRENT-PLAN/최종품질 프로토콜2문서뿐이며 src/skills/tests 변경0이다.
+이를 제품 코드 결함이나 시간/상태 누출로 판정하지 않는다. 원래 실패 원장은 보존한다.
+앞으로 검사 중인 브랜치 HEAD를 변경하지 않는다. 현재 문서를 먼저 커밋한 뒤
+실패2개와 관련 회귀·문서 검사를 고정 HEAD에서 재검증하고 전후 HEAD 일치를 기록한다.
+원래 전체 실행을 깨끗한158통과 실행으로 소급 표기하지 않는다.
