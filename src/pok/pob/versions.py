@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +39,29 @@ def pinned_commit(root: Path | None = None) -> str:
     if not commit:
         raise RuntimeError(f"manifest에 pob_commit 없음: {manifest}")
     return str(commit)
+
+
+def runtime_declaration(root: Path | None = None) -> dict[str, object]:
+    """Configured PoB pin for clients, deliberately not an execution identity."""
+    result: dict[str, object] = {
+        "format": "pok.pob-runtime-declaration.v1",
+        "claim": "configured_pin_not_observed_execution",
+    }
+    try:
+        base = root or project_root()
+        commit = pinned_commit(base)
+        if not re.fullmatch(r"[0-9a-f]{40}", commit):
+            raise ValueError("Expected a full configured PoB commit")
+        result.update(
+            status="declared",
+            pob_commit=commit,
+            snapshot_available=(
+                base / "external/pob" / commit[:7] / "src/HeadlessWrapper.lua"
+            ).is_file(),
+        )
+    except (OSError, ValueError, RuntimeError) as exc:
+        result.update(status="unavailable", pob_commit=None, reason=type(exc).__name__)
+    return result
 
 
 def resolve_snapshot(root: Path | None = None, commit: str | None = None) -> PobSnapshot:

@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: R6 엔진 `skerfolg/pok-r6-worker` (main/6fd7f32 기준 독립 작업 트리), UI `skerfolg/pok-r6-design-records` (draft PR #3). R5 후속 `codex/pok-r5-quality-followup`은 draft PR #152로 검토 대기이며 동결 실험은 유지한다.
+**Integration branch**: R6 엔진 `skerfolg/pok-r6-worker` (draft PR #153, main/6fd7f32 기준 독립 작업 트리), UI `skerfolg/pok-r6-design-records` (draft PR #3). R5 후속 `codex/pok-r5-quality-followup`은 draft PR #152로 검토 대기이며 동결 실험은 유지한다.
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -88,7 +88,7 @@ flowchart TD
   R4FLOW -. 행동 검증 준비 병행 .-> R5PREP
   R5PREP[R5 초기 검토·PR152 CI 통과<br/>in_progress]
   R3CORE -. UI 사전 통합 .-> R6UI
-  R5PREP --> R6UI[R6 A안 승인·독립 worker 구현<br/>in_progress]
+  R5PREP --> R6UI[R6 Windows 독립 계산·UI 검증<br/>in_progress]
   R6UI --> R7SWITCH[R7 저장 복귀 사전 시험 · 기본 전환 대기<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R6: 승인된 A안의 독립 worker를 UI 수동 경로에 연결한다. 기존 pob 모듈의 명시 자산 경로·KB 없는 계산/카탈로그/아이템 렌더를 구현하고 관련 단위32개와 실제 Native 범위를 검증했다. Windows 개발 번들 자체 검증은 통과했지만 UI Node 자식의 txt 파일 읽기 EBADF는 미해결이다. 읽기 방식 변경을 해결로 집계하지 않는다. UI 클라이언트는 전체173검사·앱 빌드 통과 후 승인된 draft PR #3의4725c1f에 반영했으며 원격 CI도 성공했다. 엔진 통합156검사가 전부 통과했고 단위 전체에서 발견한 두 누락은 수정 후 관련35검사를 재통과했다. 엔진 draft PR 준비 후 UI main의 독립 수동 backend·선택 PoK 분리·Electron 동선을 검증한다. R5 PR #152는 CI 통과 검토 대기이며 동결 실험과 미승인 보충 시행은 변경하지 않는다. R6 배포·R7 기본 전환은 미완료다.**
+The only next executable step is: **S55 / R6: 검증된 Windows 독립 worker/수동 UI와 선택 PoK 연결 후속 변경을 draft PR #153/#3에 반영하고 배포/설치·프로바이더·macOS 독립 런타임을 검증한다. 엔진22a2959는 Windows/macOS 실제 통합156개씩 실패/skip0으로 원격 통과했다. UI 수동 데이터 v2·main 연결·별도 agent 프로필을 구현하고192검사·앱 build가 통과했다. 실제 Electron에서 PoK 없이 문서 생성·편집·Native 계산(Life78, Ranger/level2)·저장과 두 해상도를 확인했고 두 번의 재시작에서 원문/계산 보존·콜드 과거값 구분을 확인했다. 수치 패널의 검증 연결 누락과 null→0 오표시를 수정했다. 선택 PoK 실제 stdio/동일 pin 수락·다른 pin 거부도 확인했다. Node CLI의 txt 접근 오류와 Electron의 정상 실행은 분리 기록한다. R5 동결 실험·미승인 보충 시행은 변경하지 않으며 R6 전체 출고·R7 기본 전환과 최종 품질 판정은 미완료다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1779,3 +1779,44 @@ Node 자식 기반 전송4검사와 전체 npm check169검사·앱 build가 통�
 앱 build 및 원격 CI 두 실행은 성공했다. 이후 계산 receipt/null 정규화 진단 보존은
 별도 최종 회귀 중이다. R6 엔진은 draft PR로 준비하며 UI main 전환·선택 PoK·
 실제 Electron 독립 계산→저장→재시작·배포와 R7 기본 전환은 여전히 미완료다.
+
+
+### R6 Windows 실제 수동 앱·선택 PoK 연결 — 2026-11-02
+
+Core22a2959의 실제 CI JUnit에서 Windows/macOS 모두 integration156통과·실패/skip0을
+확인했다. 소유 실행 검사까지 합친 Windows161개는 전부 통과했고 Mac은158통과·
+Windows 전용3skip이다. macOS standalone 배포 Python 패키징을 검증한 결과는 아니다.
+
+새 clean Windows 번들v3는3653파일이며 adapter_dirty=false다. identity는
+066ba49ea003b2639977c70ececcfb04b83d207b574a06f7cbb2022fdfc51858, manifest SHA는
+0f412440dcb9bbb17d8b3d119ff86f30f7ad7ba177e501c5929fc95e1b925235다. UI에서
+worker·실제 카탈로그13945항목·직업8개·0_5 표시 트리4914노드/153이미지(누락0)를
+독립 수동 bundle v2로 조립했다.
+
+UI main은 이 bundle을 인식해 PoK 없이 계산·아이템 렌더를 worker에 전달한다. 원본 XML과
+활성 세트 투영 입력의 해시·리비전·worker identity·세션을 구분한다. 저장된 수치는 콜드
+앱에서 새 worker 확인 전 현재값이 되지 않는다. 실제 앱 검증에서 수치 패널이 새 검증
+컨텍스트를 받지 못하던 연결을 수정했고 null/빈 값/비유한수를0으로 표시하던 경로도
+수정했다. 렌더 회귀 포함 UI192검사·실패/skip0과 앱 build가 통과했다.
+
+실제 Electron에서 PoK 미연결 상태의 문서 생성→레벨2 편집→Native 계산→저장을
+확인했다. 실제 결과는 Ranger/level2, Life78이고 실행 completed·문서 hash/리비전이
+일치한다. 1280×800/1680×950 화면을 직접 확인했고 가로 overflow가 없었다. 초기
+검증 v2/v3는 저장 반영 직전 읽어 실패 판정했으나 종료 후 저장 파일에 실제 결과가
+남은 것을 보존·감사했다. v4는 수치 패널의 연결 누락을 찾아냈고 수정 후 v5에서는
+현재 계산 DOM 판정까지 확인했으나 숨김 창 screenshot에서 timeout이 났다. 별도
+r6-electron-restore-v1은 v5 자료 원본을 보존한 복사본을 두 번 시작해 원문/계산 완전
+일치·콜드 runtime 미검증·화면 재계산 필요/수치—를 모두 통과했다. 초기 실패를 전체
+성공 실행으로 덮어쓰지 않는다. Node CLI txt 접근 실패는 실제 Electron Native 성공과
+다른 실행 조건이며 시스템 보안 설정이나 검증 목록은 바꾸지 않았다.
+
+선택 PoK는 별도 agent 프로필이며 기존 desktop 계산 별칭/KB identity를 요구하지 않는다.
+서버 instance·Git 프로세스 선언·설계 조회 API·설정 pin을 확인한다. 이 선언은 Native
+실행 identity 인증이 아니다. 현재 엔진과 실제 stdio로73도구 연결·호환 pin 수락·다른
+pin 거부를 확인했다. 새 메타데이터10검사와 타입/스타일 검사가 통과했다. 초기 관련
+15검사 중 기존 Git timeout 가드가1.625초로1.5초 경계를 넘겼으나 개별 재검사에서
+통과한 기록은 별도 보존한다. 새로운 모델 생성 품질이나 #188 해결을 뜻하지 않는다.
+
+
+후속 서버 식별6검사는 모두 통과했고 변경5파일의 pre-commit·계층 검사도 통과했다.
+초기 경계 초과 기록은 보존하며, 최종 통과로 초기 실패를 지우지 않는다.

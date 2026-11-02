@@ -100,3 +100,19 @@ Node 직접 읽기와 Node의 Python 자식 모두 원본/번들의 동일 txt �
 lua와 라이선스 md 파일은 읽었다. 직접 실행한 Python은 같은 txt를 읽었다. 이 차이는
 환경 진단 근거이며 보안 제품·Node·Python 중 특정 원인을 확정한 결과가 아니다.
 검증 목록에서 txt를 제거하거나 시스템 보안 설정을 변경하지 않았다.
+
+
+## 선택 PoK 연결의 별도 식별
+
+`server_info`의 `pob_runtime_declaration`은 `pok.pob-runtime-declaration.v1`이며
+설정된 PoB commit만 선언한다. `claim=configured_pin_not_observed_execution`을 함께
+반환한다. snapshot_available는 HeadlessWrapper 파일 표식의 존재이며 Native 준비 완료를
+뜻하지 않는다. 별도 PoK/KB 연결의 대상 버전을 대조할 때 사용하며 worker identity나
+실제 측정값의 출처 해시를 대신하지 않는다. pin을 읽지 못하면 unavailable/null이다.
+`include_kb_diagnostics=False`는 KB 진단을 null로 생략하며 누락을0으로 표시하지 않는다.
+
+UI의 agent 연결 프로필은 이 선언·Git 프로세스 식별(기존 약식 commit 허용)·서버 instance·
+설계 조회 API를 확인한다. 기존 desktop 계산 별칭이 없는 최신 엔진도 선택 지식/설계
+연결로 사용할 수 있다. 각 호출 전에 세션/소스 선언을 다시 확인한다. 수동 계산은 독립
+worker만 사용하므로 선택 PoK 미연결/불일치가 수동 계산을 막지 않는다. PoK의 측정값을
+수동 worker의 동일한 측정으로 인증하는 계약은 아니다.
