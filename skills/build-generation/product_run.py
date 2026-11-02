@@ -14,6 +14,7 @@ from uuid import UUID
 
 import codex_runtime
 from jsonschema import validate
+from product_reference import load_reference_policy
 from product_server import CONTROL_ROOT, validate_locations
 
 from pok.common.owned_process import spawn_owned, terminate_owned
@@ -32,6 +33,7 @@ def build_product_command(
     luajit_exe: str | None = None,
     session_id: str | None = None,
     control_root: Path = CONTROL_ROOT,
+    reference_policy: dict[str, str] | None = None,
 ) -> list[str]:
     """Build a fresh or exact-session resumed run with the complete product server.
 
@@ -81,6 +83,16 @@ def build_product_command(
         "--run-dir",
         str(namespace),
     ]
+    if reference_policy is not None:
+        load_reference_policy(reference_policy, control)
+        server_args.extend(
+            [
+                "--reference-policy",
+                reference_policy["path"],
+                "--reference-policy-sha256",
+                reference_policy["sha256"],
+            ]
+        )
     config = (
         "mcp_servers.pok={command="
         + json.dumps(sys.executable)

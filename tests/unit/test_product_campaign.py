@@ -422,3 +422,95 @@ def test_file_delivery_audit_runs_only_for_valid_new_contract_answer(case, answe
             audit = json.loads(report.read_bytes())
             assert audit["transport_verified"]
             assert not audit["build_quality_verified"]
+
+
+def add_reference_policy(args):
+    from product_reference import BASIC_TOOLS
+
+    path = args["input_root"] / "reference-policy.json"
+    path.write_text(
+        json.dumps({"format": "pok.reference-policy.v1", "source_tools": sorted(BASIC_TOOLS)}),
+        encoding="utf-8",
+    )
+    args["reference_policy"] = {
+        "path": str(path),
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+    return path
+
+
+def test_reference_keeps_scenarios_schema_and_resume_without_product_guides(case):
+    module, args = case
+    add_reference_policy(args)
+    _path, contract = add_answer_contract(args)
+    identity = str(uuid4())
+    calls = []
+
+    def run(command, output, **kwargs):
+        calls.append(kwargs)
+        assert "직접 설계 참고군" in kwargs["prompt"]
+        assert "reference/skills" not in kwargs["prompt"]
+        assert "--reference-policy" in next(c for c in command if c.startswith("mcp_servers.pok="))
+        assert not (args["trial_root"] / "server/artifacts/reference").exists()
+        assert kwargs["schema"] == contract["schema"]
+        return {"state": "completed", "cleanup": {"status": "confirmed"}, "session_id": identity}
+
+    result = module.run_trial(**args, verify=lambda: {"status": "verified"}, phase_executor=run)
+    assert len(calls) == 2
+    assert calls[0]["prompt"].endswith("first scenario")
+    assert calls[1]["prompt"].endswith("fixed followup")
+    assert result["reference_policy"] == args["reference_policy"]
+
+
+def test_reference_policy_tamper_stops_before_followup_input(case):
+    module, args = case
+    path = add_reference_policy(args)
+    calls = []
+
+    def run(*a, **kwargs):
+        calls.append(True)
+        path.write_text("{}", encoding="utf-8")
+        return {
+            "state": "completed",
+            "cleanup": {"status": "confirmed"},
+            "session_id": str(uuid4()),
+        }
+
+    with pytest.raises(ValueError, match="checksum"):
+        module.run_trial(**args, verify=lambda: {"status": "verified"}, phase_executor=run)
+    assert len(calls) == 1
+    assert not (args["trial_root"] / "server/artifacts/inputs/phase2/item.txt").exists()
+
+
+def test_campaign_does_not_leak_reference_policy_into_next_product_trial(case):
+    module, args = case
+    add_reference_policy(args)
+    seen = []
+    plan = {
+        "model": args["model"],
+        "effort": args["effort"],
+        "tasks": {"H1": args["task"]},
+        "order": [["H1", "R", 1], ["H1", "N", 1]],
+    }
+
+    def run(root, **kwargs):
+        seen.append(kwargs.get("reference_policy"))
+        return {"state": "finished"}
+
+    products = {
+        k: {"root": args["product_root"], "files": args["product_hashes"]} for k in ["R", "N"]
+    }
+    products["R"]["reference_policy"] = args["reference_policy"]
+    module.run_campaign(
+        args["trial_root"],
+        plan=plan,
+        input_root=args["input_root"],
+        input_hashes=args["input_hashes"],
+        products=products,
+        codex_exe=args["codex_exe"],
+        luajit_exe=args["luajit_exe"],
+        verify=lambda: {"status": "verified"},
+        trial_runner=run,
+        control_root=args["control_root"],
+    )
+    assert seen == [args["reference_policy"], None]

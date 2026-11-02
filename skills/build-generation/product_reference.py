@@ -8,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from product_integrity import load_pinned_json
 from product_server import configure_product
 from redesign_raw import raw_source as read_raw
 
@@ -116,3 +117,24 @@ def configure_reference(
         "reference_workflow": "direct_design",
         "claim": "shared_basic_libraries_not_pure_no_pok_or_optimizer_only_comparison",
     }
+
+
+def load_reference_policy(reference: dict[str, str], control_root: Path) -> dict[str, Any]:
+    """A hash-pinned, controller-only catalog; never learn it from the live server."""
+    if set(reference) != {"path", "sha256"}:
+        raise ValueError("Expected reference policy path and sha256")
+    path = Path(reference["path"]).resolve()
+    if not path.is_relative_to(control_root.resolve() / "artifacts"):
+        raise ValueError("Reference policy must remain inside controlled artifacts")
+    value = load_pinned_json(path, reference["sha256"])
+    tools = value.get("source_tools")
+    if (
+        set(value) != {"format", "source_tools"}
+        or value["format"] != "pok.reference-policy.v1"
+        or not isinstance(tools, list)
+        or not all(isinstance(name, str) and name for name in tools)
+        or len(set(tools)) != len(tools)
+        or not set(tools) >= BASIC_TOOLS
+    ):
+        raise ValueError("Invalid frozen reference policy")
+    return value
