@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5 품질 후속: #210/#211 구현과 R5 검토 기록의 커밋 전 검사를 마치고 후속 PR을 준비한다. 전체 실제 PoB 통합73580은150/150통과·건너뜀0이다. 전달/MCP 관련53검사·조립41검사·실물 복사본5개 검사는 통과했다. 최종 코드 전량 단위2607중2604통과/기존2skip/새 테스트 픽스처 오류1이며, 필수 gem_id를 보완한 해당 검사는 별도 재검증 통과했다. 원래8회 시도와 최종 응답5개·동결 제품은 보존한다. 마지막 시행은 모델 시작 전 호스트 오류이며 승인 없는 보충 시행은 하지 않는다. PR #151 병합 후 로컬 main을 동기화했다. R6 backend 경계 선택·UI 원격 push 승인·실제 모델/배포와 R7 기본 전환 검증은 남아 있다.**
+The only next executable step is: **S55 / R5 품질 후속: draft PR #152의 Windows/macOS CI 결과를 확인하고 실패가 있으면 수정·검증한다. 전체 실제 PoB 통합73580은150/150통과·건너뜀0이다. 전달/MCP 관련53검사·조립41검사·실물 복사본5개 검사는 통과했다. 최종 코드 전량 단위2607중2604통과/기존2skip/새 테스트 픽스처 오류1이며, 필수 gem_id를 보완한 해당 검사는 별도 재검증 통과했다. 원래8회 시도와 최종 응답5개·동결 제품은 보존한다. 마지막 시행은 모델 시작 전 호스트 오류이며 승인 없는 보충 시행은 하지 않는다. PR #151 병합 후 로컬 main을 동기화했다. R6 backend 경계 선택·UI 원격 push 승인·실제 모델/배포와 R7 기본 전환 검증은 남아 있다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1725,3 +1725,7 @@ POK_R5_USER_REVIEW.md에 정상 저장본5개를 운영 식별자 없는 표본 
 커밋 전15파일 검사 완료: EOF·공백·대용량·Ruff·형식·import-linter 모두 통과,
 JSON/YAML은 대상 파일 없음으로 건너뛰었다. 기존 별도 수정 POK_R5_EXECUTION_PREFLIGHT.md와
 .local/은 후속 커밋에서 제외한다. 제품 코드/테스트/설계 절차와 R5 결과·검토 자료만 묶는다.
+
+후속 커밋7bcafc2를 origin/codex/pok-r5-quality-followup에 올리고 draft PR #152를 생성했다.
+https://github.com/skerfolg/poe2-ai-wiki/pull/152
+Windows/macOS CI는 별도 확인하며 로컬 실제 PoB150통과와 구분한다. 병합은 사용자가 수행한다.
