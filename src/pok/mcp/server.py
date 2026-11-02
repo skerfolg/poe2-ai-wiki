@@ -1265,7 +1265,7 @@ def server_info(include_kb_diagnostics: bool = True) -> dict[str, Any]:
         "tool_count": len(tools),
         "capabilities": _capability_summary(),
         "note": (
-            "Git 식별 불가: 최신 실행 미확인."
+            "Git 식별 불가: 최신 실행을 인증하지 않는다."
             if identity_status == "unavailable"
             else "소스 변경됨: 서버 재시작 필요."
             if stale
