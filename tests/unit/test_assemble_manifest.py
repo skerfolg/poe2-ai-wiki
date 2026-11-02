@@ -147,11 +147,12 @@ def test_buff_stage_warning_is_preserved_in_saved_manifest(recorded_assembly, mo
                 )
             ),
         ),
-        config={"windDancerStacks": 0},
+        config=(("windDancerStacks", 0),),
     )
     built = assemble(source, "buff-stage-diagnostic", strict=False)
     manifest = json.loads((built.path / "manifest.json").read_text(encoding="utf-8"))
     assert any("config.windDancerStacks" in row for row in manifest["design_warnings"])
+    assert any("현재 0" in row for row in manifest["design_warnings"])
     saved = json.loads((built.path / "spec.json").read_text(encoding="utf-8"))
     assert saved["config"]["windDancerStacks"] == 0
 

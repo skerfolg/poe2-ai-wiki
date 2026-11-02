@@ -15,6 +15,7 @@ from pok.artifacts.store import (
 )
 from pok.common.execution import current_execution
 from pok.common.paths import artifacts_dir
+from pok.engine.integrity import xml_buff_stage_diagnostics
 from pok.pob import codec
 from pok.pob.document import (
     inspect_xml,
@@ -129,6 +130,7 @@ def measure_document(
         raise ValueError("native_timeout_s must be between 0 and 180 seconds")
     xml = _read(reference, root)
     revision = xml_revision(xml)
+    design_warnings = xml_buff_stage_diagnostics(xml)
     result = run_xml(xml, timeout=native_timeout_s, use_cache=use_cache)
     measured = {
         "format": "pok.document-measurement.v1",
@@ -140,6 +142,7 @@ def measure_document(
         "cached": result.cached,
         "claim": "native_xml_calculation_not_game_validation",
         "execution_identity": "not_verified",
+        **({"design_warnings": list(design_warnings)} if design_warnings else {}),
     }
     identity = new_build_id("pob-document-measurement", root=root)
     saved = record_immutable_build(
@@ -184,6 +187,7 @@ def measure_document(
         "manifest_sha256": saved["manifest_sha256"],
         "cached": result.cached,
         "claim": measured["claim"],
+        **({"design_warnings": list(design_warnings)} if design_warnings else {}),
         "execution_identity": "not_verified",
         "lifecycle_deadline": "bound_request_absolute_deadline"
         if current_execution() is not None

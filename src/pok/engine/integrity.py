@@ -17,9 +17,11 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
 from typing import Any
 
 from pok.kb.store import Store
+from pok.pob.selection import resolve_xml_selection
 
 _CLASSIFICATIONS: tuple[Store, dict[str, str]] | None = None
 
@@ -31,23 +33,26 @@ _BUFF_STACK_CONFIG = {
 }
 
 
+def _buff_stack_control(gem: dict[str, Any]) -> tuple[str, str] | None:
+    identity = gem.get("gem_id")
+    if identity:
+        return _BUFF_STACK_CONFIG.get(str(identity))
+    name = str(gem.get("name", "")).strip().lower()
+    return next((entry for entry in _BUFF_STACK_CONFIG.values() if entry[0].lower() == name), None)
+
+
 def _buff_stage_diagnostics(spec_data: dict[str, Any]) -> list[str]:
     """Report ineffective stage inputs without changing any upkeep assumption."""
     problems: list[str] = []
-    by_name = {name.lower(): (name, key) for name, key in _BUFF_STACK_CONFIG.values()}
-    config = spec_data.get("config") or {}
+    # Public JSON is a mapping; dataclasses.asdict(BuildSpec) retains pairs.
+    config = dict(spec_data.get("config") or ())
     for gi, group in enumerate(spec_data.get("skills") or []):
         if not group.get("enabled", True):
             continue
         for gem_i, gem in enumerate(group.get("gems") or []):
             if not gem.get("enabled", True) or gem.get("stages") is None:
                 continue
-            identity = gem.get("gem_id")
-            control = (
-                _BUFF_STACK_CONFIG.get(str(identity))
-                if identity
-                else by_name.get(str(gem.get("name", "")).strip().lower())
-            )
+            control = _buff_stack_control(gem)
             if control is None:
                 continue
             name, key = control
@@ -59,6 +64,59 @@ def _buff_stage_diagnostics(spec_data: dict[str, Any]) -> list[str]:
                 "유지 가능한 중첩 수를 확인해 명시할 것 — 값을 자동 적용하지 않았다"
             )
     return problems
+
+
+def xml_buff_stage_diagnostics(xml: str) -> tuple[str, ...]:
+    """Inspect saved active sets without restoring or rewriting the document."""
+    try:
+        tree = ET.fromstring(xml)
+    except ET.ParseError:
+        return ("XML 버프 단계 진단에서 원문을 해석할 수 없다 — 계산 입력은 변경하지 않았다",)
+    candidates = [
+        gem
+        for gem in tree.iter("Gem")
+        if (gem.get("skillStageCount") is not None or gem.get("skillStageCountCalcs") is not None)
+        and _buff_stack_control({"gem_id": gem.get("gemId"), "name": gem.get("nameSpec", "")})
+    ]
+    if not candidates:
+        return ()
+    try:
+        chosen = resolve_xml_selection(tree)
+    except ValueError as exc:
+        return (f"XML 버프 단계 진단의 저장 세트 선택을 확인할 수 없다: {exc}",)
+    if chosen.notes:
+        return (
+            "XML 버프 단계 진단의 저장 세트 선택에 대체가 필요하다: " + "; ".join(chosen.notes),
+        )
+    if chosen.skills is None:
+        return ()
+    groups = [
+        {
+            "enabled": group.get("enabled") != "false",
+            "gems": [
+                {
+                    "name": gem.get("nameSpec", ""),
+                    "gem_id": gem.get("gemId", ""),
+                    "enabled": gem.get("enabled") != "false",
+                    "stages": gem.get("skillStageCount", gem.get("skillStageCountCalcs")),
+                }
+                for gem in group.findall("Gem")
+            ],
+        }
+        for group in chosen.skills.findall("Skill")
+    ]
+    config = {
+        entry.get("name", ""): entry.get("number", entry.get("string", entry.get("boolean")))
+        for entry in (chosen.config.findall("Input") if chosen.config is not None else [])
+    }
+    prefix = (
+        f"XML skill_set={chosen.resolved.get('skill_set')}, "
+        f"config_set={chosen.resolved.get('config_set')}: "
+    )
+    return tuple(
+        prefix + warning
+        for warning in _buff_stage_diagnostics({"skills": groups, "config": config})
+    )
 
 
 def _record_kind(tags: frozenset[str], effects: list[dict[str, Any]]) -> str:

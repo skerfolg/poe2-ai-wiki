@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5 품질 후속: draft PR #152의 Windows/macOS CI 결과를 확인하고 실패가 있으면 수정·검증한다. 전체 실제 PoB 통합73580은150/150통과·건너뜀0이다. 전달/MCP 관련53검사·조립41검사·실물 복사본5개 검사는 통과했다. 최종 코드 전량 단위2607중2604통과/기존2skip/새 테스트 픽스처 오류1이며, 필수 gem_id를 보완한 해당 검사는 별도 재검증 통과했다. 원래8회 시도와 최종 응답5개·동결 제품은 보존한다. 마지막 시행은 모델 시작 전 호스트 오류이며 승인 없는 보충 시행은 하지 않는다. PR #151 병합 후 로컬 main을 동기화했다. R6 backend 경계 선택·UI 원격 push 승인·실제 모델/배포와 R7 기본 전환 검증은 남아 있다.**
+The only next executable step is: **S55 / R5 품질 후속: draft PR #152에 실제 실패 경로인 직접 XML 계산 진단을 반영하고 최신 커밋의 Windows/macOS CI를 확인한다. 보완 후 관련82검사(실제 PoB4개 포함)는 모두 통과했다. 앞선 전체 실제 PoB150통과는 XML 보완 전 코드의 기록이다. 원래8회 시도와 최종 응답5개·동결 제품은 보존한다. 마지막 시행은 모델 시작 전 호스트 오류이며 승인 없는 보충 시행은 하지 않는다. PR #151 병합 후 로컬 main을 동기화했다. R6 backend 경계 선택·UI 원격 push 승인·실제 모델/배포와 R7 기본 전환 검증은 남아 있다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1729,3 +1729,15 @@ JSON/YAML은 대상 파일 없음으로 건너뛰었다. 기존 별도 수정 PO
 후속 커밋7bcafc2를 origin/codex/pok-r5-quality-followup에 올리고 draft PR #152를 생성했다.
 https://github.com/skerfolg/poe2-ai-wiki/pull/152
 Windows/macOS CI는 별도 확인하며 로컬 실제 PoB150통과와 구분한다. 병합은 사용자가 수행한다.
+
+### #211 원래 직접 XML 경로 감사·보완 — 2026-11-02
+
+원래 buff-stage-measurement는 representation=pob_xml, 입력 SHA b39187174b9edc978c033e36ebb01576399b6d108da66295eb9db4c76bd6b4f4였다.
+따라서 BuildSpec 계산/조립만의 진단으로는 원래 경로를 덮지 못한다. 직접 XML 계산에도
+활성 SkillSet/ConfigSet을 기존 선택 해석기로 읽고 같은 진단을 반환·측정 기록에 저장했다.
+원본 입력에서 판금10/Wind3 두 경고가 발생했고 입력 바이트는 그대로다
+(r5-original-buff-input-diagnostic-v1.json). 세트 대체는 확정 선택처럼 읽지 않는다.
+내부 BuildSpec의 설정 튜플도 현재값을 정확히 읽도록 보완했다. 새 native 테스트의
+설정 사전/튜플 혼동은 수정했고, 보완 후 관련82검사 모두 통과·실패/건너뜀0이다.
+실제 PoB4개·공개 MCP·활성/비활성 세트·설정0·저장 영수증·조립 manifest를 포함한다.
+기록 r5-xml-buff-final-20261102-01.xml. 보완 이전 전량150과 구분하며 최신 CI를 재확인한다.

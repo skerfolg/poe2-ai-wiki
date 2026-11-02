@@ -76,6 +76,24 @@ def test_equal_bytes_in_a_new_snapshot_match_but_any_xml_edit_does_not(tmp_path,
         load_document_measurement(result["document_measurement_ref"], other, root=tmp_path)
 
 
+def test_xml_buff_warning_is_in_response_and_immutable_measurement(tmp_path, calculator):
+    xml = (
+        "<PathOfBuilding2>\r\n<!--keep--><Skills><Skill>"
+        '<Gem nameSpec="Scavenged Plating" skillStageCount="10"/>'
+        '</Skill></Skills><Config><Input name="scavengedPlatingStacks" number="0"/>'
+        "</Config></PathOfBuilding2>"
+    )
+    reference = document(tmp_path, xml=xml)
+    result = measure_document(reference, use_cache=False, root=tmp_path)
+    assert calculator[0][0] == xml
+    assert any("config.scavengedPlatingStacks" in row for row in result["design_warnings"])
+    measured = load_document_measurement(
+        result["document_measurement_ref"], reference, root=tmp_path
+    )
+    assert measured["measurement"]["design_warnings"] == result["design_warnings"]
+    assert measured["measurement"]["stats"]["Life"] == 100
+
+
 def test_complete_bundle_tamper_is_rejected(tmp_path, calculator):
     reference = document(tmp_path)
     result = measure_document(reference, root=tmp_path)
@@ -100,7 +118,10 @@ def test_invalid_native_timeout_never_starts_calculation(tmp_path, calculator, t
     assert calculator == []
 
 
-def test_mcp_keeps_document_and_tool_receipts_distinct(monkeypatch, tmp_path, calculator):
+@pytest.mark.parametrize("buff_stages", [False, True])
+def test_mcp_keeps_document_and_tool_receipts_distinct(
+    monkeypatch, tmp_path, calculator, buff_stages
+):
     import asyncio
 
     from fastmcp import Client, FastMCP
@@ -108,7 +129,14 @@ def test_mcp_keeps_document_and_tool_receipts_distinct(monkeypatch, tmp_path, ca
     from pok.artifacts import tool_results
     from pok.mcp import server
 
-    reference = document(tmp_path)
+    xml = XML
+    if buff_stages:
+        xml = XML.replace(
+            "</PathOfBuilding2>",
+            '<Skills><Skill><Gem nameSpec="Wind Dancer" skillStageCount="3"/></Skill></Skills>'
+            '<Config><Input name="windDancerStacks" number="0"/></Config></PathOfBuilding2>',
+        )
+    reference = document(tmp_path, xml=xml)
     api = FastMCP("document-measurement-test")
     monkeypatch.setattr(server, "mcp", api)
     monkeypatch.setattr(server, "_TOOL_PARAMS", {})
@@ -150,5 +178,9 @@ def test_mcp_keeps_document_and_tool_receipts_distinct(monkeypatch, tmp_path, ca
             assert read["binding"] == "verified_exact_xml_subject"
             assert read["measurement"]["stats"]["CombinedDPS"] == 200
             assert measured["stats"] == {"Life": 100}
+            warnings = measured.get("design_warnings", [])
+            assert any("config.windDancerStacks" in row for row in warnings) == buff_stages
+            assert read["measurement"].get("design_warnings", []) == warnings
+            assert calculator[0][0] == xml
 
     asyncio.run(exercise())

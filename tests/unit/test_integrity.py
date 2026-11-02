@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from pok.engine.integrity import _record_kind, spec_integrity
+from pok.engine.integrity import _record_kind, spec_integrity, xml_buff_stage_diagnostics
 
 COEA = {
     "gem_id": "Metadata/Items/Gems/SkillGemCastOnElementalAilment",
@@ -17,6 +17,55 @@ COEA = {
 }
 SPARK = {"gem_id": "Metadata/Items/Gems/SkillGemSpark", "name": "Spark", "stat_set_index": 1}
 UNLEASH = {"gem_id": "Metadata/Items/Gems/SkillGemUnleashSupport", "name": "Unleash"}
+
+
+@pytest.mark.parametrize("stage_field", ["skillStageCount", "skillStageCountCalcs"])
+@pytest.mark.parametrize("disabled", [None, "group", "gem"])
+def test_xml_buff_stage_diagnostic_reads_active_sets_and_preserves_zero(stage_field, disabled):
+    xml = (
+        '<PathOfBuilding2><Skills activeSkillSet="7">'
+        '<SkillSet id="1"><Skill><Gem nameSpec="Scavenged Plating" skillStageCount="10"/>'
+        '</Skill></SkillSet><SkillSet id="7">'
+        f'<Skill enabled="{"false" if disabled == "group" else "true"}">'
+        f'<Gem nameSpec="Wind Dancer" {stage_field}="3" '
+        f'enabled="{"false" if disabled == "gem" else "true"}"/>'
+        '</Skill></SkillSet></Skills><Config activeConfigSet="4">'
+        '<ConfigSet id="1"><Input name="windDancerStacks" number="10"/></ConfigSet>'
+        '<ConfigSet id="4"><Input name="windDancerStacks" number="0"/></ConfigSet>'
+        "</Config></PathOfBuilding2>"
+    )
+    warnings = xml_buff_stage_diagnostics(xml)
+    if disabled:
+        assert warnings == ()
+    else:
+        assert len(warnings) == 1
+        assert "skill_set=7, config_set=4" in warnings[0]
+        assert "config.windDancerStacks" in warnings[0]
+        assert "현재 '0'" in warnings[0]
+
+
+def test_xml_buff_stage_diagnostic_does_not_guess_a_fallback_config():
+    xml = (
+        '<PathOfBuilding2><Skills><Skill><Gem nameSpec="Wind Dancer" skillStageCount="3"/>'
+        '</Skill></Skills><Config activeConfigSet="9"><ConfigSet id="4">'
+        '<Input name="windDancerStacks" number="0"/></ConfigSet></Config></PathOfBuilding2>'
+    )
+    warnings = xml_buff_stage_diagnostics(xml)
+    assert len(warnings) == 1 and "대체" in warnings[0]
+    assert "config.windDancerStacks" not in warnings[0]
+
+
+def test_xml_buff_stage_diagnostic_does_not_misidentify_other_gems():
+    xml = (
+        '<PathOfBuilding2><Skills><Skill><Gem nameSpec="Wind Dancer" '
+        'gemId="Metadata/Items/Gems/SkillGemSpark" skillStageCount="3"/>'
+        "</Skill></Skills></PathOfBuilding2>"
+    )
+    assert xml_buff_stage_diagnostics(xml) == ()
+
+
+def test_xml_buff_stage_diagnostic_reports_unavailable_parse_without_repair():
+    assert "해석할 수 없다" in xml_buff_stage_diagnostics("<PathOfBuilding2>")[0]
 
 
 @pytest.mark.parametrize(
@@ -27,12 +76,15 @@ UNLEASH = {"gem_id": "Metadata/Items/Gems/SkillGemUnleashSupport", "name": "Unle
     ],
 )
 @pytest.mark.parametrize("value", [None, 0, 3])
+@pytest.mark.parametrize("config_form", ["mapping", "pairs"])
 def test_buff_stage_input_reports_real_config_without_mutating_spec(
-    suffix, name, stages, config_key, value
+    suffix, name, stages, config_key, value, config_form
 ):
     from copy import deepcopy
 
     config = {} if value is None else {config_key: value}
+    if config_form == "pairs":
+        config = tuple(config.items())
     spec = {
         "skills": [
             {"gems": [SPARK]},
