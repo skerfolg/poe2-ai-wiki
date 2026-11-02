@@ -89,7 +89,7 @@ flowchart TD
   R5PREP[R5 8회 수집 완료·품질/결함 후속<br/>in_progress]
   R3CORE -. UI 사전 통합 .-> R6UI
   R5PREP --> R6UI[R6 UI 별도 세션·후속 보류<br/>deferred]
-  R6UI --> R7SWITCH[R7 최종 빌드 품질 비교 준비 · 전환 보류<br/>in_progress]
+  R6UI --> R7SWITCH[R7 실제 품질 비교 · 시행 범위 결정 대기<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
@@ -218,7 +218,10 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5·R7·#188: 최종 빌드 품질 비교의 공통 자료·대상 소스·출력/평가 계약과 격리 실행기를 사전 검증한다. 추가 모델 시험 규모는 사용자 답변 대기이며 승인 전 모델 생성을 시작하지 않는다. 현재 Astra/ultra 카탈로그 존재는 확인했지만 실제 추론 접근은 미검증이다. 운영 경로 변경·UI 작업은 품질 검증을 대체하지 않는다.**
+The only next executable step is: **S55 / R5·R7·#188: 추가 모델 시험8회(B/N) 또는12회(R/B/N)의 범위 답변을 받은 뒤 실제 시행 순서/계획을 동결하고 최종 빌드 품질 비교를 실행한다. 공통 자료·제품·R 경계·제출 회수·모의 캠페인 사전 검증을 마쳤고 제어 코드c83a877의 Windows/macOS CI가 모두 통과했다. 답변 전에는 모델 생성을 시작하지 않는다. 실제 추론 접근과 빌드 품질 효과는 아직 미검증이며 운영 경로 변경·UI 작업은 이 평가를 대체하지 않는다.**
+
+### 참고 이력 — 현재 실행 지시가 아님
+
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -336,7 +339,12 @@ In the install state, the only alternative is "wait for a lane to be defined." N
 
 ## Open Decisions
 
-2026-11-01 현재 사용자 판단 대기: 독립 PoB backend의 A/B 경계 선택은 [구체안](POK_UI_STANDALONE_BACKEND_PROPOSAL.md)을 따른다. 선택 환경변수 저장 경로는 이미 승인·검증 완료라 재확인하지 않는다. UI WIP d33b3c3의 skerfolg/pok-ui → skerfolg/pok-r6-design-records push는 자동 승인 검토가 구체적 전송 승인 부재로 거절해 별도 승인 질문을 보냈으며 아직 실행하지 않았다. 두 판단을 일반 goal 계속 메시지로 대신 승인하지 않는다.
+현재 미결은 추가 품질 시험8회(B/N, 최대12시간)와12회(R/B/N, 최대18시간) 중 실행 범위다. 비동기 질문 답변은 아직 없으며 일반 goal 계속 이벤트를 이 선택의 답변으로 대신하지 않는다.
+
+이미 확정된 사항: 독립 PoB backend는 기존 모듈 유지·독립 worker A안, 선택 환경변수 경로 분리는 승인됐다. pok-ui 원격 반영도 사용자에게 허용 답변을 받았다. 이를 다시 승인 대기로 취급하지 않는다. 현재 UI는 별도 세션 담당으로 여기서는 상세 작업을 보류하며, 과거 미실행 기록을 최신 UI 상태로 간주하지 않는다.
+
+### 과거 판단/관측 기록
+
 
 2026-10-30 R1 무개입 보조 관측: 기존 문서 파서·BuildSpec·receipt·산출물/결과 참조의 책임은 [형식 감사](POK_DESIGN_FORMAT_AUDIT.md)에 기록했다. 외부 PoB 앵커·트리 target·설계 조건 앵커의 뜻이 다름을 명시했다. 이는 R2 입력이며 목표 스키마/새 경계를 확정하거나 동결 코드를 변경한 것이 아니다.
 
@@ -2057,3 +2065,8 @@ native_pob_calculations=0/quality_verified=false이며 실제6회 품질 시행�
 `prepared-materials-v1.json`에12개 근거 파일의 해시와 제어 코드c83a877을 묶었다.
 이는 자료/런타임 준비 묶음이며 시행 범위·순서·실제 캠페인 계획의 최종 동결은 미완료다.
 추가8/12회 범위가 확정되면 순서를 고정하고 매 시도 전후 검증·원본 결과 보존으로 실행한다.
+
+최신 코드 검증 확인(2026-11-03): PR #156/c83a877의 CI41506216605는
+Windows/macOS 모두SUCCESS다. 이후 로컬ec600da는 문서만 변경했고 제어 코드 해시는
+준비 묶음과 같다. 이번 현재 계획 개정은 다음 작업과 미결/기승인 상태를 정렬하며,
+실제 모델 시험이나 #188 품질 효과를 완료로 승격하지 않는다.
