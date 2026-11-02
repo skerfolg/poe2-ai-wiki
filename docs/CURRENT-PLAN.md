@@ -89,7 +89,7 @@ flowchart TD
   R5PREP[R5 8회 수집 완료·품질/결함 후속<br/>in_progress]
   R3CORE -. UI 사전 통합 .-> R6UI
   R5PREP --> R6UI[R6 UI 별도 세션·후속 보류<br/>deferred]
-  R6UI --> R7SWITCH[R7 저장 복귀 사전 시험 · 기본 전환 대기<br/>in_progress]
+  R6UI --> R7SWITCH[R7 최종 빌드 품질 비교 준비 · 전환 보류<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
@@ -1948,3 +1948,16 @@ LF/CRLF 차이뿐이고 줄바꿈 제거 후 바이트 및 JSON 레코드는 같
 수정·중간안 대체·품질 통과 판정을 하지 않는다. 잘못된 JSON 응답은 기존 실패로 남긴다.
 관련31검사 및 Ruff 통과, 변경 소스2개 mypy 통과. 원래 R5 기본 계약은 그대로이며
 참가자 모델 추론은 시작하지 않았다. 추가 실행 범위 답변은 여전히 필요하다.
+
+PR 준비 검사(2026-11-03): 전체 기본 단위 검사 프로세스가 실행 중이다.
+실행 명령은 `pytest --junitxml=artifacts/reviews/final-quality-controller-full-unit.xml -q`.
+기본 testpaths=tests/unit 확인, 프로세스49552/38008 및 동일 제어 세션96720 생존을
+확인했다. 아직 최종 JUnit/종료 코드가 없어 통과로 보고하지 않는다.
+R7 상단 요약 표/그래프도 최종 품질 판정 우선으로 정렬했다.
+
+제품 Git 식별 보강(2026-11-03): B=`bab73a1f57a6ced0f2a4520fce96cb54a0158ada`,
+N=`afc98d12f4a52d9d4534bae7a534be29baeae032`는 각각 명시 파일1189/1320개만
+포함한 독립 `eval-frozen-B/N` 스냅샷 커밋이다. 원래 제품 커밋으로 위장하지 않는다.
+모든 Git blob을 실제 파일 바이트와 대조해 차이0이며 유효 SHA256 manifest도 그대로다.
+기존 기동 보고의 identity unavailable은 미커밋 시점 관측으로 보존하고, 실제 MCP의
+새 식별 응답은 후속 확인한다. PoB/런타임 출력은 이 커밋에 포함하지 않았다.
