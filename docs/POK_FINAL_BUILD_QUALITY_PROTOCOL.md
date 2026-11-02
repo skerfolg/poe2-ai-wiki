@@ -204,3 +204,12 @@ native_pob_calculations=0/quality_verified=false이며 실제6회 품질 시행�
 `prepared-materials-v1.json`에12개 근거 파일의 해시와 제어 코드c83a877을 묶었다.
 이는 자료/런타임 준비 묶음이며 시행 범위·순서·실제 캠페인 계획의 최종 동결은 미완료다.
 추가8/12회 범위가 확정되면 순서를 고정하고 매 시도 전후 검증·원본 결과 보존으로 실행한다.
+
+R 기본값 경계 수정(2026-11-03): 실제 MCP 회귀에서 래퍼가 노출한 input_policy의
+기본값이 legacy임을 재현했다(reference-default-before-fix.xml). FastMCP가 기본값을
+주입하므로 생략 호출은 내부의 explicit 의도와 달리 거부될 수 있었다. R 래퍼의 공개
+Signature/default/doc을 explicit과 일치시켰으며 B/N은 변경하지 않았다. 실제 MCP의
+스키마 기본값·생략 호출 결과까지 검사한 관련80검사 및 새 소스 mypy/Ruff 통과.
+제어 코드가 바뀌었으므로 준비 묶음v1/옛 모의 결과는 옛 리비전 근거로 보존하고,
+새 런타임 제어기 지문·실제 R stdio·모의 캠페인을 별도v2로 확인해야 한다.
+실제 모델 시험은 여전히 미시작이고8/12회 범위 답변은 없다.

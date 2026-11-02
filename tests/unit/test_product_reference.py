@@ -78,3 +78,28 @@ def test_reference_has_no_optimizer_graph_or_kb_api(reference):
         "evaluate_change_bundle",
     }
     assert {"compute_pob", "assemble_pob", "prepare_pob_delivery"} <= reference.BASIC_TOOLS
+
+
+def test_reference_export_mcp_schema_and_omitted_default_are_explicit(reference):
+    import asyncio
+
+    from fastmcp import Client, FastMCP
+
+    calls = []
+
+    def assemble_pob(build_spec: dict, slug: str, input_policy: str = "legacy") -> dict:
+        calls.append(input_policy)
+        return {"policy": input_policy}
+
+    mcp = FastMCP("reference-default-probe")
+    mcp.tool(reference.explicit_export(assemble_pob))
+
+    async def probe():
+        async with Client(mcp) as client:
+            tools = await client.list_tools()
+            assert tools[0].inputSchema["properties"]["input_policy"]["default"] == "explicit"
+            result = await client.call_tool("assemble_pob", {"build_spec": {}, "slug": "manual"})
+            assert result.data == {"policy": "explicit"}
+
+    asyncio.run(probe())
+    assert calls == ["explicit"]

@@ -6,7 +6,7 @@ import functools
 import inspect
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from product_integrity import load_pinned_json
 from product_server import configure_product
@@ -32,9 +32,17 @@ BASIC_TOOLS = frozenset(
 def explicit_export(function: Callable[..., Any]) -> Callable[..., Any]:
     """Reference assembly never enters the legacy automatic rare selection path."""
 
+    original_signature = inspect.signature(function)
+    signature = original_signature.replace(
+        parameters=[
+            parameter.replace(default="explicit") if parameter.name == "input_policy" else parameter
+            for parameter in original_signature.parameters.values()
+        ]
+    )
+
     @functools.wraps(function)
     def guarded(*args: Any, **kwargs: Any) -> Any:
-        bound = inspect.signature(function).bind(*args, **kwargs)
+        bound = signature.bind(*args, **kwargs)
         if bound.arguments.get("input_policy", "explicit") != "explicit":
             return {"ok": False, "blocking": ["Reference export requires input_policy=explicit"]}
         if bound.arguments.get("purpose", "exploration") != "exploration":
@@ -46,6 +54,14 @@ def explicit_export(function: Callable[..., Any]) -> Callable[..., Any]:
         bound.arguments["input_policy"] = "explicit"
         return function(*bound.args, **bound.kwargs)
 
+    # FastMCP injects schema defaults before invoking the wrapper. Publish the
+    # actual reference default rather than the wrapped product's legacy default.
+    cast(Any, guarded).__signature__ = signature
+    guarded.__doc__ = (
+        "Explicit reference assembly; input_policy defaults to explicit. "
+        "Legacy automatic rare selection and recommendation exports are rejected. "
+        "Calculation/legality do not certify build quality or game feasibility."
+    )
     return guarded
 
 
