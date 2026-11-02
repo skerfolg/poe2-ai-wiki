@@ -19,6 +19,82 @@ SPARK = {"gem_id": "Metadata/Items/Gems/SkillGemSpark", "name": "Spark", "stat_s
 UNLEASH = {"gem_id": "Metadata/Items/Gems/SkillGemUnleashSupport", "name": "Unleash"}
 
 
+@pytest.mark.parametrize(
+    ("suffix", "name", "stages", "config_key"),
+    [
+        ("WindDancer", "Wind Dancer", 3, "windDancerStacks"),
+        ("ScavengedPlating", "Scavenged Plating", 10, "scavengedPlatingStacks"),
+    ],
+)
+@pytest.mark.parametrize("value", [None, 0, 3])
+def test_buff_stage_input_reports_real_config_without_mutating_spec(
+    suffix, name, stages, config_key, value
+):
+    from copy import deepcopy
+
+    config = {} if value is None else {config_key: value}
+    spec = {
+        "skills": [
+            {"gems": [SPARK]},
+            {
+                "gems": [
+                    {
+                        "gem_id": f"Metadata/Items/Gems/SkillGem{suffix}",
+                        "name": name,
+                        "stages": stages,
+                    }
+                ]
+            },
+        ],
+        "config": config,
+    }
+    original = deepcopy(spec)
+    warnings = spec_integrity(spec)
+    relevant = [p for p in warnings if f"config.{config_key}" in p]
+    assert len(relevant) == 1
+    assert "skills[1].gems[0]" in relevant[0]
+    assert f"stages={stages}" in relevant[0]
+    assert f"현재 {'미지정' if value is None else value}" in relevant[0]
+    assert spec == original
+
+
+@pytest.mark.parametrize(
+    "group",
+    [
+        {"enabled": False, "gems": [{"name": "Wind Dancer", "stages": 3}]},
+        {"gems": [{"name": "Wind Dancer", "stages": 3, "enabled": False}]},
+        {"gems": [{"name": "Wind Dancer"}]},
+        {"gems": [{"name": "Spark", "stages": 3}]},
+        # An explicit different identity wins over a misleading display name.
+        {"gems": [{**SPARK, "name": "Wind Dancer", "stages": 3}]},
+    ],
+)
+def test_buff_stage_diagnostic_does_not_infer_unrelated_or_disabled_controls(group):
+    warnings = spec_integrity({"skills": [{"gems": [SPARK]}, group]})
+    assert not any("windDancerStacks" in p or "scavengedPlatingStacks" in p for p in warnings)
+
+
+def test_buff_stage_name_fallback_and_native_identity_precedence():
+    spec = {
+        "skills": [
+            {"gems": [SPARK]},
+            {
+                "gems": [
+                    {"name": " wind dancer ", "stages": 3},
+                    {
+                        "gem_id": "Metadata/Items/Gems/SkillGemScavengedPlating",
+                        "name": "Wind Dancer",
+                        "stages": 10,
+                    },
+                ]
+            },
+        ]
+    }
+    warnings = spec_integrity(spec)
+    assert sum("config.windDancerStacks" in p for p in warnings) == 1
+    assert sum("config.scavengedPlatingStacks" in p for p in warnings) == 1
+
+
 def test_main_group_without_a_damage_skill_is_reported() -> None:
     problems = spec_integrity({"skills": [{"gems": [COEA, UNLEASH]}]})
     assert any("딜을 낼 스킬이 없다" in p for p in problems)
@@ -164,6 +240,11 @@ def test_public_calculation_boundary_preserves_real_empty_meta_warning(monkeypat
                 {"name": "Wind Dancer", "gem_id": "Metadata/Items/Gems/SkillGemWindDancer"},
                 {"name": "Escape Shot", "gem_id": "Metadata/Items/Gems/SkillGemEscapeShot"},
                 COEA,
+                {
+                    "name": "Wind Dancer",
+                    "gem_id": "Metadata/Items/Gems/SkillGemWindDancer",
+                    "stages": 3,
+                },
             ):
                 response = await client.call_tool(
                     "compute_pob",
@@ -179,6 +260,9 @@ def test_public_calculation_boundary_preserves_real_empty_meta_warning(monkeypat
                 )
                 warnings = response.data.get("design_warnings", [])
                 assert any("발동될 스킬이 없다" in row for row in warnings) == (gem == COEA)
+                assert any("config.windDancerStacks" in row for row in warnings) == (
+                    gem.get("stages") == 3
+                )
                 assert response.data["stats"]["Life"] == 100
 
     asyncio.run(exercise())

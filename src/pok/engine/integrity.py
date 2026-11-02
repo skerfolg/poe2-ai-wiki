@@ -23,6 +23,43 @@ from pok.kb.store import Store
 
 _CLASSIFICATIONS: tuple[Store, dict[str, str]] | None = None
 
+# These two controls were independently reproduced against native PoB (#211).
+# They are buff counters in ConfigOptions.lua, not skillStageCount inputs.
+_BUFF_STACK_CONFIG = {
+    "Metadata/Items/Gems/SkillGemWindDancer": ("Wind Dancer", "windDancerStacks"),
+    "Metadata/Items/Gems/SkillGemScavengedPlating": ("Scavenged Plating", "scavengedPlatingStacks"),
+}
+
+
+def _buff_stage_diagnostics(spec_data: dict[str, Any]) -> list[str]:
+    """Report ineffective stage inputs without changing any upkeep assumption."""
+    problems: list[str] = []
+    by_name = {name.lower(): (name, key) for name, key in _BUFF_STACK_CONFIG.values()}
+    config = spec_data.get("config") or {}
+    for gi, group in enumerate(spec_data.get("skills") or []):
+        if not group.get("enabled", True):
+            continue
+        for gem_i, gem in enumerate(group.get("gems") or []):
+            if not gem.get("enabled", True) or gem.get("stages") is None:
+                continue
+            identity = gem.get("gem_id")
+            control = (
+                _BUFF_STACK_CONFIG.get(str(identity))
+                if identity
+                else by_name.get(str(gem.get("name", "")).strip().lower())
+            )
+            if control is None:
+                continue
+            name, key = control
+            supplied = repr(config[key]) if key in config else "미지정"
+            problems.append(
+                f"skills[{gi}].gems[{gem_i}] {name}: stages={gem['stages']}는 "
+                f"이 버프의 중첩 수를 제어하지 않는다. 실제 입력은 config.{key} "
+                f"(현재 {supplied})다. stages 무변화를 PoB 미지원으로 판단하지 말 것. "
+                "유지 가능한 중첩 수를 확인해 명시할 것 — 값을 자동 적용하지 않았다"
+            )
+    return problems
+
 
 def _record_kind(tags: frozenset[str], effects: list[dict[str, Any]]) -> str:
     """Explicit meta containers still need a payload, even with ancillary effects."""
@@ -86,7 +123,7 @@ def spec_integrity(
     돌려주는 것은 사람이 읽을 문장이다. 어느 그룹의 몇 번째인지까지 짚어야
     호출자가 고칠 수 있다(#29: 어디를 고칠지 모르는 경고는 안 고쳐진다).
     """
-    problems: list[str] = []
+    problems: list[str] = _buff_stage_diagnostics(spec_data)
     groups = list(spec_data.get("skills") or [])
     if not groups:
         return ("스킬 그룹이 하나도 없다 — 딜을 낼 수 있는 구성이 아니다",)

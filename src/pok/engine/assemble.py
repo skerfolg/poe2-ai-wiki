@@ -12,6 +12,7 @@ validation.json은 **실측 기록이지 합격 판정이 아니다** — 다차
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import json
 import re
 import xml.etree.ElementTree as ET
@@ -54,6 +55,7 @@ class AssembledBuild:
     item_editor: dict[str, Any] = dataclasses.field(default_factory=dict)
     socket_sidecar_ref: dict[str, str] | None = None
     socket_provenance: dict[str, Any] = dataclasses.field(default_factory=dict)
+    artifact_files: dict[str, dict[str, str]] = dataclasses.field(default_factory=dict)
 
     @property
     def is_legal(self) -> bool:
@@ -336,6 +338,16 @@ def assemble(
             "적용 범위가 실제보다 넓을 수 있다"
         )
     path = record_build(build_id, files, manifest)
+    # Hash actual stored bytes, including platform-specific legacy line endings.
+    # These references let clients prepare a file delivery without copying code.
+    artifact_files = {
+        name: {
+            "artifact_id": build_id,
+            "name": name,
+            "sha256": "sha256:" + hashlib.sha256((path / name).read_bytes()).hexdigest(),
+        }
+        for name in ("build.xml", "build.pob")
+    }
     manifest_hash = json.loads((path / "manifest.json").read_text(encoding="utf-8"))["content_hash"]
     dups = tuple(b for b in find_by_hash(manifest_hash) if b != build_id)
     return AssembledBuild(
@@ -350,6 +362,7 @@ def assemble(
         item_editor=item_editor,
         socket_sidecar_ref=socket_sidecar_ref,
         socket_provenance=socket_provenance,
+        artifact_files=artifact_files,
     )
 
 
