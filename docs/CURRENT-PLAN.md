@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: #188 품질 후속 `skerfolg/pok-188-quality`, main/dd81067 기준. PR #152/#153은 병합되었다. pok-ui는 별도 세션 담당이며 이 세션의 구현 범위에서 보류한다.
+**Integration branch**: `skerfolg/pok-result-overview` (main/7c909bb 기준). PR #154 병합·로컬 main 갱신 확인. #188 품질 후속과 #213 결과 탐색 개요를 진행하며 UI 상세 작업은 별도 세션 담당이다.
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5·#188: 최종 선택의 자원 여유와 완성 묶음 재배분 근거를 대조한다. 노드 단독 기여를 최적성이나 낭비 판정으로 바꾸지 않는다. PR #154의 엔진 수정 8238e50은 양 플랫폼 일반/native CI를 통과했고 사용자 검토·병합 대기다. 품질 효과 미입증·동결 원본 보존·모델 재실행 금지를 유지하며 UI 상세 작업은 별도 세션 담당이다.**
+The only next executable step is: **S55 / #188·R7: 최신 main과 상주 PoK의 소스·스키마 차이를 읽기 전용으로 대조하고, 원래 작업 트리와 데이터/캐시를 보존하는 버전 정렬 방안을 준비한다. #213 개요 구현은 관련70회귀·동결 재생3건·실제 native 소비6개·문서14검사를 통과해 PR/CI 단계다. 코드 품질 검증과 모델 행동/빌드 품질 효과를 구분하며 동결 모델 재실행 금지·UI 별도 세션 범위를 유지한다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1879,3 +1879,24 @@ CI 후속 번호/신원/응답 검사29개 통과. 수정은 기존 신원 경�
 검증 확정(8238e50): 일반CI Windows2630통과/208skip, macOS2625통과/213skip.
 실제 native Windows163통과, macOS160통과/Windows전용3skip. 실패0이며
 PR #154는 draft/병합 전이다. 현재 로컬 계산은 종료했고 다음은 품질 후속 분석이다.
+
+### 결과 탐색 개요 후속 — 2026-11-02
+
+PR #154는7c909bb로 병합됐고 Orca가 로컬 main도 갱신했다. 독립 작업 트리는
+최신 origin/main에서 시작했다. #213은 자료/근거를 삭제하는 변경이 아니라 구조를
+먼저 볼 수 있게 하는 additive 개요다. 관련70회귀·동결 원문3개 재생 통과.
+첫 관련 실행의 카탈로그 부재는 고정5d173cb Junction 연결로 보완했고, 실제 핀을 확인했다.
+실제 MCP의 페이징은 기존 next_offset을 따라 검사하며 한 페이지라고 가정하지 않는다.
+
+현재 연결된 PoK MCP의 관측은 loaded f10946e / source9f016e3 / stale=true이며
+source_root는 원래 D 작업 트리다. 이 상태는 Codex goal active 여부와 별개다.
+현재 엔진 검증은 새 작업 트리 소스를 명시해 수행하며 구버전 서비스로 새 기능을
+검증했다고 주장하지 않는다. 실제 상주/배포 전환 검증은 R7에 남긴다.
+
+2026-11-03 전량 단위 최초 결과: 2658통과/33로컬 산출물 부재skip/문서 분류1실패
+(801.20초). #213 기능제안을 결함 큐에도 올린 중복을 제거하며 검사는 완화하지 않는다.
+최종 원문/개요 관련70회귀와 형식·mypy·의존 경계는 통과했다.
+
+2026-11-03 #213 최종 preflight: 실제 PoB 비교/문서/완성 트리 소비6개 통과
+(146.35초), 문서 분류14개 재검증 통과. 전량 최초의 유일한 문서 실패를 보완했고
+검사는 완화하지 않았다. 형식·mypy·모듈 경계도 통과, 새 PR을 준비한다.

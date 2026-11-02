@@ -471,3 +471,48 @@ def test_nonfinite_values_preserve_existing_mcp_json_contract(isolated, shape, p
             assert await full_json(bounded, followup_id, "/inputs/payload") == {"value": expected}
 
     asyncio.run(compare())
+
+
+def test_large_comparison_notice_exposes_exact_fields_over_real_mcp(isolated):
+    value = {
+        "base": {"stats": {"Life": 100}},
+        "variants": {"candidate": {"stats": {"Life": 200}}},
+        "deltas": {"candidate": {"Life": 100}},
+        "variant_reviews": {"candidate": {"proof": '근거\\"' * 100000}},
+    }
+
+    def compare_overview() -> dict[str, Any]:
+        return value
+
+    server.tool(compare_overview)
+
+    async def exercise():
+        async with Client(isolated) as client:
+            reply = await client.call_tool("compare_overview", {})
+            notice = reply.data
+            assert wire_bytes(reply) <= server._WIRE_RESULT_BYTES
+            fields = {row["key"]: row for row in notice["summary"]["fields"]}
+            assert set(fields) == set(value)
+            assert notice["summary"]["fields_complete"]
+            browse = dict(notice["read"])
+            tool = browse.pop("tool")
+            page = await client.call_tool(tool, browse)
+            assert page.data["mode"] == "entries"
+            browsed = list(page.data["entries"])
+            while page.data["next_offset"] is not None:
+                browse["offset"] = page.data["next_offset"]
+                page = await client.call_tool(tool, browse)
+                assert wire_bytes(page) <= server._WIRE_RESULT_BYTES
+                browsed.extend(page.data["entries"])
+            assert [row["key"] for row in browsed] == list(value)
+            delta_ref = fields["deltas"]["value_ref"]
+            delta = await client.call_tool(
+                "get_tool_result",
+                {"result_id": delta_ref["$pok_result"], "path": delta_ref["path"]},
+            )
+            assert delta.data["entries"] == [{"key": "candidate", "value": {"Life": 100}}]
+            payload, _ = tool_results.load_result(delta_ref["$pok_result"])
+            assert payload["result"] == value
+            assert notice["result_sha256"] == tool_results.digest(value)
+
+    asyncio.run(exercise())

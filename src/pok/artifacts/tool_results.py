@@ -12,7 +12,8 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
+from itertools import islice
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,8 @@ from pok.common.paths import artifacts_dir
 
 FORMAT = "pok.tool-result.v1"
 PAGE_BYTES = 4096
+_OVERVIEW_FIELDS = 16
+_NOTICE_BYTES = PAGE_BYTES - 128
 _ID = re.compile(r"[0-9a-f]{64}\Z")
 _REF_KEYS = {"$pok_result", "path", "overrides"}
 
@@ -243,7 +246,16 @@ def _kind(value: Any) -> str:
 def notice(manifest: Mapping[str, Any], result: Any) -> dict[str, Any]:
     """Bounded handoff without ranking, truncating, or inventing a successful result."""
     result_id = manifest["id"]
-    return {
+    fields: list[dict[str, Any]] = []
+    total_fields = len(result) if isinstance(result, dict | list) else 0
+    summary: dict[str, Any] = {
+        "kind": _kind(result),
+        "length": len(result) if isinstance(result, dict | list | str) else None,
+        "fields": fields,
+        "fields_total": total_fields,
+        "fields_complete": False,
+    }
+    output: dict[str, Any] = {
         "stored_tool_result": True,
         "result_ref": {"$pok_result": result_id, "path": "/result"},
         "inputs_ref": {"$pok_result": result_id, "path": "/inputs"},
@@ -251,13 +263,43 @@ def notice(manifest: Mapping[str, Any], result: Any) -> dict[str, Any]:
         "inputs_sha256": manifest["inputs_sha256"],
         "result_sha256": manifest["result_sha256"],
         "result_bytes": manifest["result_bytes"],
-        "summary": {
-            "kind": _kind(result),
-            "length": len(result) if isinstance(result, dict | list | str) else None,
+        "summary": summary,
+        "read": {
+            "tool": "get_tool_result",
+            "result_id": result_id,
+            "path": "/result",
+            "mode": "entries",
         },
-        "read": {"tool": "get_tool_result", "result_id": result_id, "path": "/result"},
         "claim": "complete_result_stored_no_selection_or_validation_added",
     }
+    entries: Iterable[tuple[Any, Any]] = (
+        result.items()
+        if isinstance(result, dict)
+        else enumerate(result)
+        if isinstance(result, list)
+        else ()
+    )
+    for key, value in islice(entries, _OVERVIEW_FIELDS):
+        # Follow JSON's object-key spelling, including null/bool/number keys.
+        label = key
+        if isinstance(result, dict) and not isinstance(key, str):
+            label = str(next(iter(json.loads(encode({key: None})))))
+        segment = str(label)
+        if len(segment) > _NOTICE_BYTES:
+            continue
+        pointer = "/result/" + segment.replace("~", "~0").replace("/", "~1")
+        fields.append(
+            {
+                "key": label,
+                "kind": _kind(value),
+                "length": len(value) if isinstance(value, dict | list | str) else None,
+                "value_ref": {"$pok_result": result_id, "path": pointer},
+            }
+        )
+        if len(encode(output)) > _NOTICE_BYTES:
+            fields.pop()
+    summary["fields_complete"] = len(fields) == total_fields
+    return output
 
 
 def _chunk(text: str, output: dict[str, Any], offset: int, budget: int) -> dict[str, Any]:
