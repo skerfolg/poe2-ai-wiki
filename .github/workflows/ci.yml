@@ -61,7 +61,9 @@ jobs:
           done
           du -sh "$dir"
       - name: Lint (ruff)
-        run: ruff check src tests skills/build-generation && ruff format --check src tests skills/build-generation
+        run: >-
+          ruff check src tests skills/build-generation scripts/review_product_campaign.py &&
+          ruff format --check src tests skills/build-generation scripts/review_product_campaign.py
       - name: Types (mypy)
         run: mypy
       - name: Generation provider and CLI types
@@ -76,6 +78,7 @@ jobs:
           skills/build-generation/product_run.py
           skills/build-generation/product_integrity.py
           skills/build-generation/product_campaign.py
+          scripts/review_product_campaign.py
       - name: Layer boundaries (import-linter)   # PROJECT_STRUCTURE §4 — 위반 = 실패
         run: lint-imports
       - name: Tests (pytest)
