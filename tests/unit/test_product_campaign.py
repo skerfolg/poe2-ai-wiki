@@ -2,6 +2,7 @@
 
 import hashlib
 import importlib
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -256,3 +257,132 @@ def test_campaign_integrity_failure_stops_the_remaining_order(case):
             trial_runner=runner,
         )
     assert len(seen) == 1
+
+
+def add_answer_contract(args, *, instruction="Actual file references are sufficient.", schema=None):
+    value = {
+        "format": "pok.trial-answer-contract.v1",
+        "instruction": instruction,
+        "schema": schema
+        or {
+            "type": "object",
+            "properties": {"pob_code": {"type": ["string", "null"]}},
+            "required": ["pob_code"],
+            "additionalProperties": False,
+        },
+    }
+    name = "shared/answer-contract.json"
+    path = args["input_root"] / name
+    path.write_text(json.dumps(value), encoding="utf-8")
+    args["input_hashes"][name] = hashlib.sha256(path.read_bytes()).hexdigest()
+    args["answer_contract_file"] = name
+    return path, value
+
+
+def test_frozen_file_delivery_contract_is_identical_across_both_phases(case):
+    module, args = case
+    _path, contract = add_answer_contract(args)
+    schemas = []
+    identity = str(uuid4())
+
+    def run(*a, **k):
+        schemas.append(k["schema"])
+        assert contract["instruction"] in k["prompt"]
+        return {"state": "completed", "cleanup": {"status": "confirmed"}, "session_id": identity}
+
+    result = module.run_trial(**args, verify=lambda: {"status": "verified"}, phase_executor=run)
+    assert schemas == [contract["schema"], contract["schema"]]
+    assert result["answer_contract"]["sha256"] == args["input_hashes"][args["answer_contract_file"]]
+    assert not result["build_quality_verified"]
+
+
+def test_changed_answer_contract_never_starts_a_participant(case):
+    module, args = case
+    path, _ = add_answer_contract(args)
+    path.write_text("{}", encoding="utf-8")
+    calls = []
+    with pytest.raises(module.CampaignIntegrityError, match="contract"):
+        module.run_trial(
+            **args,
+            verify=lambda: {"status": "verified"},
+            phase_executor=lambda *a, **k: calls.append(True),
+        )
+    assert not calls
+
+
+def test_answer_contract_changed_after_first_phase_stops_before_followup(case):
+    module, args = case
+    path, _ = add_answer_contract(args)
+    calls = []
+
+    def run(*a, **k):
+        calls.append(True)
+        path.write_text("{}", encoding="utf-8")
+        return {
+            "state": "completed",
+            "cleanup": {"status": "confirmed"},
+            "session_id": str(uuid4()),
+        }
+
+    with pytest.raises(module.CampaignIntegrityError, match="contract"):
+        module.run_trial(**args, verify=lambda: {"status": "verified"}, phase_executor=run)
+    assert len(calls) == 1
+    assert not (args["trial_root"] / "server/artifacts/inputs/phase2/item.txt").exists()
+
+
+def test_invalid_frozen_schema_never_starts_a_participant(case):
+    module, args = case
+    add_answer_contract(args, schema={"type": 17})
+    with pytest.raises(module.CampaignIntegrityError, match="contract"):
+        module.run_trial(
+            **args,
+            verify=lambda: {"status": "verified"},
+            phase_executor=lambda *a, **k: pytest.fail("must not run"),
+        )
+
+
+def test_answer_contract_path_cannot_escape_frozen_inputs(case):
+    module, args = case
+    args["answer_contract_file"] = "../answer.json"
+    with pytest.raises((module.CampaignIntegrityError, ValueError)):
+        module.run_trial(
+            **args,
+            verify=lambda: {"status": "verified"},
+            phase_executor=lambda *a, **k: pytest.fail("must not run"),
+        )
+
+
+def test_campaign_forwards_one_frozen_answer_contract_to_every_trial(case):
+    module, args = case
+    add_answer_contract(args)
+    seen = []
+    plan = {
+        "model": args["model"],
+        "effort": args["effort"],
+        "tasks": {"H1": args["task"]},
+        "order": [["H1", "baseline", 1], ["H1", "improved", 1]],
+        "answer_contract": args["answer_contract_file"],
+    }
+
+    def run(root, **kwargs):
+        seen.append(kwargs["answer_contract_file"])
+        return {"state": "finished", "build_quality_verified": False}
+
+    result = module.run_campaign(
+        args["trial_root"],
+        plan=plan,
+        input_root=args["input_root"],
+        input_hashes=args["input_hashes"],
+        products={
+            v: {"root": args["product_root"], "files": args["product_hashes"]}
+            for v in ["baseline", "improved"]
+        },
+        codex_exe=args["codex_exe"],
+        luajit_exe=args["luajit_exe"],
+        verify=lambda: {"status": "verified"},
+        trial_runner=run,
+        control_root=args["control_root"],
+    )
+    assert seen == [plan["answer_contract"], plan["answer_contract"]]
+    assert result["answer_contract"]["sha256"] == args["input_hashes"][plan["answer_contract"]]
+    assert not result["quality_evaluated"]

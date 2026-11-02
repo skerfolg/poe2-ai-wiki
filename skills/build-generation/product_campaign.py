@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from jsonschema import Draft202012Validator, SchemaError
 from product_integrity import relative_name
 from product_run import build_product_command, execute_phase
 from product_server import CONTROL_ROOT
@@ -66,7 +67,46 @@ def copy_verified(
     return names
 
 
-def trial_prompt(scenario: str, files: list[str], phase: int) -> str:
+def read_answer_contract(
+    name: str | None, source: Path, checksums: Mapping[str, str]
+) -> dict[str, Any]:
+    """Load one frozen, shared output contract without altering legacy trials."""
+    if name is None:
+        return {"schema": ANSWER_SCHEMA, "instruction": ""}
+    if not isinstance(name, str):
+        raise CampaignIntegrityError("Answer contract path must be a string")
+    base = source.resolve()
+    path = base.joinpath(*relative_name(name).parts).resolve()
+    if not path.is_relative_to(base):
+        raise CampaignIntegrityError("Answer contract redirects outside frozen inputs")
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise CampaignIntegrityError("Answer contract is unavailable") from exc
+    if hashlib.sha256(raw).hexdigest() != checksums.get(name):
+        raise CampaignIntegrityError("Answer contract changed or was not frozen")
+    try:
+        value = json.loads(raw)
+    except ValueError as exc:
+        raise CampaignIntegrityError("Answer contract is not valid JSON") from exc
+    if (
+        not isinstance(value, dict)
+        or set(value) - {"format", "schema", "instruction"}
+        or value.get("format") != "pok.trial-answer-contract.v1"
+        or not isinstance(value.get("schema"), dict)
+        or not isinstance(value.get("instruction", ""), str)
+    ):
+        raise CampaignIntegrityError("Invalid answer contract fields")
+    try:
+        Draft202012Validator.check_schema(value["schema"])
+    except SchemaError as exc:
+        raise CampaignIntegrityError("Invalid answer contract schema") from exc
+    return {"schema": value["schema"], "instruction": value.get("instruction", "")}
+
+
+def trial_prompt(
+    scenario: str, files: list[str], phase: int, *, answer_instruction: str = ""
+) -> str:
     prelude = (
         "PoK 제품의 실제 생성/조립 지침에 따라 수행하라. pok MCP만 사용하고 웹·거래·셸·"
         "추가 모델·다른 시험의 답안을 사용하지 마라. 필요한 작업은 자율적으로 진행하되 "
@@ -84,6 +124,8 @@ def trial_prompt(scenario: str, files: list[str], phase: int) -> str:
             "이전 대화와 이 시험 자체의 산출물에서 이어가라. "
             "운영자가 중간 최선안을 골라 제공하지 않는다.\n"
         )
+    if answer_instruction:
+        prelude += "\n모든 비교군의 공통 제출 계약:\n" + answer_instruction + "\n"
     return prelude + "\n사용자 시나리오 원문:\n" + scenario
 
 
@@ -103,6 +145,7 @@ def run_trial(
     control_root: Path = CONTROL_ROOT,
     phase_executor: Callable[..., dict[str, Any]] = execute_phase,
     audit: bool = True,
+    answer_contract_file: str | None = None,
 ) -> dict[str, Any]:
     """H1 retains partial context, never transfers unused phase-1 model budget.
 
@@ -130,6 +173,12 @@ def run_trial(
 
     def check(label: str) -> None:
         checked = verify()
+        read_answer_contract(answer_contract_file, input_root, input_hashes)
+        if answer_contract_file is not None:
+            result["answer_contract"] = {
+                "path": answer_contract_file,
+                "sha256": input_hashes[answer_contract_file],
+            }
         result["checks"].append({"stage": label, "result": checked})
         save()
         if checked.get("status") != "verified":
@@ -152,6 +201,7 @@ def run_trial(
                     {"phase": number, "state": "not_started", "reason": "no_exact_prior_session"}
                 )
                 break
+            contract = read_answer_contract(answer_contract_file, input_root, input_hashes)
             phase_started = started if number == 1 else time.monotonic()
             phase_deadline = min(total_deadline, phase_started + float(phase["budget_s"]))
             files = list(phase["participant_files"])
@@ -190,8 +240,13 @@ def run_trial(
             execution = phase_executor(
                 command,
                 output,
-                prompt=trial_prompt(raw.decode("utf-8"), files, number),
-                schema=ANSWER_SCHEMA,
+                prompt=trial_prompt(
+                    raw.decode("utf-8"),
+                    files,
+                    number,
+                    answer_instruction=contract["instruction"],
+                ),
+                schema=contract["schema"],
                 cwd=root / "workspace",
                 timeout_s=remaining,
             )
@@ -268,6 +323,15 @@ def run_campaign(
     write_json(destination / "plan.json", dict(plan))
     write_json(destination / "campaign.json", state)
     try:
+        extra: dict[str, Any] = {}
+        contract_file = plan.get("answer_contract")
+        if contract_file is not None:
+            read_answer_contract(contract_file, input_root, input_hashes)
+            extra["answer_contract_file"] = contract_file
+            state["answer_contract"] = {
+                "path": contract_file,
+                "sha256": input_hashes[contract_file],
+            }
         for index, (task_name, version, repetition) in enumerate(plan["order"], 1):
             product = products[version]
             identity = f"{index:02d}-{task_name}-{version}-{repetition}"
@@ -293,6 +357,7 @@ def run_campaign(
                 luajit_exe=luajit_exe,
                 verify=verify,
                 control_root=control,
+                **extra,
             )
             item.update(state="collected", result=result)
             write_json(destination / "campaign.json", state)

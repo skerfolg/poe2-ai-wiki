@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: #188 품질 후속 `skerfolg/pok-188-quality`, main/dd81067 기준. PR #152/#153은 병합되었다. pok-ui는 별도 세션 담당이며 이 세션의 구현 범위에서 보류한다.
+**Integration branch**: `skerfolg/pok-final-quality` (main 기준 품질 실행 준비). PR #154는 병합됐고 PR #155는 양 플랫폼 CI 통과·검토 대기다. UI는 별도 세션 담당이며 전역 PoK 설정 전환은 보류한다.
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5·#188: 최종 선택의 자원 여유와 완성 묶음 재배분 근거를 대조한다. 노드 단독 기여를 최적성이나 낭비 판정으로 바꾸지 않는다. PR #154의 엔진 수정 8238e50은 양 플랫폼 일반/native CI를 통과했고 사용자 검토·병합 대기다. 품질 효과 미입증·동결 원본 보존·모델 재실행 금지를 유지하며 UI 상세 작업은 별도 세션 담당이다.**
+The only next executable step is: **S55 / R5·R7·#188: 최종 빌드 품질 비교의 공통 자료·대상 소스·출력/평가 계약과 격리 실행기를 사전 검증한다. 추가 모델 시험 규모는 사용자 답변 대기이며 승인 전 모델 생성을 시작하지 않는다. 현재 Astra/ultra 카탈로그 존재는 확인했지만 실제 추론 접근은 미검증이다. 운영 경로 변경·UI 작업은 품질 검증을 대체하지 않는다.**
 
 R1 대기 중 비동결 보조 작업: ROADMAP의 U0(현행 UI 계약 정상화) 범위에서
 별도 `pok-ui`의 `codex/pok-result-transport` 브랜치에 큰 결과 참조의 자동 계산 소비를 재현·보완한다.
@@ -1879,3 +1879,30 @@ CI 후속 번호/신원/응답 검사29개 통과. 수정은 기존 신원 경�
 검증 확정(8238e50): 일반CI Windows2630통과/208skip, macOS2625통과/213skip.
 실제 native Windows163통과, macOS160통과/Windows전용3skip. 실패0이며
 PR #154는 draft/병합 전이다. 현재 로컬 계산은 종료했고 다음은 품질 후속 분석이다.
+
+### 최종 품질 검증으로 우선순위 재정렬 — 2026-11-03
+
+R7의 최종 목적은 실제 빌드 품질 판정과 그 결과에 따른 전환이다. 실행 소스 정렬을
+핵심 성과처럼 진행한 우선순위 오류를 바로잡는다. 현재 프로젝트 설정은 변경하지 않았다.
+기존 실험 실행기는 별도 대상 소스로 새 MCP를 띄울 수 있으므로 상주 서비스 교체가
+품질 시험의 선행조건은 아니다. 런타임용으로 만든 깨끗한 작업 트리는 품질 실행기 준비에
+재사용하며 과거 private 후보 설정은 적용하지 않는다.
+
+[최종 비교 계획](POK_FINAL_BUILD_QUALITY_PROTOCOL.md)은 R 참고군/B 기준판/N 최신판을
+같은 모델·자료·PoB·시간 안에서 비교한다. 12회 또는8회 추가 실행 범위는 질문으로
+확인 중이며 그동안 동결/격리/수집/평가 준비를 진행한다. 모델 생성은 아직 시작하지 않았다.
+CLI0.166.0·sha256 9d563ee4…에서 gpt-6-astra와 ultra 카탈로그를 확인했다.
+model/list는 실제 추론 접근/권한을 입증하지 않는다. 메타데이터 조회만 수행했고
+thread/start·turn/start는 호출하지 않았으며 소유 Windows Job 종료를 확인했다.
+
+품질 실행 준비(2026-11-03): 공통 출력 계약을 별도 동결 파일로 주입하는 확장을
+추가했다. 기존 R5 기본 계약은 그대로 두며 새 블록만 파일 참조/nullable 코드
+계약을 쓸 수 있다. 입력 해시·경로·스키마 검증 및 두 단계 사이 변조 중단,
+모든 제품판/반복 전달을 포함한21회귀와 strict mypy·Ruff를 통과했다.
+참가자/모델 생성은 아직0회다.
+
+기준 아카이브와 후보1a5c38d의 KB697파일을 대조했다. raw hash 차이4개는 모두
+LF/CRLF 차이뿐이고 줄바꿈 제거 후 바이트 및 JSON 레코드는 같다. 실제 R5 기준판
+제공 파일은 원래 아카이브와 같았다. 새 동결에서는 이 차이를 명시하고 공통 사실
+범위/바이트 고정 방식을 확정한 후 시작한다. H1/H2 시나리오3개는 당시 SHA256과
+정확히 일치하게 복구했고 공개된 참가자 파일5개 영수증도 보존했다.
