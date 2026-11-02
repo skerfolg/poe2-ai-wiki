@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import dataclasses
 import functools
+import hashlib
+import json
 import math
 import re
 import time
@@ -21,6 +23,7 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple, Protocol
 
+from pok.common.execution import ExecutionStopped
 from pok.engine.jewel_placement import Placement, place_jewels
 from pok.engine.objective import Target, TargetResult, evaluate_targets
 from pok.engine.tree.clusters import Cluster, find_clusters, relevance
@@ -283,6 +286,38 @@ def start_nodes(graph: TreeGraph, spec: BuildSpec) -> set[int]:
     return out
 
 
+def _interrupted_checkpoint(
+    measured: tuple[BuildSpec, PobResult], objective: Objective
+) -> dict[str, Any]:
+    """Keep an exact measured input, never an unmeasured edit or completion claim."""
+    spec, result = measured
+    raw = json.dumps(
+        dataclasses.asdict(spec),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return {
+        "format": "pok.tree-search-checkpoint.v1",
+        "claim": "measured_partial_not_complete_or_recommended",
+        "search_complete": False,
+        "build_spec": json.loads(raw),
+        "measured_spec_revision": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        "revision_scope": "canonical_build_spec_not_xml_or_runtime_identity",
+        "stats": dict(result.stats),
+        "native_meta": dict(getattr(result, "meta", {})),
+        "allocated_nodes": list(getattr(result, "allocated_nodes", ())),
+        "pruned_nodes": list(getattr(result, "pruned_nodes", ())),
+        "dropped_items": list(getattr(result, "dropped_items", ())),
+        "objective": {
+            "weights": dict(objective.weights),
+            "floors": dict(objective.floors),
+            "targets": [dataclasses.asdict(target) for target in objective.targets],
+        },
+    }
+
+
 def optimize_tree(
     spec: BuildSpec,
     graph: TreeGraph,
@@ -432,152 +467,168 @@ def optimize_tree(
     widened: list[str] = []
     # 긴 점프(#70) 채택 기록 — 노드 한 수와 섞여 있으면 「먼 축을 열었다」가 안 보인다.
     long_jumps: list[str] = []
-    with PobDaemon() as daemon:
-        best_solution: tuple[BuildSpec, PobResult] | None = None  # 단조성 안전장치
-        while True:
-            # ── 그리디 채택 ──
-            rejected = 0
-            while budget > 0:
+    checkpoint_solution: tuple[BuildSpec, PobResult] | None = None
+    try:
+        with PobDaemon() as daemon:
+            best_solution: tuple[BuildSpec, PobResult] | None = None
+            while True:
+                # ── 그리디 채택 ──
+                rejected = 0
+                while budget > 0:
+                    if out_of_time():
+                        timed_out = True
+                        break
+                    tree_now = set(current.tree_nodes) | start_nodes(graph, current)
+                    if power_candidates:
+                        # ⚠ 반경을 **안 본다.** 그리디의 구조적 한계가 「반경 안만 본다」였고
+                        #   (#77 실측: 폭의 0.4%만 그리디가 더했다), PoB의 `POWER`는 트리
+                        #   전체 3,793노드를 한 번에 잰다(25.6초). 값은 못 쓰고 **포인트당
+                        #   순위**만 쓴다 — 경로 비용이 빠져 있어서다(전직 8종 실측:
+                        #   총량 0.808 · 포인트당 0.954).
+                        cands = _power_ranked(
+                            daemon, graph, current, tree_now, budget, banned, slice_size, excluded
+                        )
+                    else:
+                        cands = [
+                            nid
+                            for nid, _, d in _with_free_zones(
+                                graph.candidates(
+                                    tree_now,
+                                    max_dist=reach,
+                                    # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
+                                    # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
+                                    # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
+                                    ascendancy_name=current.ascendancy,
+                                    exclude_nodes=excluded,
+                                ),
+                                reachable_cost,
+                            )
+                            if d <= budget and nid not in banned
+                        ][:slice_size]
+                    if not cands:
+                        break
+                    base = daemon.compute_build(current)
+                    checkpoint_solution = _better(objective, checkpoint_solution, (current, base))
+                    deltas = evaluate_node_deltas(
+                        current,
+                        graph,
+                        cands,
+                        stats=measure,
+                        daemon=daemon,
+                        jewel_templates=jewel_templates,
+                        jewel_rejections=jewel_notes,
+                        exclude_nodes=excluded,
+                        # 템플릿 선택도 같은 정책으로 — 기준은 이번 라운드의 실측 스탯
+                        jewel_score=functools.partial(objective.score, base_stats=base.stats),
+                    )
+                    scored = sorted(
+                        ((objective.score(nd, base.stats), nd) for nd in deltas),
+                        key=lambda x: -x[0],
+                    )
+                    affordable = [(s, nd) for s, nd in scored if nd.points <= budget and s > 0]
+
+                    # ── 긴 점프 (#70) — 매 라운드 노드와 **같은 저울**에서 겨룬다 ──
+                    # 먼 목적지로 가는 첫 걸음은 통행 소노드라 델타가 0에 가깝다. 포인트당
+                    # 으로 재는 그리디는 그 한 걸음을 절대 안 뽑고, 그래서 목적지의 값이
+                    # 아무리 커도 **출발 자체를 안 한다**. 반경을 넓혀도 안 고쳐진다 —
+                    # 반경 문제가 아니라 가격 매기는 방식의 문제다(BACKLOG #70).
+                    #
+                    # ⛔ 「마를 때만」 재면 안 된다 — 가까운 수가 계속 잡히는 동안에는
+                    #    영영 평가되지 않아, 먼 축이 끝까지 안 열린다. 매 라운드 재는 값은
+                    #    실측했다: PoB 1회 0.418초, (기준 1 + 뭉치 15)회면 라운드당 +6.7초로
+                    #    노드 40개(16.7초) 대비 **+40%**다(실측 2026-08-13, 사용자 판정).
+                    for score_bd, bd in _bundle_candidates(
+                        current,
+                        graph,
+                        objective,
+                        base,
+                        budget,
+                        daemon=daemon,
+                        stats=measure,
+                        include=cluster_include,
+                        exclude=cluster_exclude,
+                        limit=slice_size,
+                        exclude_nodes=excluded,
+                    ):
+                        affordable.append((score_bd, _as_node_delta(bd)))
+                    affordable.sort(key=lambda x: -x[0])
+
+                    if not affordable:
+                        # ⛔ 예전엔 여기서 그냥 멈췄다 — **예산을 남긴 채**. 그리디는 반경
+                        # 안의 가까운 후보만 보므로, 근처가 빌드와 무관한 권역이면 한 수도
+                        # 못 두고 끝난다. 독스트링은 "반경·후보 수를 늘려라"라고 안내했지만
+                        # 그건 문서에만 있는 규율이라 안 지켜졌다(실측 2026-08-12 e2e:
+                        # 예산 30 중 8만 쓰고 종료). **도구가 스스로 넓혀 보고** 그래도
+                        # 없을 때만 멈춘다 — 넓힌 사실은 notes로 남긴다.
+                        if budget > 0 and reach < _MAX_REACH:
+                            reach = min(_MAX_REACH, reach * 2)
+                            slice_size = min(_MAX_SLICE, slice_size * 2)
+                            widened.append(f"반경 {reach}·후보 {slice_size}")
+                            continue
+                        rejected = 1
+                        break
+                    best_score, best = affordable[0]
+                    jewels = current.jewels
+                    if best.jewel_text is not None:
+                        jewels = (
+                            *current.jewels,
+                            JewelSpec(socket_node_id=best.node_id, text=best.jewel_text),
+                        )
+                    current = dataclasses.replace(
+                        current, tree_nodes=tuple(current.tree_nodes) + best.path, jewels=jewels
+                    )
+                    budget -= best.points
+                    steps.append(Step(node_delta=best, score=best_score))
+                    if best.kind == "bundle":
+                        long_jumps.append(
+                            f"긴 점프 「{best.name_ko}」 {best.points}포인트 — "
+                            "노드 단위 점수로는 첫 걸음에서 탈락해 못 가던 곳이다"
+                        )
+                result_now = daemon.compute_build(current)
+                best_solution = _better(objective, best_solution, (current, result_now))
+                checkpoint_solution = _better(objective, checkpoint_solution, best_solution)
+                # ── 가지치기: 죽은 끝단이면 막다른 가지 전체 제거·환급 ──
+                current, newly_pruned, refund, candidates = _prune_dead_branches(
+                    spec, current, steps, graph, daemon, measure
+                )
+                for cand in candidates:  # 끝단만 뺀 중간 해들 — 무료 개선 후보
+                    best_solution = _better(objective, best_solution, cand)
+                    checkpoint_solution = _better(objective, checkpoint_solution, cand)
+                pruned.extend(newly_pruned)
+                banned.update(p.endpoint_id for p in newly_pruned)
                 if out_of_time():
                     timed_out = True
-                    break
-                tree_now = set(current.tree_nodes) | start_nodes(graph, current)
-                if power_candidates:
-                    # ⚠ 반경을 **안 본다.** 그리디의 구조적 한계가 「반경 안만 본다」였고
-                    #   (#77 실측: 폭의 0.4%만 그리디가 더했다), PoB의 `POWER`는 트리
-                    #   전체 3,793노드를 한 번에 잰다(25.6초). 값은 못 쓰고 **포인트당
-                    #   순위**만 쓴다 — 경로 비용이 빠져 있어서다(전직 8종 실측:
-                    #   총량 0.808 · 포인트당 0.954).
-                    cands = _power_ranked(
-                        daemon, graph, current, tree_now, budget, banned, slice_size, excluded
-                    )
-                else:
-                    cands = [
-                        nid
-                        for nid, _, d in _with_free_zones(
-                            graph.candidates(
-                                tree_now,
-                                max_dist=reach,
-                                # 빌드의 전직을 넘겨야 **자기** 해금 노드를 후보로 받는다.
-                                # 안 넘기면 기본 None → 잠긴 노드 전량 배제라 안전하되 과잉:
-                                # 오라클 빌드가 오라클 전용 노터블 42개를 못 본다(B-13 실측).
-                                ascendancy_name=current.ascendancy,
-                                exclude_nodes=excluded,
-                            ),
-                            reachable_cost,
-                        )
-                        if d <= budget and nid not in banned
-                    ][:slice_size]
-                if not cands:
-                    break
-                base = daemon.compute_build(current)
-                deltas = evaluate_node_deltas(
-                    current,
-                    graph,
-                    cands,
-                    stats=measure,
-                    daemon=daemon,
-                    jewel_templates=jewel_templates,
-                    jewel_rejections=jewel_notes,
-                    exclude_nodes=excluded,
-                    # 템플릿 선택도 같은 정책으로 — 기준은 이번 라운드의 실측 스탯
-                    jewel_score=functools.partial(objective.score, base_stats=base.stats),
-                )
-                scored = sorted(
-                    ((objective.score(nd, base.stats), nd) for nd in deltas),
-                    key=lambda x: -x[0],
-                )
-                affordable = [(s, nd) for s, nd in scored if nd.points <= budget and s > 0]
-
-                # ── 긴 점프 (#70) — 매 라운드 노드와 **같은 저울**에서 겨룬다 ──
-                # 먼 목적지로 가는 첫 걸음은 통행 소노드라 델타가 0에 가깝다. 포인트당
-                # 으로 재는 그리디는 그 한 걸음을 절대 안 뽑고, 그래서 목적지의 값이
-                # 아무리 커도 **출발 자체를 안 한다**. 반경을 넓혀도 안 고쳐진다 —
-                # 반경 문제가 아니라 가격 매기는 방식의 문제다(BACKLOG #70).
-                #
-                # ⛔ 「마를 때만」 재면 안 된다 — 가까운 수가 계속 잡히는 동안에는
-                #    영영 평가되지 않아, 먼 축이 끝까지 안 열린다. 매 라운드 재는 값은
-                #    실측했다: PoB 1회 0.418초, (기준 1 + 뭉치 15)회면 라운드당 +6.7초로
-                #    노드 40개(16.7초) 대비 **+40%**다(실측 2026-08-13, 사용자 판정).
-                for score_bd, bd in _bundle_candidates(
-                    current,
-                    graph,
-                    objective,
-                    base,
-                    budget,
-                    daemon=daemon,
-                    stats=measure,
-                    include=cluster_include,
-                    exclude=cluster_exclude,
-                    limit=slice_size,
-                    exclude_nodes=excluded,
-                ):
-                    affordable.append((score_bd, _as_node_delta(bd)))
-                affordable.sort(key=lambda x: -x[0])
-
-                if not affordable:
-                    # ⛔ 예전엔 여기서 그냥 멈췄다 — **예산을 남긴 채**. 그리디는 반경
-                    # 안의 가까운 후보만 보므로, 근처가 빌드와 무관한 권역이면 한 수도
-                    # 못 두고 끝난다. 독스트링은 "반경·후보 수를 늘려라"라고 안내했지만
-                    # 그건 문서에만 있는 규율이라 안 지켜졌다(실측 2026-08-12 e2e:
-                    # 예산 30 중 8만 쓰고 종료). **도구가 스스로 넓혀 보고** 그래도
-                    # 없을 때만 멈춘다 — 넓힌 사실은 notes로 남긴다.
-                    if budget > 0 and reach < _MAX_REACH:
-                        reach = min(_MAX_REACH, reach * 2)
-                        slice_size = min(_MAX_SLICE, slice_size * 2)
-                        widened.append(f"반경 {reach}·후보 {slice_size}")
-                        continue
-                    rejected = 1
-                    break
-                best_score, best = affordable[0]
-                jewels = current.jewels
-                if best.jewel_text is not None:
-                    jewels = (
-                        *current.jewels,
-                        JewelSpec(socket_node_id=best.node_id, text=best.jewel_text),
-                    )
-                current = dataclasses.replace(
-                    current, tree_nodes=tuple(current.tree_nodes) + best.path, jewels=jewels
-                )
-                budget -= best.points
-                steps.append(Step(node_delta=best, score=best_score))
-                if best.kind == "bundle":
-                    long_jumps.append(
-                        f"긴 점프 「{best.name_ko}」 {best.points}포인트 — "
-                        "노드 단위 점수로는 첫 걸음에서 탈락해 못 가던 곳이다"
-                    )
-            result_now = daemon.compute_build(current)
-            best_solution = _better(objective, best_solution, (current, result_now))
-            # ── 가지치기: 죽은 끝단이면 막다른 가지 전체 제거·환급 ──
-            current, newly_pruned, refund, candidates = _prune_dead_branches(
-                spec, current, steps, graph, daemon, measure
-            )
-            for cand in candidates:  # 끝단만 뺀 중간 해들 — 무료 개선 후보
-                best_solution = _better(objective, best_solution, cand)
-            pruned.extend(newly_pruned)
-            banned.update(p.endpoint_id for p in newly_pruned)
-            if out_of_time():
-                timed_out = True
-            if refund == 0 or timed_out:
-                break  # 죽은 가지 없음 — 안정 (또는 시간 상한)
-            budget += refund  # 환급 포인트를 온전한 묶음에 재투자 (다음 루프)
-        # 실측으로 가장 나은 해 반환 (동가치면 포인트 적게 쓴 쪽 — 스텁·죽은 끝단 배제)
-        final = daemon.compute_build(current)
-        best_solution = _better(objective, best_solution, (current, final))
-        assert best_solution is not None
-        current, final = best_solution
-        # ── 스냅샷 주얼 되배치 ──
-        #
-        # 트리를 다시 짜면 소켓 구성이 달라진다. 가지치기가 트리에서 빠진 소켓의
-        # 주얼을 **동반 제거**하는 것은 **의도된 것이다**(사용자 확인 2026-08-18) —
-        # 소켓을 안 찍은 채로 주얼 모드가 계산에 들어가면 **측정 자체가 거짓말**이
-        # 된다. 탐색 중에는 그대로 두고, **끝에서** 새 트리의 빈 소켓에 되돌려
-        # 놓는다. 잘못이었던 것은 제거가 아니라 **침묵**이다 — 자리를 옮겼는지
-        # 아예 못 놓았는지가 산출물에 안 나왔다.
-        current, jewel_rows, jewel_place_notes = _restore_jewels(graph, current, jewel_snapshot)
-        if jewel_rows:
-            # 주얼이 바뀌었으면 **다시 잰다** — 안 그러면 실측값이 옛 주얼 구성의 것이다.
+                if refund == 0 or timed_out:
+                    break  # 죽은 가지 없음 — 안정 (또는 시간 상한)
+                budget += refund  # 환급 포인트를 온전한 묶음에 재투자 (다음 루프)
+            # 실측으로 가장 나은 해 반환 (동가치면 포인트 적게 쓴 쪽 — 스텁·죽은 끝단 배제)
             final = daemon.compute_build(current)
+            best_solution = _better(objective, best_solution, (current, final))
+            checkpoint_solution = _better(objective, checkpoint_solution, best_solution)
+            assert best_solution is not None
+            current, final = best_solution
+            # ── 스냅샷 주얼 되배치 ──
+            #
+            # 트리를 다시 짜면 소켓 구성이 달라진다. 가지치기가 트리에서 빠진 소켓의
+            # 주얼을 **동반 제거**하는 것은 **의도된 것이다**(사용자 확인 2026-08-18) —
+            # 소켓을 안 찍은 채로 주얼 모드가 계산에 들어가면 **측정 자체가 거짓말**이
+            # 된다. 탐색 중에는 그대로 두고, **끝에서** 새 트리의 빈 소켓에 되돌려
+            # 놓는다. 잘못이었던 것은 제거가 아니라 **침묵**이다 — 자리를 옮겼는지
+            # 아예 못 놓았는지가 산출물에 안 나왔다.
+            current, jewel_rows, jewel_place_notes = _restore_jewels(graph, current, jewel_snapshot)
+            if jewel_rows:
+                # 주얼이 바뀌었으면 **다시 잰다** — 안 그러면 실측값이 옛 주얼 구성의 것이다.
+                final = daemon.compute_build(current)
+                checkpoint_solution = _better(objective, checkpoint_solution, (current, final))
+    except ExecutionStopped as stopped:
+        if checkpoint_solution is not None:
+            try:
+                stopped.details["tree_search_checkpoint"] = _interrupted_checkpoint(
+                    checkpoint_solution, objective
+                )
+            except Exception as checkpoint_error:
+                stopped.details["tree_search_checkpoint_error"] = type(checkpoint_error).__name__
+        raise
     # 후보 반경 **밖**의 뭉치를 함께 낸다 — 그리디가 구조적으로 못 보는 것이다(제안 A).
     far, notes = _scan_far_clusters(
         graph, current, cluster_include, cluster_exclude, candidate_radius, exclude_nodes=excluded
@@ -1087,9 +1138,29 @@ def _with_tree(spec: BuildSpec, nodes: tuple[int, ...]) -> BuildSpec:
 
 
 def _better(obj: Objective, a: _Solution | None, b: _Solution) -> _Solution:
-    """가치 우선, 동가치면 트리 노드가 적은(포인트를 덜 쓴) 쪽."""
+    """달성 경계 보존·목표 순서 우선, 가중 가치가 같으면 더 적은 노드."""
     if a is None:
         return b
+    if obj.targets:
+        previous = evaluate_targets(obj.targets, a[1].stats).results
+        candidate = evaluate_targets(obj.targets, b[1].stats).results
+        # Match score(): a later alternative cannot undo an attained boundary.
+        # Missing measurements do not become zero or invented satisfaction.
+        for left, right in zip(previous, candidate, strict=True):
+            if left.satisfied and not right.satisfied:
+                return a
+        # Targets are caller-ordered. Excess above an attained target is not
+        # a reason to neglect the next unresolved target.
+        for left, right in zip(previous, candidate, strict=True):
+            if left.satisfied:
+                continue
+            if right.satisfied:
+                return b
+            if left.measured is None or right.measured is None:
+                continue
+            gain = (right.measured - left.measured) * (1 if left.op == ">=" else -1)
+            if abs(gain) > _PRUNE_EPS:
+                return b if gain > 0 else a
     va, vb = _value(obj, a[1]), _value(obj, b[1])
     if abs(va - vb) > _PRUNE_EPS:
         return a if va > vb else b
