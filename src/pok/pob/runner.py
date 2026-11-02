@@ -328,7 +328,9 @@ class PobRunError(RuntimeError):
     """드라이버가 POK_OK 없이 끝났다 — stderr/stdout 꼬리를 담는다."""
 
 
-def _execution_observation(snapshot: PobSnapshot | None = None) -> dict[str, Any]:
+def _execution_observation(
+    snapshot: PobSnapshot | None = None, *, adapter_root: Path | None = None
+) -> dict[str, Any]:
     from pok.pob.execution_identity import observe_execution_inputs
 
     try:
@@ -347,11 +349,15 @@ def _execution_observation(snapshot: PobSnapshot | None = None) -> dict[str, Any
             digest.update(code_sha256(code).encode("ascii"))
         return observe_execution_inputs(
             snapshot or resolve_snapshot(),
-            adapter_root=project_root(),
+            adapter_root=adapter_root.resolve() if adapter_root is not None else project_root(),
             executable=Path(find_luajit()),
             adapter_code_sha256=digest.hexdigest(),
             launch_config={
-                "driver": str((project_root() / _DRIVER).resolve()),
+                "driver": str(
+                    (
+                        (adapter_root if adapter_root is not None else project_root()) / _DRIVER
+                    ).resolve()
+                ),
                 "lua_path": _LUA_PATH,
             },
         )
@@ -455,11 +461,18 @@ def run_xml(
     snapshot: PobSnapshot | None = None,
     use_cache: bool = True,
     timeout: float = 120.0,
+    adapter_root: Path | None = None,
 ) -> PobResult:
     """XML 하나를 PoB로 계산한다. requested_nodes를 주면 잘린 노드를 판정."""
     checkpoint()
     snap = snapshot or resolve_snapshot()
-    before = _execution_observation(snap)
+    if adapter_root is not None:
+        adapter_root = adapter_root.resolve()
+    before = (
+        _execution_observation(snap, adapter_root=adapter_root)
+        if adapter_root is not None
+        else _execution_observation(snap)
+    )
     cache = _cache_path(xml_text, snap.commit, observation=before)
     cache_enabled = use_cache and before["status"] == "observed"
     hit = False
@@ -486,9 +499,17 @@ def run_xml(
             pass  # 없거나 구 버전의 중간 쓰기 잔재이면 오라클로 재계산한다.
     after = before
     if not hit:
-        payload = _run_driver(xml_text, snap, timeout)
+        payload = (
+            _run_driver(xml_text, snap, timeout, adapter_root=adapter_root)
+            if adapter_root is not None
+            else _run_driver(xml_text, snap, timeout)
+        )
         checkpoint()
-        after = _execution_observation(snap)
+        after = (
+            _execution_observation(snap, adapter_root=adapter_root)
+            if adapter_root is not None
+            else _execution_observation(snap)
+        )
         if cache_enabled and before == after:
             _publish_cache(
                 cache,
@@ -721,9 +742,11 @@ def run_native_capture(
         )
 
 
-def _run_driver(xml_text: str, snap: PobSnapshot, timeout: float) -> dict[str, object]:
+def _run_driver(
+    xml_text: str, snap: PobSnapshot, timeout: float, *, adapter_root: Path | None = None
+) -> dict[str, object]:
     checkpoint()
-    driver = project_root() / _DRIVER
+    driver = (adapter_root.resolve() if adapter_root is not None else project_root()) / _DRIVER
     digest = hashlib.sha256(xml_text.encode()).hexdigest()[:16]
     # 같은 XML도 동시 실행되므로 콘텐츠 해시만으로는 요청 소유권을 나눌 수 없다.
     xml_file = var_dir() / "pob-cache" / f"_input-{digest}-{uuid4().hex}.xml"
