@@ -136,3 +136,9 @@ N=`afc98d12f4a52d9d4534bae7a534be29baeae032`는 각각 명시 파일1189/1320개
 모든 Git blob을 실제 파일 바이트와 대조해 차이0이며 유효 SHA256 manifest도 그대로다.
 기존 기동 보고의 identity unavailable은 미커밋 시점 관측으로 보존하고, 실제 MCP의
 새 식별 응답은 후속 확인한다. PoB/런타임 출력은 이 커밋에 포함하지 않았다.
+
+실제 MCP 식별 재확인(2026-11-03): 참가자와 같은 per-command safe.directory 환경에서
+B loaded/source=`bab73a1`, N loaded/source=`afc98d1`, 두 제품 모두 identity_status=verified,
+stale=false와 정확한 source_root를 확인했다.
+`effective-identity-mcp-verification.json`에 보존했고 미커밋 시점의 과거 보고는 수정하지 않았다.
+추가 모델 추론은 없으며 전체 통합 검사는 같은 세션65454에서 실행 중이다.
