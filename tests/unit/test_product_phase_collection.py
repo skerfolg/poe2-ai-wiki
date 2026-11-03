@@ -154,3 +154,77 @@ def test_invalid_budget_never_launches(module, tmp_path, budget):
             timeout_s=budget,
         )
     assert not output.exists()
+
+
+def test_low_storage_never_spawns_model_and_preserves_failure_receipt(
+    module, tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(module.shutil, "disk_usage", lambda p: SimpleNamespace(free=0))
+
+    def forbidden(*a, **k):
+        raise AssertionError("Model must not start below disk reserve")
+
+    monkeypatch.setattr(module, "spawn_owned", forbidden)
+    output = tmp_path / "phase"
+    result = module.execute_phase(
+        ["unused"],
+        output,
+        prompt="toy",
+        schema=SCHEMA,
+        cwd=tmp_path / "workspace",
+        timeout_s=15,
+        minimum_free_bytes=1024,
+    )
+    assert result["state"] == "failed"
+    assert result["error"]["type"] == "StorageBudgetExhausted"
+    assert result["cleanup"]["status"] == "confirmed"
+    assert not (output / "process.json").exists()
+    assert json.loads((output / "execution.json").read_bytes()) == result
+
+
+def test_storage_drop_terminates_owned_model_and_keeps_partial_events(
+    module, tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    readings = []
+
+    def space(path):
+        readings.append(True)
+        return SimpleNamespace(free=4096 if len(readings) <= 2 else 0)
+
+    monkeypatch.setattr(module.shutil, "disk_usage", space)
+    output = tmp_path / "phase"
+    result = module.execute_phase(
+        command(output, hang=True),
+        output,
+        prompt="toy",
+        schema=SCHEMA,
+        cwd=tmp_path / "workspace",
+        timeout_s=20,
+        minimum_free_bytes=1024,
+    )
+    assert result["state"] == "failed" and not result["timed_out"]
+    assert result["error"]["type"] == "StorageBudgetExhausted"
+    assert result["cleanup"]["status"] == "confirmed"
+    assert result["storage_guard"]["last_free_bytes"] == 0
+    assert "progress" in (output / "events.jsonl").read_text(encoding="utf-8")
+    assert json.loads((output / "execution.json").read_bytes()) == result
+
+
+@pytest.mark.parametrize("minimum", [0, -1, True, 1.5])
+def test_invalid_storage_reserve_never_creates_output(module, tmp_path, minimum):
+    output = tmp_path / "phase"
+    with pytest.raises(ValueError, match="positive integer"):
+        module.execute_phase(
+            ["unused"],
+            output,
+            prompt="toy",
+            schema=SCHEMA,
+            cwd=tmp_path / "workspace",
+            timeout_s=15,
+            minimum_free_bytes=minimum,
+        )
+    assert not output.exists()

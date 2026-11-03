@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import shutil
 import subprocess
 import sys
 import time
@@ -18,6 +19,11 @@ from product_reference import load_reference_policy
 from product_server import CONTROL_ROOT, validate_locations
 
 from pok.common.owned_process import spawn_owned, terminate_owned
+
+
+class StorageBudgetExhausted(OSError):
+    """Stop an owned participant before a nearly full volume loses its receipts."""
+
 
 _UNCONFIRMED: dict[str, subprocess.Popen[Any]] = {}
 
@@ -168,6 +174,7 @@ def execute_phase(
     schema: dict[str, Any],
     cwd: Path,
     timeout_s: float,
+    minimum_free_bytes: int | None = None,
 ) -> dict[str, Any]:
     """Run once with an absolute budget and owned cleanup; preserve partial files.
 
@@ -178,6 +185,10 @@ def execute_phase(
     started, wall_started = time.monotonic(), time.time()
     if isinstance(timeout_s, bool) or not math.isfinite(timeout_s) or not 0 < timeout_s <= 5400:
         raise ValueError("Expected a finite phase budget up to 5400 seconds")
+    if minimum_free_bytes is not None and (
+        type(minimum_free_bytes) is not int or minimum_free_bytes <= 0
+    ):
+        raise ValueError("minimum_free_bytes must be a positive integer or None")
     if _UNCONFIRMED:
         raise RuntimeError(
             "An earlier owned launch remains unconfirmed; do not start another phase"
@@ -191,6 +202,24 @@ def execute_phase(
     deadline = started + timeout_s
     cleanup_reserve = min(5.0, timeout_s / 2)
     model_deadline = deadline - cleanup_reserve
+    storage_guard: dict[str, Any] | None = None
+    if minimum_free_bytes is not None:
+        storage_guard = {
+            "minimum_free_bytes": minimum_free_bytes,
+            "path": str(output),
+            "last_free_bytes": None,
+        }
+
+    def check_storage() -> None:
+        if storage_guard is None:
+            return
+        free = shutil.disk_usage(output).free
+        storage_guard["last_free_bytes"] = free
+        if free < storage_guard["minimum_free_bytes"]:
+            raise StorageBudgetExhausted(
+                f"Free space {free} bytes is below reserve {storage_guard['minimum_free_bytes']}"
+            )
+
     process = None
     timed_out = False
     error = None
@@ -204,6 +233,7 @@ def execute_phase(
         try:
             if time.monotonic() >= model_deadline:
                 raise subprocess.TimeoutExpired(command, timeout_s)
+            check_storage()
             process = spawn_owned(command, cwd=cwd, stdin=source, stdout=events, stderr=errors)
             (output / "process.json").write_text(
                 json.dumps(
@@ -217,7 +247,18 @@ def execute_phase(
                 ),
                 encoding="utf-8",
             )
-            process.wait(timeout=max(0.001, model_deadline - time.monotonic()))
+            if storage_guard is None:
+                process.wait(timeout=max(0.001, model_deadline - time.monotonic()))
+            else:
+                while True:
+                    check_storage()
+                    wait_s = max(0.001, model_deadline - time.monotonic())
+                    try:
+                        process.wait(timeout=min(5.0, wait_s))
+                        break
+                    except subprocess.TimeoutExpired:
+                        if time.monotonic() >= model_deadline:
+                            raise
             timed_out = time.monotonic() >= model_deadline
         except subprocess.TimeoutExpired:
             timed_out = True
@@ -248,6 +289,8 @@ def execute_phase(
         "turn_completed": False,
         "build_quality_verified": False,
     }
+    if storage_guard is not None:
+        summary["storage_guard"] = storage_guard
     try:
         summary["session_id"] = session_from_events(output / "events.jsonl")
     except (ValueError, OSError) as exc:
