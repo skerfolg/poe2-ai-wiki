@@ -328,6 +328,109 @@ class PobRunError(RuntimeError):
     """드라이버가 POK_OK 없이 끝났다 — stderr/stdout 꼬리를 담는다."""
 
 
+def native_mode_error_hint(xml_text: str, native_error: str) -> str | None:
+    """Explain known active effect bindings only after a native statSet failure.
+
+    This is a KB diagnostic, not a replacement for the native error or a mode
+    selector. Unknown effects, inactive sets and raw inspection stay untouched.
+    Successful calculations never pay for this lookup.
+    """
+    if "statSet" not in native_error:
+        return None
+    from pok.kb.skill_facts import gem_effects, skill_gates
+    from pok.pob.document import inspect_xml, xml_node_pointer
+
+    try:
+        nodes = inspect_xml(xml_text)
+        by_path = {node.path: node for node in nodes}
+        skills = next((node for node in nodes if node.tag == "Skills"), None)
+        if skills is None:
+            return None
+        sets = [node for node in nodes if node.path[:-1] == skills.path and node.tag == "SkillSet"]
+        scope = skills.path
+        if sets:
+            selected = [
+                node
+                for node in sets
+                if node.attributes.get("id") == skills.attributes.get("activeSkillSet", "1")
+            ]
+            if len(selected) != 1:
+                return None
+            scope = selected[0].path
+        effects = gem_effects()
+        gates = skill_gates()
+        bindings: list[dict[str, Any]] = []
+        for gem in nodes:
+            if gem.tag != "Gem" or gem.path[: len(scope)] != scope:
+                continue
+            group = by_path.get(gem.path[:-1])
+            if group is None or group.tag != "Skill":
+                continue
+            if (
+                gem.attributes.get("enabled", "true") == "false"
+                or group.attributes.get("enabled", "true") == "false"
+            ):
+                continue
+            identities = effects.get(gem.attributes.get("gemId", ""), ())
+            known = {identity: gates[identity] for identity in identities if identity in gates}
+            for binding in nodes:
+                if binding.path[:-1] != gem.path or binding.tag not in {
+                    "StatSetIndex",
+                    "StatSetCalcsIndex",
+                }:
+                    continue
+                identity = binding.attributes.get("grantedEffect", "")
+                gate = known.get(identity)
+                if gate is None or not gate.stat_sets:
+                    continue
+                raw_index = binding.attributes.get("index", "")
+                # Native tonumber also accepts other numeric spellings. Do not
+                # call those invalid using a stricter Python integer parser.
+                if not re.fullmatch(r"[0-9]+", raw_index):
+                    continue
+                index = int(raw_index)
+                if 1 <= index <= len(gate.stat_sets):
+                    continue
+                bindings.append(
+                    {
+                        "xml_node": xml_node_pointer(binding.path),
+                        "gem_id": gem.attributes.get("gemId", ""),
+                        "effect_id": identity,
+                        "environment": "MAIN" if binding.tag == "StatSetIndex" else "CALCS",
+                        "requested_index": raw_index,
+                        "available_modes": [
+                            {"index": i, "label": label}
+                            for i, label in enumerate(gate.stat_sets, 1)
+                        ],
+                        "gem_effect_modes": {
+                            effect: [
+                                {"index": i, "label": label}
+                                for i, label in enumerate(item.stat_sets, 1)
+                            ]
+                            for effect, item in known.items()
+                        },
+                    }
+                )
+        if not bindings:
+            return None
+        return "POK_EFFECT_MODE_DIAGNOSTIC:" + json.dumps(
+            {
+                "claim": "known_active_KB_bindings_not_native_root_cause_certification",
+                "bindings": bindings[:16],
+                "bindings_total": len(bindings),
+                "truncated": len(bindings) > 16,
+                "input_rewritten": False,
+                "input_route": (
+                    "Use stat_set_indices and stat_set_calcs_indices keyed by explicit effect ID. "
+                    "Scalar stat_set_index addresses the primary effect, not main_active_skill."
+                ),
+            },
+            ensure_ascii=False,
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return None  # Diagnostic failure must not conceal the original native error.
+
+
 def _execution_observation(
     snapshot: PobSnapshot | None = None, *, adapter_root: Path | None = None
 ) -> dict[str, Any]:
@@ -337,6 +440,7 @@ def _execution_observation(
         digest = hashlib.sha256(sys.version.encode("utf-8"))
         for function in (
             run_xml,
+            native_mode_error_hint,
             _run_driver,
             _run_owned_driver,
             run_native_capture,
@@ -499,11 +603,17 @@ def run_xml(
             pass  # 없거나 구 버전의 중간 쓰기 잔재이면 오라클로 재계산한다.
     after = before
     if not hit:
-        payload = (
-            _run_driver(xml_text, snap, timeout, adapter_root=adapter_root)
-            if adapter_root is not None
-            else _run_driver(xml_text, snap, timeout)
-        )
+        try:
+            payload = (
+                _run_driver(xml_text, snap, timeout, adapter_root=adapter_root)
+                if adapter_root is not None
+                else _run_driver(xml_text, snap, timeout)
+            )
+        except PobRunError as exc:
+            hint = native_mode_error_hint(xml_text, str(exc))
+            if hint:
+                raise PobRunError(f"{hint}\nOriginal native error:\n{exc}") from exc
+            raise
         checkpoint()
         after = (
             _execution_observation(snap, adapter_root=adapter_root)

@@ -89,7 +89,7 @@ flowchart TD
   R5PREP[R5 8회 수집 완료·품질/결함 후속<br/>in_progress]
   R3CORE -. UI 사전 통합 .-> R6UI
   R5PREP --> R6UI[R6 UI 별도 세션·후속 보류<br/>deferred]
-  R6UI --> R7SWITCH[R7 저장공간 오류 복구 · 재개 준비<br/>in_progress]
+  R6UI --> R7SWITCH[R7 초기 품질 평가 완료 · 결함 진단/전환 검증<br/>in_progress]
   M6[M6 큐레이션 게이트<br/>next]
   CONTRACT --> FLOW --> ROUND --> SKILL --> FIRST --> NECESS --> JUDGE
   LANE --> CONTRACT
@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / R5·R7·#188: 디스크 공간 부족으로 중단된12회 캠페인의 원본을 보존하고 복구한다. Goal은 사용자 재개 지시에 따라 active로 확인됐다. 저장공간 시작/실행 중 감시를 검증하고, 첫 H1-R은 기존90분 실행 창이 지나 인프라 중단으로 보존하고 재시도하지 않는다. 남은11개만 기존 순서로 이어간다. 복구 시행은 무중단 시행과 구분하고 기존18시간 상한을 임의 연장하지 않는다. 현재 모델은 미실행이다. 측정 용량이 새 시험 시작10GiB/실행중2GiB 기준을 충족하면 사전 검증 후 남은11개를 재개한다.**
+The only next executable step is: **S55 / R5·R7·#188: 원본12회 수집과 제출8개 기술/6축 초기 평가, H1 명시 비교6개 및 H2 준비기/유틸13개 계산을 보존했다. 사용자 선호는 대기 중이고 #188 해결·최신판 전반 우월성·기본 전환은 미입증이다. 후속 #209 실패 안내를 현재 개발 어댑터에 구현해 원래 오류/입력 보존·미지/비활성 보호·정상 경로 무조회와 단발/상주 native4경로를 확인했다. 다음은 고정 커밋에서 전량 단위·PR 전 통합을 완료하고, 조건부 피해의 공급/준비 진단 및 실제 소비자 계약·마이그레이션/롤백과 R0~R7 전체 요구를 감사한다. 동결 후보·캠페인에 소급 적용하거나 새 모델 실험을 임의 추가하지 않는다. UI 구현은 다른 세션 소관이다.**
 
 ### 참고 이력 — 현재 실행 지시가 아님
 
@@ -2129,3 +2129,187 @@ D의 recovery-admission.json에 기존시각/실행범위/사용자재개지시�
 유지하며 제어 차이는 저장공간 보호뿐이다. 확인된 C여유17.5GB로 시작10GiB 기준을
 충족했다. 매 새 시험 시작 전에 다시 검사하고, 실행중에는2GiB reserve를 감시한다.
 현재 소스 고정·전체 사전 검사 후 실제 모델을 기동하며 추가 재승인은 요구하지 않는다.
+
+복구 구간 실제 기동(2026-11-03 09:59 KST): 최종 사전검사 통과 후
+final-quality-campaign-v1-continuation-1 시작. 원래순서2/12인 H1-B-1이 진행 중이며
+복구구간 내부 ID는01-H1-B-1이다(전체번호=내부번호+1). 제어PID4628/세션25271,
+첫 CLI PID7404/대화01a19eeb-9325-7010-ac25-868ba0e758e8을 확인했다.
+lock SHA256 b2452a2fead62296516fde5a7aa50ea4841397db5868b9998670ff5e2b38597e,
+고정 HEAD8a4b50f. 기존 deadline1793723534.3879876과 입력/제품/평가 기준은 같다.
+원래 캠페인은 stopped로 보존하고 새 원장·continuation-live-v1.json이 현재 진행의
+권위다. 실패한 첫 시험은 추가 모델을 돌리지 않으며 현재 품질 완료 판정은0이다.
+실행 중 진행 문서만 갱신하고 커밋·코드/기준 수정·호스트 설치/빌드/전량 검사는 하지 않는다.
+
+원래순서2/12 H1-B 단계 전환(2026-11-03 10:40 KST): 단계1은
+timed_out/answer_valid=false이며 Windows Job 정리confirmed다. 동결 검사2회차 verified 후
+원래 고정 반지 후속 단계가 시작됐다. 같은 대화01a19eeb-9325-7010-ac25-868ba0e758e8을
+실제 로그로 대조해 확인했다. 단계2 예산2983.078초로, 전체90분 안의 남은 시간이며
+단계1 시간 초과를 덮거나 최선 중간안으로 대체하지 않는다. 전체 시험 품질 판정은 미완료다.
+
+원래순서2/12 H1-B 수집(2026-11-03 11:30 KST): 단계1·2 모두 timed_out/
+answer_valid=false, 두 모델의 Windows Job 정리confirmed. 최종 제출이 없으므로
+중간 PoB로 대체하지 않는다. 이 결과는 코드/파일 저장 인프라 중단과 구분해
+시간 상한 안의 미완료로 보존한다. 전후 무결성은 실제 원장의 최종 체크로 확인하며
+다음 원래순서3/12 H1-N을 같은 조건으로 계속한다. 품질 효과는 아직 미판정이다.
+
+원래순서3/12 H1-N 실제 기동(2026-11-03 11:30 KST): B의3회 무결성 체크가
+모두verified로 끝났고 원래순서대로 최신판 첫 단계가 시작됐다. 복구구간 내부 ID는
+02-H1-N-1, CLI PID36572/새 대화01a19f3e-b8f7-7471-a46f-e5d7962b1073이다.
+현재 확정 결과는 원래R1 인프라중단1건/B1 두 단계 시간초과1건이며 유효한 전체
+최종 제출은 아직0이다. 소스·조건을 바꾸거나 중간안을 최종물로 대체하지 않는다.
+
+원래순서3/12 H1-N 수집(2026-11-03 11:38 KST): 단계1·2 모두 failed/
+exit1/answer_valid=false이며 오류는 Selected model is at capacity다. 둘 다
+Windows Job 정리confirmed, 전후 무결성verified다. 이는 최신판 설계 품질 실패와
+구분하는 모델 서비스 용량 오류이며 모델 변경/재시도/중간안 대체는 하지 않았다.
+원래순서4/12 H2-N(내부03-H2-N-1), CLI30352/대화01a19f46-33a8-7dd2-8d27-
+8c52603090fd가 시작됐고 실제 모델 도구 호출과 오류 없는 현재 이벤트를 확인했다.
+같은 Astra/ultra로 원래 순서를 유지하며, 서비스 오류를 모델/제품 품질0으로 채점하지 않는다.
+
+원래순서4/12 H2-N 수집(2026-11-03 12:46 KST):4020.766초, completed/
+answer_valid=true/answer_status=complete/turn_completed=true/exit0/정리confirmed.
+전후 무결성verified·금지 표면 위반0. 실제8파일과 최종 응답을 제출했다.
+전체 제출 소스의 strict byte 감사는false(Submitted PoB sources disagree)로 보존했다.
+별도 바이트 진단에서 원래 assembly 코드만 LF12175바이트, XML들은 CRLF12466바이트로
+291개 줄바꿈 차이이고 모든 소스의 normalized LF hash는 동일함을 확인했다.
+제출한 별도 pob-delivery-2의 코드/XML은 raw hash48c9084a...로 정확히 일치한다.
+이는 실제 파일 전달/구성 일치와 원래 byte 감사 경고를 구분하는 근거이며,
+원본/감사값/구성은 수정하지 않았다. 빌드 성능·메커니즘 품질 판정은 여전히 미완료다.
+원래순서5/12 H2-R(내부04-H2-R-1) CLI55396가 같은 조건으로 시작됐다.
+
+완료 N/H2-1의 저부하 구조 확인(2026-11-03): 전달 XML의 level100/
+Mercenary-Witchhunter가 일치하고, 같은 제출의 validation에는123일반/8전직/
+네 저항75가 보고됐다. D의 final-quality-initial-technical-audit에 원본 해시와
+구조/보고값을 기록했다. 이는 독립 PoB 재계산·전체 게임 적법성·품질 인증이 아니다.
+주 효과의 stat_set은 Vs Frozen이므로 그 피해를 상시 보스 딜로 단정하지 않는다.
+현재 참가자R에는 개입하지 않았고 CPU가 큰 계산/테스트/빌드를 실행하지 않았다.
+
+원래순서5/12 H2-R 수집(2026-11-03 13:59 KST):4342.5초, completed/
+answer_valid=true/answer_status=complete/turn_completed=true/exit0/정리confirmed.
+전후 무결성2회 verified, protocol 위반0/execution 실패0, MCP 호출 실패16은 원본에 보존했다.
+제출7파일의 전달 감사true, 공유코드와 XML raw SHA256은83f53915e85154d3f1376e184be088801b2a9c80350b4f5482d4eddb189686a8로 일치한다.
+작성자는 AP 완파→파편탄 소비→Shard→유탄 회복 회로를 제시했으며, 이는 아직 독립 게임 검증 전이다.
+서로 다른 피해 단위나 작성자의 complete를 품질 우열로 해석하지 않는다. D의 기술 감사에
+원본 해시/실행 결과/작성자 주장과 미검증을 별도 기록했다. 실제 최종 제출은 현재2건이다.
+원래순서6/12 H2-B(내부05-H2-B-1)가13:59 KST 시작됐다. CLI PID46716,
+제어PID4628/세션25271을 유지하며 고정 코드/자료/평가 기준을 변경하지 않았다.
+
+원래순서6/12 H2-B 수집(2026-11-03 15:22 KST):4978.125초, 실행completed/
+answer_valid=true/turn_completed=true/exit0/정리confirmed이나 최종 선언은 incomplete다.
+전후 무결성2회 verified, protocol 위반0/execution 실패0, MCP 호출 실패28은 원본 보존.
+7파일을 명시 제출했고 추천 관문 미통과·증거 문맥/종료/유틸 기록 미완료를 스스로 신고했다.
+원래 strict 전달 감사false(Submitted PoB sources disagree)이며 별도 바이트 진단은 코드 LF13879/
+XML CRLF14203,324개 줄바꿈 차이와 normalized LF 동일을 확인했다. 원본이나 감사값을
+수정하지 않았다. D의 H2-B-1-execution-and-claims 및 delivery-byte-diagnostic에 보존했다.
+현재 H2 첫반복 R/B/N 모두 유효 응답과 파일이 있으나 자기선언 complete2/incomplete1이다.
+이는 전체6축 품질·게임 성립·독립 재계산 완료를 뜻하지 않는다. 실제 최종 응답3건으로
+집계하되 미완료 선언을 정상 완성으로 바꾸지 않는다.
+원래순서7/12 H1-N-2(내부06-H1-N-2)가15:23 KST 시작됐다. CLI PID10628,
+첫 단계2399.797초, 다음 고정 후속 단계와 합쳐 원래90분 상한을 유지한다.
+동일 제어PID4628/세션25271, 입력·제품·KB·PoB·평가 기준과 고정 HEAD8a4b50f를 유지한다.
+
+원래순서7/12 H1-N-2 단계 전환(2026-11-03 16:03 KST): 단계1은
+2395.844초/예약 정리 여유 포함 timed_out/answer_valid=false/turn_completed=false,
+Windows Job 정리confirmed다. 저장공간 여유는48.79GB였고 ENOSPC나 모델 용량 오류로
+바꾸어 해석하지 않는다. 실제 무결성check14 verified 후 원래 후속 단계가 시작됐다.
+단계2 CLI PID53664, 대화01a1a013-562a-7f80-b757-abae98f5daa8은 단계1과 일치한다.
+예산2985.469초로 전체90분의 남은 시간이며 실패한 첫 단계를 재시도하거나 중간 PoB를
+최종물로 대체하지 않는다. 전체 시험의 최종 응답·빌드 품질 판정은 아직 미완료다.
+
+원래순서7/12 H1-N-2 수집(2026-11-03 16:41 KST): 첫 단계 timed_out을 보존한 채
+같은 대화의 후속 단계가2277.422초에 completed/answer_valid=true/answer_status=complete/
+turn_completed=true/exit0/정리confirmed로 끝났다. 전체3회 무결성verified, 후속 protocol 위반0/
+execution 실패0/MCP 호출 실패3. 유효 최종 응답은 총4건, 자기선언 complete3/incomplete1이다.
+전달 감사 전체false는 artifact3에 파일 경로 대신 직렬화된 design-ref JSON을 넣어
+Errno22가 난 결과다. 실제 제출 PoB 코드/XML 쌍은 raw SHA256
+034ae5f31ef1314e88c13e37ddd9f46166b708e4274f916e6b2c77b21dd50faf로 정확히 일치한다.
+한국어 handoff 문서도 실제 파일로 회수했다. 전체 감사값·잘못된 참조를 수정하거나 암묵
+설계파일로 대체하지 않는다. 반지 보존·재투자·자원 수치는 작성자의 제출 주장으로 기록했고
+독립 계산/게임 성립/6축 품질은 아직 미판정이다. D의 H1-N-2-execution-and-claims에 보존했다.
+원래순서8/12 H1-B-2(내부07-H1-B-2)가16:41 KST 시작됐다. CLI PID47804/
+대화01a1a05b-731a-72a0-a6e2-60a985ab2544, 첫 단계2399.765초다.
+고정HEAD8a4b50f·제품/입력/KB/PoB/평가 기준·원래 전역18시간 상한을 유지한다.
+
+원래순서8/12 H1-B-2 단계 전환(2026-11-03 17:22 KST): 단계1은2395.937초/
+예약 정리 여유 포함 timed_out/answer_valid=false, Windows Job 정리confirmed다.
+저장공간 여유48.39GB로 ENOSPC 중단과 구분한다. 실제 check17 verified 뒤 원래 후속
+단계가 시작됐다. 단계2 CLI PID44296/대화01a1a05b-731a-72a0-a6e2-60a985ab2544는
+단계1과 같고 예산2982.406초로 전체90분 안의 남은 시간이다. 중간안 대체·재시도·
+제품/자료/판정 기준 변경 없이 진행한다. 전체 시험 최종 응답/빌드 품질은 아직 미완료다.
+
+원래순서8/12 H1-B-2 수집(2026-11-03 18:12 KST): 단계1·2 모두 timed_out/
+answer_valid=false이며 같은 대화01a1a05b-731a-72a0-a6e2-60a985ab2544를 사용했다.
+실행2395.937/2978.718초, 두 Windows Job 정리confirmed·전체3회 무결성verified다.
+유효 최종 응답이 없으므로 중간 PoB를 최종물로 대체하지 않는다. 원본은 시간 예산 안의
+미완료로 보존하고 디스크/모델 서비스 오류나 게임 품질0과 동일하게 취급하지 않는다.
+D의 H1-B-2-execution.json에 기록했다. 유효 최종 응답 총4건/자기선언 complete3·incomplete1은 같다.
+원래순서9/12 H1-R-2(내부08-H1-R-2)가18:12 KST 시작됐다. CLI PID32328/
+새 대화01a1a0ae-43a8-7f43-b703-0cb5ab44b7f3, 첫 단계2399.906초다. 원래 실패한
+첫 R시험의 재시도가 아니라 동결 계획의 두 번째 반복이다. 고정 코드/입력/제품/KB/PoB/
+평가 기준과 원래18시간 deadline을 유지한다.
+
+원래순서9/12 H1-R-2 단계 전환(2026-11-03 18:52 KST): 단계1은2396.172초/
+예약 정리 여유 포함 timed_out/answer_valid=false, Windows Job 정리confirmed다.
+저장공간 여유45.15GB이며 ENOSPC와 구분한다. 실제 check20 verified 뒤 원래 고정 후속
+단계가 시작됐다. 단계2 CLI PID51560/대화01a1a0ae-43a8-7f43-b703-0cb5ab44b7f3는
+단계1과 같고 예산2989.328초로 전체90분 안의 남은 시간이다. 중간안 대체·재시도·
+제품/자료/판정 기준 변경 없이 진행한다. 전체 시험 최종 응답/빌드 품질은 아직 미완료다.
+
+원래순서9/12 H1-R-2 수집(2026-11-03 19:21 KST): 첫 단계 timed_out을 보존한 채
+같은 대화의 후속 단계가1736.969초에 completed/answer_valid=true/answer_status=complete/
+turn_completed=true/exit0/정리confirmed로 끝났다. 전체3회 무결성verified, 후속 protocol 위반0/
+execution 실패0/MCP 호출 실패1. 유효 최종 응답은 총5건, 자기선언 complete4/incomplete1이다.
+9파일을 명시 제출했다. 전체 전달 감사false는 변경 전·단순 장착 진단·최종 구성을 모두
+같은 XML이어야 한다고 비교한 결과다. 실제 최종artifact0/1의 raw SHA256은
+ ec2af288e44b0e7223336fccd19ea8d23299d5de54f30eebd08b5909a4256b8f로 일치한다.
+artifact2/3의 phase1-baseline 쌍과4/5의 DIAGNOSTIC-fire73 쌍도 각각 일치하며 서로 다른
+비교안이다. 원본 감사false는 보존하고 참가자 명시 역할과 구분한다. 최선 중간안 선택·수선·
+대체를 하지 않았다. D의 H1-R-2-execution-and-claims에 원본 해시·응답·한계를 기록했다.
+제품 not_ready와 작성자 complete는 각각 추천 기록/파일 제출 주장이다. 실제 품질은 미판정이다.
+원래순서10/12 H2-B-2(내부09-H2-B-2)가19:22 KST 시작됐다. CLI PID36280/
+새 대화01a1a0ee-2227-70b2-a90c-1d2b8f0413b0, 단일 단계5399.812초다.
+고정HEAD8a4b50f·제품/입력/KB/PoB/평가 기준과 원래 전역18시간 상한을 유지한다.
+
+원래순서10/12 H2-B-2 수집(2026-11-03 20:50 KST):5288.953초, 실행completed/
+answer_valid=true/turn_completed=true/exit0/정리confirmed이나 최종 선언은 incomplete다.
+전후2회 무결성verified, protocol 위반0/execution 실패0/MCP 호출 실패30은 원본에 보존.
+작성자가 명시한 candidate-v2 코드/XML 두 파일을 회수했고, 열거한 shock-life-final 두 경로는
+실제 수집 후에도 없다. 마지막 변경안이나 문서 저장 요청을 성공으로 승격하지 않는다.
+후보 쌍의 strict byte 불일치는 LF/CRLF316개 차이이며 normalized LF는 동일하다.
+원래 전달 감사false와 누락 파일2건을 그대로 보존했다. D의 H2-B-2-execution-and-claims/
+delivery-byte-diagnostic에 기록했다. 작성자는 미사용 일반44점·룬 미완성·마나 적자·최종
+공동 재검토 및 설계 저장 미완료를 신고했다. 이는 보고된 한계이고 독립 계산은 아직 전이다.
+유효 최종 응답은 총6건, 자기선언 complete4/incomplete2다. 실제6축 품질 판정은 미완료다.
+원래순서11/12 H2-R-2(내부10-H2-R-2)가20:51 KST 시작됐다. CLI PID36524/
+새 대화01a1a13f-becb-7722-9d1c-8eadcd923375, 단일 단계5399.812초다.
+고정HEAD8a4b50f·제품/입력/KB/PoB/평가 기준과 원래 전역18시간 상한을 유지한다.
+
+원래순서11/12 H2-R-2 수집(2026-11-03 22:01 KST):4188.734초, completed/
+answer_valid=true/answer_status=complete/turn_completed=true/exit0/정리confirmed.
+전후2회 무결성verified, protocol 위반0/execution 실패0/MCP 호출 실패25는 원본 보존.
+11파일 전달 감사true, 실제 최종 코드/XML raw SHA256
+2cdd4aaf5344e32a18adb96d1c76b1a36ba38e64e747b9287cf90abef54eefe4로 일치한다.
+Vs Armour Broken 전용 모드의 statSet 계산 오류·명시 입력을 별도 실패 파일로 제출했다.
+기본 HVR 계산과 실패한 전용 모드를 구분하고 게임 성립/6축 품질 판정으로 승격하지 않는다.
+D의 H2-R-2-execution-and-claims에 원본 해시·응답·전달·실패 근거 참조를 보존했다.
+유효 최종 응답은 총7건, 자기선언 complete5/incomplete2다. 품질 판정은 아직 미완료다.
+원래순서12/12 H2-N-2(내부11-H2-N-2)가22:01 KST 시작됐다. CLI PID3752/
+새 대화01a1a180-1d6b-7c23-9a33-934d029ea010, 단일 단계5399.719초다.
+마지막 계획된 참가자이며 추가 재시도/모델 변경/중간안 대체 없이 고정 조건을 유지한다.
+캠페인 종료만으로 R7·#188·기본 전환 완료를 선언하지 않고 독립 실물 검토로 이어간다.
+
+
+2026-11-03 캠페인 수집 종료: 마지막 H2-N-2는4097.516초 후 최종 응답을 제출했고 코드/XML 쌍은 정확히 일치했다. 다른3개 참조는 라벨을 포함한 경로 문자열로 전달 감사에 실패했으며 원본 실패를 보존했다. continuation campaign.json은 collected이고 마지막 무결성 검사는27개 verified다. 원본12회 중 유효 최종 응답8개, 자체 완료6개·미완료2개이며 이는 빌드 품질 인증이 아니다. 사용자 goal 재개 지시에 따라 active를 확인했고 독립 품질 검증을 진행한다.
+
+2026-11-03 독립 검증 진척: 실제 최종 XML8개 재계산, 활성 트리 요청/실제 할당 집합 대조, 장비135항목(원문120개) 정적 적법성 검사와 고정 MCP KB 조회를 완료했다. 원본 statSet 실패2개는 그대로 재현됐고 별도 효과 명시 진단2개는 계산됐다. 원본과 최종 성과는 수정하지 않았다. docs/POK_FINAL_BUILD_QUALITY_RESULTS.md에 기술 검증 범위와 품질 미판정·후속 결함을 기록했다.12회 익명 표시 묶음 및 별도 원본 대응표를 만들고 사용자 선호를 요청했다. PR 본문 갱신은 자동 승인 검토에서 내부 기록 공개 승인 부족으로 거부돼 로컬 보고를 정본으로 유지한다. Goal은 active다.
+
+
+2026-11-03 초기 품질 평가 v1: 제출8개를6축별 정성 판정하고 미제출4개는 점수 없음으로 유지했다. H1 재투자 비교6개와 최종 투영본 전체 숫자 일치(R810/N812개), H2 준비기/유틸13개를 추가 검증했다. 최신판의 동결 소비 공급 속도와 실제 회전은 미입증이며 참고군의 파괴 중심 재설계 장점도 함께 기록했다. 개별 축을 합산하거나 군 평균/단일 승자를 만들지 않았다. #188 열린 상태와 기본 전환 보류를 유지한다. 원격 main fetch 후 HEAD..origin/main은 비어 있었다. 다음 결함 수정은 동결 제품/캠페인과 구분한다.
+
+
+2026-11-04 #209 실패 진단 후속: 현재 개발 어댑터의 단발/상주 계산 오류에 알려진 활성
+효과·MAIN/CALCS 모드와 명시 입력 경로를 부착했다. 원래 오류/입력·미지/비활성 원문과
+성공 경로를 유지한다. 관련32단위 통과 뒤 보완22단위 재검증 및 실제 native4경로 통과.
+초기 fixture 메타 누락/수정 중 인용 오류는 별도 실패 원장으로 보존했다. Ruff와 변경2소스
+mypy 통과 후 최종 전량 검증을 진행한다. 동결 제품과 캠페인에는 소급 적용하지 않는다.
+#188 초기 품질 판정과 사용자 선호 대기, 소비자/기본 전환·전체 목표 감사는 여전히 남는다.
