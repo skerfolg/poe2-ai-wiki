@@ -144,3 +144,13 @@ r6-electron-file-ui-v1은 그 번들을 실제 Electron44.5.1에서 file://로 �
 이는 개발 서버 대역보다 넓은 앱 로드 증거지만 설치 패키지/게임 backend·실제 모델의
 전체 지원 조합 검증은 아니다. 앞선 '전체 build 대기' 표기는 앱 소스 번들에 한해 대체된다.
 독립 backend 선택/실제 engine desktop 계약·설치 패키지·모델/오라클 동선은 남아 있다.
+
+
+2026-11-04 현재 경로 재확인: main/d15bdab의 실제 MCP 계산과 R6후보/45951aa의 실제
+봉인 worker 클라이언트는 각각 별도 공개 fixture에서 raw native763개와 일치했다.
+별도 coho/42ad5f0은 schema1·원본 Lua PoB runtime 경로이며 R6후보와 같다고 보지 않는다.
+UI 코드를 수정/병합하지 않았다. 구체적 소유/호환 경계와 미완료 GUI·모델·원자 적용은
+[현재 UI/코어 인계](POK_UI_CORE_ALIGNMENT_HANDOFF.md)에 기록했다.
+코어 packager8b4f226은 공식 upstream headless 배포 목록으로 정식 번들을 만들고 실제
+R6 Node 연결/동일 수치를 검증했다. 포함 파일의 무결성 검사를 유지하며 기존 실패 번들은
+별도로 보존했다. 전반 품질·기본 채택과 전체 GUI 통합 완료는 이 결과로 인증하지 않는다.
