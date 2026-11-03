@@ -10,6 +10,7 @@ import re
 import shutil
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from subprocess import PIPE
 from threading import Thread
@@ -38,6 +39,73 @@ def _copy(source: Path, target: Path, *, visuals: bool = False) -> None:
         }
 
     shutil.copytree(source, target, ignore=ignore)
+
+
+def _copy_headless_pob(root: Path, target: Path) -> tuple[str, ...]:
+    """Copy the upstream Windows release inventory, not development exports.
+
+    HeadlessWrapper is the explicit upstream headless entry point. Visual assets
+    retain the existing calc-only exclusion. Required selected files must exist,
+    stay inside the pinned checkout and be Git tracked; never guess or skip them.
+    """
+    root = root.resolve()
+    raw = (root / "manifest.xml").read_bytes()
+    if b"<!DOCTYPE" in raw.upper():
+        raise ValueError("Unsupported upstream manifest DTD")
+    try:
+        manifest = ET.fromstring(raw)
+    except ET.ParseError as exc:
+        raise ValueError("Invalid upstream PoB manifest") from exc
+    paths = {"manifest.xml", "LICENSE.md", "src/HeadlessWrapper.lua"}
+    has_program = False
+    for entry in manifest.iter("File"):
+        part = entry.get("part")
+        if part not in {"default", "program", "tree", "runtime"}:
+            raise ValueError(f"Unsupported upstream inventory part: {part!r}")
+        if part == "default" or (
+            part == "runtime" and entry.get("runtime") not in {None, "", "win32"}
+        ):
+            continue
+        name = entry.get("name", "")
+        if (
+            not name
+            or name.startswith(("/", "\\"))
+            or ":" in name
+            or any(item in {"", ".", ".."} for item in name.replace("\\", "/").split("/"))
+        ):
+            raise ValueError(f"Invalid upstream resource path: {name!r}")
+        name = name.replace("\\", "/")
+        if part == "program":
+            has_program = True
+        if Path(name).suffix.lower() in {
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".tga",
+            ".tgf",
+        } or name.lower().endswith(".dds.zst"):
+            continue
+        paths.add(("runtime/" if part == "runtime" else "src/") + name)
+    if not has_program:
+        raise ValueError("Upstream inventory has no program resources")
+    tracked = set(
+        _git(root, "ls-files", "-z", "--", "manifest.xml", "LICENSE.md", "src", "runtime").split(
+            "\0"
+        )
+    )
+    for relative in sorted(paths):
+        source = root / relative
+        if not source.is_file() or not source.resolve().is_relative_to(root):
+            raise ValueError(f"Missing or escaping required PoB runtime resource: {relative}")
+        if relative not in tracked:
+            raise ValueError(f"Required PoB runtime resource is not Git tracked: {relative}")
+    # Validate the whole selection before publishing any of these files.
+    target.mkdir(parents=True)
+    for relative in sorted(paths):
+        destination = target / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(root / relative, destination)
+    return tuple(sorted(paths))
 
 
 def _git(root: Path, *args: str) -> str:
@@ -206,8 +274,7 @@ def build_bundle(
     (target / "scripts").mkdir()
     for path in (adapter_root / "scripts").glob("*.lua"):
         shutil.copyfile(path, target / "scripts" / path.name)
-    for name in ("src", "runtime"):
-        _copy(pob_root / name, output / "pob" / name, visuals=True)
+    pob_inventory = _copy_headless_pob(pob_root, output / "pob")
     python = output / "python"
     python.mkdir()
     source_python = python_home / "python.exe"
@@ -282,6 +349,9 @@ def build_bundle(
                 "adapter_commit": _git(adapter_root, "rev-parse", "HEAD"),
                 "adapter_dirty": dirty,
                 "pob_tracked_source_verified": True,
+                "pob_runtime_inventory": "upstream-manifest-headless-win32-v1",
+                "pob_upstream_manifest_sha256": file_sha256(pob_root / "manifest.xml"),
+                "pob_runtime_file_count": len(pob_inventory),
             },
         }
         path = output / "worker-manifest.json"
