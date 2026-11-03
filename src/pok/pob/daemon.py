@@ -197,9 +197,13 @@ class PobDaemon:
         *,
         command_timeout_s: float = 180.0,
         adapter_root: Path | None = None,
+        kb_diagnostics: bool = True,
     ) -> None:
         if not math.isfinite(command_timeout_s) or command_timeout_s <= 0:
             raise ValueError("command_timeout_s must be finite and positive")
+        if not isinstance(kb_diagnostics, bool):
+            raise ValueError("kb_diagnostics must be a boolean")
+        self._kb_diagnostics = kb_diagnostics
         self.command_timeout_s = command_timeout_s
         self._adapter_root = adapter_root.resolve() if adapter_root is not None else None
         self._snap = snapshot or resolve_snapshot()
@@ -410,7 +414,7 @@ class PobDaemon:
         try:
             stats, meta, alloc = parse_lines(lines)
         except PobRunError as exc:
-            hint = native_mode_error_hint(xml_text, str(exc))
+            hint = native_mode_error_hint(xml_text, str(exc)) if self._kb_diagnostics else None
             if hint:
                 raise PobRunError(f"{hint}\nOriginal native error:\n{exc}") from exc
             raise

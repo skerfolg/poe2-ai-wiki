@@ -161,7 +161,7 @@ class WorkerService:
         self.instance = uuid4().hex
         self.emit = emit
         self.calculator = calculator or PobDaemon(
-            config.snapshot(), adapter_root=config.adapter_root
+            config.snapshot(), adapter_root=config.adapter_root, kb_diagnostics=False
         )
         self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="pob-worker")
         self.lock = RLock()

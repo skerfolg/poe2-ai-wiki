@@ -337,10 +337,10 @@ def native_mode_error_hint(xml_text: str, native_error: str) -> str | None:
     """
     if "statSet" not in native_error:
         return None
-    from pok.kb.skill_facts import gem_effects, skill_gates
-    from pok.pob.document import inspect_xml, xml_node_pointer
-
     try:
+        from pok.kb.skill_facts import gem_effects, skill_gates
+        from pok.pob.document import inspect_xml, xml_node_pointer
+
         nodes = inspect_xml(xml_text)
         by_path = {node.path: node for node in nodes}
         skills = next((node for node in nodes if node.tag == "Skills"), None)
@@ -427,8 +427,8 @@ def native_mode_error_hint(xml_text: str, native_error: str) -> str | None:
             },
             ensure_ascii=False,
         )
-    except (OSError, ValueError, KeyError, TypeError):
-        return None  # Diagnostic failure must not conceal the original native error.
+    except (ImportError, OSError, ValueError, KeyError, TypeError):
+        return None  # Optional KB/diagnostic failure must not conceal the native error.
 
 
 def _execution_observation(

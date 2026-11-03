@@ -159,3 +159,54 @@ def test_missing_kb_does_not_conceal_original_failure(monkeypatch):
 
     monkeypatch.setattr(skill_facts, "gem_effects", unavailable)
     assert runner.native_mode_error_hint(xml(), "statSet nil") is None
+
+
+def test_missing_optional_kb_package_preserves_native_failure(monkeypatch, tmp_path):
+    import builtins
+
+    from pok.pob.versions import PobSnapshot
+
+    original_import = builtins.__import__
+
+    def missing_kb(name, *args, **kwargs):
+        if name == "pok.kb.skill_facts":
+            raise ModuleNotFoundError("No module named pok.kb")
+        return original_import(name, *args, **kwargs)
+
+    original = runner.PobRunError("statSet nil")
+
+    def failing(*args, **kwargs):
+        raise original
+
+    monkeypatch.setattr(builtins, "__import__", missing_kb)
+    monkeypatch.setattr(runner, "_execution_observation", lambda *a, **k: {"status": "unavailable"})
+    monkeypatch.setattr(runner, "_cache_path", lambda *a, **k: tmp_path / "cache.json")
+    monkeypatch.setattr(runner, "_run_driver", failing)
+    with pytest.raises(runner.PobRunError) as failure:
+        runner.run_xml(xml(), snapshot=PobSnapshot("test", tmp_path, tmp_path), use_cache=False)
+    assert failure.value is original
+    assert failure.value.__cause__ is None
+
+
+def test_no_kb_daemon_never_invokes_the_optional_hint(monkeypatch, tmp_path):
+    from io import StringIO
+
+    from pok.pob import daemon as module
+    from pok.pob.versions import PobSnapshot
+
+    def forbidden(*args):
+        raise AssertionError("Standalone calculation must not call KB diagnostics")
+
+    daemon = module.PobDaemon(PobSnapshot("test", tmp_path, tmp_path), kb_diagnostics=False)
+    monkeypatch.setattr(module, "native_mode_error_hint", forbidden)
+    monkeypatch.setattr(daemon, "start", lambda: None)
+    monkeypatch.setattr(daemon, "_xml_file", lambda text: tmp_path / "input.xml")
+    daemon._proc = SimpleNamespace(stdin=StringIO(), pid=1, poll=lambda: None)
+    frames = iter(["POK_ERR:statSet nil\n", "POK_DONE\n"])
+    monkeypatch.setattr(daemon, "_readline", lambda: next(frames))
+    try:
+        with pytest.raises(runner.PobRunError, match="statSet nil") as failure:
+            daemon.compute(xml())
+        assert "POK_EFFECT_MODE_DIAGNOSTIC" not in str(failure.value)
+    finally:
+        daemon._proc = None
