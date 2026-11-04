@@ -39,11 +39,12 @@ assert(not ok)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_minion_power_request_cannot_silently_return_zero(monkeypatch):
+def test_minion_power_request_cannot_silently_return_zero(monkeypatch, tmp_path):
     from pok.pob.daemon import PobDaemon
     from pok.pob.runner import PobRunError
+    from pok.pob.versions import PobSnapshot
 
-    daemon = PobDaemon()
+    daemon = PobDaemon(PobSnapshot(commit="test", root=tmp_path, src_dir=tmp_path))
     monkeypatch.setattr(daemon, "start", lambda: pytest.fail("must reject before startup"))
     with pytest.raises(PobRunError, match="full XML or TREE"):
         daemon.node_power(("Minion.CombinedDPS",))

@@ -15,8 +15,8 @@ flowchart LR
  S1[S1 표현 검증 done] --> S2[S2 평가 동결 done]
  S2 --> S3[S3 판단4회 종료]
  S3 --> S4[S4 조건 불충족 미실행]
- S4 --> S5[S5 병목 검토·검증 active]
- S5 --> S6[S6 채택·사용자 검토 pending]
+ S4 --> S5[S5 교정·로컬 검증 done]
+ S5 --> S6[S6 PR·사용자 검토 active]
 ```
 
 ## Baseline Structure
@@ -27,12 +27,12 @@ flowchart LR
 | S2 | done | 새 과제·입력·대조 정책·판정·예산 고정 |
 | S3 | done: 3 timeouts / 1 submission | 동일 조건 판단4회, 각45분 이내, 실제 PoB 평가 |
 | S4 | not run: condition unmet | S3 성과가 조건을 충족하면 추가4회 이하 |
-| S5 | active | 확인된 부족만 수정·해당 검증 |
-| S6 | pending | 사용자 실물 검토와 채택/보류 판단, PR 준비 |
+| S5 | done | 확인된 부족만 수정·해당 검증 |
+| S6 | active | 사용자 실물 검토와 채택/보류 판단, PR 준비 |
 
 ## Canonical Next Step
 
-**최종 제출물의 선택/근거와 실패 경로를 검토하고, 검증된 수정·보류할 정책 및 시험 준비 교정을 정리한다. 원래 시험은 재실행하지 않는다.**
+**draft PR157의 원격 CI를 확인하고 사용자 실물 피드백을 반영한다. 병합/추가 모델 시험은 하지 않는다.**
 
 ## Deferred Candidates
 
@@ -209,3 +209,17 @@ PR 전 통합 session53611 exit0: JUnit167tests/0failures/0errors/0skipped,963.2
 #219는 해결 표로 이동했다. 관련 최소 단위 및 전체 native 검증을 완료했으며 이를
 새 생성 정책의 품질 개선으로 해석하지 않는다. 현재 변경을 draft PR로 준비한다.
 사용자 실물 피드백과 원격 CI 확인은 남아 있어 goal은 active로 유지한다.
+
+
+원격 반영: 커밋07a3583을 codex/pok-search-revision에 push하고 draft PR157 생성.
+https://github.com/skerfolg/poe2-ai-wiki/pull/157
+병합하지 않았다. 로컬 검증은 통과했으나 원격 CI와 사용자 실물 피드백은 대기 중이다.
+이 체크포인트는 후속 문서 반영 대상으로 로컬에 보존한다. goal은 아직 active다.
+
+
+PR157 초기 Windows CI 실패2건(2724pass/218skip): 새 통합 검사의 환경 가드가
+저장소 skipif 규약과 달랐고, POWER 거부 단위검사가 생성자에서 실제 PoB snapshot을
+요구했다. 제품 코드/검증 의미를 완화하지 않고 표준 skipif 환경 가드와 주입한 합성
+snapshot으로 교정했다. 관련 최소3검사·Ruff 통과, snapshot 없는 import에서 skip조건
+true를 별도로 확인했다. 기존167 native 통과의 본문은 변경하지 않았으므로 전량 반복하지
+않는다. 실패 로그는 CI job126816161129에 보존하고 후속 커밋에서 재검증한다.

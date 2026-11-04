@@ -8,12 +8,19 @@ from pok.pob.runner import run_build
 from pok.pob.versions import find_luajit, resolve_snapshot
 
 
-def test_minion_axes_driver_daemon_and_actor_switch():
+def _env_ready():
     try:
         find_luajit()
         resolve_snapshot()
     except (FileNotFoundError, RuntimeError):
-        pytest.skip("Native PoB unavailable")
+        return False
+    return True
+
+
+pytestmark = pytest.mark.skipif(not _env_ready(), reason="Native PoB unavailable")
+
+
+def test_minion_axes_driver_daemon_and_actor_switch():
     spec = spec_from_dict(
         {
             "class_name": "Witch",
