@@ -1,0 +1,67 @@
+{
+  "format": "pok.trial-answer-contract.v1",
+  "instruction": "최종 응답은 이 공통 계약으로 제출한다. pob_code는 공유코드를 실제로 제출할 때만 문자열로 쓰고, 파일로 제출하면 null로 둔다. artifacts에는 실제 생성한 PoB/XML/공유코드 파일의 정확한 경로나 도구가 반환한 파일 참조와 형식을 기록한다. 존재하지 않는 경로를 만들거나 긴 공유코드를 답변에 다시 전사할 필요는 없다. complete는 최종 산출물을 제출한 경우에만 사용한다. 미완료는 incomplete와 남은 작업을 기록하고 artifacts는 빈 배열이어도 된다. 보고서에는 선택 근거, 기회비용, 성립 조건, 미검증 부분을 구분한다. 운영자는 실제 파일 바이트를 회수하며 응답의 complete 자체를 품질 통과로 인정하지 않는다.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "incomplete"
+        ]
+      },
+      "build_id": {
+        "type": "string"
+      },
+      "pob_code": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "artifacts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "enum": [
+                "pob_xml",
+                "pob_code",
+                "other"
+              ]
+            },
+            "reference": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "format",
+            "reference"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "report_markdown": {
+        "type": "string"
+      },
+      "remaining_work": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "status",
+      "build_id",
+      "pob_code",
+      "artifacts",
+      "report_markdown",
+      "remaining_work"
+    ],
+    "additionalProperties": false
+  }
+}

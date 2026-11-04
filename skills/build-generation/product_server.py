@@ -108,7 +108,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--product-root", type=Path, required=True)
     parser.add_argument("--run-dir", type=Path, required=True)
+    parser.add_argument("--reference-policy", type=Path)
+    parser.add_argument("--reference-policy-sha256")
     args = parser.parse_args()
+    if (args.reference_policy is None) != (args.reference_policy_sha256 is None):
+        parser.error("Reference policy path and sha256 must be supplied together")
     product, run = validate_locations(args.product_root, args.run_dir, CONTROL_ROOT)
     from pok.common import paths
     from pok.common.stdio import force_utf8_stdio
@@ -125,7 +129,23 @@ def main() -> None:
     paths.var_dir = lambda root=None: cache
     from pok.mcp import server
 
-    policy = configure_product(server, artifacts, product)
+    if args.reference_policy is None:
+        policy = configure_product(server, artifacts, product)
+    else:
+        from product_reference import configure_reference, load_reference_policy
+
+        frozen = load_reference_policy(
+            {"path": str(args.reference_policy), "sha256": args.reference_policy_sha256},
+            CONTROL_ROOT,
+        )
+        policy = configure_reference(
+            server,
+            artifacts,
+            product,
+            expected_tools=frozenset(frozen["source_tools"]),
+            facts=product / "knowledge",
+            pob=product / "external/pob/5d173cb",
+        )
     policy["product_root"] = str(product)
     policy["artifacts"] = str(artifacts)
     policy["cache"] = str(cache)

@@ -296,3 +296,48 @@ def test_worker_exports_native_catalog_and_renders_catalog_ids_without_kb(tmp_pa
         }
     finally:
         client.close()
+
+
+def test_worker_mode_error_does_not_import_kb_and_next_input_recovers(tmp_path):
+    client = Client(tmp_path)
+    try:
+        client.initialize()
+        invalid = to_xml(
+            BuildSpec(
+                class_name="Mercenary",
+                ascendancy="Mercenary2",
+                level=100,
+                skills=(
+                    SkillGroupSpec(
+                        gems=(
+                            GemSpec(
+                                gem_id="Metadata/Items/Gems/SkillGemFragmentationRounds",
+                                name="Fragmentation Rounds",
+                                level=20,
+                                stat_set_index=2,
+                            ),
+                        )
+                    ),
+                ),
+            )
+        )
+        client.send("invalid-mode", "compute_xml", {"xml": invalid})
+        failed = client.receive()
+        assert failed["ok"] is False, failed
+        assert "statSet" in json.dumps(failed), failed
+        assert "ModuleNotFoundError" not in json.dumps(failed), failed
+        valid = source_xml()
+        client.send("valid-after-mode-error", "compute_xml", {"xml": valid, "stats": ["Life"]})
+        recovered = client.receive()
+        assert recovered["ok"], recovered
+        assert recovered["result"]["stats"]["Life"] > 0
+        client.send("bye", "shutdown")
+        closed = client.receive()
+        assert closed["id"] == "bye" and closed["cleanup"]["confirmed"], closed
+        assert client.process.wait(timeout=15) == 0
+        assert json.loads(client.audit.read_text(encoding="utf-8")) == {
+            "blocked": [],
+            "modules": [],
+        }
+    finally:
+        client.close()

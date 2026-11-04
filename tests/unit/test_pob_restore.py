@@ -73,10 +73,11 @@ def test_아이템_텍스트가_ModRange에서_잘리지_않는다() -> None:
     assert "+10 to Spirit" in amulet["text"]
 
 
-def test_주얼은_할당된_소켓만_싣는다() -> None:
-    """PoB는 할당 안 한 소켓의 매핑도 남긴다 — 그대로 실으면 조립이 거부된다."""
+def test_아이템_부여와_비활성_주얼_매핑도_보존한다() -> None:
     jewels = _restored().spec["jewels"]
-    assert [j["socket_node_id"] for j in jewels] == [21984]
+    assert [j["socket_node_id"] for j in jewels] == [21984, 999]
+    assert jewels[1]["preserve_socket_mapping"] is True
+    assert 999 not in _restored().spec["tree_nodes"]
 
 
 def test_능력치_택1_선택을_복원한다() -> None:
@@ -110,7 +111,7 @@ def test_아이템이_준_스킬_그룹은_싣지_않는다() -> None:
 def test_못_되돌린_것을_말한다() -> None:
     """조용히 빼면 「복원했다」고 믿은 채 다른 빌드를 재게 된다."""
     r = _restored()
-    assert any("교체 무기" in n for n in r.notes), "버린 슬롯을 안 밝혔다"
+    assert any(i["slot"] == "Weapon 1 Swap" for i in r.spec["items"])
     assert any("stat_set_index" in n for n in r.needs_decision), "가정을 안 밝혔다"
     assert r.faithful is False
 
@@ -338,45 +339,39 @@ def _with_weapon_sets(use_second: bool, *, main: str = "0", swap: str = "3") -> 
     )
 
 
-def test_교체_세트가_활성이면_그_무기를_주무기_슬롯으로_접어_싣는다() -> None:
-    """#143 — `useSecondWeaponSet="true"`면 주무기는 **Swap 슬롯**에 있다(래더 창 젬링 실측).
-
-    빈 채로 복원하면 창 공격 빌드가 창 없이 계산되는데 `damage_comparable`은 True였다.
-    PoB가 활성 세트로 계산하는 것을 그대로 옮긴다 — 단 **근사**임을 말한다(세트 전용 트리
-    할당·「양 세트에서 활성」 젬은 재현 못 한다).
-    """
+def test_활성_교체_세트는_접지_않고_보존한다() -> None:
     r = spec_from_pob_xml(_with_weapon_sets(True))
-    weapon = next(i for i in r.spec["items"] if i["slot"] == "Weapon 1")
+    weapon = next(i for i in r.spec["items"] if i["slot"] == "Weapon 1 Swap")
     assert "Akoyan Spear" in weapon["text"]
-    assert not any(i["slot"].endswith("Swap") for i in r.spec["items"])
-    assert any("근사" in n for n in r.notes), r.notes
+    assert r.spec["weapon_set"] == 2
+    assert not any("근사" in n for n in r.notes)
     assert r.damage_comparable is True
 
 
-def test_교체_세트가_활성이면_1세트_무기는_뺀다() -> None:
-    """PoB도 비활성 세트는 계산에 안 쓴다 — 둘 다 실으면 없는 빌드가 된다."""
-    r = spec_from_pob_xml(_with_weapon_sets(True, main="1"))  # 1세트 슬롯에 목걸이 텍스트
-    weapons = [i for i in r.spec["items"] if i["slot"] == "Weapon 1"]
-    assert len(weapons) == 1 and "Akoyan Spear" in weapons[0]["text"]
-    assert any("비활성" in n for n in r.notes), r.notes
+def test_활성_세트와_비활성_세트_장비를_함께_보존한다() -> None:
+    r = spec_from_pob_xml(_with_weapon_sets(True, main="1"))
+    by_slot = {i["slot"]: i for i in r.spec["items"]}
+    assert "Gold Amulet" in by_slot["Weapon 1"]["text"]
+    assert "Akoyan Spear" in by_slot["Weapon 1 Swap"]["text"]
+    assert r.spec["weapon_set"] == 2
 
 
-def test_교체_세트가_비활성이면_종전과_같다() -> None:
+def test_비활성_교체_세트도_원래_슬롯으로_보존한다() -> None:
     r = spec_from_pob_xml(_with_weapon_sets(False))
     assert not any(i["slot"] == "Weapon 1" for i in r.spec["items"])
-    assert any("교체 무기" in n for n in r.notes)
-    assert r.damage_comparable is True, "비활성 세트의 무기는 PoB도 계산에 안 쓴다"
+    assert any(i["slot"] == "Weapon 1 Swap" for i in r.spec["items"])
+    assert r.spec["weapon_set"] == 1
+    assert r.damage_comparable is True
 
 
-def test_교체_세트가_활성이면_그_슬롯의_스킬_그룹도_따라온다() -> None:
-    """무기만 옮기고 그룹의 slot을 `Weapon 1 Swap`으로 두면 PoB가 빈 슬롯의 그룹으로 보고 끈다.
-    반대로 1세트 무기에 꽂힌 그룹은 PoB처럼 끈다(`CalcSetup.lua:1729`, 주력 그룹은 예외)."""
+def test_무기_세트_스킬_슬롯도_접지_않는다() -> None:
     xml = _with_weapon_sets(True).replace(
         '<Skill enabled="true" mainActiveSkill="nil">',
         '<Skill enabled="true" slot="Weapon 1 Swap" mainActiveSkill="nil">',
     )
     r = spec_from_pob_xml(xml)
-    assert r.spec["skills"][0]["slot"] == "Weapon 1" and r.spec["skills"][0]["enabled"] is True
+    assert r.spec["skills"][0]["slot"] == "Weapon 1 Swap"
+    assert r.spec["skills"][0]["enabled"] is True
 
 
 def test_활성_세트의_무기가_코드에_없으면_비교_불가다() -> None:

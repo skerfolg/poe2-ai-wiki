@@ -15,7 +15,7 @@ from pok.artifacts.store import (
 )
 from pok.common.execution import current_execution
 from pok.common.paths import artifacts_dir
-from pok.engine.integrity import xml_buff_stage_diagnostics
+from pok.engine.integrity import xml_buff_stage_diagnostics, xml_granted_reservation_diagnostics
 from pok.pob import codec
 from pok.pob.document import (
     inspect_xml,
@@ -132,8 +132,10 @@ def measure_document(
     revision = xml_revision(xml)
     design_warnings = xml_buff_stage_diagnostics(xml)
     result = run_xml(xml, timeout=native_timeout_s, use_cache=use_cache)
+    granted = xml_granted_reservation_diagnostics(xml, result.stats)
     measured = {
         "format": "pok.document-measurement.v1",
+        **granted,
         "xml_revision": revision,
         "source_xml_ref": dict(reference),
         "stats": result.stats,
@@ -187,6 +189,7 @@ def measure_document(
         "manifest_sha256": saved["manifest_sha256"],
         "cached": result.cached,
         "claim": measured["claim"],
+        **granted,
         **({"design_warnings": list(design_warnings)} if design_warnings else {}),
         "execution_identity": "not_verified",
         "lifecycle_deadline": "bound_request_absolute_deadline"

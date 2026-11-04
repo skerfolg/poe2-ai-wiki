@@ -126,3 +126,27 @@ def test_invalid_utf8_inside_log_is_not_silently_removed(module, tmp_path):
     path.write_bytes(b'{"text":"\xed\x95\n{"type":"turn.completed"}\n')
     with pytest.raises(ValueError, match="interior"):
         list(module.complete_events(path))
+
+
+def test_reference_command_pins_the_policy_and_cannot_reuse_changed_catalog(module, inputs):
+    import hashlib
+
+    from product_reference import BASIC_TOOLS
+
+    path = inputs["control_root"] / "artifacts/reference-policy.json"
+    path.write_text(
+        json.dumps({"format": "pok.reference-policy.v1", "source_tools": sorted(BASIC_TOOLS)}),
+        encoding="utf-8",
+    )
+    pin = {"path": str(path), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+    command = module.build_product_command(**inputs, phase=1, reference_policy=pin)
+    config = pok_config(command)
+    assert config["args"][-4:] == [
+        "--reference-policy",
+        str(path),
+        "--reference-policy-sha256",
+        pin["sha256"],
+    ]
+    path.write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="checksum"):
+        module.build_product_command(**inputs, phase=1, reference_policy=pin)

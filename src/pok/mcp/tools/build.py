@@ -51,7 +51,7 @@ from pok.engine.assemble import IllegalBuildError, assemble
 from pok.engine.compute import compute_pob as _compute
 from pok.engine.compute import evaluate_delta as _delta
 from pok.engine.gem_availability import audit_gem_availability
-from pok.engine.integrity import spec_integrity
+from pok.engine.integrity import granted_reservation_diagnostics, spec_integrity
 from pok.engine.item_sockets import audit_item_sockets
 from pok.engine.items import req_shortfall, unbuilt_declarations, unread_item_lines
 from pok.engine.legality import ItemLegalityChecker
@@ -183,6 +183,7 @@ def _pick(
     if result.dropped_items:
         out["dropped_items"] = [dict(row) for row in result.dropped_items]
     if build_spec is not None:
+        out.update(granted_reservation_diagnostics(build_spec.get("items") or [], result.stats))
         out["gem_availability"] = audit_gem_availability(build_spec)
         acquisition = audit_item_sockets(build_spec, observed=result.items)
         out["socket_acquisition"] = acquisition
@@ -286,11 +287,12 @@ def _condition_sources(
     **같은 출처 집합**을 봐야 두 신고가 서로 어긋나지 않는다.
     """
     from pok.engine.legality import _parse_item
-    from pok.index.search import get_entry
     from pok.kb.ingest.merge import slug_to_id_part
+    from pok.kb.store import load
 
     texts: dict[str, list[str]] = {}
     cooldowns: dict[str, float] = {}
+    snapshot = None
     for group in build_spec.get("skills", []):
         for gem in group.get("gems", []):
             name = str(gem.get("name", "")).strip()
@@ -302,10 +304,15 @@ def _condition_sources(
             # 신고돼 「팩에서 한 마리에만」이 절반만 보였다. 정본 규칙을 그대로 쓴다.
             for prefix in ("support", "skill"):
                 rid = f"{prefix}.{slug_to_id_part(name)}"
-                try:
-                    data = get_entry(rid, fields=["data"]).get("data") or {}
-                except KeyError:
+                # These diagnostics need canonical stats, not a public lookup's
+                # index self-healing, grant-instance enrichment or transport.
+                # Use one validated snapshot per call, including missing IDs.
+                if snapshot is None:
+                    snapshot = load()
+                record = snapshot.records.get(rid)
+                if record is None:
                     continue
+                data = record.raw.get("data") or {}
                 if data.get("stats"):
                     texts[rid] = list(data["stats"])
                     if isinstance(cd := data.get("cooldown_s"), int | float) and cd > 0:
@@ -1448,10 +1455,13 @@ def restore_pob_spec(
     ⚠ **`notes`·`needs_decision`을 반드시 읽을 것.** 코드에 없어서 못 되돌린 것과
     우리가 가정한 것이 거기 있다. 특히:
     - `stat_set_index` — 코드에 `<StatSetIndex>`가 있으면 **그 값을 되돌린다** (#134).
-      없는 젬만 1번을 가정하고 그 사실을 `needs_decision`에 싣는다 — 모드가 둘 이상인
+      legacy assume_first_stat_set=True는 없는 젬에1번을 가정해 needs_decision에 싣는다.
+      False는 원문의 생략을 명시 빈 effect map으로 보존해 native 기본값을 재현한다.
+      이는 최적 모드 선택이나 실전 성립 인증이 아니다. 모드가 둘 이상인
       젬을 잘못 잡으면 수치가 크게 달라진다(실측 20배).
     - 단계형 스킬의 `stages`도 코드에 없다(코퍼스 300벌 전부). 필요하면 직접 채울 것.
-    - 교체 무기 슬롯·무기 세트 전용 할당은 우리 스펙에 자리가 없어 빠진다.
+    - 두 무기 세트와 전용 할당, 일반 노드 밖 저장 주얼 매핑을 보존한다.
+      저장 매핑은 효과가 있다는 인증이 아니며 native PoB가 적용 여부를 결정한다.
 
     selection은 item_set/skill_set/config_set ID와 tree_spec 순번(문자열), weapon_set
     (1/2), main_group(원본 XML Skill 그룹의1기반 순번)을 명시적으로 고를 수 있다.
@@ -1537,3 +1547,23 @@ def inspect_pob_runtime(observe_current: bool = False) -> dict[str, Any]:
     from pok.pob.daemon import inspect_shared_execution
 
     return inspect_shared_execution(observe_current=observe_current)
+
+
+def prepare_unique_item(
+    name: str,
+    selections: dict[str, Any] | None = None,
+    roll_policy: str = "native",
+) -> dict[str, Any]:
+    """Prepare a unique from the pinned native English-name catalogue.
+
+    Returns actual native selector keys/variant labels and an ItemSpec text input.
+    For example Mageblood has four independent selector headers, and duplicates
+    are supported when declared by native source. Unspecified controls preserve
+    source defaults; none are chosen for the build. Missing templates are
+    reported, not replaced by a guessed item. Native names do not bind KB
+    cultivated aliases. roll_policy is native|min|mid|max and is always reported.
+    No PoB calculation or in-game acquisition/quality validation is performed.
+    """
+    from pok.engine.unique_items import prepare_unique_item as prepare
+
+    return prepare(name, selections, roll_policy)

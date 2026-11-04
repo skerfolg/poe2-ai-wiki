@@ -35,7 +35,13 @@ from pok.common.owned_process import spawn_owned, terminate_owned
 from pok.common.paths import project_root, var_dir
 from pok.pob.buildxml import BuildSpec, to_xml
 from pok.pob.execution_identity import observe_execution_inputs
-from pok.pob.runner import PobResult, PobRunError, find_dropped_items, parse_lines
+from pok.pob.runner import (
+    PobResult,
+    PobRunError,
+    find_dropped_items,
+    native_mode_error_hint,
+    parse_lines,
+)
 from pok.pob.versions import PobSnapshot, find_luajit, resolve_snapshot
 
 _DAEMON = "scripts/pob_daemon.lua"
@@ -191,9 +197,13 @@ class PobDaemon:
         *,
         command_timeout_s: float = 180.0,
         adapter_root: Path | None = None,
+        kb_diagnostics: bool = True,
     ) -> None:
         if not math.isfinite(command_timeout_s) or command_timeout_s <= 0:
             raise ValueError("command_timeout_s must be finite and positive")
+        if not isinstance(kb_diagnostics, bool):
+            raise ValueError("kb_diagnostics must be a boolean")
+        self._kb_diagnostics = kb_diagnostics
         self.command_timeout_s = command_timeout_s
         self._adapter_root = adapter_root.resolve() if adapter_root is not None else None
         self._snap = snapshot or resolve_snapshot()
@@ -401,7 +411,13 @@ class PobDaemon:
                 lines.append(line.rstrip("\n"))
         finally:
             xml_file.unlink(missing_ok=True)
-        stats, meta, alloc = parse_lines(lines)
+        try:
+            stats, meta, alloc = parse_lines(lines)
+        except PobRunError as exc:
+            hint = native_mode_error_hint(xml_text, str(exc)) if self._kb_diagnostics else None
+            if hint:
+                raise PobRunError(f"{hint}\nOriginal native error:\n{exc}") from exc
+            raise
         meta["daemon_execution"] = self._execution_meta()
         pruned = tuple(sorted(set(requested_nodes) - set(alloc)))
         self._last_xml = xml_text

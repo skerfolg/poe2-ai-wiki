@@ -119,6 +119,8 @@ class GemSpec:
     # per-effect MAIN/CALCS assignments, including an intentionally empty map.
     stat_set_indices: tuple[tuple[str, int], ...] | None = None
     stat_set_calcs_indices: tuple[tuple[str, int], ...] | None = None
+    enable_global_1: bool | None = None
+    enable_global_2: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -170,9 +172,9 @@ class JewelSpec:
     """트리 소켓에 장착하는 주얼 — text는 ItemSpec과 같은 raw 형식
     (베이스: Ruby|Emerald|Sapphire|Diamond|Time-Lost …).
 
-    socket_node_id는 트리의 jewel-socket 노드 id이며 **tree_nodes에 함께
-    할당돼 있어야** PoB가 반영한다(실측 2026-07-30: Sockets/Socket 요소,
-    아이템이 트리보다 먼저 로드되는 PoB의 지연 트리 로드에 의존)."""
+    socket_node_id는 트리 소켓의 id다. 새 구성은 tree_nodes 배정을 요구하며,
+    복원된 저장 매핑은 preserve_socket_mapping으로 별도 보존한다. 아이템 부여
+    소켓/비활성 저장 매핑을 유료 포인트로 추가하지 않고 적용은 native에 맡긴다."""
 
     socket_node_id: int
     text: str
@@ -182,6 +184,10 @@ class JewelSpec:
     # **효과만** 재현한다. 주얼 소켓 소모·랜덤 롤 조달 가정은 재현되지 않으므로
     # 계보(manifest)에 대체 모델링 사실이 기록된다 — 사실을 덮지 않는다.
     allocates: tuple[int, ...] = ()
+    # A saved socket mapping can be dormant or allocated by an item. Preserve
+    # its mapping without inventing a paid passive allocation; native PoB decides
+    # whether it contributes. This is not proof of allocation or game legality.
+    preserve_socket_mapping: bool = False
 
 
 @dataclass(frozen=True)
@@ -210,6 +216,9 @@ class BuildSpec:
     #
     # 미지정 노드는 PoB 기본 동작을 따른다(override에 넣지 않는다).
     attribute_choices: tuple[tuple[int, str], ...] = field(default=())
+    weapon_set: int = 1
+    weapon_set_1_nodes: tuple[int, ...] = ()
+    weapon_set_2_nodes: tuple[int, ...] = ()
 
 
 # 탐침 표기 — 천장을 재기 위한 가정치임을 스펙에 남기는 태그 (회차 종결 R1).
@@ -513,7 +522,9 @@ def _validate_catalog(spec_data: dict[str, Any]) -> None:
                 continue
             effect, labels = stat_sets(str(gem.get("gem_id", "")))
             explicit = dict(_mode_pairs(gem.get("stat_set_indices"), "stat_set_indices") or ())
-            if effect in explicit:
+            if effect in explicit or gem.get("stat_set_indices") is not None:
+                # An explicit map, including {}, preserves native per-effect
+                # fallback choices. It is distinct from an omitted decision.
                 continue
             if len(labels) > 1:
                 numbered = ", ".join(f"{n}={lb!r}" for n, lb in enumerate(labels, 1))
@@ -683,7 +694,16 @@ def spec_from_dict(data: dict[str, Any], *, validate_catalog: bool = True) -> Bu
         main_socket_group=int(data.get("main_socket_group", 1)),
         config=config,
         attribute_choices=attribute_choices,
+        weapon_set=_weapon_set(data.get("weapon_set", 1)),
+        weapon_set_1_nodes=tuple(int(n) for n in data.get("weapon_set_1_nodes", [])),
+        weapon_set_2_nodes=tuple(int(n) for n in data.get("weapon_set_2_nodes", [])),
     )
+
+
+def _weapon_set(value: Any) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value not in (1, 2):
+        raise ValueError("weapon_set must be 1 or 2")
+    return value
 
 
 def _config_value_attrs(value: str | int | float | bool) -> str:
@@ -746,6 +766,11 @@ def _gem_xml(gem: GemSpec) -> str:
             if gem.stages is not None
             else ""
         )
+        + "".join(
+            f'enableGlobal{index}="{str(value).lower()}" '
+            for index, value in ((1, gem.enable_global_1), (2, gem.enable_global_2))
+            if value is not None
+        )
         + f'enabled="{"true" if gem.enabled else "false"}" nameSpec={quoteattr(gem.name)}'
     )
     from pok.kb.skill_facts import primary_effect
@@ -795,6 +820,7 @@ def to_xml(spec: BuildSpec) -> str:
     if not 1 <= spec.level <= 100:
         raise ValueError(f"레벨 범위 밖: {spec.level}")
 
+    _weapon_set(spec.weapon_set)
     skill_groups: list[str] = []
     for group in spec.skills:
         gems = "\n".join(_gem_xml(g) for g in group.gems)
@@ -825,7 +851,9 @@ def to_xml(spec: BuildSpec) -> str:
         seen_slots.add(item.slot)
     # 주얼: 아이템 뒤 이어지는 id, 슬롯 대신 Spec의 Sockets가 참조
     for jewel in spec.jewels:
-        if jewel.socket_node_id not in spec.tree_nodes:
+        if type(jewel.preserve_socket_mapping) is not bool:
+            raise ValueError("preserve_socket_mapping must be a boolean")
+        if jewel.socket_node_id not in spec.tree_nodes and not jewel.preserve_socket_mapping:
             raise ValueError(
                 f"주얼 소켓 노드 {jewel.socket_node_id} 가 tree_nodes에 없음 "
                 "(소켓을 트리에 할당해야 주얼이 반영된다)"
@@ -851,8 +879,10 @@ def to_xml(spec: BuildSpec) -> str:
     )
     items_xml = (
         f'  <Items activeItemSet="1">\n{item_els}\n'
-        f'    <ItemSet id="1" title="pok">\n{slot_els}\n    </ItemSet>\n  </Items>'
-        if all_items
+        f'    <ItemSet id="1" title="pok" '
+        f'useSecondWeaponSet="{str(_weapon_set(spec.weapon_set) == 2).lower()}">\n'
+        f"{slot_els}\n    </ItemSet>\n  </Items>"
+        if all_items or spec.weapon_set == 2
         else "  <Items/>"
     )
     spec_children = ""  # <Overrides>·<Sockets> — 줄 길이 때문에 미리 만든다
@@ -881,7 +911,16 @@ def to_xml(spec: BuildSpec) -> str:
         attrs = " ".join(f"{k}Nodes={quoteattr(','.join(v))}" for k, v in by_attr.items())
         overrides_xml = f"<Overrides><AttributeOverride {attrs}/></Overrides>"
 
-    spec_children = overrides_xml + (f"<Sockets>{sockets_xml}</Sockets>" if spec.jewels else "")
+    weapon_sets_xml = "".join(
+        f"<WeaponSet{index} nodes={quoteattr(','.join(str(n) for n in selected_nodes))}/>"
+        for index, selected_nodes in ((1, spec.weapon_set_1_nodes), (2, spec.weapon_set_2_nodes))
+        if selected_nodes
+    )
+    spec_children = (
+        weapon_sets_xml
+        + overrides_xml
+        + (f"<Sockets>{sockets_xml}</Sockets>" if spec.jewels else "")
+    )
 
     # 대체 모델링 노드(JewelSpec.allocates)를 트리에 병합 — 순서 보존·중복 제거
     allocated = list(spec.tree_nodes) + [

@@ -134,6 +134,15 @@ class ItemCandidate:
     unparsed: tuple[str, ...] = ()  # 못 읽은 줄 전량 — 등가 문구 대체(substitutes)의 입력
 
 
+class _UniqueCandidatePool(list[ItemCandidate]):
+    """Keep legacy measured candidates and expose the catalogue outside that scope."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.deferred: list[dict[str, Any]] = []
+        self.variant_choices: list[dict[str, Any]] = []
+
+
 @dataclass(frozen=True)
 class CandidateResult:
     candidate: ItemCandidate
@@ -584,13 +593,14 @@ def enumerate_slot_uniques(
     이 열거가 절차로만 있던 것이 카옴 누락(61배 격차 성분)의 원인이었다 — 세션이
     건너뛰면 후보에 오를 방법 자체가 없었다. limit을 주면 자르되, **잘랐다는 사실은
     호출자(optimize_items)가 노트로 남긴다** — 조용한 절단이 곧 조용한 카옴 누락이다.
-    `pob_computable: false`는 계산 불가라 뺀다(대체 조립 경로는 B-3).
+    The default measurable pool is unchanged. Excluded templates/aliases and
+    unsearched variant choices remain available as a separate candidate frontier.
     """
     picked = _slot_filter(slot)
     if picked is None:
         return []
     categories, base_filter = picked
-    out: list[ItemCandidate] = []
+    out = _UniqueCandidatePool()
     for record_id, record in _kb_records(root).items():
         data = record.raw.get("data") or {}
         if record.type != "Item" or data.get("rarity") != "unique":
@@ -599,10 +609,38 @@ def enumerate_slot_uniques(
             continue
         if base_filter and not base_filter.search(str(data.get("base_type") or "")):
             continue
+        reasons = []
         if data.get("pob_computable") is False:
-            continue
+            reasons.append("catalogue_template_pob_computable_false")
         if record_id.endswith("-cultivated"):
-            continue  # 같은 이름의 재배판 — 원판만 열거 (중복 측정 방지)
+            reasons.append("same_name_cultivated_variant_excluded_by_default_pool")
+        if reasons:
+            out.deferred.append(
+                {
+                    "id": record_id,
+                    "name": record.name_en,
+                    "excluded_by": reasons,
+                    "measurement_status": "not_measured_not_zero_value",
+                    "next_route": (
+                        "Get the exact KB entry/source and concrete item or variant text, then "
+                        "compare it explicitly. Native-name configuration does not bind a "
+                        "cultivated alias. Template flags do not certify every instantiated roll."
+                    ),
+                }
+            )
+            continue
+        variants = data.get("variants")
+        if isinstance(variants, list) and len(variants) > 1:
+            out.variant_choices.append(
+                {
+                    "id": record_id,
+                    "name": record.name_en,
+                    "catalogue_labels": list(variants),
+                    "coverage": "native_default_text_only_not_exhaustive_variant_comparison",
+                    "next_tool": "prepare_unique_item",
+                    "note": "Use the native tool's selector keys/indices, not KB label order.",
+                }
+            )
         modeling = data.get("pob_modeling") or {}
         out.append(
             ItemCandidate(
@@ -610,8 +648,8 @@ def enumerate_slot_uniques(
                 slot=slot,
                 text=render_unique(record.raw),
                 source="unique-kb",
-                # `pob_computable is False`(위)는 **계산 자체가 안 되는 것**이라 뺐고,
-                # 이건 계산은 되지만 **일부 줄을 못 읽는 것**이라 후보로 남기고 신고한다.
+                # Uninstantiated templates are reported separately above. Partial
+                # line gaps remain in the measurable pool with their diagnostics.
                 pob_unmeasurable=modeling.get("supported") is False,
                 unparsed=tuple(str(x) for x in (modeling.get("unparsed") or [])),
             )
@@ -1023,6 +1061,7 @@ def optimize_items(
     termination_reason = "round_limit"
     counts: dict[str, dict[str, int]] = {}
     unmeasurable: dict[str, list[str]] = {}
+    candidate_frontiers: dict[str, dict[str, Any]] = {}
     rejected_candidates: dict[str, list[dict[str, Any]]] = {}
     chain_rounds: list[dict[str, Any]] = []
     chain_limited = False
@@ -1044,6 +1083,20 @@ def optimize_items(
         for slot in search_slots:
             eval_slot = slot
             candidates = enumerate_slot_uniques(eval_slot, root)
+            deferred = list(getattr(candidates, "deferred", ()))
+            choices = list(getattr(candidates, "variant_choices", ()))
+            family = "Jewel" if slot.startswith("Jewel") else slot
+            if (deferred or choices) and family not in candidate_frontiers:
+                candidate_frontiers[family] = {
+                    "deferred_templates": deferred,
+                    "unsearched_variant_choices": choices,
+                    "scope": "catalogue_frontier_not_measured_alternatives_or_game_availability",
+                }
+                note(
+                    f"{family}: 자동 풀 밖 템플릿/별칭 {len(deferred)}개와 "
+                    f"별도 변형 선택 {len(choices)}개는 candidate_frontiers에 있다 — "
+                    "제외를 낮은 가치로 판정하지 않고 구체화/명시 비교 경로로 남겼다"
+                )
             available = len(candidates)
             if max_candidates_per_slot is not None and len(candidates) > max_candidates_per_slot:
                 note(
@@ -1084,7 +1137,10 @@ def optimize_items(
                 "rare_templates": len(templates),
             }
             if not candidates:
-                note(f"{slot}: 후보 0건 — 슬롯 매핑 밖이거나 KB에 유니크가 없다")
+                note(
+                    f"{slot}: 기본 자동 측정 후보0건 — 미측정 템플릿/변형은 별도 frontier를 "
+                    "확인할 것. 이 수가 KB 유니크 전체나 게임에서의 선택지0을 뜻하지 않는다"
+                )
                 continue
             for result in evaluate_slot(
                 current, eval_slot, candidates,
@@ -1387,6 +1443,7 @@ def optimize_items(
             "rejected_candidates": rejected_candidates,
             "unresolved": unresolved,
             "unmeasurable_candidates": unmeasurable,
+            "candidate_frontiers": candidate_frontiers,
         },
     )
 

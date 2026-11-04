@@ -1120,6 +1120,14 @@ def _server_capabilities() -> dict[str, Any]:
             ),
             "loaded_observation_field": "source.loaded_execution_observation",
         },
+        "unique_item_configuration": {
+            "tool": "prepare_unique_item",
+            "format": "pok.unique-item-configuration.v1",
+            "preserves_unspecified_selectors": True,
+            "duplicate_choices": "as_declared_by_native_source",
+            "kb_alias_binding": "not_performed",
+            "calculation_or_game_validation": "not_performed",
+        },
         "socket_provenance": {
             "format": "pok.socket-sidecar.v1",
             "create_tool": "create_socket_sidecar",
@@ -1378,6 +1386,7 @@ parse_pob = tool(_build.parse_pob)
 restore_pob_spec = tool(_build.restore_pob_spec)
 create_socket_sidecar = tool(_build.create_socket_sidecar)
 inspect_pob_runtime = tool(_build.inspect_pob_runtime)
+prepare_unique_item = tool(_build.prepare_unique_item)
 rebind_socket_sidecar = tool(
     _build.rebind_socket_sidecar,
     literal_arguments=frozenset(

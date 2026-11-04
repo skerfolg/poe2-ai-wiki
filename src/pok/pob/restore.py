@@ -25,8 +25,7 @@ from pok.pob.codec import decode
 from pok.pob.selection import resolve_xml_selection
 
 # PoB 슬롯명 그대로 쓴다. 주얼은 슬롯이 아니라 `Spec/Sockets`에 있어 따로 처리한다.
-# 교체 세트(2세트) 슬롯 → 1세트 슬롯. 우리 스펙은 무기 세트를 하나만 들고 있어서,
-# **활성 세트**가 무엇이든 `Weapon 1`·`Weapon 2`에 싣는다 (#143).
+# Weapon slot identities remain native; both sets and the active selector are preserved.
 _SWAP_TO_MAIN = {"Weapon 1 Swap": "Weapon 1", "Weapon 2 Swap": "Weapon 2"}
 _MAIN_WEAPON_SLOTS = frozenset(_SWAP_TO_MAIN.values())
 
@@ -297,7 +296,7 @@ def _skills(
                 and set(calcs_modes) <= {primary}
                 and main_modes.get(primary, 1) == calcs_modes.get(primary, 1)
             )
-            if (main_modes or calcs_modes) and not legacy_equivalent:
+            if not assume_first_stat_set or ((main_modes or calcs_modes) and not legacy_equivalent):
                 entry["stat_set_indices"] = main_modes
                 entry["stat_set_calcs_indices"] = calcs_modes
             # 단계 수는 **어느 코드에도 없다**(실측: 코퍼스 300벌 전부 skillStageCount
@@ -305,11 +304,15 @@ def _skills(
             # 호출자가 정해서 넘긴다.
             if assume_stages is not None:
                 entry["stages"] = assume_stages
+            for index in (1, 2):
+                raw_enabled = gem.get(f"enableGlobal{index}")
+                if raw_enabled in ("true", "false"):
+                    entry[f"enable_global_{index}"] = raw_enabled == "true"
             gems.append(entry)
         if gems:
             group_data = {
                 "gems": gems,
-                "slot": skill.get("slot") or "Weapon 1",
+                "slot": skill.get("slot") or "",
                 "enabled": (skill.get("enabled") or "true") != "false",
                 "main_active_skill": _int(skill.get("mainActiveSkill"), 1),
             }
@@ -359,26 +362,6 @@ def _remap_main_group(raw: int, scan: _SkillScan) -> tuple[int, list[str], list[
             "main_socket_group을 직접 정할 것(1-based)"
         ],
     )
-
-
-def _fold_weapon_sets(
-    groups: list[dict[str, Any]], main_index: int
-) -> tuple[list[dict[str, Any]], int]:
-    """교체 세트가 활성일 때 스킬 그룹의 슬롯을 무기와 함께 옮긴다 (#143).
-
-    무기만 `Weapon 1`로 옮기고 그룹은 `Weapon 1 Swap`에 두면 PoB가 **빈 슬롯의 그룹**으로
-    보고 끈다. 반대로 1세트 무기에 꽂힌 그룹은 PoB처럼 끈다 — `CalcSetup.lua:1729`
-    `slotEnabled = slot.weaponSet == 활성 세트`, 단 주력 그룹은 색인으로 항상 계산된다.
-    """
-    disabled = 0
-    for index, group in enumerate(groups, 1):
-        slot = str(group.get("slot") or "")
-        if slot in _SWAP_TO_MAIN:
-            group["slot"] = _SWAP_TO_MAIN[slot]
-        elif slot in _MAIN_WEAPON_SLOTS and index != main_index and group.get("enabled", True):
-            group["enabled"] = False
-            disabled += 1
-    return groups, disabled
 
 
 def _config(holder: ET.Element | None) -> list[list[Any]]:
@@ -459,7 +442,6 @@ def spec_from_pob_xml(
 
     items: list[dict[str, str]] = []
     dropped_weapons: list[str] = []
-    folded: list[str] = []
     use_second = False
     if items_el is not None:
         holder = chosen.items if chosen.items is not None else items_el
@@ -481,24 +463,6 @@ def spec_from_pob_xml(
                         f"'{name}' 슬롯이 가리키는 아이템 {iid}가 코드에 없다 — 무기가 빠졌다"
                     )
                 continue
-            if is_swap:
-                if not use_second:
-                    # 비활성 교체 세트 — 우리 스펙에 자리가 없다. 조용히 버리면 원인을
-                    # 짚을 수 없으므로 말한다(PoB도 이 세트는 계산에 안 쓴다).
-                    notes.append(f"교체 무기 슬롯 '{name}'를 싣지 못했다 — 스펙에 자리가 없다")
-                    continue
-                # ⭑ 교체 세트가 **활성**이다 — 주무기가 여기 있다. 빈 채로 복원하면 창 공격
-                #    빌드가 창 없이 계산된다(실측 2026-09-04: 래더 창 젬링, #143). PoB가
-                #    활성 세트로 계산하는 것을 1세트 슬롯으로 접어 싣는다.
-                items.append({"slot": _SWAP_TO_MAIN[name], "text": by_id[iid]})
-                folded.append(name)
-                continue
-            if is_main and use_second:
-                # 1세트 무기는 비활성이다 — PoB도 계산에 안 쓴다. 둘 다 실으면 없는 빌드가 된다.
-                notes.append(
-                    f"비활성 무기 세트의 '{name}'를 뺐다 — 교체 세트가 활성이라 PoB도 안 쓴다"
-                )
-                continue
             restored_item: dict[str, Any] = {"slot": name, "text": by_id[iid]}
             # PoB treats an absent active attribute as false for consumables.
             if slot.get("active") == "false" or (
@@ -506,38 +470,28 @@ def spec_from_pob_xml(
             ):
                 restored_item["active"] = False
             items.append(restored_item)
-    if folded:
-        notes.append(
-            f"교체 무기 세트가 활성이라 {', '.join(folded)}를 1세트 슬롯으로 접어 실었다 — "
-            "⚠ **근사**다: 세트 전용 트리 할당(WeaponSet2)·「양 세트에서 활성」 젬(예: Eternal "
-            "Rage)은 재현되지 않는다"
-        )
-
     # 주얼은 슬롯이 아니라 트리 소켓에 박힌다 — `Items`만 보면 통째로 빠진다.
-    # ⚠ PoB는 **할당하지 않은 소켓의 매핑도 남겨 둔다**(예전에 꽂았던 주얼). 그대로
-    #   실으면 "소켓이 tree_nodes에 없다"로 조립이 거부된다 — 할당된 것만 싣는다.
+    # A saved socket outside the paid node list can be item-allocated or dormant.
+    # Preserve it without adding a paid point; native PoB resolves its effect.
     allocated = {int(n) for n in (spec_el.get("nodes") or "").split(",") if n.strip().isdigit()}
     jewels: list[dict[str, Any]] = []
-    orphan = 0
     for socket in spec_el.findall("./Sockets/Socket"):
         node_id, iid = socket.get("nodeId"), socket.get("itemId") or "0"
         if not (node_id and node_id.isdigit() and iid in by_id):
             continue
-        if int(node_id) in allocated:
-            jewels.append({"socket_node_id": int(node_id), "text": by_id[iid]})
-        else:
-            orphan += 1
-    if orphan:
-        notes.append(f"할당 안 된 소켓의 주얼 {orphan}개는 뺐다 — 트리에 없는 소켓이다")
+        jewel = {"socket_node_id": int(node_id), "text": by_id[iid]}
+        if int(node_id) not in allocated:
+            jewel["preserve_socket_mapping"] = True
+        jewels.append(jewel)
 
-    # 0.5의 무기 세트별 할당 — 우리 스펙은 트리를 하나만 들고 있다.
-    for tag in ("WeaponSet1", "WeaponSet2"):
-        el = spec_el.find(tag)
-        if el is not None and len(el):
-            notes.append(
-                f"{tag}에 세트 전용 할당 {len(el)}건이 있는데 스펙에 자리가 없다 — "
-                "그만큼 원본보다 약하게 계산된다"
-            )
+    weapon_nodes = {}
+    for index in (1, 2):
+        element = spec_el.find(f"WeaponSet{index}")
+        weapon_nodes[index] = [
+            int(n)
+            for n in (element.get("nodes", "") if element is not None else "").split(",")
+            if n.strip().isdigit()
+        ]
     if (spec_el.get("masteryEffects") or "").strip():
         notes.append("masteryEffects가 있는데 스펙에 자리가 없다 — 그만큼 빠진 채 계산된다")
 
@@ -556,13 +510,6 @@ def spec_from_pob_xml(
         )
     main_index, main_notes, main_needs = _remap_main_group(raw_main, scan)
     notes.extend(main_notes)
-    if use_second:
-        groups, disabled = _fold_weapon_sets(groups, main_index)
-        if disabled:
-            notes.append(
-                f"비활성 무기 세트에 꽂힌 스킬 그룹 {disabled}개를 껐다 — PoB도 그 세트가 "
-                "비활성이면 계산에서 뺀다(주력 그룹은 예외)"
-            )
     if granted_groups:
         lost = sum(s for _, s in granted_groups)
         notes.append(
@@ -597,6 +544,9 @@ def spec_from_pob_xml(
         # 1-based (PoB 관례) — 0-based로 읽으면 이웃 그룹을 조용히 잰다 (#144)
         "main_socket_group": main_index,
         "tree_nodes": nodes,
+        "weapon_set": 2 if use_second else 1,
+        "weapon_set_1_nodes": weapon_nodes[1],
+        "weapon_set_2_nodes": weapon_nodes[2],
         "items": items,
         "skills": groups,
         "jewels": jewels,

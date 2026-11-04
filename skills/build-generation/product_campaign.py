@@ -11,7 +11,10 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from jsonschema import Draft202012Validator, SchemaError
+from product_delivery import audit_submission
 from product_integrity import relative_name
+from product_reference import load_reference_policy
 from product_run import build_product_command, execute_phase
 from product_server import CONTROL_ROOT
 from redesign_run import ANSWER_SCHEMA, audit_native_events
@@ -66,24 +69,82 @@ def copy_verified(
     return names
 
 
-def trial_prompt(scenario: str, files: list[str], phase: int) -> str:
-    prelude = (
-        "PoK 제품의 실제 생성/조립 지침에 따라 수행하라. pok MCP만 사용하고 웹·거래·셸·"
-        "추가 모델·다른 시험의 답안을 사용하지 마라. 필요한 작업은 자율적으로 진행하되 "
-        "인게임 관측이나 실제 사용자 선택이 필요한 미해결을 허위 확정하지 마라.\n"
-        "지침은 experiment_file의 reference/skills/build-generation/AGENTS.md, "
-        "reference/skills/build-assembly/AGENTS.md, reference/skills/AGENTS.md, "
-        "reference/docs/BUILD_DESIGN.md에서 읽을 수 있다. 지원되지 않는 새 API/양식을 "
-        "흉내 내지 말고 현재 제품 계약을 확인하라. 일반 작업 메모/스펙 초안은 work/에 저장하고 "
-        "기계 산출물은 제품 도구로 생성하라. 최종 JSON은 실제 build_id/PoB와 한글 설계·"
-        "이득/대가·남은 일을 담고, 형식·호출 횟수로 품질을 주장하지 마라.\n"
-        "이번 단계에 공개한 입력: " + ", ".join("inputs/" + name for name in files) + "\n"
-    )
+def read_answer_contract(
+    name: str | None, source: Path, checksums: Mapping[str, str]
+) -> dict[str, Any]:
+    """Load one frozen, shared output contract without altering legacy trials."""
+    if name is None:
+        return {"schema": ANSWER_SCHEMA, "instruction": ""}
+    if not isinstance(name, str):
+        raise CampaignIntegrityError("Answer contract path must be a string")
+    base = source.resolve()
+    path = base.joinpath(*relative_name(name).parts).resolve()
+    if not path.is_relative_to(base):
+        raise CampaignIntegrityError("Answer contract redirects outside frozen inputs")
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise CampaignIntegrityError("Answer contract is unavailable") from exc
+    if hashlib.sha256(raw).hexdigest() != checksums.get(name):
+        raise CampaignIntegrityError("Answer contract changed or was not frozen")
+    try:
+        value = json.loads(raw)
+    except ValueError as exc:
+        raise CampaignIntegrityError("Answer contract is not valid JSON") from exc
+    if (
+        not isinstance(value, dict)
+        or set(value) - {"format", "schema", "instruction"}
+        or value.get("format") != "pok.trial-answer-contract.v1"
+        or not isinstance(value.get("schema"), dict)
+        or not isinstance(value.get("instruction", ""), str)
+    ):
+        raise CampaignIntegrityError("Invalid answer contract fields")
+    try:
+        Draft202012Validator.check_schema(value["schema"])
+    except SchemaError as exc:
+        raise CampaignIntegrityError("Invalid answer contract schema") from exc
+    return {"schema": value["schema"], "instruction": value.get("instruction", "")}
+
+
+def trial_prompt(
+    scenario: str,
+    files: list[str],
+    phase: int,
+    *,
+    answer_instruction: str = "",
+    reference_mode: bool = False,
+) -> str:
+    if reference_mode:
+        prelude = (
+            "직접 설계 참고군으로 수행하라. raw_source의 facts/PoB 원문과 기본 계산·연결·"
+            "명시 조립·파일 도구를 자율적으로 사용하라. 제품 생성 절차/KB API/그래프/최적화 "
+            "도구는 제공하지 않는다. 기본 함수는 PoK 라이브러리를 공유하므로 순수 무도구 "
+            "재현이라고 주장하지 마라. assemble_pob는 explicit/exploration만 허용한다. "
+            "웹·거래·셸·추가 모델·다른 시험 답안을 사용하지 마라. 메모/수동 XML은 work/에 "
+            "저장하고 기계 근거를 위조하지 마라. 미검증을 확정하지 말고 최종 JSON에 실제 "
+            "PoB와 한글 선택 근거·이득/대가·남은 일을 담아라.\n"
+            "이번 단계에 공개한 입력: " + ", ".join("inputs/" + name for name in files) + "\n"
+        )
+    else:
+        prelude = (
+            "PoK 제품의 실제 생성/조립 지침에 따라 수행하라. pok MCP만 사용하고 웹·거래·셸·"
+            "추가 모델·다른 시험의 답안을 사용하지 마라. 필요한 작업은 자율적으로 진행하되 "
+            "인게임 관측이나 실제 사용자 선택이 필요한 미해결을 허위 확정하지 마라.\n"
+            "지침은 experiment_file의 reference/skills/build-generation/AGENTS.md, "
+            "reference/skills/build-assembly/AGENTS.md, reference/skills/AGENTS.md, "
+            "reference/docs/BUILD_DESIGN.md에서 읽을 수 있다. 지원되지 않는 새 API/양식을 "
+            "흉내 내지 말고 현재 제품 계약을 확인하라. 일반 작업 메모/스펙 초안은 work/에 저장하고 "
+            "기계 산출물은 제품 도구로 생성하라. 최종 JSON은 실제 build_id/PoB와 한글 설계·"
+            "이득/대가·남은 일을 담고, 형식·호출 횟수로 품질을 주장하지 마라.\n"
+            "이번 단계에 공개한 입력: " + ", ".join("inputs/" + name for name in files) + "\n"
+        )
     if phase == 2:
         prelude += (
             "이전 대화와 이 시험 자체의 산출물에서 이어가라. "
             "운영자가 중간 최선안을 골라 제공하지 않는다.\n"
         )
+    if answer_instruction:
+        prelude += "\n모든 비교군의 공통 제출 계약:\n" + answer_instruction + "\n"
     return prelude + "\n사용자 시나리오 원문:\n" + scenario
 
 
@@ -103,6 +164,8 @@ def run_trial(
     control_root: Path = CONTROL_ROOT,
     phase_executor: Callable[..., dict[str, Any]] = execute_phase,
     audit: bool = True,
+    answer_contract_file: str | None = None,
+    reference_policy: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """H1 retains partial context, never transfers unused phase-1 model budget.
 
@@ -130,6 +193,15 @@ def run_trial(
 
     def check(label: str) -> None:
         checked = verify()
+        if reference_policy is not None:
+            load_reference_policy(reference_policy, control_root)
+            result["reference_policy"] = dict(reference_policy)
+        read_answer_contract(answer_contract_file, input_root, input_hashes)
+        if answer_contract_file is not None:
+            result["answer_contract"] = {
+                "path": answer_contract_file,
+                "sha256": input_hashes[answer_contract_file],
+            }
         result["checks"].append({"stage": label, "result": checked})
         save()
         if checked.get("status") != "verified":
@@ -143,7 +215,8 @@ def run_trial(
         total_deadline = started + float(task["total_budget_s"])
         result["state"] = "running"
         namespace = root / "server/artifacts"
-        copy_verified(product_root, namespace / "reference", list(REFERENCES), product_hashes)
+        if reference_policy is None:
+            copy_verified(product_root, namespace / "reference", list(REFERENCES), product_hashes)
         context = None
         terminal_at = started
         for number, phase in enumerate(task["phases"], 1):
@@ -152,6 +225,7 @@ def run_trial(
                     {"phase": number, "state": "not_started", "reason": "no_exact_prior_session"}
                 )
                 break
+            contract = read_answer_contract(answer_contract_file, input_root, input_hashes)
             phase_started = started if number == 1 else time.monotonic()
             phase_deadline = min(total_deadline, phase_started + float(phase["budget_s"]))
             files = list(phase["participant_files"])
@@ -168,6 +242,9 @@ def run_trial(
                 root / f"phase-{number}-scenario-source.json",
                 {"path": prompt_name, "sha256": input_hashes[prompt_name]},
             )
+            command_extra = (
+                {"reference_policy": reference_policy} if reference_policy is not None else {}
+            )
             command = build_product_command(
                 root,
                 phase=number,
@@ -178,6 +255,7 @@ def run_trial(
                 luajit_exe=luajit_exe,
                 session_id=context,
                 control_root=control_root,
+                **command_extra,
             )
             remaining = phase_deadline - time.monotonic()
             if remaining <= 0:
@@ -190,12 +268,29 @@ def run_trial(
             execution = phase_executor(
                 command,
                 output,
-                prompt=trial_prompt(raw.decode("utf-8"), files, number),
-                schema=ANSWER_SCHEMA,
+                prompt=trial_prompt(
+                    raw.decode("utf-8"),
+                    files,
+                    number,
+                    answer_instruction=contract["instruction"],
+                    reference_mode=reference_policy is not None,
+                ),
+                schema=contract["schema"],
                 cwd=root / "workspace",
                 timeout_s=remaining,
             )
             terminal_at = time.monotonic()
+            answer_path = output / "answer.json"
+            if (
+                answer_contract_file is not None
+                and execution.get("answer_valid")
+                and answer_path.is_file()
+            ):
+                submitted = json.loads(answer_path.read_bytes())
+                if isinstance(submitted, dict) and isinstance(submitted.get("artifacts"), list):
+                    write_json(
+                        output / "delivery-audit.json", audit_submission(submitted, namespace)
+                    )
             result["phases"].append(
                 {"phase": number, "execution": execution, "exposed_inputs": files}
             )
@@ -268,6 +363,15 @@ def run_campaign(
     write_json(destination / "plan.json", dict(plan))
     write_json(destination / "campaign.json", state)
     try:
+        extra: dict[str, Any] = {}
+        contract_file = plan.get("answer_contract")
+        if contract_file is not None:
+            read_answer_contract(contract_file, input_root, input_hashes)
+            extra["answer_contract_file"] = contract_file
+            state["answer_contract"] = {
+                "path": contract_file,
+                "sha256": input_hashes[contract_file],
+            }
         for index, (task_name, version, repetition) in enumerate(plan["order"], 1):
             product = products[version]
             identity = f"{index:02d}-{task_name}-{version}-{repetition}"
@@ -280,6 +384,9 @@ def run_campaign(
             }
             state["trials"].append(item)
             write_json(destination / "campaign.json", state)
+            trial_extra = dict(extra)
+            if product.get("reference_policy") is not None:
+                trial_extra["reference_policy"] = product["reference_policy"]
             result = trial_runner(
                 destination / identity,
                 task=plan["tasks"][task_name],
@@ -293,6 +400,7 @@ def run_campaign(
                 luajit_exe=luajit_exe,
                 verify=verify,
                 control_root=control,
+                **trial_extra,
             )
             item.update(state="collected", result=result)
             write_json(destination / "campaign.json", state)
