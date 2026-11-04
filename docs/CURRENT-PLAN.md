@@ -3,7 +3,7 @@
 **Status**: Active control document
 **Policy**: [Workflow Governance](WORKFLOW-GOVERNANCE.md)
 **History index**: [HISTORY-MAP.md](HISTORY-MAP.md)
-**Integration branch**: `skerfolg/pok-final-quality` (main 기준 품질 실행 준비, draft PR #156). PR #154는 병합됐고 PR #155는 양 플랫폼 CI 통과·검토 대기다. UI는 별도 세션 담당이며 전역 PoK 설정 전환은 보류한다.
+**Integration branch**: `skerfolg/pok-final-quality` (main 기준 품질 실행 준비, draft PR #156). PR #154는 병합됐고 PR #155는0a8dd1e로 main에 병합됐고 이 브랜치에 통합한다. UI는 별도 세션 담당이며 전역 PoK 설정 전환은 보류한다.
 
 This is the single live work-control document for the current repository lane. The structure of this file is enforced by `docs/WORKFLOW-GOVERNANCE.md` §12 (Live-Doc Schema) and §13 (Canonical Next Step Discipline) — the guard's `checkLiveDocSchema()` will validate this file on every precommit. Sections appear in the canonical order below; do not insert new H2 sections between CORE sections (consumer-specific sections must be appended after the last CORE section).
 
@@ -218,7 +218,7 @@ Lane scope: 제안을 무인 배치로 생성·측정하고, 사람은 다이제
 
 ## Canonical Next Step
 
-The only next executable step is: **S55 / #188: #218 native 고유 설정/후보 frontier 후속을 PR #156에 반영하고 CI를 확인한다. #215/#216의 고정25133b4 전량 단위2725통과/33skip·native166통과·소스/HEAD 불변을 확인했다. 후속은 사용자 지시대로 최소5회귀와 실제MCP/native763스탯 동일만 추가했다. 다음 원인 조사는 원문 자동 소켓·무기별 트리를 사용하는 패시브 편집/최적화 문맥이다. #167 무료 목걸이 부여는 확정 사실로 적용하며 #188 해결/기본 전환·자율 생성 성공은 주장하지 않는다. UI 구현은 별도 세션에 맡긴다.**
+The only next executable step is: **S55 / #188: main/0a8dd1e(#155)의 정리·PR156 CI 확인을 마친 뒤, 기존 H1/H2/아이스샷 근거로 생성·탐색 접근 검토안을 준비한다. 추가 참고 빌드 맞춤 기능 확장과 새 모델 시행은 보류한다. #215/#216의 고정25133b4 단위2725통과/33skip·native166통과, #218의 최소5회귀와 실제MCP/native763동일 근거는 보존한다. 알려진 해답 재현과 자율 발견/선택 품질을 분리하며 사용자 지시대로 느린 단위 전량을 반복하지 않는다. #167 무료 목걸이 부여는 확정 사실이고 UI는 별도 세션에 맡긴다.**
 
 ### 참고 이력 — 현재 실행 지시가 아님
 
@@ -2389,3 +2389,38 @@ native166전부 통과, 두 단계 HEAD/소스/작업트리 불변·소유 정�
 
 
 2026-11-04 원격 후속359a9c4를 PR156에 반영했다. 첫 CI는 lint 단계의 format check에서9파일 서식으로 중단됐고 테스트는 실행되지 않았다. 로컬에서 빠뜨린 format check를 보완해 src/tests455파일의 포맷 전후 AST 동일을 확인했다. CI와 같은 src/tests/skills/build-generation/scripts 리뷰 실행기 범위의 lint·format을 재확인했으며 동작 변화가 없어 전량 단위는 반복하지 않는다. 원래 CI 실패와25133b4 전량 검증 및359a9c4 최소5회귀/native763 대조는 각기 보존한다.
+
+
+### 결과 탐색 개요 후속 — 2026-11-02
+
+PR #154는7c909bb로 병합됐고 Orca가 로컬 main도 갱신했다. 독립 작업 트리는
+최신 origin/main에서 시작했다. #213은 자료/근거를 삭제하는 변경이 아니라 구조를
+먼저 볼 수 있게 하는 additive 개요다. 관련70회귀·동결 원문3개 재생 통과.
+첫 관련 실행의 카탈로그 부재는 고정5d173cb Junction 연결로 보완했고, 실제 핀을 확인했다.
+실제 MCP의 페이징은 기존 next_offset을 따라 검사하며 한 페이지라고 가정하지 않는다.
+
+현재 연결된 PoK MCP의 관측은 loaded f10946e / source9f016e3 / stale=true이며
+source_root는 원래 D 작업 트리다. 이 상태는 Codex goal active 여부와 별개다.
+현재 엔진 검증은 새 작업 트리 소스를 명시해 수행하며 구버전 서비스로 새 기능을
+검증했다고 주장하지 않는다. 실제 상주/배포 전환 검증은 R7에 남긴다.
+
+2026-11-03 전량 단위 최초 결과: 2658통과/33로컬 산출물 부재skip/문서 분류1실패
+(801.20초). #213 기능제안을 결함 큐에도 올린 중복을 제거하며 검사는 완화하지 않는다.
+최종 원문/개요 관련70회귀와 형식·mypy·의존 경계는 통과했다.
+
+2026-11-03 #213 최종 preflight: 실제 PoB 비교/문서/완성 트리 소비6개 통과
+(146.35초), 문서 분류14개 재검증 통과. 전량 최초의 유일한 문서 실패를 보완했고
+검사는 완화하지 않았다. 형식·mypy·모듈 경계도 통과, 새 PR을 준비한다.
+
+
+2026-11-04 생성/탐색 검토로 우선순위 변경: 사용자는 참고 빌드에 가까워지는 수정이
+다른 빌드의 품질을 보장하지 않는 과적합 위험을 지적했다. 현재 코드는 범용 복원/입력
+준비 개선으로 보존하며 추가 기능 확장·새 생성 실험을 시작하지 않는다. Voices 단독
+교체 -8.93%와 자식3주얼 묶음 +18.36%는 같은 패시브/config/외부 장비의 native 진단이다.
+추가 주얼 비용은 가격 비교하지 않았다. 기존 scaling_axes는 이 소켓 공급을 빈 축으로
+읽었다. 이 관측을 계기로 실제 후보 제안·재개방·조합 완성·선택을 평가하는 검토안을
+준비하며, 단위 통과/참고 재현을 생성 품질로 대신하지 않는다. 새 모델 실행 예산은
+기존12회 승인에 추가하지 않는다. main의 #213 코드/이력을 보존해 통합 충돌을 해소했다.
+
+
+생성·탐색 검토 제안은 docs/POK_GENERATION_SEARCH_REVIEW_PROPOSAL.md에 정리했다. 기존 책임 경계나 실험 승인 범위를 바꾸지 않는 검토안이며, 알려진 부품이 있어도 조합/선택을 못 하는 경우와 발견 경로 실패를 분리한다. 평가용 해답은 개발에 노출하지 않고 현재 아이스샷은 회귀 기준으로만 사용한다. 추가 기능·모델 시행은 시작하지 않았다. main/#155 통합 결합부2사례와 문서14검사를 통과했으며 전량 단위를 재실행하지 않았다.
