@@ -1335,3 +1335,22 @@ KB4파일은 기준판과 동일한 실제 바이트를 위한 검증된 줄바�
 원래 heldout manifest0149922a...는 자기 manifest_sha256 필드를 제외한 canonical JSON
 해시이며 원문 파일 해시4742edb5...와 구분한다.9개 원문 해시/바이너리를 모두 재확인했다.
 제품/공통 수집기 버전을 분리하고 후자는 캠페인 시행 전에 추가 고정한다. 본 모델 평가는 미실행이다.
+
+
+### 14.18 Native allocation context in calculation projections
+
+BuildSpec의 weapon_set(1/2), weapon_set_1_nodes/weapon_set_2_nodes는 선택과
+전용 노드 목록을 XML에 보존한다. 두 무기 슬롯의 이름을 바꾸거나 비활성 장비를
+버리지 않는다. 젬 enable_global_1/enable_global_2와 슬롯 생략도 보존한다.
+
+JewelSpec.preserve_socket_mapping은 원문에 저장된 일반 노드 밖 매핑을 유료 포인트
+추가 없이 보존한다. native가 적용을 결정하며, 이 bool은 배정/획득/게임 적법성
+인증이 아니다. 기본 False의 새 구성은 기존 소켓 배정 검사를 유지한다.
+
+restore의 assume_first_stat_set=False는 모드 자식 생략을 명시 빈 effect map으로
+표현한다. 이는 native 기본값 재현이지 최적 모드 선택이 아니다. fresh spec에서 모드
+결정을 빠뜨린 경우와 구분한다. 전체 원문/획득 metadata 보존 주장은 여전히 하지 않는다.
+
+스펙 계산과 원문 측정 영수증의 granted_skill_instances/known_pob_limitations는
+#167의 목걸이 베이스 무료 부여 사실을 계산 옆에 연결한다. 원시 Spirit/직접 젬 점유를
+자동 보정하지 않는다. 자세한 검증과 미지원 범위는 [실전 기준 감사](POK_ICE_SHOT_REFERENCE_AUDIT.md).
