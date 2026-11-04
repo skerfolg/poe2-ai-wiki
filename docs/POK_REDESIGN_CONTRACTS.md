@@ -1354,3 +1354,21 @@ restore의 assume_first_stat_set=False는 모드 자식 생략을 명시 빈 eff
 스펙 계산과 원문 측정 영수증의 granted_skill_instances/known_pob_limitations는
 #167의 목걸이 베이스 무료 부여 사실을 계산 옆에 연결한다. 원시 Spirit/직접 젬 점유를
 자동 보정하지 않는다. 자세한 검증과 미지원 범위는 [실전 기준 감사](POK_ICE_SHOT_REFERENCE_AUDIT.md).
+
+
+### 14.19 Native unique configuration and candidate frontier
+
+prepare_unique_item(name, selections=None, roll_policy="native")는 고정 PoB native
+영어 이름을 받는다. available_configuration의 native selector 키와 variant 순번/
+라벨을 사용하며, 지정하지 않은 선택은 원문 기본값으로 남는다. None/빈 선택은
+최적 변형 선택이 아니다. roll_policy는 native|min|mid|max로 반환에 명시된다.
+형식은 pok.unique-item-configuration.v1이고 준비한 item_text·지문·설정 원문 지문과
+선택 출처를 내며 계산하지 않는다. 기존 단일변형 render_unique의 계약은 유지한다.
+
+알려지지 않은 선택 키/범위/모호한 라벨은 오류다. native 템플릿 없음과 카탈로그
+자체 없음은 다른 상태다. 이름 템플릿을 KB 재배 별칭이나 획득 가능성으로 바인딩하지
+않는다. 원문에 없는 템플릿은 구체적인 source item text와 기존 명시 계산 경로로 잇는다.
+
+optimize_items.search_evidence.candidate_frontiers는 자동 풀에서 빠진 템플릿/재배
+별칭과 기본 원문 외 미탐색 변형을 알려 준다. 이것들은 측정0점이나 채택 후보가
+아니다. 기존 자동 측정/채택/종료 정책은 유지하며 전역 탐색 완료의 증거로 쓰지 않는다.

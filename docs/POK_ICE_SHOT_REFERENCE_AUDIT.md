@@ -76,3 +76,36 @@ ice-shot-reference-v1/v2/v3에 있다. 사용자 원문·전체 입력이나 원
 실전 회전·새 과제의 자율 생성 품질은 별도 조사 대상이다. 이 사례는 해답을 열람한
 회귀 기준이며 새 heldout이 아니다. #188 해결·새 기본 경로 전환은 선언하지 않는다.
 pok-ui·전역 MCP 설정·고정 PoB 스냅샷은 변경하지 않았다. 새 모델 시험도 실행하지 않았다.
+
+
+## 고정 소스 최종 확인과 후속 고유 준비 API
+
+25133b4의 전체 단위2758개는2725통과/33skip/실패0, 전체 native166개는 모두
+통과했다. 두 단계 HEAD·소스/작업트리 불변과 소유 프로세스 정리를 확인했다.
+이전 실패는 원래 원장에 보존한다. 이후 사용자는 오래 걸리는 단위 검사를 최소로
+하라고 지시했으며, 후속 변경은 관련 최소 회귀와 실제 입력 대조를 적용한다.
+
+후속 prepare_unique_item은 고정 native 영어 이름의 템플릿을 설명하고 실제 선택
+헤더로 구성한다. Mageblood14선택/4칸과 중복 허용은 원문에 명시돼 있다. 선택하지
+않은 칸을 지우지 않으며 입력 사전 순서와 무관하게 같은 텍스트를 만든다.
+
+```python
+prepare_unique_item("Mageblood", selections={
+    "Selected Variant": "Legacy of Silver",
+    "Selected Alt Variant": "Legacy of Quicksilver",
+    "Selected Alt Variant Two": "Legacy of Quicksilver",
+    "Selected Alt Variant Three": "Legacy of Jade",
+}, roll_policy="max")
+```
+
+새 API의3회귀와 frontier2회귀, 타입/정적·의존 방향 검사, 실제 등록 MCP 호출을
+확인했다. 준비한4개 Legacy 구성은 같은 수동 입력과763숫자 차이0이다. 이는 원본
+사용자의 타락 저항까지 복제한 벨트가 아니라 Legacy/롤 선택의 독립 합성 대조다.
+Native 템플릿이 없는 Megalomaniac은 실제로 누락 상태를 반환하며 다른 것으로
+대체하지 않는다. native 이름 조회를 재배 KB 별칭 바인딩으로 보증하지 않는다.
+
+자동 측정 풀의 선택·가중치·측정 횟수는 그대로 두고 candidate_frontiers에 다음을
+따로 남긴다: pob_computable=false여서 제외된 템플릿, 같은 이름의 재배 별칭,
+기본 텍스트 외에 아직 비교하지 않은 변형 선택. 미구체화 템플릿을0점으로 재거나
+전체 변형을 비교했다고 하지 않는다. 변형은 KB 이름 순번이 아니라 native 도구의
+실제 키/순번으로 지정한다. 새 도구도 계산·획득·빌드 품질의 인증은 아니다.

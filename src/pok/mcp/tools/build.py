@@ -1547,3 +1547,23 @@ def inspect_pob_runtime(observe_current: bool = False) -> dict[str, Any]:
     from pok.pob.daemon import inspect_shared_execution
 
     return inspect_shared_execution(observe_current=observe_current)
+
+
+def prepare_unique_item(
+    name: str,
+    selections: dict[str, Any] | None = None,
+    roll_policy: str = "native",
+) -> dict[str, Any]:
+    """Prepare a unique from the pinned native English-name catalogue.
+
+    Returns actual native selector keys/variant labels and an ItemSpec text input.
+    For example Mageblood has four independent selector headers, and duplicates
+    are supported when declared by native source. Unspecified controls preserve
+    source defaults; none are chosen for the build. Missing templates are
+    reported, not replaced by a guessed item. Native names do not bind KB
+    cultivated aliases. roll_policy is native|min|mid|max and is always reported.
+    No PoB calculation or in-game acquisition/quality validation is performed.
+    """
+    from pok.engine.unique_items import prepare_unique_item as prepare
+
+    return prepare(name, selections, roll_policy)

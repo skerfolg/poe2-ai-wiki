@@ -28,9 +28,12 @@ KB의 유니크 레코드는 조회·검색용이고, **아이템 텍스트의 �
 
 from __future__ import annotations
 
+import hashlib
 import re
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 from pok.kb.pob_pin import pob_src_dir
 
@@ -98,3 +101,106 @@ def render_unique(name: str, variant: str | None = None, root: Path | None = Non
     body = _SELECTED.sub("", raw)
     lines = [ln for ln in body.splitlines() if ln.strip()]
     return "\n".join([*lines, f"Selected Variant: {names.index(variant) + 1}"])
+
+
+def _configuration_of(raw: str) -> dict[str, Any]:
+    labels = [
+        line.split(":", 1)[1].strip()
+        for line in raw.splitlines()
+        if line.startswith("Variant:")
+    ]
+    keys = ["Selected Variant"] if labels else []
+    encoded: dict[str, str] = {}
+    duplicates: bool | None = None
+    for line in raw.splitlines():
+        key, separator, value = line.partition(":")
+        value = value.strip()
+        if not separator:
+            continue
+        if key.startswith("Has Alt Variant") and value == "true":
+            keys.append(key.replace("Has ", "Selected ", 1))
+        if key.startswith("Selected"):
+            encoded[key] = value
+        if key == "Allow Duplicate Variants" and value in ("true", "false"):
+            duplicates = value == "true"
+    selectors = []
+    for key in dict.fromkeys(keys):
+        encoded_value = encoded.get(key)
+        index = int(encoded_value) if encoded_value and encoded_value.isdigit() else None
+        selectors.append({
+            "key": key,
+            "encoded_index": index,
+            "encoded_label": labels[index - 1] if index and 1 <= index <= len(labels) else None,
+            "origin": (
+                "source_encoded" if encoded_value is not None else "native_default_not_encoded"
+            ),
+        })
+    return {
+        "name": raw.splitlines()[0],
+        "base_type": raw.splitlines()[1] if len(raw.splitlines()) > 1 else "",
+        "variants": [{"index": i, "label": label} for i, label in enumerate(labels, 1)],
+        "selectors": selectors,
+        "allow_duplicate_variants": duplicates,
+        "raw_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+    }
+
+
+def describe_configuration(name: str, root: Path | None = None) -> dict[str, Any] | None:
+    """Describe exact native selector keys and variant indices; never infer KB alias binding."""
+    raw = unique_raw(name, root)
+    return _configuration_of(raw) if raw is not None else None
+
+
+def render_configuration(
+    name: str,
+    selections: Mapping[str, Any] | None = None,
+    root: Path | None = None,
+) -> str | None:
+    """Change only explicitly selected native controls, retaining every other source default.
+
+    Unlike the legacy single-variant renderer, this supports all declared Alt
+    controls. Explicit native duplicate prohibitions are validated; an absent
+    policy remains undeclared rather than an inferred game rule.
+    A rendered input is not proof of in-game availability or valid acquisition.
+    """
+    raw = unique_raw(name, root)
+    if raw is None:
+        return None
+    if selections is not None and not isinstance(selections, Mapping):
+        raise ValueError("selections must map native selector keys to labels or indices")
+    schema = _configuration_of(raw)
+    allowed = {row["key"] for row in schema["selectors"]}
+    variants = schema["variants"]
+    updates: dict[str, int] = {}
+    for key, choice in (selections or {}).items():
+        if key not in allowed:
+            raise ValueError(f"Unknown native selector {key!r}; available: {sorted(allowed)}")
+        if isinstance(choice, bool):
+            raise ValueError("Variant indices must be integers, not booleans")
+        if isinstance(choice, int):
+            index = choice
+        elif isinstance(choice, str):
+            matching = [row["index"] for row in variants if row["label"] == choice]
+            if len(matching) != 1:
+                raise UnknownVariantError(f"Unknown or ambiguous native variant {choice!r}")
+            index = matching[0]
+        else:
+            raise ValueError("Variant choices must be labels or 1-based integer indices")
+        if not 1 <= index <= len(variants):
+            raise UnknownVariantError(f"Variant index {index} outside 1..{len(variants)}")
+        updates[key] = index
+    if not updates:
+        return raw
+    selected = {
+        row["key"]: row["encoded_index"]
+        for row in schema["selectors"] if row["encoded_index"] is not None
+    }
+    selected.update(updates)
+    if schema["allow_duplicate_variants"] is False and len(set(selected.values())) < len(selected):
+        raise ValueError("Native source explicitly disallows duplicate variant choices")
+    kept = [line for line in raw.splitlines() if line.partition(":")[0] not in updates]
+    selected_lines = [
+        f"{row['key']}: {updates[row['key']]}"
+        for row in schema["selectors"] if row["key"] in updates
+    ]
+    return "\n".join([*kept, *selected_lines])
