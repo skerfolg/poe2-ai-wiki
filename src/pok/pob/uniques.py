@@ -105,9 +105,7 @@ def render_unique(name: str, variant: str | None = None, root: Path | None = Non
 
 def _configuration_of(raw: str) -> dict[str, Any]:
     labels = [
-        line.split(":", 1)[1].strip()
-        for line in raw.splitlines()
-        if line.startswith("Variant:")
+        line.split(":", 1)[1].strip() for line in raw.splitlines() if line.startswith("Variant:")
     ]
     keys = ["Selected Variant"] if labels else []
     encoded: dict[str, str] = {}
@@ -127,14 +125,16 @@ def _configuration_of(raw: str) -> dict[str, Any]:
     for key in dict.fromkeys(keys):
         encoded_value = encoded.get(key)
         index = int(encoded_value) if encoded_value and encoded_value.isdigit() else None
-        selectors.append({
-            "key": key,
-            "encoded_index": index,
-            "encoded_label": labels[index - 1] if index and 1 <= index <= len(labels) else None,
-            "origin": (
-                "source_encoded" if encoded_value is not None else "native_default_not_encoded"
-            ),
-        })
+        selectors.append(
+            {
+                "key": key,
+                "encoded_index": index,
+                "encoded_label": labels[index - 1] if index and 1 <= index <= len(labels) else None,
+                "origin": (
+                    "source_encoded" if encoded_value is not None else "native_default_not_encoded"
+                ),
+            }
+        )
     return {
         "name": raw.splitlines()[0],
         "base_type": raw.splitlines()[1] if len(raw.splitlines()) > 1 else "",
@@ -193,7 +193,8 @@ def render_configuration(
         return raw
     selected = {
         row["key"]: row["encoded_index"]
-        for row in schema["selectors"] if row["encoded_index"] is not None
+        for row in schema["selectors"]
+        if row["encoded_index"] is not None
     }
     selected.update(updates)
     if schema["allow_duplicate_variants"] is False and len(set(selected.values())) < len(selected):
@@ -201,6 +202,7 @@ def render_configuration(
     kept = [line for line in raw.splitlines() if line.partition(":")[0] not in updates]
     selected_lines = [
         f"{row['key']}: {updates[row['key']]}"
-        for row in schema["selectors"] if row["key"] in updates
+        for row in schema["selectors"]
+        if row["key"] in updates
     ]
     return "\n".join([*kept, *selected_lines])

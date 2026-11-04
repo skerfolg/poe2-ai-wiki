@@ -266,39 +266,48 @@ def granted_reservation_diagnostics(
     for item in items:
         if item.get("slot") != "Amulet":
             continue
-        lines = [re.sub(r"\{[^}]*\}", "", line).strip()
-                 for line in str(item.get("text", "")).splitlines()]
+        lines = [
+            re.sub(r"\{[^}]*\}", "", line).strip()
+            for line in str(item.get("text", "")).splitlines()
+        ]
         if not {"Absent Amulet", "Lament Amulet"}.intersection(lines):
             continue
         for line in lines:
             match = re.fullmatch(r"Grants Skill: Level \d+ (.+)", line)
             if match:
-                grants.append({
-                    "slot": "Amulet", "skill": match.group(1),
-                    "granted_instance_spirit_reservation": 0,
-                    "gem_instance_is_separate": True,
-                    "source": "mechanic.item-granted-skills (#167, IN_GAME)",
-                    "note": ("목걸이 부여 인스턴스는 무료다. "
-                             "같은 스킬의 직접 등록 젬은 별도 인스턴스다."),
-                })
+                grants.append(
+                    {
+                        "slot": "Amulet",
+                        "skill": match.group(1),
+                        "granted_instance_spirit_reservation": 0,
+                        "gem_instance_is_separate": True,
+                        "source": "mechanic.item-granted-skills (#167, IN_GAME)",
+                        "note": (
+                            "목걸이 부여 인스턴스는 무료다. "
+                            "같은 스킬의 직접 등록 젬은 별도 인스턴스다."
+                        ),
+                    }
+                )
     if not grants:
         return {}
     out: dict[str, Any] = {"granted_skill_instances": grants}
     remaining = stats.get("SpiritUnreserved")
     if isinstance(remaining, (int, float)) and remaining < 0:
-        out["known_pob_limitations"] = [{
-            "code": "AMULET_GRANTED_SKILL_RESERVATION_ACCOUNTING",
-            "source": "mechanic.item-granted-skills (#167, IN_GAME)",
-            "native_spirit_unreserved": remaining,
-            "granted_skills": [grant["skill"] for grant in grants],
-            "assessment": "known_calculator_accounting_limitation_not_grant_infeasibility",
-            "note": (
-                "목걸이 부여 스킬의 정신력 오점유는 알려진 PoB 결함이다. "
-                "이 음수만으로 부여 스킬을 사용할 수 없다고 판정하거나 "
-                "사용자에게 같은 사실을 재검증 요청하지 말 것. "
-                "직접 젬과 무관한 점유 제약을 자동 면제하지 않았고 원래 수치는 보존했다."
-            ),
-        }]
+        out["known_pob_limitations"] = [
+            {
+                "code": "AMULET_GRANTED_SKILL_RESERVATION_ACCOUNTING",
+                "source": "mechanic.item-granted-skills (#167, IN_GAME)",
+                "native_spirit_unreserved": remaining,
+                "granted_skills": [grant["skill"] for grant in grants],
+                "assessment": "known_calculator_accounting_limitation_not_grant_infeasibility",
+                "note": (
+                    "목걸이 부여 스킬의 정신력 오점유는 알려진 PoB 결함이다. "
+                    "이 음수만으로 부여 스킬을 사용할 수 없다고 판정하거나 "
+                    "사용자에게 같은 사실을 재검증 요청하지 말 것. "
+                    "직접 젬과 무관한 점유 제약을 자동 면제하지 않았고 원래 수치는 보존했다."
+                ),
+            }
+        ]
     return out
 
 
@@ -315,6 +324,9 @@ def xml_granted_reservation_diagnostics(xml: str, stats: dict[str, Any]) -> dict
     if items is None:
         return {}
     by_id = {entry.get("id"): "".join(entry.itertext()) for entry in items.findall("Item")}
-    equipped = [{"slot": "Amulet", "text": by_id.get(slot.get("itemId"), "")}
-                for slot in selected.items.findall("Slot") if slot.get("name") == "Amulet"]
+    equipped = [
+        {"slot": "Amulet", "text": by_id.get(slot.get("itemId"), "")}
+        for slot in selected.items.findall("Slot")
+        if slot.get("name") == "Amulet"
+    ]
     return granted_reservation_diagnostics(equipped, stats)

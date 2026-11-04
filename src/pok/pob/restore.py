@@ -488,7 +488,8 @@ def spec_from_pob_xml(
     for index in (1, 2):
         element = spec_el.find(f"WeaponSet{index}")
         weapon_nodes[index] = [
-            int(n) for n in (element.get("nodes", "") if element is not None else "").split(",")
+            int(n)
+            for n in (element.get("nodes", "") if element is not None else "").split(",")
             if n.strip().isdigit()
         ]
     if (spec_el.get("masteryEffects") or "").strip():

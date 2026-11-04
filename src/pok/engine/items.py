@@ -615,24 +615,32 @@ def enumerate_slot_uniques(
         if record_id.endswith("-cultivated"):
             reasons.append("same_name_cultivated_variant_excluded_by_default_pool")
         if reasons:
-            out.deferred.append({
-                "id": record_id, "name": record.name_en, "excluded_by": reasons,
-                "measurement_status": "not_measured_not_zero_value",
-                "next_route": (
-                    "Get the exact KB entry/source and concrete item or variant text, then "
-                    "compare it explicitly. Native-name configuration does not bind a "
-                    "cultivated alias. Template flags do not certify every instantiated roll."
-                ),
-            })
+            out.deferred.append(
+                {
+                    "id": record_id,
+                    "name": record.name_en,
+                    "excluded_by": reasons,
+                    "measurement_status": "not_measured_not_zero_value",
+                    "next_route": (
+                        "Get the exact KB entry/source and concrete item or variant text, then "
+                        "compare it explicitly. Native-name configuration does not bind a "
+                        "cultivated alias. Template flags do not certify every instantiated roll."
+                    ),
+                }
+            )
             continue
         variants = data.get("variants")
         if isinstance(variants, list) and len(variants) > 1:
-            out.variant_choices.append({
-                "id": record_id, "name": record.name_en, "catalogue_labels": list(variants),
-                "coverage": "native_default_text_only_not_exhaustive_variant_comparison",
-                "next_tool": "prepare_unique_item",
-                "note": "Use the native tool's selector keys/indices, not KB label order.",
-            })
+            out.variant_choices.append(
+                {
+                    "id": record_id,
+                    "name": record.name_en,
+                    "catalogue_labels": list(variants),
+                    "coverage": "native_default_text_only_not_exhaustive_variant_comparison",
+                    "next_tool": "prepare_unique_item",
+                    "note": "Use the native tool's selector keys/indices, not KB label order.",
+                }
+            )
         modeling = data.get("pob_modeling") or {}
         out.append(
             ItemCandidate(
@@ -1080,12 +1088,15 @@ def optimize_items(
             family = "Jewel" if slot.startswith("Jewel") else slot
             if (deferred or choices) and family not in candidate_frontiers:
                 candidate_frontiers[family] = {
-                    "deferred_templates": deferred, "unsearched_variant_choices": choices,
+                    "deferred_templates": deferred,
+                    "unsearched_variant_choices": choices,
                     "scope": "catalogue_frontier_not_measured_alternatives_or_game_availability",
                 }
-                note(f"{family}: 자동 풀 밖 템플릿/별칭 {len(deferred)}개와 "
-                     f"별도 변형 선택 {len(choices)}개는 candidate_frontiers에 있다 — "
-                     "제외를 낮은 가치로 판정하지 않고 구체화/명시 비교 경로로 남겼다")
+                note(
+                    f"{family}: 자동 풀 밖 템플릿/별칭 {len(deferred)}개와 "
+                    f"별도 변형 선택 {len(choices)}개는 candidate_frontiers에 있다 — "
+                    "제외를 낮은 가치로 판정하지 않고 구체화/명시 비교 경로로 남겼다"
+                )
             available = len(candidates)
             if max_candidates_per_slot is not None and len(candidates) > max_candidates_per_slot:
                 note(

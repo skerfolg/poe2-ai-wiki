@@ -881,7 +881,7 @@ def to_xml(spec: BuildSpec) -> str:
         f'  <Items activeItemSet="1">\n{item_els}\n'
         f'    <ItemSet id="1" title="pok" '
         f'useSecondWeaponSet="{str(_weapon_set(spec.weapon_set) == 2).lower()}">\n'
-        f'{slot_els}\n    </ItemSet>\n  </Items>'
+        f"{slot_els}\n    </ItemSet>\n  </Items>"
         if all_items or spec.weapon_set == 2
         else "  <Items/>"
     )
@@ -912,12 +912,13 @@ def to_xml(spec: BuildSpec) -> str:
         overrides_xml = f"<Overrides><AttributeOverride {attrs}/></Overrides>"
 
     weapon_sets_xml = "".join(
-        f'<WeaponSet{index} nodes={quoteattr(",".join(str(n) for n in selected_nodes))}/>'
+        f"<WeaponSet{index} nodes={quoteattr(','.join(str(n) for n in selected_nodes))}/>"
         for index, selected_nodes in ((1, spec.weapon_set_1_nodes), (2, spec.weapon_set_2_nodes))
         if selected_nodes
     )
     spec_children = (
-        weapon_sets_xml + overrides_xml
+        weapon_sets_xml
+        + overrides_xml
         + (f"<Sockets>{sockets_xml}</Sockets>" if spec.jewels else "")
     )
 
