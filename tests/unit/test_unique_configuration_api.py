@@ -29,9 +29,8 @@ Selected Alt Variant Three: 4
 
 
 @pytest.fixture
-def native(monkeypatch, tmp_path):
-    (tmp_path / "Data/Uniques").mkdir(parents=True)
-    monkeypatch.setattr(unique_items, "pob_src_dir", lambda root=None: tmp_path)
+def native(monkeypatch):
+    monkeypatch.setattr(unique_items, "catalogue_available", lambda root=None: True)
     monkeypatch.setattr(
         uniques, "unique_raw", lambda name, root=None: RAW if name == "Fixture" else None
     )

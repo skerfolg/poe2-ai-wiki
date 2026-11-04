@@ -7,8 +7,13 @@ from pathlib import Path
 from typing import Any
 
 from pok.engine.items import resolve_rolls
-from pok.kb.pob_pin import POB_COMMIT, pob_src_dir
-from pok.pob.uniques import _configuration_of, describe_configuration, render_configuration
+from pok.kb.pob_pin import POB_COMMIT
+from pok.pob.uniques import (
+    _configuration_of,
+    catalogue_available,
+    describe_configuration,
+    render_configuration,
+)
 
 
 def prepare_unique_item(
@@ -26,7 +31,7 @@ def prepare_unique_item(
         "configured_pob_commit": POB_COMMIT,
         "identity_scope": "native_name_template_not_kb_alias_or_cultivated_binding",
     }
-    if not (pob_src_dir(root) / "Data" / "Uniques").is_dir():
+    if not catalogue_available(root):
         return {
             "format": "pok.unique-item-configuration.v1",
             "ok": False,

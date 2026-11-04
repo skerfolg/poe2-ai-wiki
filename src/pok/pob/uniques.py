@@ -145,6 +145,11 @@ def _configuration_of(raw: str) -> dict[str, Any]:
     }
 
 
+def catalogue_available(root: Path | None = None) -> bool:
+    """Keep catalogue filesystem inspection inside the established PoB boundary."""
+    return (pob_src_dir(root) / "Data" / "Uniques").is_dir()
+
+
 def describe_configuration(name: str, root: Path | None = None) -> dict[str, Any] | None:
     """Describe exact native selector keys and variant indices; never infer KB alias binding."""
     raw = unique_raw(name, root)
