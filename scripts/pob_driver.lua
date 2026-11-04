@@ -14,6 +14,7 @@ end
 local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
 local lateUtilityStats = dofile(adapterDir .. "pob_late_utility.lua")
 local nativeSelection = dofile(adapterDir .. "pob_selection.lua")
+local actorOutput = dofile(adapterDir .. "pob_actor_output.lua")
 
 local xmlPath = arg and arg[1]
 if not xmlPath then
@@ -35,8 +36,7 @@ if not build or not build.calcsTab then
   os.exit(1)
 end
 build.calcsTab:BuildOutput()
-local out = {}
-for key, value in pairs(build.calcsTab.mainOutput) do out[key] = value end
+local out = actorOutput(build.calcsTab.mainOutput)
 for key, value in pairs(lateUtilityStats(build.calcsTab.mainEnv)) do out[key] = value end
 
 local function jesc(s)

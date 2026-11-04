@@ -58,3 +58,14 @@ Expected planning inputs:
 
 - Replace this template's example items with real candidate lanes as they are identified.
 - Keep this file focused on candidate lanes; once a lane is active, its detailed phases live in `CURRENT-PLAN.md`, not here.
+
+### BI-search-revision
+
+**Purpose**: 생성·탐색 접근 개선과 실제 품질 평가.
+**Status**: active — 사용자 2026-11-05 goal 실행 승인.
+**Sub-tasks**: S1 기존 표현 검증 → S2 평가 동결 → S3 판단4회 → S4 조건부 발견4회 → S5 확인된 병목 수정 → S6 채택 판단/사용자 검토.
+**Budget**: 시험당45분, 총8회/6시간 이내. 임의 재시도 금지.
+
+### 이전 진행 기록 보존
+
+기존 CURRENT-PLAN의 M5/R0–R7 혼재 기록은 [원문](POK_SEARCH_PREVIOUS_PLAN.md)에 보존했다. #188 품질 미입증과 UI 별도 작업은 완료 처리하지 않는다. 새 lane 활성화는 사용자의 구체 goal 지시를 따른다.

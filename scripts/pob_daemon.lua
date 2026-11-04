@@ -18,6 +18,7 @@ local adapterDir = (arg[0]:match("^(.*[/\\])") or "")
 local craftItem = dofile(adapterDir .. "pob_item_craft.lua")
 local lateUtilityStats = dofile(adapterDir .. "pob_late_utility.lua")
 local nativeSelection = dofile(adapterDir .. "pob_selection.lua")
+local actorOutput = dofile(adapterDir .. "pob_actor_output.lua")
 dofile((arg[0]:match("^(.*[/\\])") or "") .. "pob_headless.lua")
 
 local function jesc(s)
@@ -187,8 +188,7 @@ local function emit()
     return
   end
   build.calcsTab:BuildOutput()
-  local out = {}
-  for key, value in pairs(build.calcsTab.mainOutput) do out[key] = value end
+  local out = actorOutput(build.calcsTab.mainOutput)
   for key, value in pairs(lateUtilityStats(build.calcsTab.mainEnv)) do out[key] = value end
 
   local points, asc, secAsc = build.spec:CountAllocNodes()
@@ -316,7 +316,7 @@ local function respond_power(statCsv)
   -- GetMiscCalculator returns output only, not each candidate's final modDB.
   -- Reading mainEnv here would reuse the baseline and fabricate zero deltas.
   for _, stat in ipairs(wanted) do
-    if stat:match("^LateLootRarity") then
+    if stat:match("^LateLootRarity") or stat:match("^Minion%.") then
       print("POK_ERR:" .. stat .. " is unavailable in POWER; use full XML or TREE computation")
       return
     end

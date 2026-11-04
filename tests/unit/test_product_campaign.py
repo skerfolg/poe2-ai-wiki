@@ -3,6 +3,7 @@
 import hashlib
 import importlib
 import json
+import re
 from pathlib import Path
 from uuid import uuid4
 
@@ -80,6 +81,9 @@ def test_partial_first_phase_resumes_own_context_and_exposes_late_input_only_aft
 
     def run(command, output, **kwargs):
         calls.append((command, kwargs["timeout_s"]))
+        budget = re.search(r"남은 실행·정리 예산: ([0-9.]+)초", kwargs["prompt"])
+        assert budget is not None
+        assert float(budget[1]) == round(kwargs["timeout_s"], 3)
         output.mkdir()
         if len(calls) == 1:
             assert not (artifact / "inputs/phase2/item.txt").exists()

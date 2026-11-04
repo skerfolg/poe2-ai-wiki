@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import time
 from collections.abc import Callable, Mapping
@@ -113,6 +114,7 @@ def trial_prompt(
     *,
     answer_instruction: str = "",
     reference_mode: bool = False,
+    phase_budget_s: float | None = None,
 ) -> str:
     if reference_mode:
         prelude = (
@@ -145,6 +147,19 @@ def trial_prompt(
         )
     if answer_instruction:
         prelude += "\n모든 비교군의 공통 제출 계약:\n" + answer_instruction + "\n"
+    if phase_budget_s is not None:
+        if (
+            isinstance(phase_budget_s, bool)
+            or not math.isfinite(phase_budget_s)
+            or phase_budget_s <= 0
+        ):
+            raise ValueError("Expected a positive finite phase budget")
+        prelude += (
+            f"\n이 단계의 남은 실행·정리 예산: {phase_budget_s:.3f}초. "
+            "최종 파일 저장과 응답 제출도 이 한도에 포함된다. 실행기는 종료 정리 시간을 "
+            "일부 예약하므로 상한 직전까지 탐색하지 말고 실제 제출을 마쳐라. "
+            "시간이 부족하면 미완료와 남은 작업을 사실대로 제출하라.\n"
+        )
     return prelude + "\n사용자 시나리오 원문:\n" + scenario
 
 
@@ -274,6 +289,7 @@ def run_trial(
                     number,
                     answer_instruction=contract["instruction"],
                     reference_mode=reference_policy is not None,
+                    phase_budget_s=remaining,
                 ),
                 schema=contract["schema"],
                 cwd=root / "workspace",

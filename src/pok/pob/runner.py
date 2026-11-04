@@ -37,7 +37,7 @@ _DRIVER = "scripts/pob_driver.lua"
 #  읽혀 「갭 없음」·「속도 정상」이라는 **거짓 안심**을 준다(형태 ①의 캐시 재발).
 #  4 = items[].slot/grant/corrupted(#120) · 3 = items[](#120)
 #  2 = mainSkillShowsAverage(#113) · 1 = gap*(#110) · 0 = 그 이전
-_META_PROTOCOL = 6  # Native selection: active effect ordinal, source gem and stat set.
+_META_PROTOCOL = 7  # Separate selected-minion numeric axes and native skill context.
 _LUA_PATH = "./?.lua;../runtime/lua/?.lua;../runtime/lua/?/init.lua;;"
 
 #: PoB **아이템 상세보기**가 만드는 룬 드롭다운 수 (`Classes/ItemsTab.lua:696` `for i = 1, 6`).

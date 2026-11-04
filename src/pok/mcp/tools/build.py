@@ -81,6 +81,8 @@ DEFAULT_STATS = (
     "PhysicalDamageReduction", "FireDamageReduction",
     "ColdDamageReduction", "LightningDamageReduction", "ChaosDamageReduction",
     "AverageDamage", "AilmentThreshold",
+    # Native selected-minion axes; never added to player damage or army totals.
+    "Minion.CombinedDPS", "Minion.AverageDamage", "Minion.Life", "Minion.Speed",
 )  # fmt: skip
 
 _checker: ItemLegalityChecker | None = None
@@ -577,6 +579,8 @@ def compute_pob(
     기본 legacy는 기존 계산 전 관문을 유지한다.
     (생략=핵심 24종+곱연산 축, ["*"]=전부). pruned_nodes가 비어있지 않으면 트리에
     비연결 노드가 있다는 뜻 — 그 노드는 계산에 반영되지 않았다.
+    Minion.*은 PoB가 선택한 소환수/스킬 수치이며 군집 총합이 아니다.
+    선택 문맥은 meta.nativeSelection.minion, 전체 수치는 stats=["*"]로 확인한다.
 
     ⚠ **`items_legal`을 매번 볼 것** — 이 도구는 빠른 개략치를 내지만 장비가 실재하는지는
     이제 함께 검사한다(#27). 실측 2026-08-09: 그 검사가 없던 동안 **10슬롯 중 4개가
