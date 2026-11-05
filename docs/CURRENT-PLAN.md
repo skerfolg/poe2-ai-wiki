@@ -22,8 +22,9 @@ flowchart LR
  A2 --> A3[A3 젬링·활 1~3 제출·검사 완료: 복구 포함]
  A3 --> A4[A4 사용자 피드백 수령]
  A4 --> B1[B1 자원·치명타·고가치 판단 보완]
- B1 --> B2[B2 격노 아이스샷 자율1~3 준비]
- B2 --> B3[B3 제출 동결 후 레퍼런스 비교]
+ B1 --> B2[B2 격노 아이스샷: 능력치 미해결·시간 종료]
+ B2 --> B3[B3 동결안·레퍼런스 기능 비교 완료]
+ B3 --> B4[B4 결과 사용자 검토 waiting]
 ```
 
 ## Baseline Structure
@@ -39,10 +40,25 @@ flowchart LR
 
 ## Canonical Next Step
 
-**사용자 피드백을 일반 자원/치명타/고가치 선택 정책에 반영한 뒤, 젬링·아이스샷·
-격노 스태킹 세 조건만 고정한 새 자율1~3단계 결과를 동결한다. 그 후 지정 레퍼런스를
-독립 분석해 기능별 앵커와 선정 이유를 비교한다. 생성 세션에 원본을 제공하지 않는다.
-단계4·새 PoB 생성 금지. [사전 비교 계획](POK_RAGE_ICE_SHOT_ANCHOR_EVAL.md).**
+**[격노 아이스샷 비교 결과](POK_RAGE_ICE_SHOT_ANCHOR_RESULTS.md)를 보고하고 사용자
+판단을 기다린다. 생성은 힘/민첩/지능 공급 미해결로 완료 검사 미통과·시간 종료다.
+동결된18앵커 묶음을 레퍼런스와 비교했고, 격노/일부핵심은 포착했지만 벽–Verglas 및
+주얼/자원 확장 묶음은 미포착이다. #221 신규 재현, #66 기존 문제의 사례 확인.
+생성안의 레퍼런스 모방 수리·단계4·추가 생성은 진행하지 않는다.**
+
+planning-v2 보완은 로컬 e58a78e로 동결했다. 최소15단위·Mypy·Ruff 통과.
+실행: artifacts/reviews/autonomous-rage-ice-shot-v1, gpt-6-astra/ultra, 전체90분,
+고정 입력3개·레퍼런스 미제공·중도 코드/정답 주입 금지. 컨트롤 세션11497.
+호스트 사전 manifest와 opaque reference snapshot은
+artifacts/reviews/rage-ice-shot-anchor-comparison에만 보존했다. 레퍼런스 SHA256
+fed34048201dd8615f6ffe6e2301fd643b8de94438a53d06806a7d26197f6742,
+15,784바이트. 본문 해석은 생성 제출 동결 뒤에만 진행한다.
+
+검증 종료: 같은 코드/세션의 자동 재개 포함, 모델 ready 제출 이후 attrs 미해결로
+검사 미통과, 최종timed_out. 정본 결정55·근거144·현재앵커18. 소스8파일 해시 일치,
+중도 코드/정답 주입0, 새로운 후보 PoB 호출0. 완료·품질 향상으로 주장하지 않는다.
+레퍼런스의 알려진 목걸이 부여 정신력 문제는 결함 점수에서 제외했다. 원본 수정0.
+감사: artifacts/reviews/rage-ice-shot-anchor-comparison/final-audit.json.
 
 자율 실행 구현·검증 범위: [보고서](POK_AUTONOMOUS_WORKFLOW.md).
 신규 단위 9개·새 파일 Mypy·Ruff 및 실제 MCP의 도구 차단/카탈로그 해시/정본 개정·
