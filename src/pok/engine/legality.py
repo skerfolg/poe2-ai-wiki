@@ -150,6 +150,7 @@ _SPEC_LINE_PREFIXES = (
     "catalystquality:",
     "levelreq:",
     "league:",
+    "source:",
     "unique id:",
     "variant:",
     "selected variant:",
@@ -280,6 +281,64 @@ def _norm(text: str) -> str:
     """
     collapsed = " ".join(_NUM.sub("#", text).split())
     return collapsed.replace(" %", "%").lower()
+
+
+def _native_variant_ranges(name: str, lines: list[str], root: Path) -> list[str]:
+    """Match explicitly encoded native multi-selector inputs, never all possible variants.
+
+    Some KB entries intentionally contain random-mod placeholders. The pinned
+    native catalogue can verify that exact selected input, but not game availability.
+    No missing selectors, changed bases/variant lists or invented controls are inferred.
+    """
+    from pok.pob.uniques import describe_configuration, render_configuration, unique_raw
+
+    try:
+        schema = describe_configuration(name, root)
+        raw = unique_raw(name, root)
+    except (OSError, RuntimeError):
+        return []
+    if schema is None or raw is None or len(schema["selectors"]) < 2:
+        return []
+    if len(lines) < 3 or lines[2] != schema["base_type"]:
+        return []
+    labels = [line.partition(":")[2].strip() for line in lines if line.startswith("Variant:")]
+    if labels != [row["label"] for row in schema["variants"]]:
+        return []
+    headers = dict(line.split(":", 1) for line in lines if ":" in line and not line.startswith("{"))
+    native_headers = dict(
+        line.split(":", 1) for line in raw.splitlines() if ":" in line and not line.startswith("{")
+    )
+    controls = {row["key"] for row in schema["selectors"]}
+    supplied = {key for key in headers if key.startswith("Selected ")}
+    if supplied != controls:
+        return []
+    flags = {key: value for key, value in headers.items() if key.startswith("Has Alt Variant")}
+    if flags != {
+        key: value for key, value in native_headers.items() if key.startswith("Has Alt Variant")
+    }:
+        return []
+    try:
+        selections = {key: int(headers[key].strip()) for key in controls}
+        selected = render_configuration(name, selections, root)
+        if selected is None:
+            return []
+        selected_labels = [schema["variants"][index - 1]["label"] for index in selections.values()]
+        if any(re.search(r"\bPre\s+\d", label, re.I) for label in selected_labels):
+            return []  # Legacy/game availability needs its own proof, not this bridge.
+        if (
+            len(set(selections.values())) != len(selections)
+            and schema["allow_duplicate_variants"] is not True
+        ):
+            return []  # Do not infer duplicate permission from an absent native policy.
+        active = _selected_unique_lines(selected.splitlines()[2:])
+    except (ValueError, TypeError):
+        return []
+    return [
+        text
+        for line in active
+        if not line.lower().startswith(_SPEC_LINE_PREFIXES) and line.lower() not in _SPEC_MARKERS
+        for text in _expand_enum(line)
+    ]
 
 
 def _expand_enum(text: str) -> list[str]:
@@ -1155,6 +1214,9 @@ class ItemLegalityChecker:
             for e in _expand_enum(t)
         ]
         known = [_norm(t) for t in ranged]
+        placeholders = any("[" in text and "]" in text for text in rec["data"].get("explicits", []))
+        native_ranges = _native_variant_ranges(name, lines, self._root) if placeholders else []
+        native_shapes = [_norm(text) for text in native_ranges]
         verdicts: list[LineVerdict] = []
         anoint_count = 0
         for ln in mod_lines:
@@ -1164,6 +1226,26 @@ class ItemLegalityChecker:
                 verdicts.append(anoint)
                 continue
             if _norm(ln) not in known:
+                if _norm(ln) in native_shapes:
+                    if sum(_norm(other) == _norm(ln) for other in mod_lines) > native_shapes.count(
+                        _norm(ln)
+                    ):
+                        verdicts.append(
+                            LineVerdict(ln, "ILLEGAL", rec["id"], "선택한 네이티브 옵션 줄 중복")
+                        )
+                    else:
+                        ok, why = _values_in_range(ln, native_ranges)
+                        verdicts.append(
+                            LineVerdict(
+                                ln,
+                                "CONDITIONAL" if ok else "ILLEGAL",
+                                rec["id"],
+                                "핀된 네이티브 유니크의 해당 선택/롤 범위와 일치; 게임 가용성 별도"
+                                if ok
+                                else f"네이티브 선택 롤 범위 밖: {why}",
+                            )
+                        )
+                    continue
                 # **유니크에도 룬 소켓이 있다.** 고정 모드에 없다고 UNKNOWN으로 끝내면
                 # 유니크 무기·방어구의 룬 계획이 조립 게이트를 통과하지 못한다 —
                 # 실측 2026-08-05: `Gain 5% of Damage as Extra Damage of all Elements`가
