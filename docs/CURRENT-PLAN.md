@@ -31,6 +31,9 @@ flowchart LR
  C2 --> C3[C3 기존안·레퍼런스 비교·새 문제 보고 done]
  C3 --> C4[C4 아이템 선정 질적 개선 사용자 확인]
  C4 --> C5[C5 남은 핵심 선택·3/4단계 경계 반영 검토]
+ C5 --> D1[D1 웹참고방법 명명·정보원 경계/연결 확인 done]
+ D1 --> D2[D2 새 세션 PoK 설계·웹 검증→PoB 완성 active]
+ D2 --> D3[D3 동일 단계 비교·완성물 보고 pending]
 ```
 
 ## Baseline Structure
@@ -45,6 +48,21 @@ flowchart LR
 | S6 | active | 사용자 실물 검토와 채택/보류 판단, PR 준비 |
 
 ## Canonical Next Step
+
+**사용자는 기존안을 ‘웹참고방법’으로 보존하고, 외부 빌드 자료를 차단한 새 세션에서
+설계부터 PoB 완성까지 진행하도록 선택했다. [방법 비교 계획](POK_SOURCE_METHOD_COMPARISON.md)에
+따라 PoK로 공급자를 먼저 선택/기록하고 웹은 그 기재의 원문 검증에만 사용하도록
+도구 경계를 확인한다. 이전 기록/레퍼런스/비교표는 새 생성기에 제공하지 않는다.
+정상1~5진행은 승인됐고, 핵심 실험 가정만 정확한 범위로 사용자에게 확인한다.
+기존 방식은 완성 PoB가 없으므로 동일1~3단계 비교와 새 완성물 평가를 분리한다.**
+
+새 실행 준비: 관련22단위·백로그14·Ruff·3파일 Mypy 통과. 실제 MCP2단계7콜과
+4단계6콜로 코퍼스 차단/선행 선택/웹 영수증/실제 측정 부착을 확인했다. 사전확인
+입력은 새 생성기에 제공하지 않는다. 새 실행은 artifacts/reviews/autonomous-pok-primary-v1,
+분석은 artifacts/reviews/pok-primary-method-comparison-v1. source_policy=pok-primary,
+stop_after=5, gpt-6-astra/ultra. 첫 실행 블록90분이며 추가 투입/복구는 별도 기록한다.
+
+### 직전 사용자 검토 (새 실행의 입력이 아님)
 
 **[후속 사용자 검토](POK_RAGE_ICE_SHOT_ZERO_BASE_RESULTS.md)에 따라 이번 아이템·기재
 선정의 질적 개선은 사용자 확인으로 기록한다. 전체 빌드 성능·일반화와 #188 해결은

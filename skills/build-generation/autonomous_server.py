@@ -3,15 +3,28 @@
 from __future__ import annotations
 
 import argparse
+import functools
+import inspect
 import json
+import threading
 import time
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 from autonomous_contract import FLOW_SCHEMA, PLANNING_REVIEW_SCHEMA
 from product_server import CONTROL_ROOT, configure_product, validate_locations
 from session import READ_TOOLS
+from source_policy import (
+    BLOCKED_TYPES,
+    DROP,
+    EDIT_OPERATIONS,
+    POK_PRIMARY,
+    WEB_REFERENCE,
+    fetch_data,
+    scrub_records,
+)
 
 DESIGN_TOOLS = READ_TOOLS | {
     "server_info",
@@ -31,22 +44,97 @@ DESIGN_TOOLS = READ_TOOLS | {
 }
 
 
+def checkpoint_summary(result: dict[str, Any]) -> dict[str, Any]:
+    """Small receipt; full assessments remain available through explicit inspection."""
+    output: dict[str, Any] = {
+        key: result[key] for key in ("record_ref", "workflow_time_remaining_s") if key in result
+    }
+    assessment = result.get("current_assessment")
+    if isinstance(assessment, dict):
+        diagnostics = assessment.get("diagnostics", [])
+        output["current_assessment"] = {
+            "checks": assessment.get("checks", {}),
+            "diagnostics": diagnostics[:8],
+            "diagnostic_count": len(diagnostics),
+            "full_detail_tool": "inspect_design_record",
+        }
+    return output
+
+
 def configure_workflow(
     server: Any,
     stage: int,
     context: dict[str, Any],
     on_checkpoint: Callable[[dict[str, Any]], None] | None = None,
+    on_source: Callable[[dict[str, Any]], None] | None = None,
 ) -> list[str]:
     """Enforce the design-only boundary and keep human replies outside model writes."""
     if stage not in range(1, 6):
         raise ValueError("Unknown workflow stage")
+    if context.get("source_policy", WEB_REFERENCE) not in {POK_PRIMARY, WEB_REFERENCE}:
+        raise ValueError("Unknown source policy")
 
     def budget() -> float | None:
         deadline = context.get("turn_deadline_unix")
         return max(0.0, deadline - time.time()) if isinstance(deadline, int | float) else None
 
     remove = getattr(server.mcp, "local_provider", server.mcp).remove_tool
-    for name in {"create_design_record", "import_design_document"} & set(server._TOOL_PARAMS):
+    strict_sources = context.get("source_policy") == POK_PRIMARY
+    source_lock = threading.Lock()
+    blocked_ids: set[str] = set()
+    if strict_sources:
+        from pok.index.search import search
+
+        for kind in BLOCKED_TYPES:
+            blocked_ids.update(row.id for row in search(type_=kind, limit=10000))
+
+        def fact_reader(function: Any, name: str) -> Any:
+            @functools.wraps(function)
+            def scoped(*args: Any, **kwargs: Any) -> Any:
+                bound = inspect.signature(function).bind(*args, **kwargs)
+                bound.apply_defaults()
+                if bound.arguments.get("type") in BLOCKED_TYPES:
+                    raise ValueError("Full builds and usage profiles are excluded by source policy")
+                if bound.arguments.get("id") in blocked_ids:
+                    raise ValueError("Full builds and usage profiles are excluded by source policy")
+                if "include_narrative" in bound.arguments:
+                    bound.arguments["include_narrative"] = False
+                requested_limit = bound.arguments.get("limit")
+                if name == "search_kb" and isinstance(requested_limit, int):
+                    if not 1 <= requested_limit <= 10000:
+                        raise ValueError("Expected search limit 1..10000")
+                    bound.arguments["limit"] = requested_limit + len(blocked_ids)
+                result = scrub_records(function(*bound.args, **bound.kwargs), blocked_ids)
+                if result is DROP:
+                    raise ValueError("Result excluded by fact-only source policy")
+                if (
+                    name == "search_kb"
+                    and isinstance(result, list)
+                    and isinstance(requested_limit, int)
+                ):
+                    result = result[:requested_limit]
+                    if not result:
+                        result = [
+                            {
+                                "empty": True,
+                                "why": [
+                                    "Full build/profile hits are excluded. "
+                                    "Query game entities/effect text instead."
+                                ],
+                            }
+                        ]
+                return result
+
+            return scoped
+
+        for name in READ_TOOLS & set(server._TOOL_PARAMS):
+            original_read = getattr(server, name).__wrapped__
+            remove(name)
+            server.tool(fact_reader(original_read, name))
+    removed_design_tools = {"create_design_record", "import_design_document"}
+    if strict_sources:
+        removed_design_tools.add("list_builds")
+    for name in removed_design_tools & set(server._TOOL_PARAMS):
         remove(name)
         server._TOOL_PARAMS.pop(name, None)
     if stage <= 3:
@@ -73,6 +161,23 @@ def configure_workflow(
         fixed_ids = set(context.get("authorized_user_fixed_ids", []))
         for change in changes:
             value = change.get("value") or {}
+            if strict_sources:
+                op = change.get("op")
+                if op not in EDIT_OPERATIONS:
+                    raise ValueError(
+                        "Unsupported edit op; use workflow_contract('edits'). "
+                        "Extensions use merge_extensions with op/value only"
+                    )
+                expected_keys = {"op", "id"} if op.startswith("remove_") else {"op", "value"}
+                if set(change) != expected_keys:
+                    raise ValueError("Edit fields do not match workflow_contract('edits')")
+                if op == "upsert_evidence" and value.get("kind") == "external":
+                    receipts = context.get("_source_receipts", {})
+                    url = (value.get("source") or {}).get("url")
+                    if not any(row.get("url") == url for row in receipts.values()):
+                        raise ValueError(
+                            "External evidence needs a real issued primary-source receipt"
+                        )
             if change.get("op") == "upsert_decision":
                 if value.get("id") in fixed_ids:
                     raise ValueError("Host-owned user request is immutable")
@@ -88,6 +193,8 @@ def configure_workflow(
             if on_checkpoint:
                 on_checkpoint(result["record_ref"])
         result["workflow_time_remaining_s"] = budget()
+        if strict_sources:
+            return checkpoint_summary(result)
         return cast(dict[str, Any], result)
 
     server.tool(update_design_record, literal_arguments=frozenset({"record_ref", "changes"}))
@@ -127,6 +234,8 @@ def configure_workflow(
                 context["record_ref"] = result["record_ref"]
                 if on_checkpoint:
                     on_checkpoint(result["record_ref"])
+            if strict_sources:
+                return checkpoint_summary(result)
             return cast(dict[str, Any], result)
 
         server.tool(
@@ -136,6 +245,14 @@ def configure_workflow(
 
     def workflow_context() -> dict[str, Any]:
         """Read controller-owned stage, exact design ref and scoped human replies."""
+        if strict_sources:
+            return {
+                **{k: v for k, v in context.items() if not k.startswith("_")},
+                "contract_tool": "workflow_contract",
+                "source_receipt_ids": list(context.get("_source_receipts", {})),
+                "workflow_time_remaining_s": budget(),
+                "actual_tools": sorted(server._TOOL_PARAMS),
+            }
         return {
             **context,
             "flow_extension_schema": FLOW_SCHEMA,
@@ -145,6 +262,15 @@ def configure_workflow(
         }
 
     server.tool(workflow_context)
+
+    def workflow_contract(section: str = "edits") -> dict[str, Any]:
+        """Read only the needed edit/flow/planning contract instead of the entire record."""
+        values = {"edits": EDIT_OPERATIONS, "flow": FLOW_SCHEMA, "planning": PLANNING_REVIEW_SCHEMA}
+        if section not in values:
+            raise ValueError("Expected edits, flow or planning")
+        return {"section": section, "value": values[section]}
+
+    server.tool(workflow_contract)
 
     def workflow_catalog_source(
         entity_id: str,
@@ -158,6 +284,8 @@ def configure_workflow(
 
         if catalog not in {"kb", "insight"}:
             raise ValueError("Expected kb or insight")
+        if strict_sources and entity_id in blocked_ids:
+            raise ValueError("Build/corpus source is excluded")
         record = get_entry(entity_id) if catalog == "kb" else get_insight(entity_id)
         value = select(record, field_path)
         return {
@@ -174,7 +302,94 @@ def configure_workflow(
 
     server.tool(workflow_catalog_source)
 
-    def workflow_read_record(section: str = "flow", ids: list[str] | None = None) -> dict[str, Any]:
+    if strict_sources and stage >= 2:
+
+        def workflow_primary_source(
+            claim_id: str,
+            entity_id: str,
+            patch_version: str | None = None,
+            focus: str | None = None,
+        ) -> dict[str, Any]:
+            """Verify an already selected provider using its game data page only.
+
+            First save the claim and provider with PoK evidence. No arbitrary URLs,
+            build guides, recommendations or community/wiki tabs are fetched.
+            A source receipt proves a read, never the truth of a mechanism interpretation.
+            patch_version selects the official patch text mirror instead of the entity page.
+            focus pages a literal keyword within that data; it is not an internet search.
+            """
+            from uuid import uuid4
+
+            from pok.engine.design_checkpoints import load_checkpoint
+            from pok.index.search import get_entry
+
+            selected_ref = dict(context["record_ref"])
+            saved = load_checkpoint(selected_ref)
+            record = json.loads(saved["record_json"])
+            claim = next((row for row in record["decisions"] if row["id"] == claim_id), None)
+            if claim is None or entity_id not in {p.get("entity_id") for p in claim["providers"]}:
+                raise ValueError("Save the claim's concrete PoK provider before web verification")
+            evidence = {e["id"]: e for e in record["evidence"]}
+            if not any(
+                evidence.get(eid, {}).get("kind") == "catalog" for eid in claim["evidence_ids"]
+            ):
+                raise ValueError("Claim needs PoK catalog evidence before web verification")
+            if entity_id in blocked_ids:
+                raise ValueError("Build/corpus source is excluded")
+            result = fetch_data(get_entry(entity_id), patch_version=patch_version)
+            receipt = {k: v for k, v in result.items() if k != "text"}
+            receipt.update(
+                id=uuid4().hex,
+                claim_id=claim_id,
+                entity_id=entity_id,
+                preselected_record_ref=selected_ref,
+                observed_at_utc=datetime.now(UTC).isoformat(),
+            )
+            # Source bodies and receipts are host-owned, outside experiment_file's namespace.
+            source_root = Path(context["_source_root"])
+            source_root.mkdir(parents=True, exist_ok=True)
+            (source_root / (receipt["id"] + ".txt")).write_bytes(result["text"].encode("utf-8"))
+            with source_lock:
+                context.setdefault("_source_receipts", {})[receipt["id"]] = receipt
+                if on_source:
+                    on_source(context["_source_receipts"])
+            offset = max(0, result["text"].casefold().find(focus.casefold()) - 200) if focus else 0
+            return {
+                "receipt": receipt,
+                "text": result["text"][offset : offset + 2400],
+                "offset": offset,
+                "focus_found": focus is None or focus.casefold() in result["text"].casefold(),
+                "text_length": len(result["text"]),
+                "meaning_verified": False,
+            }
+
+        server.tool(workflow_primary_source)
+
+        def workflow_source_text(
+            receipt_id: str, offset: int = 0, max_chars: int = 3000
+        ) -> dict[str, Any]:
+            """Page a real issued game-data source; no arbitrary files or URLs."""
+            if receipt_id not in context.get("_source_receipts", {}):
+                raise ValueError("Unknown source receipt")
+            if offset < 0 or not 1 <= max_chars <= 6000:
+                raise ValueError("Expected offset >= 0 and max_chars 1..6000")
+            text = (Path(context["_source_root"]) / (receipt_id + ".txt")).read_text(
+                encoding="utf-8"
+            )
+            return {
+                "receipt": context["_source_receipts"][receipt_id],
+                "text": text[offset : offset + max_chars],
+                "text_length": len(text),
+            }
+
+        server.tool(workflow_source_text)
+
+    def workflow_read_record(
+        section: str = "flow",
+        ids: list[str] | None = None,
+        offset: int = 0,
+        limit: int = 30,
+    ) -> dict[str, Any]:
         """Read a typed projection of the current sealed record, without editing it.
 
         Read decisions/evidence/questions by ID. Without IDs, return an index.
@@ -184,8 +399,12 @@ def configure_workflow(
 
         saved = load_checkpoint(context["record_ref"])
         record = json.loads(saved["record_json"])
+        next_offset = None
+        total = None
         if section == "flow":
             value = record.get("extensions", {}).get("autonomous_flow", {})
+        elif section == "material":
+            value = record.get("material")
         elif section == "mechanism":
             value = record.get("mechanism_summary", "")
         elif section in {"decisions", "evidence", "questions"}:
@@ -195,6 +414,12 @@ def configure_workflow(
                     raise ValueError("Projection requested unknown IDs")
                 value = [row for row in rows if row["id"] in ids]
             else:
+                total = len(rows)
+                if strict_sources:
+                    if offset < 0 or not 1 <= limit <= 100:
+                        raise ValueError("Expected offset >= 0 and limit 1..100")
+                    rows = rows[offset : offset + limit]
+                    next_offset = offset + limit if offset + limit < total else None
                 value = [
                     {
                         key: row[key]
@@ -204,7 +429,7 @@ def configure_workflow(
                     for row in rows
                 ]
         else:
-            raise ValueError("Expected flow, mechanism, decisions, evidence or questions")
+            raise ValueError("Expected flow, mechanism, material, decisions, evidence or questions")
         return {
             "record_ref": context["record_ref"],
             "section": section,
@@ -212,6 +437,8 @@ def configure_workflow(
             "projection_only": True,
             "canonical_json_unchanged": True,
             "workflow_time_remaining_s": budget(),
+            "total": total,
+            "next_offset": next_offset,
         }
 
     server.tool(workflow_read_record)
@@ -249,12 +476,25 @@ def main() -> None:
 
         write_json(context_path.with_suffix(".head.json"), reference)
 
-    actual = configure_workflow(server, context["stage"], context, checkpoint)
+    ledger = run.parent / "source-ledger.json"
+    if context.get("source_policy") == POK_PRIMARY:
+        context["_source_root"] = str(run.parent / "source-pages")
+        context["_source_receipts"] = (
+            json.loads(ledger.read_text(encoding="utf-8")) if ledger.exists() else {}
+        )
+
+    def source_checkpoint(receipts: dict[str, Any]) -> None:
+        from autonomous_run import write_json
+
+        write_json(ledger, receipts)
+
+    actual = configure_workflow(server, context["stage"], context, checkpoint, source_checkpoint)
     policy = {
         "stage": context["stage"],
         "actual_tools": actual,
         "assembly_enabled": context["stage"] >= 4,
         "product_root": str(product),
+        "source_policy": context.get("source_policy", "web-reference"),
     }
     context_path.with_suffix(".policy.json").write_text(
         json.dumps(policy, ensure_ascii=False, indent=2), encoding="utf-8"

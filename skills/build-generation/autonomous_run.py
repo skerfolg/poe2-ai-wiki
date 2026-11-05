@@ -18,6 +18,7 @@ from uuid import uuid4
 from autonomous_contract import ANSWER_SCHEMA, check_stage, claim_fingerprint, digest
 from product_run import build_product_command, complete_events, execute_phase
 from product_server import CONTROL_ROOT
+from source_policy import POK_PRIMARY, WEB_REFERENCE
 
 
 def write_json(path: Path, value: Any) -> None:
@@ -96,7 +97,10 @@ def build_command(
     effort: str,
     codex_exe: str,
     luajit_exe: str | None,
+    source_policy: str = WEB_REFERENCE,
 ) -> list[str]:
+    if source_policy not in {WEB_REFERENCE, POK_PRIMARY}:
+        raise ValueError("Unknown source policy")
     phase = 2 if session_id else 1
     command = build_product_command(
         run,
@@ -109,7 +113,7 @@ def build_command(
         session_id=session_id,
     )
     for index, value in enumerate(command):
-        if value == 'web_search="disabled"':
+        if value == 'web_search="disabled"' and source_policy != POK_PRIMARY:
             command[index] = 'web_search="live"'
         elif value.startswith("mcp_servers.pok="):
             value = value.replace("product_server.py", "autonomous_server.py")
@@ -131,6 +135,13 @@ def observed(run: Path) -> tuple[set[str], bool, list[str]]:
     tools: set[str] = set()
     web = False
     violations: list[str] = []
+    state_path = run / "workflow.json"
+    strict = (
+        state_path.exists()
+        and json.loads(state_path.read_text(encoding="utf-8")).get("source_policy") == POK_PRIMARY
+    )
+    ledger_path = run / "source-ledger.json"
+    receipts = json.loads(ledger_path.read_text(encoding="utf-8")) if ledger_path.exists() else {}
     for path in sorted(run.glob("turn-*/events.jsonl")):
         for event in complete_events(path):
             if event.get("type") != "item.completed":
@@ -142,7 +153,13 @@ def observed(run: Path) -> tuple[set[str], bool, list[str]]:
                     violations.append(f"Unexpected MCP server: {item.get('server')}")
                 elif item.get("status") == "completed" and not item.get("error"):
                     tools.add(item.get("tool", ""))
+                    if item.get("tool") == "workflow_primary_source" and receipts:
+                        if not {"search_kb", "get_entry", "search_insights"} <= tools:
+                            violations.append("기재 웹 검증 전에 PoK 조사가 필요하다")
+                        web = True
             elif kind in {"web_search", "web_search_call"}:
+                if strict:
+                    violations.append("독립 설계 모드에서 일반 웹검색이 노출됐다")
                 if not {"search_kb", "get_entry", "search_insights"} <= tools:
                     violations.append("웹 조사보다 PoK 검색·상세·인사이트 조사가 먼저 필요하다")
                 web = True
@@ -216,6 +233,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             state: dict[str, Any] = json.loads(state_path.read_text(encoding="utf-8"))
             if state["model"] != args.model or state["effort"] != args.effort:
                 raise ValueError("Model settings differ from the persisted workflow")
+            requested_policy = getattr(args, "source_policy", None)
+            if (
+                requested_policy is not None
+                and state.get("source_policy", WEB_REFERENCE) != requested_policy
+            ):
+                raise ValueError("Source policy differs from the persisted workflow")
             if args.reply:
                 current = read_design(state["record_ref"])
                 apply_reply(
@@ -271,6 +294,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "elapsed_s": 0.0,
                 "quality_verified": False,
                 "review_policy": getattr(args, "review_policy", None),
+                "source_policy": getattr(args, "source_policy", None) or WEB_REFERENCE,
             }
         write_json(state_path, state)
         deadline = time.monotonic() + args.timeout
@@ -278,6 +302,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         assembly = (Path(__file__).parents[1] / "build-assembly/AGENTS.md").read_text(
             encoding="utf-8"
         )
+        if state.get("source_policy") == POK_PRIMARY:
+            assembly = assembly.split("## 기존 계약", 1)[0]
         while state["stage"] <= 5 and time.monotonic() < deadline:
             if state["status"] == "complete":
                 break
@@ -295,6 +321,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "stop_after": state["stop_after"],
                 "recovery_notice": state.get("recovery_notice", ""),
                 "review_policy": state.get("review_policy"),
+                "source_policy": state.get("source_policy", WEB_REFERENCE),
             }
             remaining = deadline - time.monotonic()
             turn_budget = min(remaining, 1800.0)
@@ -319,6 +346,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 effort=args.effort,
                 codex_exe=args.codex_exe,
                 luajit_exe=args.luajit_exe,
+                source_policy=state.get("source_policy", WEB_REFERENCE),
             )
             result = execute_phase(
                 command,
@@ -343,6 +371,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 if recovered_record["design_id"] != old_record["design_id"]:
                     raise ValueError("Checkpoint recovery changed design identity")
                 state["record_ref"] = head
+            if state.get("source_policy") == POK_PRIMARY:
+                _, _, source_violations = observed(root)
+                if source_violations:
+                    state["status"] = "source_policy_violation"
+                    state["source_violations"] = source_violations
+                    write_json(state_path, state)
+                    break
             if result["state"] != "completed":
                 state["status"] = result["state"]
                 if can_continue_timeout(
@@ -462,6 +497,7 @@ def main() -> None:
     parser.add_argument("--reply", type=Path)
     parser.add_argument("--recovery-note")
     parser.add_argument("--review-policy", choices=["planning-v2"], default="planning-v2")
+    parser.add_argument("--source-policy", choices=[WEB_REFERENCE, POK_PRIMARY], default=None)
     parser.add_argument("--stop-after", type=int, choices=[3, 5], default=5)
     parser.add_argument("--timeout", type=float, default=5400)
     parser.add_argument("--model", required=True)
