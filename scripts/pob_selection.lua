@@ -30,7 +30,7 @@ return function(build, types)
   local current = {}
   for _, skill in ipairs(player.activeSkillList) do current[skill] = true end
 
-  local function effectJson(skill, group, groupIndex, activeIndex)
+  local function effectJson(skill, group, groupIndex, activeIndex, actorMain)
     local effect = skill.activeEffect or {}
     local granted = effect.grantedEffect or {}
     local source = effect.srcInstance
@@ -62,7 +62,7 @@ return function(build, types)
         .. ',"stat_set_resolved":' .. boolean(mode and type(mode.statSet) == "table")
         .. ',"stat_sets":[' .. table.concat(modes, ",") .. ']'
         .. ',"meta_container":' .. boolean(meta)
-        .. ',"selected":' .. boolean(skill == main) .. '}'
+        .. ',"selected":' .. boolean(skill == (actorMain or main)) .. '}'
   end
 
   local groups = {}
@@ -85,7 +85,11 @@ return function(build, types)
   if not actual and main and current[main] then
     actual = effectJson(main, nil, nil, nil)
   end
+  local minion = env.minion
+  local minionMain = minion and minion.mainSkill
+  local minionJson = minionMain and effectJson(minionMain, nil, nil, nil, minionMain) or "null"
   return '{"format":"pok.native-selection.v1","status":' .. quoted(status)
       .. ',"groups":[' .. table.concat(groups, ",") .. ']'
-      .. ',"actual":' .. (actual or "null") .. '}'
+      .. ',"actual":' .. (actual or "null")
+      .. ',"minion":{"scope":"native_selected_actor_not_army_total","stat_prefix":"Minion.","actual":' .. minionJson .. '}}'
 end
