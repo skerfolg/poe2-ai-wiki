@@ -61,6 +61,15 @@ def checkpoint_summary(result: dict[str, Any]) -> dict[str, Any]:
     return output
 
 
+def is_review_only_refresh(old: dict[str, Any], new: dict[str, Any]) -> bool:
+    """Review bookkeeping is not permission to change a protected user choice."""
+    return (
+        old.get("review", {}).get("state") == "required"
+        and "review" not in new
+        and {key: value for key, value in old.items() if key != "review"} == new
+    )
+
+
 def configure_workflow(
     server: Any,
     stage: int,
@@ -180,8 +189,13 @@ def configure_workflow(
                         )
             if change.get("op") == "upsert_decision":
                 if value.get("id") in fixed_ids:
-                    raise ValueError("Host-owned user request is immutable")
-                if value.get("role") == "user_fixed":
+                    from pok.engine.design_checkpoints import load_checkpoint
+
+                    record = json.loads(load_checkpoint(record_ref)["record_json"])
+                    old = next(x for x in record["decisions"] if x["id"] == value["id"])
+                    if not is_review_only_refresh(old, value):
+                        raise ValueError("Host-owned user request is immutable")
+                elif value.get("role") == "user_fixed":
                     raise ValueError("Only the host may establish user_fixed provenance")
             if change.get("op") == "remove_decision" and change.get("id") in fixed_ids:
                 raise ValueError("Host-owned user request is immutable")
@@ -264,10 +278,26 @@ def configure_workflow(
     server.tool(workflow_context)
 
     def workflow_contract(section: str = "edits") -> dict[str, Any]:
-        """Read only the needed edit/flow/planning contract instead of the entire record."""
-        values = {"edits": EDIT_OPERATIONS, "flow": FLOW_SCHEMA, "planning": PLANNING_REVIEW_SCHEMA}
+        """Read edits/flow/planning/recommendation contract without the entire record."""
+        values = {"edits": EDIT_OPERATIONS, "flow": FLOW_SCHEMA, "planning": PLANNING_REVIEW_SCHEMA,
+                  "recommendation": {
+                      "optimization_contract": {
+                          "version": 2,
+                          "required_components": ["supports"],
+                          "comparisons": [{"result_id": "actual saved evaluate_delta result id",
+                                           "selected": "baseline or measured variant key",
+                                           "reason": "caller selection reason"}],
+                          "design_ref": "current actual design checkpoint reference",
+                      },
+                      "allowed_components": ["items", "jewels", "tree", "supports", "ascendancy"],
+                      "limits": "Use actual saved measurements and current input; no invented IDs. "
+                                "A host-owned decision can only be refreshed by removing its "
+                                "review field with every other field equal as JSON values. "
+                                "That is rechecking unchanged requirements, not human permission "
+                                "or changing their intent. Other changes remain prohibited.",
+                  }}
         if section not in values:
-            raise ValueError("Expected edits, flow or planning")
+            raise ValueError("Expected edits, flow, planning or recommendation")
         return {"section": section, "value": values[section]}
 
     server.tool(workflow_contract)

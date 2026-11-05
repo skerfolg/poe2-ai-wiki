@@ -157,6 +157,21 @@ def test_calculator_option_discovery_is_metadata_only(modules, monkeypatch):
         lookup("other", 101)
 
 
+def test_protected_review_refresh_never_changes_user_intent(modules):
+    _, transport, _ = modules
+    original = {"id": "user.request", "role": "user_fixed", "condition": {"statement": "fixed"},
+                "providers": [{"label": "user source"}],
+                "review": {"state": "required"}}
+    refreshed = {k: v for k, v in original.items() if k != "review"}
+    assert transport.is_review_only_refresh(original, refreshed)
+    assert not transport.is_review_only_refresh(original, {**refreshed, "role": "provisional"})
+    assert not transport.is_review_only_refresh(original, {**refreshed, "providers": []})
+    assert not transport.is_review_only_refresh(
+        original, {**refreshed, "condition": {"statement": "new"}}
+    )
+    assert not transport.is_review_only_refresh(refreshed, refreshed)
+
+
 def test_verification_requires_prior_pok_selection_and_real_receipt(modules, monkeypatch, tmp_path):
     policy, transport, _ = modules
     from pok.engine import design_checkpoints

@@ -270,6 +270,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 )
                 state["assessment"]["issues"].extend(violations)
                 state["assessment_stage"] = state["stage"]
+            if getattr(args, "recovery_note", None):
+                state["recovery_notice"] = args.recovery_note
         else:
             if state_path.exists() or args.reply:
                 raise ValueError("Fresh execution requires fresh state and no reply")
