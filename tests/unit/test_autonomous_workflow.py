@@ -378,3 +378,70 @@ def test_measurement_attachment_advances_same_checkpoint_and_blocks_stale_base(m
     assert context["record_ref"] == {"revision": "attached"} and heads == [context["record_ref"]]
     with pytest.raises(ValueError, match="current"):
         attach({"revision": "old"}, "old", {}, "measurement", "label", "scope")
+
+
+def planning_review():
+    return {
+        "resource_options": [
+            {
+                "channel": "flask",
+                "decision_ids": ["sustain"],
+                "availability_and_tradeoff": "finite charges, refill needs its provider",
+            },
+            {
+                "channel": "on_kill",
+                "decision_ids": ["sustain"],
+                "availability_and_tradeoff": "mapping only, unavailable in isolated boss scenario",
+            },
+        ],
+        "resource_scenarios": [
+            {
+                "scenario": mode,
+                "decision_ids": ["sustain"],
+                "duration_or_depletion_basis": "finite starting reserve; measure drain later",
+                "limitations": "no infinite availability claim",
+            }
+            for mode in ["mapping", "boss", "restart"]
+        ],
+        "critical_strategy": {
+            "choice": "conditional",
+            "decision_ids": ["attack"],
+            "alternatives_and_reason": "compare condition upkeep and multiplier",
+        },
+        "high_impact_packages": {
+            "decision_ids": ["defence"],
+            "adoption_and_opportunity_cost": "review complete item package",
+        },
+    }
+
+
+def test_planning_policy_does_not_require_natural_regeneration_or_cost_support(modules):
+    contract, _, _ = modules
+    value = record()
+    assert contract.check_planning_reviews(value)
+    value["extensions"]["planning_reviews"] = planning_review()
+    assert not contract.check_planning_reviews(value)
+    assert contract.check_stage(
+        value,
+        3,
+        approvals={},
+        observed_tools={"search_kb", "get_entry", "search_insights"},
+        web_observed=True,
+        review_policy="planning-v2",
+    )["ready"]
+
+
+def test_planning_policy_flags_regen_only_missing_crit_and_unlinked_decisions(modules):
+    contract, _, _ = modules
+    value = record()
+    review = planning_review()
+    value["extensions"]["planning_reviews"] = review
+    review["resource_options"] = [
+        {"channel": "regen", "decision_ids": ["sustain"], "availability_and_tradeoff": "regen only"}
+    ]
+    assert any("자연 재생 외" in x for x in contract.check_planning_reviews(value))
+    review["resource_options"] = planning_review()["resource_options"]
+    review["critical_strategy"]["decision_ids"] = ["missing"]
+    assert any("미해결 결정" in x for x in contract.check_planning_reviews(value))
+    del review["critical_strategy"]
+    assert contract.check_planning_reviews(value)

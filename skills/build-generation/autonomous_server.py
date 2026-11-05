@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, cast
 
-from autonomous_contract import FLOW_SCHEMA
+from autonomous_contract import FLOW_SCHEMA, PLANNING_REVIEW_SCHEMA
 from product_server import CONTROL_ROOT, configure_product, validate_locations
 from session import READ_TOOLS
 
@@ -39,6 +40,11 @@ def configure_workflow(
     """Enforce the design-only boundary and keep human replies outside model writes."""
     if stage not in range(1, 6):
         raise ValueError("Unknown workflow stage")
+
+    def budget() -> float | None:
+        deadline = context.get("turn_deadline_unix")
+        return max(0.0, deadline - time.time()) if isinstance(deadline, int | float) else None
+
     remove = getattr(server.mcp, "local_provider", server.mcp).remove_tool
     for name in {"create_design_record", "import_design_document"} & set(server._TOOL_PARAMS):
         remove(name)
@@ -71,6 +77,7 @@ def configure_workflow(
             context["record_ref"] = result["record_ref"]
             if on_checkpoint:
                 on_checkpoint(result["record_ref"])
+        result["workflow_time_remaining_s"] = budget()
         return cast(dict[str, Any], result)
 
     server.tool(update_design_record, literal_arguments=frozenset({"record_ref", "changes"}))
@@ -122,6 +129,8 @@ def configure_workflow(
         return {
             **context,
             "flow_extension_schema": FLOW_SCHEMA,
+            "planning_review_schema": PLANNING_REVIEW_SCHEMA,
+            "workflow_time_remaining_s": budget(),
             "actual_tools": sorted(server._TOOL_PARAMS),
         }
 
@@ -150,6 +159,7 @@ def configure_workflow(
             },
             "value": value,
             "meaning_verified": False,
+            "workflow_time_remaining_s": budget(),
         }
 
     server.tool(workflow_catalog_source)
@@ -191,6 +201,7 @@ def configure_workflow(
             "value": value,
             "projection_only": True,
             "canonical_json_unchanged": True,
+            "workflow_time_remaining_s": budget(),
         }
 
     server.tool(workflow_read_record)

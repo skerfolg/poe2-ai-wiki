@@ -79,6 +79,88 @@ FLOW_SCHEMA = object_schema(
 )
 
 
+PLANNING_REVIEW_SCHEMA = object_schema(
+    {
+        "resource_options": {
+            "type": "array",
+            "minItems": 1,
+            "items": object_schema(
+                {
+                    "channel": {
+                        "enum": [
+                            "regen",
+                            "flask",
+                            "leech",
+                            "on_hit",
+                            "on_kill",
+                            "recoup",
+                            "pool",
+                            "cost_change",
+                            "other",
+                            "not_applicable",
+                        ]
+                    },
+                    "decision_ids": IDS,
+                    "availability_and_tradeoff": TEXT,
+                }
+            ),
+        },
+        "resource_scenarios": {
+            "type": "array",
+            "items": object_schema(
+                {
+                    "scenario": {"enum": ["mapping", "boss", "restart"]},
+                    "decision_ids": IDS,
+                    "duration_or_depletion_basis": TEXT,
+                    "limitations": TEXT,
+                }
+            ),
+        },
+        "critical_strategy": object_schema(
+            {
+                "choice": {"enum": ["critical", "noncritical", "conditional", "not_applicable"]},
+                "decision_ids": IDS,
+                "alternatives_and_reason": TEXT,
+            }
+        ),
+        "high_impact_packages": object_schema(
+            {
+                "decision_ids": IDS,
+                "adoption_and_opportunity_cost": TEXT,
+            }
+        ),
+    }
+)
+
+
+def check_planning_reviews(record: dict[str, Any]) -> list[str]:
+    from jsonschema import Draft202012Validator
+
+    value = record.get("extensions", {}).get("planning_reviews", {})
+    errors = list(Draft202012Validator(PLANNING_REVIEW_SCHEMA).iter_errors(value))
+    if errors:
+        return [f"선택 검토 필드 {list(x.path)}: {x.message}" for x in errors]
+    issues = []
+    known = {x["id"] for x in record["decisions"]}
+    rows = [
+        *value["resource_options"],
+        *value["resource_scenarios"],
+        value["critical_strategy"],
+        value["high_impact_packages"],
+    ]
+    for row in rows:
+        if not row["decision_ids"]:
+            issues.append("자원·치명타·고가치 검토에 실제 결정 참조가 필요하다")
+        for key in row["decision_ids"]:
+            if key not in known:
+                issues.append(f"선택 검토의 미해결 결정 참조: {key}")
+    if {x["scenario"] for x in value["resource_scenarios"]} != {"mapping", "boss", "restart"}:
+        issues.append("맵핑·보스·재시동의 자원 가용 조건을 구분해야 한다")
+    if {x["channel"] for x in value["resource_options"]} == {"regen"}:
+        issues.append("자연 재생 외 공급/소모 대안을 실제로 검토하고 결정에 연결해야 한다")
+    return issues
+
+
 def claim_fingerprint(record: dict[str, Any], identity: str) -> str:
     """Approval expires when a claim, its providers, dependencies or evidence change."""
     decisions = {x["id"]: x for x in record["decisions"]}
@@ -116,6 +198,7 @@ def check_stage(
     approvals: dict[str, str],
     observed_tools: set[str],
     web_observed: bool,
+    review_policy: str | None = None,
 ) -> dict[str, Any]:
     """Check declared evidence/coverage, never decide whether a build is good.
 
@@ -228,6 +311,8 @@ def check_stage(
             for key in row.get("evidence_ids", []):
                 if key not in evidence:
                     issues.append(f"제약 검토의 미해결 근거 참조: {key}")
+    if stage >= 3 and review_policy == "planning-v2":
+        issues.extend(check_planning_reviews(record))
     return {
         "ready": not issues and not experimental,
         "issues": issues,

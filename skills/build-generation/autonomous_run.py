@@ -196,8 +196,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 recovered_record = parse_record(load_checkpoint(state["record_ref"])["record_json"])
                 seen_tools, seen_web, violations = observed(root)
                 state["assessment"] = check_stage(
-                    recovered_record, min(state["stage"], 3), approvals=state["approvals"],
-                    observed_tools=seen_tools, web_observed=seen_web,
+                    recovered_record,
+                    min(state["stage"], 3),
+                    approvals=state["approvals"],
+                    observed_tools=seen_tools,
+                    web_observed=seen_web,
+                    review_policy=state.get("review_policy"),
                 )
                 state["assessment"]["issues"].extend(violations)
                 state["assessment_stage"] = state["stage"]
@@ -222,6 +226,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "assessment": {},
                 "elapsed_s": 0.0,
                 "quality_verified": False,
+                "review_policy": getattr(args, "review_policy", None),
             }
         write_json(state_path, state)
         deadline = time.monotonic() + args.timeout
@@ -244,10 +249,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "previous_assessment": state["assessment"],
                 "stop_after": state["stop_after"],
                 "recovery_notice": state.get("recovery_notice", ""),
+                "review_policy": state.get("review_policy"),
             }
-            write_json(context_path, context)
             remaining = deadline - time.monotonic()
             turn_budget = min(remaining, 1800.0)
+            context["turn_deadline_unix"] = time.time() + turn_budget
+            write_json(context_path, context)
             prompt = (
                 method
                 + ("\n" + assembly if stage >= 4 else "")
@@ -326,6 +333,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 approvals=state["approvals"],
                 observed_tools=tools,
                 web_observed=web,
+                review_policy=state.get("review_policy"),
             )
             assessment["issues"].extend(violations)
             fresh = current["current_assessment"]
@@ -408,6 +416,7 @@ def main() -> None:
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--reply", type=Path)
     parser.add_argument("--recovery-note")
+    parser.add_argument("--review-policy", choices=["planning-v2"], default="planning-v2")
     parser.add_argument("--stop-after", type=int, choices=[3, 5], default=5)
     parser.add_argument("--timeout", type=float, default=5400)
     parser.add_argument("--model", required=True)
