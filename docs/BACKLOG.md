@@ -1101,7 +1101,7 @@ setup만 61.47초) ②캐시가 **디렉터리 단위**라 레코드 하나만 �
 
 **실측**: PoK 설계·웹 검증 시험은 단계4 제출/측정과 단계5 비평을 마쳤으나 최종 추천2회가 `Adopted decisions require review: [user.request]`로 거부됐다. 재료 변경은 모든 결정에 required를 붙이지만 scoped 도구는 호스트 원문 결정을 어떤 필드라도 고치지 못하게 했다. 별도의 v2 비교 계약 입력 오류도 같이 반환됐다.
 
-**보완/검증**: 원문·역할·공급자·조건 등 나머지 JSON 값이 전부 동일할 때에만 required review 필드 제거를 허용한다. 사용자 고정 변경·삭제·새 고정 생성·사용자 승인 위조 금지는 유지한다. 단위는 원문/역할/공급자 변경 거부와 기존 출처 경계를 확인했다. `workflow_contract(recommendation)`에 기존 저장 비교 계약의 입력 형태도 노출한다. 검사를 면제하거나 게임 성립을 인증하는 변경은 아니다.
+**보완/검증**: 최초 필드 생략 보완은 병합 저장에서 삭제가 아니어서 실제 재개에서 실패했다. 이후 review.state만 required→reviewed로 바꾸고 나머지 JSON 값·review 이유/리비전이 모두 동일할 때에만 허용하도록 정정했다. 실제 병합 저장 회귀 포함9단위 통과, 정정본 모델 재실행 전이다. 사용자 고정 변경·삭제·새 고정 생성·승인 위조 금지는 유지한다. `workflow_contract(recommendation)`에 기존 저장 비교 계약의 입력 형태도 노출했고 실제 형식 오류는 해소했다. 별도로 말리가로 옵션 미파싱에 따른 비교 미완료가 남았다. 검사를 면제하거나 게임 성립을 인증하는 변경은 아니다.
 
 **근거 위치**: `skills/build-generation/autonomous_server.py`, `tests/unit/test_autonomous_sources.py`, `artifacts/reviews/autonomous-pok-primary-v1/turn-008`, [방법 비교](POK_SOURCE_METHOD_RESULTS.md). 원래 incomplete 결과는 보존하고 같은 세션의 추가 시간·수정 개입을 별도로 기록한다. 일반 MCP 계약의 확장은 #222 후속과 구분한다.
 

@@ -162,7 +162,7 @@ def test_protected_review_refresh_never_changes_user_intent(modules):
     original = {"id": "user.request", "role": "user_fixed", "condition": {"statement": "fixed"},
                 "providers": [{"label": "user source"}],
                 "review": {"state": "required"}}
-    refreshed = {k: v for k, v in original.items() if k != "review"}
+    refreshed = {**original, "review": {**original["review"], "state": "reviewed"}}
     assert transport.is_review_only_refresh(original, refreshed)
     assert not transport.is_review_only_refresh(original, {**refreshed, "role": "provisional"})
     assert not transport.is_review_only_refresh(original, {**refreshed, "providers": []})
@@ -170,6 +170,36 @@ def test_protected_review_refresh_never_changes_user_intent(modules):
         original, {**refreshed, "condition": {"statement": "new"}}
     )
     assert not transport.is_review_only_refresh(refreshed, refreshed)
+
+
+def test_protected_review_refresh_survives_real_merge_storage(modules):
+    _, transport, _ = modules
+    from copy import deepcopy
+
+    from pok.artifacts.design_record import parse_record, record_json, seal_record
+    from pok.engine.design_records import apply_record_changes, inspect_record
+
+    fixtures = json.loads(Path(__file__).with_name(
+        "design_record_contract_fixtures.json"
+    ).read_text(encoding="utf-8"))
+    record = deepcopy(next(
+        case["before"] for case in fixtures["cases"] if case["id"] == "provider-replacement"
+    ))
+    original = record["decisions"][0]
+    original["review"] = {"state": "required", "reasons": ["INPUT_CHANGED"],
+                          "since_revision": record["revision"]}
+    record = seal_record(record)
+    original = record["decisions"][0]
+    missing = {k: v for k, v in original.items() if k != "review"}
+    unchanged = apply_record_changes(record_json(record), record["revision"], [
+        {"op": "upsert_decision", "value": missing}])
+    assert original["id"] in inspect_record(unchanged.record_json)["review_required_ids"]
+    refreshed = {**original, "review": {**original["review"], "state": "reviewed"}}
+    assert transport.is_review_only_refresh(original, refreshed)
+    changed = apply_record_changes(record_json(record), record["revision"], [
+        {"op": "upsert_decision", "value": refreshed}])
+    assert original["id"] not in inspect_record(changed.record_json)["review_required_ids"]
+    assert parse_record(changed.record_json)["decisions"][0] == refreshed
 
 
 def test_verification_requires_prior_pok_selection_and_real_receipt(modules, monkeypatch, tmp_path):

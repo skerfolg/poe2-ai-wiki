@@ -65,8 +65,9 @@ def is_review_only_refresh(old: dict[str, Any], new: dict[str, Any]) -> bool:
     """Review bookkeeping is not permission to change a protected user choice."""
     return (
         old.get("review", {}).get("state") == "required"
-        and "review" not in new
-        and {key: value for key, value in old.items() if key != "review"} == new
+        and new.get("review") == {**old["review"], "state": "reviewed"}
+        and {key: value for key, value in old.items() if key != "review"}
+        == {key: value for key, value in new.items() if key != "review"}
     )
 
 
@@ -291,8 +292,9 @@ def configure_workflow(
                       },
                       "allowed_components": ["items", "jewels", "tree", "supports", "ascendancy"],
                       "limits": "Use actual saved measurements and current input; no invented IDs. "
-                                "A host-owned decision can only be refreshed by removing its "
-                                "review field with every other field equal as JSON values. "
+                                "A host-owned decision can only be refreshed by setting "
+                                "review.state from required to reviewed, preserving all other "
+                                "JSON values including review reasons and since_revision. "
                                 "That is rechecking unchanged requirements, not human permission "
                                 "or changing their intent. Other changes remain prohibited.",
                   }}
