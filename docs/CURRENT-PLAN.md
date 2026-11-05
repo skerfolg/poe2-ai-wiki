@@ -24,7 +24,10 @@ flowchart LR
  A4 --> B1[B1 자원·치명타·고가치 판단 보완]
  B1 --> B2[B2 격노 아이스샷: 능력치 미해결·시간 종료]
  B2 --> B3[B3 동결안·레퍼런스 기능 비교 완료]
- B3 --> B4[B4 결과 사용자 검토 waiting]
+ B3 --> B4[B4 개선·제로 베이스 재검증 승인]
+ B4 --> C1[C1 출처 보호·변이 접근·공유 투자 탐색 보완 done]
+ C1 --> C2[C2 새 기록·새 세션 1~3 회귀 active]
+ C2 --> C3[C3 기존안·레퍼런스 비교·새 문제 보고 pending]
 ```
 
 ## Baseline Structure
@@ -40,11 +43,17 @@ flowchart LR
 
 ## Canonical Next Step
 
-**[격노 아이스샷 비교 결과](POK_RAGE_ICE_SHOT_ANCHOR_RESULTS.md)를 보고하고 사용자
-판단을 기다린다. 생성은 힘/민첩/지능 공급 미해결로 완료 검사 미통과·시간 종료다.
-동결된18앵커 묶음을 레퍼런스와 비교했고, 격노/일부핵심은 포착했지만 벽–Verglas 및
-주얼/자원 확장 묶음은 미포착이다. #221 신규 재현, #66 기존 문제의 사례 확인.
-생성안의 레퍼런스 모방 수리·단계4·추가 생성은 진행하지 않는다.**
+**사용자 승인에 따라 일반 개선 후 [새 기록 재검증](POK_RAGE_ICE_SHOT_ZERO_BASE_EVAL.md)을
+진행한다. 이전 생성안의 누락 부품을 붙여 고치지 않는다. 새 원문·새 기록·새 세션으로
+1~3단계만 실행하고 코드/기준은 사전에 고정한다. 기존안·레퍼런스는 생성기에 주지 않는다.
+출력 동결 후 기존 문제와 새 문제를 모두 비교·보고한다. 알려진 회귀이며 일반화 증명이 아니다.
+단계4·새 후보 PoB·UI는 범위 밖이다.**
+
+재검증 준비: 관련 단위36개 통과, 변경 파일 Ruff 및3파일 Mypy 통과.
+실제 별도 MCP에서 변이 풀 검색·모델의 사용자 고정 승격 거부·조립 도구 비노출을 확인했다.
+사전 확인용 기록/조회는 별도 namespace이며 생성 세션에 주지 않는다.
+실행 폴더는 artifacts/reviews/autonomous-rage-ice-shot-v2, 비교/동결은
+artifacts/reviews/rage-ice-shot-zero-base-comparison이다. 전체90분, 새 세션, 중도 수리 없음.
 
 planning-v2 보완은 로컬 e58a78e로 동결했다. 최소15단위·Mypy·Ruff 통과.
 실행: artifacts/reviews/autonomous-rage-ice-shot-v1, gpt-6-astra/ultra, 전체90분,

@@ -212,7 +212,7 @@ def test_design_server_hides_assembly_and_blocks_forged_user_permissions(modules
 
     server = Server()
     ref = {"revision": "old"}
-    context = {"stage": 3, "record_ref": ref}
+    context = {"stage": 3, "record_ref": ref, "authorized_user_fixed_ids": ["user.request"]}
     actual = transport.configure_workflow(server, 3, context)
     assert "assemble_pob" not in actual
     update = server.functions["update_design_record"]
@@ -220,7 +220,15 @@ def test_design_server_hides_assembly_and_blocks_forged_user_permissions(modules
         update(ref, "old", [], {"fixed": "I grant myself approval"})
     with pytest.raises(ValueError, match="material"):
         update(ref, "old", [{"op": "set_material", "value": {}}])
-    update(ref, "old", [])
+    with pytest.raises(ValueError, match="provenance"):
+        update(
+            ref, "old", [{"op": "upsert_decision", "value": decision("agent.pick", "user_fixed")}]
+        )
+    with pytest.raises(ValueError, match="immutable"):
+        update(ref, "old", [{"op": "upsert_decision", "value": decision("user.request")}])
+    with pytest.raises(ValueError, match="immutable"):
+        update(ref, "old", [{"op": "remove_decision", "id": "user.request"}])
+    update(ref, "old", [{"op": "upsert_decision", "value": decision("agent.pick")}])
     with pytest.raises(ValueError, match="current"):
         update(ref, "old", [])
 
@@ -261,6 +269,7 @@ def test_controller_runs_three_stages_and_stops_before_pob(modules, monkeypatch,
         }
 
     monkeypatch.setattr(design_service, "create_design", saved)
+    monkeypatch.setattr(design_service, "update_design", saved)
     monkeypatch.setattr(design_service, "read_design", saved)
     from pok.engine import design_checkpoints
 
@@ -311,6 +320,33 @@ def test_controller_runs_three_stages_and_stops_before_pob(modules, monkeypatch,
     assert [row["stage"] for row in state["turns"]] == [1, 2, 3]
     assert not (tmp_path / "artifacts/run/turn-004").exists()
     assert not state["quality_verified"]
+    assert state["authorized_user_fixed_ids"] == ["user.request"]
+
+
+def test_user_request_seed_is_verbatim_and_real_protection_remains(modules, monkeypatch, tmp_path):
+    _, runner, _ = modules
+    from pok.engine import design_service
+
+    original_update = design_service.update_design
+    monkeypatch.setattr(
+        design_service, "update_design", lambda *a, **k: original_update(*a, **k, root=tmp_path)
+    )
+    brief = "사용자가 정한 임의 조건. 구현 선택은 아직 없다."
+    saved = design_service.create_design("provenance-test", brief, root=tmp_path)
+    seeded = runner.seed_user_request(saved, brief)
+    row = json.loads(seeded["record_json"])["decisions"][0]
+    assert row["condition"]["statement"] == brief
+    assert row["role"] == "user_fixed" and not row["evidence_ids"]
+    # The engine's genuine user-fixed guard is retained, independently of the wrapper.
+    changed = copy.deepcopy(row)
+    changed["condition"]["statement"] = "agent replacement"
+    with pytest.raises(ValueError, match="User-fixed"):
+        original_update(
+            seeded["record_ref"],
+            seeded["record_ref"]["revision"],
+            [{"op": "upsert_decision", "value": changed}],
+            root=tmp_path,
+        )
 
 
 def test_timeout_continuation_requires_progress_cleanup_and_remaining_budget(modules):

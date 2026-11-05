@@ -31,6 +31,48 @@ def write_json(path: Path, value: Any) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def seed_user_request(saved: dict[str, Any], brief: str) -> dict[str, Any]:
+    """Preserve the verbatim request, without guessing agent-selected requirements."""
+    from pok.engine.design_service import update_design
+
+    return update_design(
+        saved["record_ref"],
+        saved["record_ref"]["revision"],
+        [
+            {
+                "op": "upsert_decision",
+                "value": {
+                    "id": "user.request",
+                    "title": "사용자 원문 요구",
+                    "role": "user_fixed",
+                    "domains": ["utility"],
+                    "condition": {
+                        "statement": brief,
+                        "scope": {"description": "사용자 원문 요구의 범위", "decision_ids": []},
+                    },
+                    "adoption": "adopted",
+                    "belief": "user_reported",
+                    "confidence": "high",
+                    "providers": [
+                        {
+                            "id": "user.request.source",
+                            "kind": "other",
+                            "label": "호스트가 받은 사용자 요구 원문",
+                        }
+                    ],
+                    "depends_on": [],
+                    "alternatives": [],
+                    "evidence_ids": [],
+                    "costs": [],
+                    "rationale": "사용자 선호의 출처이며 게임 메커니즘의 성립 근거가 아니다.",
+                    "limitations": ["에이전트가 고른 구현은 이 고정 조건에 포함되지 않는다."],
+                    "review_triggers": ["실제 사용자 요구 변경"],
+                },
+            }
+        ],
+    )
+
+
 def install_paths(run: Path) -> Path:
     # Same artifact/cache namespace as the existing product trial adapter.
     from pok.common import paths
@@ -210,11 +252,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 raise ValueError("Fresh execution requires fresh state and no reply")
             brief = args.brief.read_text(encoding="utf-8-sig")
             saved = create_design("autonomous-" + uuid4().hex[:16], brief)
+            saved = seed_user_request(saved, brief)
             state = {
                 "format": "pok.autonomous-workflow.v1",
                 "stage": 1,
                 "status": "running",
                 "brief": brief,
+                "authorized_user_fixed_ids": ["user.request"],
                 "record_ref": saved["record_ref"],
                 "model": args.model,
                 "effort": args.effort,
@@ -244,6 +288,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "stage": stage,
                 "record_ref": state["record_ref"],
                 "original_brief": state["brief"],
+                "authorized_user_fixed_ids": state.get("authorized_user_fixed_ids", []),
                 "human_replies": state["replies"],
                 "approved_hypotheses": state["approvals"],
                 "previous_assessment": state["assessment"],

@@ -428,12 +428,80 @@ def get_entry(
         raise KeyError(f"엔티티 없음: {entity_id}")
     raw: dict[str, Any] = json.loads(row[0])
     out = {k: raw[k] for k in ["id", "type", *fields] if k in raw} if fields else raw
+    data = raw.get("data") or {}
+    if raw.get("type") == "Item" and (
+        data.get("rarity") == "unique" or data.get("class_group") == "cultivated"
+    ):
+        out["variant_context"] = {
+            "cultivated_record": data.get("class_group") == "cultivated",
+            "template_is_final_mutated_item": False,
+            "pool_tool": "get_variant_pool",
+            "pool_args": {"route": "vaal-orb-mutated-unique"},
+            "eligibility": "unknown_for_this_item",
+            "notice": "함양은 무작위 옵션 교체다. 원본 옵션과 변이 옵션을 전부 더하지 않는다. "
+            "공용 풀은 이 아이템의 적용 가능 목록이 아니다. 담체/교체 조건은 별도 확인한다.",
+        }
     if raw.get("type") == "Skill":
         # fields 선별과 무관하게 싣는다 — 고른 필드에 안 들어 있어서 못 봤다는 게 #167이다
         granted = granted_instance(raw, root=root, db_path=db_path)
         if granted:
             out["granted_instance"] = granted
     return out
+
+
+def get_variant_pool(
+    route: str = "vaal-orb-mutated-unique",
+    query: str | None = None,
+    offset: int = 0,
+    limit: int = 20,
+    root: Path | None = None,
+    db_path: Path | None = None,
+) -> dict[str, Any]:
+    """Read the recorded mutation pool, without inventing per-item eligibility (#66)."""
+    if route != "vaal-orb-mutated-unique":
+        raise ValueError("Unsupported variant route")
+    if offset < 0 or not 1 <= limit <= 100:
+        raise ValueError("Expected offset >= 0 and limit 1..100")
+    con = _connect(root, db_path)
+    try:
+        rows = con.execute("SELECT json FROM records WHERE type='Modifier' ORDER BY id").fetchall()
+    finally:
+        con.close()
+    matches = []
+    for (blob,) in rows:
+        raw = json.loads(blob)
+        data = raw.get("data") or {}
+        recorded_route = data.get("carrier_route")
+        mutation_tag = "mutatedunique_vaal" in (data.get("mod_tags") or [])
+        if recorded_route != route and not (recorded_route is None and mutation_tag):
+            continue
+        if (
+            query
+            and query.casefold()
+            not in json.dumps([raw.get("name"), data.get("texts")], ensure_ascii=False).casefold()
+        ):
+            continue
+        matches.append(
+            {
+                "id": raw["id"],
+                "name": raw.get("name", {}),
+                "texts": data.get("texts", []),
+                "carrier_route": route,
+                "route_basis": "carrier_route" if recorded_route == route else "mod_tags",
+            }
+        )
+    page = matches[offset : offset + limit]
+    return {
+        "route": route,
+        "query": query,
+        "total": len(matches),
+        "offset": offset,
+        "entries": page,
+        "next_offset": offset + limit if offset + limit < len(matches) else None,
+        "item_eligibility_verified": False,
+        "notice": "공용 변이 풀이다. 특정 아이템의 적용 가능성·공존·교체 대상·"
+        "롤 확률을 인증하지 않는다.",
+    }
 
 
 # 「Grants Skill: Level (1-20) Cast on Dodge」 — {variant:N} 태그는 떼고 대조한다

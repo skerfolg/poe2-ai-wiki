@@ -38,6 +38,7 @@ READ_TOOLS = frozenset(
     {
         "search_kb",
         "get_entry",
+        "get_variant_pool",
         "related",
         "search_insights",
         "get_insight",

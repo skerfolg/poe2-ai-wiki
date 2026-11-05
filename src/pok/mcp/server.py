@@ -55,6 +55,7 @@ from pok.index.describe import find_by_value as _find_by_value
 from pok.index.search import diagnose_empty as _diagnose_empty
 from pok.index.search import get_entry as _get_entry
 from pok.index.search import get_insight as _get_insight
+from pok.index.search import get_variant_pool as _get_variant_pool
 from pok.index.search import related as _related
 from pok.index.search import search as _search
 from pok.index.search import search_insights as _search_insights
@@ -945,6 +946,21 @@ def get_entry(
         if doc is not None:
             record["narrative"] = doc.read_text(encoding="utf-8")
     return record
+
+
+@tool
+def get_variant_pool(
+    route: str = "vaal-orb-mutated-unique",
+    query: str | None = None,
+    offset: int = 0,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """함양 공용 변이 풀을 조회한다. query는 이름/효과 부분문자열(영문 권장).
+
+    특정 아이템 전용 목록이 아니다. 적용 가능성·교체 대상·공존과 롤은 별도 검증한다.
+    get_entry로 선택한 Modifier의 수치/출처를 읽는다. 페이지 순서는 적합성 순위가 아니다.
+    """
+    return _get_variant_pool(route=route, query=query, offset=offset, limit=limit)
 
 
 @tool

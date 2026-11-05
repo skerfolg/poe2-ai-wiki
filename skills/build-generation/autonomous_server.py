@@ -70,6 +70,16 @@ def configure_workflow(
             raise ValueError("Update must extend the current workflow checkpoint")
         if any(x.get("op") == "set_goal" for x in changes):
             raise ValueError("Original user brief is immutable in this workflow")
+        fixed_ids = set(context.get("authorized_user_fixed_ids", []))
+        for change in changes:
+            value = change.get("value") or {}
+            if change.get("op") == "upsert_decision":
+                if value.get("id") in fixed_ids:
+                    raise ValueError("Host-owned user request is immutable")
+                if value.get("role") == "user_fixed":
+                    raise ValueError("Only the host may establish user_fixed provenance")
+            if change.get("op") == "remove_decision" and change.get("id") in fixed_ids:
+                raise ValueError("Host-owned user request is immutable")
         if stage <= 3 and any(x.get("op") == "set_material" for x in changes):
             raise ValueError("Design-only run cannot attach PoB material")
         result = original(record_ref, expected_revision, changes, user_decisions=None)
