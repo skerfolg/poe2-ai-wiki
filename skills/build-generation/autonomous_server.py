@@ -272,6 +272,31 @@ def configure_workflow(
 
     server.tool(workflow_contract)
 
+    def workflow_calculator_options(query: str, limit: int = 30) -> dict[str, Any]:
+        """Find pinned PoB configuration keys/labels/conditions, without enabling them.
+
+        An absent result means this catalog has no matching control, not that the
+        game state is impossible. Use actual document/skill controls separately.
+        """
+        from dataclasses import asdict
+
+        from pok.pob.catalog import config_options
+
+        needle = query.strip().casefold()
+        if not needle or not 1 <= limit <= 100:
+            raise ValueError("Nonempty query and limit between 1 and 100 required")
+        matches = [
+            option for option in config_options()
+            if needle in " ".join(
+                (option.var, option.label, option.tooltip, *option.conditions)
+            ).casefold()
+        ]
+        return {"options": [asdict(option) for option in matches[:limit]],
+                "total": len(matches), "settings_changed": False,
+                "source": "pinned PoB ConfigOptions.lua via pok.pob.catalog"}
+
+    server.tool(workflow_calculator_options)
+
     def workflow_catalog_source(
         entity_id: str,
         field_path: str = "/data",

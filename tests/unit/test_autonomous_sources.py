@@ -135,6 +135,28 @@ class Server:
         self._TOOL_PARAMS[function.__name__] = {}
 
 
+def test_calculator_option_discovery_is_metadata_only(modules, monkeypatch):
+    _, transport, _ = modules
+    from pok.pob import catalog
+
+    monkeypatch.setattr(catalog, "config_options", lambda: (
+        catalog.ConfigOption("exampleStacks", "Stacks", ("Example Skill",), "State count"),
+        catalog.ConfigOption("other", "Other", ()),
+    ))
+    server = Server()
+    transport.configure_workflow(server, 4, {})
+    lookup = server.functions["workflow_calculator_options"]
+    result = lookup("example skill", 1)
+    assert result["total"] == 1
+    assert result["options"][0]["var"] == "exampleStacks"
+    assert result["settings_changed"] is False
+    assert lookup("unavailable")["options"] == []
+    with pytest.raises(ValueError):
+        lookup("", 1)
+    with pytest.raises(ValueError):
+        lookup("other", 101)
+
+
 def test_verification_requires_prior_pok_selection_and_real_receipt(modules, monkeypatch, tmp_path):
     policy, transport, _ = modules
     from pok.engine import design_checkpoints
