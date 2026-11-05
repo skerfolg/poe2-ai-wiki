@@ -291,6 +291,15 @@ def configure_workflow(
                           "design_ref": "current actual design checkpoint reference",
                       },
                       "allowed_components": ["items", "jewels", "tree", "supports", "ascendancy"],
+                      "optional_comparison_field": {"acknowledged_limits": [{
+                          "diagnostic": "exact saved comparison.unresolved items_pob_gaps object",
+                          "reason": "Explain missing effect, impact and selection limits",
+                      }]},
+                      "measurement_limits": "Only exact saved item parser gaps may be explicitly "
+                          "acknowledged. Other unresolved, failed, illegal, incomplete or stale "
+                          "measurements stay blocked. Gaps remain in ready_with_limits output. "
+                          "Do not acknowledge a gap that invalidates the intended comparison; "
+                          "seek evidence or revise instead. No game validation is implied.",
                       "limits": "Use actual saved measurements and current input; no invented IDs. "
                                 "A host-owned decision can only be refreshed by setting "
                                 "review.state from required to reviewed, preserving all other "
