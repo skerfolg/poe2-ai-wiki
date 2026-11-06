@@ -798,7 +798,9 @@ class ItemLegalityChecker:
         return LineVerdict(line, "LEGAL", reason=reason)
 
     def check(self, item_text: str) -> LegalityReport:
-        rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(item_text)
+        rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(
+            item_text, base_names=tuple(self._bases)
+        )
         if rarity == "unique":
             report = self._check_unique(item_text)
             return LegalityReport(
@@ -1923,7 +1925,9 @@ def catalyst_scalar(catalyst: str, quality: float, mod_tags: Sequence[str]) -> f
     return 1.0
 
 
-def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
+def _parse_item(
+    text: str, *, base_names: Sequence[str] = ()
+) -> tuple[str, str, int, list[str], int, float]:
     """buildxml.ItemSpec.text 형식 파서 (우리가 생성하는 형식 — 엄격).
 
     반환에 **소켓 수·룬 효과**가 포함된다 — 룬 값 검증(#31)의 분모다.
@@ -1932,8 +1936,25 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
     if not lines or not lines[0].lower().startswith("rarity:"):
         raise ValueError("첫 줄이 'Rarity:' 가 아님")
     rarity = lines[0].split(":", 1)[1].strip().lower()
-    if rarity in ("normal",):
-        base_name, rest = lines[1], lines[2:]
+    known_bases = {name.lower(): name for name in base_names}
+    magic_base = None
+    if rarity == "magic" and len(lines) > 1:
+        # Preserve the legacy name+base form. Native MAGIC may put the base
+        # (with prefix/suffix names) on the name line instead: Item.lua:386.
+        explicit_base = len(lines) > 2 and lines[2].lower() in known_bases
+        if not explicit_base:
+            for name in sorted(known_bases, key=len, reverse=True):
+                if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", lines[1], re.I):
+                    magic_base = known_bases[name]
+                    break
+            if magic_base is None and (
+                len(lines) == 2
+                or lines[2].lower().startswith(_SPEC_LINE_PREFIXES)
+                or lines[2].lower() in _SPEC_MARKERS
+            ):
+                magic_base = lines[1]
+    if rarity == "normal" or magic_base is not None:
+        base_name, rest = magic_base or lines[1], lines[2:]
     else:
         if len(lines) < 3:
             raise ValueError("이름·베이스 줄 부족")
