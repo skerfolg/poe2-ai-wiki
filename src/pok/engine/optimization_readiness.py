@@ -1434,6 +1434,49 @@ def optimization_readiness(
     }
 
 
+def _acknowledged_item_limits(unresolved: Any, acknowledgments: Any) -> list[dict[str, Any]]:
+    """Keep exact saved parser gaps visible; never waive a failed measurement.
+
+    The caller judges whether the missing item effect invalidates their choice.
+    This only records that judgment, not the effect's value or game validity.
+    """
+    if not isinstance(unresolved, list) or not isinstance(acknowledgments, list):
+        raise ValueError("Unresolved diagnostics and acknowledgments must be lists")
+    remaining = list(unresolved)
+    accepted: list[dict[str, Any]] = []
+    for acknowledgment in acknowledgments:
+        if (
+            not isinstance(acknowledgment, Mapping)
+            or set(acknowledgment) != {"diagnostic", "reason"}
+            or not isinstance(acknowledgment.get("reason"), str)
+            or not acknowledgment["reason"].strip()
+        ):
+            raise ValueError("A parser limit needs its exact saved diagnostic and a reason")
+        diagnostic = acknowledgment["diagnostic"]
+        if (
+            not isinstance(diagnostic, dict)
+            or diagnostic.get("code") != "items_pob_gaps"
+            or not diagnostic.get("scope")
+            or not isinstance(diagnostic.get("scope"), list)
+            or not diagnostic.get("observed")
+            or not isinstance(diagnostic.get("observed"), list)
+            or any(
+                not isinstance(row, dict)
+                or not isinstance(row.get("unread"), list)
+                or not row["unread"]
+                or any(not isinstance(line, str) or not line.strip() for line in row["unread"])
+                for row in diagnostic["observed"]
+            )
+            or diagnostic not in remaining
+        ):
+            raise ValueError("Only exact saved item parser gaps can be acknowledged")
+        remaining.remove(diagnostic)
+        accepted.append(dict(acknowledgment))
+    if remaining:
+        raise ValueError("Comparison has unacknowledged or non-parser measurement limits")
+    return accepted
+
+
 def _comparison_readiness(
     spec: Mapping[str, Any], contract: Mapping[str, Any], *, purpose: str
 ) -> dict[str, Any]:
@@ -1447,6 +1490,7 @@ def _comparison_readiness(
 
     issues: list[dict[str, Any]] = []
     accepted: list[dict[str, Any]] = []
+    measurement_limits: list[dict[str, Any]] = []
     covered: set[str] = set()
     required = contract.get("required_components")
     comparisons = contract.get("comparisons")
@@ -1485,9 +1529,11 @@ def _comparison_readiness(
         try:
             if (
                 not isinstance(reference, Mapping)
-                or set(reference) != {"result_id", "selected", "reason"}
+                or set(reference) - {"result_id", "selected", "reason", "acknowledged_limits"}
+                or not {"result_id", "selected", "reason"}.issubset(reference)
                 or not all(
-                    isinstance(reference[k], str) and reference[k].strip() for k in reference
+                    isinstance(reference[k], str) and reference[k].strip()
+                    for k in ("result_id", "selected", "reason")
                 )
             ):
                 raise ValueError(
@@ -1511,8 +1557,11 @@ def _comparison_readiness(
                 raise ValueError("Selected measured input differs from the current build")
             comparison = result["comparison"]
             measured = comparison["measured_comparisons"]
-            if not measured or comparison.get("unresolved"):
+            if not measured:
                 raise ValueError("Comparison is incomplete or has unresolved measurement limits")
+            limits = _acknowledged_item_limits(
+                comparison.get("unresolved", []), reference.get("acknowledged_limits", [])
+            )
             if set(measured) != set(inputs["variants"]):
                 raise ValueError("Not every requested alternative was measured")
             outputs = {"baseline": result["base"], **result["variants"]}
@@ -1569,6 +1618,9 @@ def _comparison_readiness(
             if not changed:
                 raise ValueError("Identical candidates do not establish a component comparison")
             covered.update(changed)
+            measurement_limits.extend(
+                {"result_id": reference["result_id"], **limit} for limit in limits
+            )
             accepted.append(
                 {
                     **reference,
@@ -1591,16 +1643,19 @@ def _comparison_readiness(
     return {
         "version": 2,
         "purpose": purpose,
-        "status": "not_ready" if issues else "ready",
+        "status": "not_ready" if issues else "ready_with_limits" if measurement_limits else "ready",
         "recommendation_ready": not issues,
         "scope": required,
         "blockers": issues,
         "accepted_exceptions": [],
+        "measurement_limits": measurement_limits,
         "comparisons": accepted,
         "design_record": design_status,
         "layers": {
             "comparison": "needs_review"
             if any(not row["code"].startswith("design_record_") for row in issues)
+            else "verified_with_declared_limits"
+            if measurement_limits
             else "verified_declared_candidates",
             "design_record": design_status["status"],
             "game_feasibility": "not_certified",

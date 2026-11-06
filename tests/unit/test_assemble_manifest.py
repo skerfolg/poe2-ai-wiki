@@ -14,6 +14,7 @@ import pytest
 
 from pok.artifacts import store
 from pok.engine.assemble import assemble
+from pok.engine.legality import LegalityReport
 from pok.pob.buildxml import BuildSpec, GemSpec, ItemSpec, SkillGroupSpec, spec_from_dict
 from pok.pob.runner import PobResult
 
@@ -25,7 +26,7 @@ def recorded_assembly(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Mock:
 
     run = Mock(return_value=PobResult({}, {}, (), (), False))
     checker = Mock()
-    checker.check.return_value = SimpleNamespace(is_legal=True, errors=(), verdicts=())
+    checker.check.return_value = LegalityReport(verdicts=())
     monkeypatch.setattr(module, "run_build", run)
     monkeypatch.setattr(module, "ItemLegalityChecker", lambda _: checker)
     monkeypatch.setattr(module, "to_xml", lambda _: "<PathOfBuilding2/>")

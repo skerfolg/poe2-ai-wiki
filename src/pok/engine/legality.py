@@ -150,6 +150,7 @@ _SPEC_LINE_PREFIXES = (
     "catalystquality:",
     "levelreq:",
     "league:",
+    "source:",
     "unique id:",
     "variant:",
     "selected variant:",
@@ -280,6 +281,64 @@ def _norm(text: str) -> str:
     """
     collapsed = " ".join(_NUM.sub("#", text).split())
     return collapsed.replace(" %", "%").lower()
+
+
+def _native_variant_ranges(name: str, lines: list[str], root: Path) -> list[str]:
+    """Match explicitly encoded native multi-selector inputs, never all possible variants.
+
+    Some KB entries intentionally contain random-mod placeholders. The pinned
+    native catalogue can verify that exact selected input, but not game availability.
+    No missing selectors, changed bases/variant lists or invented controls are inferred.
+    """
+    from pok.pob.uniques import describe_configuration, render_configuration, unique_raw
+
+    try:
+        schema = describe_configuration(name, root)
+        raw = unique_raw(name, root)
+    except (OSError, RuntimeError):
+        return []
+    if schema is None or raw is None or len(schema["selectors"]) < 2:
+        return []
+    if len(lines) < 3 or lines[2] != schema["base_type"]:
+        return []
+    labels = [line.partition(":")[2].strip() for line in lines if line.startswith("Variant:")]
+    if labels != [row["label"] for row in schema["variants"]]:
+        return []
+    headers = dict(line.split(":", 1) for line in lines if ":" in line and not line.startswith("{"))
+    native_headers = dict(
+        line.split(":", 1) for line in raw.splitlines() if ":" in line and not line.startswith("{")
+    )
+    controls = {row["key"] for row in schema["selectors"]}
+    supplied = {key for key in headers if key.startswith("Selected ")}
+    if supplied != controls:
+        return []
+    flags = {key: value for key, value in headers.items() if key.startswith("Has Alt Variant")}
+    if flags != {
+        key: value for key, value in native_headers.items() if key.startswith("Has Alt Variant")
+    }:
+        return []
+    try:
+        selections = {key: int(headers[key].strip()) for key in controls}
+        selected = render_configuration(name, selections, root)
+        if selected is None:
+            return []
+        selected_labels = [schema["variants"][index - 1]["label"] for index in selections.values()]
+        if any(re.search(r"\bPre\s+\d", label, re.I) for label in selected_labels):
+            return []  # Legacy/game availability needs its own proof, not this bridge.
+        if (
+            len(set(selections.values())) != len(selections)
+            and schema["allow_duplicate_variants"] is not True
+        ):
+            return []  # Do not infer duplicate permission from an absent native policy.
+        active = _selected_unique_lines(selected.splitlines()[2:])
+    except (ValueError, TypeError):
+        return []
+    return [
+        text
+        for line in active
+        if not line.lower().startswith(_SPEC_LINE_PREFIXES) and line.lower() not in _SPEC_MARKERS
+        for text in _expand_enum(line)
+    ]
 
 
 def _expand_enum(text: str) -> list[str]:
@@ -491,6 +550,7 @@ class LineVerdict:
 class LegalityReport:
     verdicts: tuple[LineVerdict, ...]
     errors: tuple[str, ...] = field(default=())  # 구조 위반 (접사 수·group 중복 등)
+    affix_inventory: dict[str, Any] | None = None
 
     @property
     def is_legal(self) -> bool:
@@ -529,8 +589,14 @@ class ItemLegalityChecker:
         # 고유 주얼 전략 모듈용 색인 (2026-07-31, 사용자 확립 "주얼별 전략 모듈")
         self._heart: dict[str, list[dict[str, Any]]] = {}  # Heart of the Well 훼손 풀
         self._notables: dict[str, dict[str, Any]] = {}  # 본 트리+어센 노터블 (Megalomaniac)
+        self._anoint_passives: dict[str, dict[str, Any]] = {}  # 부여 가능 경로, 전용 주얼 홈 포함
         self._skills: set[str] = set()  # KB Skill 표시명 (Prism of Belief)
         for r in kb.records.values():
+            if r.type == "Passive" and r.raw.get("data", {}).get("acquisition") in {
+                "anointable",
+                "anoint-only",
+            }:
+                self._anoint_passives[r.name_en.lower()] = r.raw
             if r.type == "Modifier" and r.raw.get("data", {}).get("affix_type") == "corrupted":
                 for text in _mod_texts(r.raw["data"]):
                     self._custom_corruptions.setdefault(_norm(text), []).append(r.raw)
@@ -738,7 +804,9 @@ class ItemLegalityChecker:
         return LineVerdict(line, "LEGAL", reason=reason)
 
     def check(self, item_text: str) -> LegalityReport:
-        rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(item_text)
+        rarity, base_name, ilvl, mod_lines, sockets, rune_effect = _parse_item(
+            item_text, base_names=tuple(self._bases)
+        )
         if rarity == "unique":
             report = self._check_unique(item_text)
             return LegalityReport(
@@ -759,6 +827,7 @@ class ItemLegalityChecker:
                 f"고유 전용 베이스: {base_name!r} — `runeforged` 태그가 붙은 베이스는 "
                 f"**고유 아이템 전용**이라 희귀로 만들 수 없다. 같은 계열의 일반 베이스를 쓸 것"
             )
+        base, rune_unlocked_tags = self._base_with_rune_unlocks(item_text, mod_lines, sockets, base)
         verdicts: list[LineVerdict] = []
         matched: dict[str, dict[str, Any]] = {}  # modifier id → record (하이브리드 중복 제거)
         special_overrides: dict[str, str] = {}
@@ -959,7 +1028,84 @@ class ItemLegalityChecker:
         errors.extend(needs_rune_declaration(item_text, mod_lines=mod_lines))
         if anoint_count > 1:
             errors.append("성유 중복 — 목걸이당 Allocates 부여는 1개만 허용(anoint-rules)")
-        return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+        inventory = {
+            "rarity": rarity,
+            "category": category,
+            "used": dict(counts),
+            "capacity": dict(caps),
+            "total_used": sum(counts.values()),
+            "total_capacity": total_cap,
+            "total_headroom": max(0, total_cap - sum(counts.values())),
+            "capacity_source": cap_label,
+            "rune_unlocked_tags": list(rune_unlocked_tags),
+            "counts_complete": base is not None
+            and all(v.status in ("LEGAL", "CONDITIONAL") for v in verdicts),
+            "modifiers": [
+                {
+                    "id": rec["id"],
+                    "affix_type": rec["data"]["affix_type"],
+                    "group": rec["data"].get("group"),
+                }
+                for rec in matched.values()
+                if rec["data"].get("affix_type") in counts
+            ],
+            "scope": "matched affixes and rule capacity, not quality or craftability; "
+            "headroom does not guarantee another compatible affix",
+        }
+        return LegalityReport(
+            verdicts=tuple(verdicts), errors=tuple(errors), affix_inventory=inventory
+        )
+
+    def _base_with_rune_unlocks(
+        self,
+        item_text: str,
+        mod_lines: list[str],
+        sockets: int,
+        base: dict[str, Any] | None,
+    ) -> tuple[dict[str, Any] | None, tuple[str, ...]]:
+        """Add crafting tags only from real socketed rune effects for this base.
+
+        Influence markers and arbitrary custom text never supply tags. Clone
+        base data so a successful check cannot unlock the next checked item.
+        """
+        names = re.findall(r"^Rune:\s*(.+)$", item_text, re.M | re.I)
+        if base is None or not names or len(names) > sockets:
+            return base, ()
+        keys = slot_keys(base)
+        written = {
+            _RUNE_PREFIX.sub("", _MOD_DECORATION.sub("", line).strip()).strip()
+            for line in mod_lines
+            if _RUNE_PREFIX.match(_MOD_DECORATION.sub("", line).strip())
+        }
+        declared: list[RuneOption] = []
+        supplied: set[str] = set()
+        for name in names:
+            if name.strip().lower() == "none":
+                continue
+            rec = self._runes_by_name.get(name.strip().lower())
+            if rec is None:
+                return base, ()
+            lines = tuple(
+                dict.fromkeys(
+                    str(line)
+                    for key, texts in (rec["data"].get("per_slot") or {}).items()
+                    if key.lower() in keys
+                    for line in texts
+                    if not str(line).startswith("Bonded:")
+                )
+            )
+            if not lines:
+                return base, ()
+            declared.append(RuneOption(str(rec["id"]), str(rec["name"]["en"]), lines))
+            for line in lines:
+                match = re.fullmatch(r"Can roll ([A-Za-z]+) modifiers", line)
+                if match and line in written:
+                    supplied.add(match[1].lower())
+        if not supplied or check_rune_rules(declared):
+            return base, ()
+        data = dict(base["data"])
+        data["spawn_tags"] = {**data.get("spawn_tags", {}), **dict.fromkeys(supplied, True)}
+        return {**base, "data": data}, tuple(sorted(supplied))
 
     def _additional_rune_affix_limits(
         self,
@@ -1059,12 +1205,16 @@ class ItemLegalityChecker:
         match = re.fullmatch(r"Allocates (.+)", body)
         if match is None or category != "amulet":
             return None
-        notable = self._notables.get(match.group(1).lower())
+        name = match.group(1).lower()
+        notable = self._anoint_passives.get(name) or self._notables.get(name)
         if notable is None:
-            return LineVerdict(line, "UNKNOWN", reason="성유 노터블이 KB에 없음")
-        if notable["data"].get("acquisition") != "anointable":
-            return LineVerdict(line, "ILLEGAL", reason="성유로 부여할 수 없는 노터블")
-        return LineVerdict(line, "LEGAL", str(notable["id"]), "실존하는 성유 부여 노터블")
+            return LineVerdict(line, "UNKNOWN", reason="성유 부여 패시브가 KB에 없음")
+        acquisition = notable["data"].get("acquisition")
+        if acquisition not in {"anointable", "anoint-only"}:
+            return LineVerdict(line, "ILLEGAL", reason="성유로 부여할 수 없는 패시브")
+        return LineVerdict(
+            line, "LEGAL", str(notable["id"]), f"실존하는 성유 부여 패시브 ({acquisition})"
+        )
 
     def _rune_hint(self, mod_lines: list[str]) -> list[str]:
         """접사 칸이 넘쳤을 때, **룬으로도 붙는 줄**이 섞여 있으면 그렇게 말해 준다.
@@ -1155,6 +1305,9 @@ class ItemLegalityChecker:
             for e in _expand_enum(t)
         ]
         known = [_norm(t) for t in ranged]
+        placeholders = any("[" in text and "]" in text for text in rec["data"].get("explicits", []))
+        native_ranges = _native_variant_ranges(name, lines, self._root) if placeholders else []
+        native_shapes = [_norm(text) for text in native_ranges]
         verdicts: list[LineVerdict] = []
         anoint_count = 0
         for ln in mod_lines:
@@ -1164,6 +1317,26 @@ class ItemLegalityChecker:
                 verdicts.append(anoint)
                 continue
             if _norm(ln) not in known:
+                if _norm(ln) in native_shapes:
+                    if sum(_norm(other) == _norm(ln) for other in mod_lines) > native_shapes.count(
+                        _norm(ln)
+                    ):
+                        verdicts.append(
+                            LineVerdict(ln, "ILLEGAL", rec["id"], "선택한 네이티브 옵션 줄 중복")
+                        )
+                    else:
+                        ok, why = _values_in_range(ln, native_ranges)
+                        verdicts.append(
+                            LineVerdict(
+                                ln,
+                                "CONDITIONAL" if ok else "ILLEGAL",
+                                rec["id"],
+                                "핀된 네이티브 유니크의 해당 선택/롤 범위와 일치; 게임 가용성 별도"
+                                if ok
+                                else f"네이티브 선택 롤 범위 밖: {why}",
+                            )
+                        )
+                    continue
                 # **유니크에도 룬 소켓이 있다.** 고정 모드에 없다고 UNKNOWN으로 끝내면
                 # 유니크 무기·방어구의 룬 계획이 조립 게이트를 통과하지 못한다 —
                 # 실측 2026-08-05: `Gain 5% of Damage as Extra Damage of all Elements`가
@@ -1286,10 +1459,11 @@ class ItemLegalityChecker:
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
 
     def _check_megalomaniac(self, rec: dict[str, Any], mod_lines: list[str]) -> LegalityReport:
-        """Megalomaniac: "Allocates <노터블>" 2~3줄 (+Corrupted).
+        """Megalomaniac: named passive allocations, including anoint-only sockets.
 
-        노터블은 본 트리 실존 노터블이어야 하고, PoB Generated.lua 필터
-        (isNotable ∧ recipe)를 따라 recipe(리퀴드 이모션) 보유분만 풀에 든다.
+        The KB's single kind is not an eligibility flag. A real Megalomaniac
+        can grant Zarokh's Gift (jewel-socket/anoint-only). The pinned PoB
+        generator's notable filter must not be treated as game exclusion proof.
         롤은 랜덤 — LEGAL 대신 CONDITIONAL로 조달 가정(트레이드 전제)을 기록에
         남긴다 (validation.json lines에 그대로 실린다)."""
         verdicts: list[LineVerdict] = []
@@ -1304,10 +1478,11 @@ class ItemLegalityChecker:
                 verdicts.append(LineVerdict(ln, "UNKNOWN", reason="Megalomaniac 모드 형식 아님"))
                 continue
             allocs += 1
-            notable = self._notables.get(m.group(1).lower())
+            name = m.group(1).lower()
+            notable = self._anoint_passives.get(name) or self._notables.get(name)
             if notable is None:
                 verdicts.append(
-                    LineVerdict(ln, "UNKNOWN", rec["id"], f"{m.group(1)!r}: 실존 노터블 아님")
+                    LineVerdict(ln, "UNKNOWN", rec["id"], f"{m.group(1)!r}: 부여 패시브 미확인")
                 )
             elif notable["data"].get("ascendancy"):
                 verdicts.append(
@@ -1315,13 +1490,13 @@ class ItemLegalityChecker:
                         ln, "ILLEGAL", notable["id"], "어센던시 노터블 — Megalomaniac 풀 밖"
                     )
                 )
-            elif notable["data"].get("acquisition") != "anointable":
+            elif notable["data"].get("acquisition") not in {"anointable", "anoint-only"}:
                 verdicts.append(
                     LineVerdict(
                         ln,
                         "ILLEGAL",
                         notable["id"],
-                        "recipe(리퀴드 이모션) 없는 노터블 — PoB 풀 필터(isNotable ∧ recipe) 밖",
+                        "성유 획득 경로가 확인되지 않은 패시브 — 조달 경로 확인 필요",
                     )
                 )
             else:
@@ -1330,7 +1505,7 @@ class ItemLegalityChecker:
                         ln,
                         "CONDITIONAL",
                         notable["id"],
-                        "랜덤 롤 조달 가정(트레이드 전제) — 실존 노터블(recipe 보유)",
+                        "랜덤 롤 조달 가정(트레이드 전제) — 실존 부여 패시브(성유 경로 보유)",
                     )
                 )
         if allocs not in (2, 3):
@@ -1767,7 +1942,9 @@ def catalyst_scalar(catalyst: str, quality: float, mod_tags: Sequence[str]) -> f
     return 1.0
 
 
-def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
+def _parse_item(
+    text: str, *, base_names: Sequence[str] = ()
+) -> tuple[str, str, int, list[str], int, float]:
     """buildxml.ItemSpec.text 형식 파서 (우리가 생성하는 형식 — 엄격).
 
     반환에 **소켓 수·룬 효과**가 포함된다 — 룬 값 검증(#31)의 분모다.
@@ -1776,8 +1953,25 @@ def _parse_item(text: str) -> tuple[str, str, int, list[str], int, float]:
     if not lines or not lines[0].lower().startswith("rarity:"):
         raise ValueError("첫 줄이 'Rarity:' 가 아님")
     rarity = lines[0].split(":", 1)[1].strip().lower()
-    if rarity in ("normal",):
-        base_name, rest = lines[1], lines[2:]
+    known_bases = {name.lower(): name for name in base_names}
+    magic_base = None
+    if rarity == "magic" and len(lines) > 1:
+        # Preserve the legacy name+base form. Native MAGIC may put the base
+        # (with prefix/suffix names) on the name line instead: Item.lua:386.
+        explicit_base = len(lines) > 2 and lines[2].lower() in known_bases
+        if not explicit_base:
+            for name in sorted(known_bases, key=len, reverse=True):
+                if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", lines[1], re.I):
+                    magic_base = known_bases[name]
+                    break
+            if magic_base is None and (
+                len(lines) == 2
+                or lines[2].lower().startswith(_SPEC_LINE_PREFIXES)
+                or lines[2].lower() in _SPEC_MARKERS
+            ):
+                magic_base = lines[1]
+    if rarity == "normal" or magic_base is not None:
+        base_name, rest = magic_base or lines[1], lines[2:]
     else:
         if len(lines) < 3:
             raise ValueError("이름·베이스 줄 부족")

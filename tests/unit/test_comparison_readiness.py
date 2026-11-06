@@ -212,3 +212,98 @@ def test_incomplete_or_unrelated_evidence_cannot_claim_ready(case, deficit):
     elif deficit == "reason":
         spec["optimization_contract"]["comparisons"][0]["reason"] = ""
     assert not optimization_readiness(spec)["recommendation_ready"]
+
+
+def parser_gap():
+    return {
+        "code": "items_pob_gaps",
+        "scope": ["baseline"],
+        "observed": [
+            {"slot": "Ring 1", "item": "Example", "unread": ["An unmodelled item modifier"]}
+        ],
+    }
+
+
+def acknowledged_case(case):
+    base, inputs, output = case
+    gap = parser_gap()
+    output["comparison"]["unresolved"] = [gap]
+    spec = recommend(base, inputs, output)
+    spec["optimization_contract"]["comparisons"][0]["acknowledged_limits"] = [
+        {
+            "diagnostic": deepcopy(gap),
+            "reason": "Only the modelled comparison is selected; "
+            "the missing effect remains unknown and the gameplay conclusion is limited.",
+        }
+    ]
+    return spec
+
+
+def test_acknowledged_parser_gap_is_retained_not_certified(case):
+    spec = acknowledged_case(case)
+    report = optimization_readiness(spec)
+    assert report["recommendation_ready"]
+    assert report["status"] == "ready_with_limits"
+    assert report["measurement_limits"][0]["diagnostic"] == parser_gap()
+    assert report["measurement_limits"][0]["reason"]
+    assert report["layers"]["game_feasibility"] == "not_certified"
+    assert not report["qualification"]["gameplay_validated"]
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "unacknowledged",
+        "wrong_row",
+        "blank",
+        "duplicate",
+        "failed",
+        "illegal",
+        "pruned",
+        "nonfinite",
+        "changed",
+    ],
+)
+def test_parser_acknowledgment_cannot_hide_invalid_measurements(case, failure):
+    _, _, output = case
+    if failure == "failed":
+        output["base"]["ok"] = False
+    elif failure == "illegal":
+        output["base"]["items_legal"] = False
+    elif failure == "pruned":
+        output["base"]["pruned_nodes"] = [123]
+    elif failure == "nonfinite":
+        output["base"]["stats"]["Life"] = float("nan")
+        with pytest.raises(ValueError, match="JSON compliant"):
+            acknowledged_case(case)
+        return
+    spec = acknowledged_case(case)
+    acknowledgment = spec["optimization_contract"]["comparisons"][0]["acknowledged_limits"]
+    if failure == "unacknowledged":
+        acknowledgment.clear()
+    elif failure == "wrong_row":
+        acknowledgment[0]["diagnostic"]["scope"] = ["other"]
+    elif failure == "blank":
+        acknowledgment[0]["reason"] = " "
+    elif failure == "duplicate":
+        acknowledgment.append(deepcopy(acknowledgment[0]))
+    elif failure == "changed":
+        spec["items"][0]["text"] = "unmeasured new item"
+    assert not optimization_readiness(spec)["recommendation_ready"]
+
+
+@pytest.mark.parametrize(
+    "gap",
+    [
+        {"code": "unmeasured", "scope": ["baseline"], "observed": ["missing"]},
+        {"code": "items_pob_gaps", "scope": ["baseline"], "observed": []},
+    ],
+)
+def test_nonparser_or_malformed_limit_cannot_be_acknowledged(case, gap):
+    base, inputs, output = case
+    output["comparison"]["unresolved"] = [gap]
+    spec = recommend(base, inputs, output)
+    spec["optimization_contract"]["comparisons"][0]["acknowledged_limits"] = [
+        {"diagnostic": gap, "reason": "Do not waive this"}
+    ]
+    assert not optimization_readiness(spec)["recommendation_ready"]

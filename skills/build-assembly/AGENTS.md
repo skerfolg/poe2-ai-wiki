@@ -21,6 +21,13 @@ v2 최종 계약에는 실제 `design_ref`가 필수다. 기록의 현재 materi
 결박하고 채택 결정의 재검토·현재 근거/공급자 결박을 해결한다. 열린 질문과 미검증은
 반환의 별도 층으로 공개한다. require_design_record=false로 최종 기록 검사를 생략할 수 없다.
 
+저장된 비교의 미지원 아이템 문구만 남았다면, 비교별 `acknowledged_limits`에 실제
+`comparison.unresolved`의 `items_pob_gaps` 객체와 `reason`을 명시할 수 있다. 누락 효과가
+선정 근거를 무효화하는지 먼저 판단하고, 무효화한다면 추가 근거/대안으로 해결한다.
+미지원 효과를0으로 확정하거나 줄을 삭제하지 않는다. 이 경로는 실제 진단과 이유를
+`measurement_limits`에 보존하고 `ready_with_limits`로 구분하며 게임 성립을 인증하지
+않는다. 실패·미측정·불법·입력 불일치는 이 방식으로 인정할 수 없다.
+
 원본 XML이 정본이면 문서 편집·계산 API로 미지/비활성 세트를 보존한다. 스펙 조립으로
 전체 XML 무손실을 보장하지 않는다. 계산 결과/공유 코드/저장 spec·validation과 설계의
 material/evidence 참조를 연결하고 같은 입력인지 확인한다. 사용자 적용/undo는 해당

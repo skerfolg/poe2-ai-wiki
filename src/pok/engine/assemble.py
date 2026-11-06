@@ -217,6 +217,7 @@ def assemble(
                 "legal": r.is_legal,
                 "errors": list(r.errors),
                 "lines": [dataclasses.asdict(v) for v in r.verdicts],
+                "affix_inventory": r.affix_inventory,
             }
             for slot, r in item_reports.items()
         },

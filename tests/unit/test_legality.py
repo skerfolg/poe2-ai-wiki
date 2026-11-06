@@ -46,6 +46,61 @@ def test_consumable_charge_recovery_is_available_in_its_real_pool(
     assert any(v.modifier_id == "modifier.flaskfillchargesperminute3" for v in report.verdicts)
 
 
+@pytest.mark.parametrize(("base", "capacity"), [("Amber Amulet", 6), ("Absent Amulet", 4)])
+def test_affix_inventory_respects_base_capacity(checker, base, capacity):
+    report = checker.check(f"Rarity: RARE\nInventory\n{base}\nItem Level: 100")
+    assert report.is_legal
+    inventory = report.affix_inventory
+    assert inventory["total_used"] == 0 and inventory["total_capacity"] == capacity
+    assert inventory["total_headroom"] == capacity and inventory["counts_complete"]
+
+
+def test_affix_inventory_jewel_headroom_is_not_illegality(checker):
+    report = checker.check(
+        "Rarity: RARE\nInventory\nEmerald\nItem Level: 100\n"
+        "16% increased Critical Hit Chance for Attacks"
+    )
+    assert report.is_legal
+    inventory = report.affix_inventory
+    assert inventory["total_used"] == 1
+    assert inventory["total_capacity"] == checker._affix_limits("rare", "jewel")[1]
+    assert inventory["total_headroom"] > 0
+    assert len(inventory["modifiers"]) == 1
+
+
+def test_affix_inventory_unknown_lines_are_not_complete_counts(checker):
+    report = checker.check(
+        "Rarity: RARE\nInventory\nAmber Amulet\nItem Level: 100\n+99 to Unknown Pok Stat"
+    )
+    assert not report.is_legal
+    assert report.affix_inventory["counts_complete"] is False
+
+
+def test_affix_inventory_unique_does_not_use_rare_capacity(checker):
+    report = checker.check("Rarity: UNIQUE\nUnknown Inventory Unique\nAmber Amulet")
+    assert report.affix_inventory is None
+
+
+def test_affix_inventory_counts_native_merged_contributors_once(checker):
+    text = _actual_merged_item()
+    report = checker.check(text)
+    assert report.is_legal
+    inventory = report.affix_inventory
+    assert inventory["used"]["prefix"] == text.count("\nPrefix:")
+    assert inventory["used"]["suffix"] == text.count("\nSuffix:")
+    assert len({row["id"] for row in inventory["modifiers"]}) == inventory["total_used"]
+
+
+def test_affix_inventory_preserves_verified_rune_expansion(checker):
+    report = checker.check(_SERLE_BOW)
+    assert report.is_legal
+    inventory = report.affix_inventory
+    assert inventory["used"] == {"prefix": 3, "suffix": 4}
+    assert inventory["capacity"] == {"prefix": 3, "suffix": 4}
+    assert inventory["total_capacity"] == 7
+    assert inventory["total_headroom"] == 0
+
+
 @pytest.mark.parametrize("base", ["Ultimate Life Flask", "Ultimate Mana Flask"])
 def test_consumable_prefix_and_suffix_preserve_range_and_level_checks(
     checker: ItemLegalityChecker, base: str
