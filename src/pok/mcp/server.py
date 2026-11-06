@@ -853,9 +853,10 @@ def search_kb(
     """KB 검색 (1단계 — 압축 히트). type은 Skill|Support|Passive|Item|Modifier|
     Resource|Mechanic|Defence, tags는 게임 공식 태그(소문자). 상세는 get_entry로.
 
-    acquisition은 Passive 획득 경로 필터다. anoint-only=성유 전용,
+    acquisition은 Passive 획득 경로 필터다. anoint-only=일반 트리 연결로 찍을 수 없는 성유 후보,
     anointable=일반 성유 가능, anoint=둘의 합집합이다. query 없이 전량 조회할 수 있고
     주얼 홈도 포함한다. acquisition/passive_kind로 구분한 뒤 get_entry로 제약을 읽는다.
+    anoint-only는 과대망상 등 다른 아이템의 부여까지 금지한다는 뜻은 아니다.
 
     query는 **이름이면 한/영 모두**, **효과 문구면 사실상 영어만** 매칭된다
     (실측: 효과 문구 한글 보유율 Skill·Support 0% · Passive 19% · Modifier 45%).

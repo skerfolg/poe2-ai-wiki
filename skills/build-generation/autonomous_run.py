@@ -88,7 +88,7 @@ def install_paths(run: Path) -> Path:
 
 
 def anoint_discovery_context(stage: int, source_policy: str) -> dict[str, Any]:
-    """Provide the exclusive acquisition channel as facts, without ranking it."""
+    """Provide off-tree anoint candidates as facts, without ranking them."""
     if stage < 3 or source_policy != POK_PRIMARY:
         return {}
     from pok.index.search import search
@@ -100,7 +100,8 @@ def anoint_discovery_context(stage: int, source_policy: str) -> dict[str, Any]:
             for hit in search(type_="Passive", acquisition="anoint-only", limit=10000)
         ],
         "anoint_catalogue_scope": "Acquisition facts, not recommendations. Inspect effects and "
-            "payload restrictions; compare against normal anoints with the final tree.",
+            "payload restrictions; compare against normal anoints with the final tree. "
+            "Anoint-only excludes normal pathing, not grants from items such as Megalomaniac.",
     }
 
 

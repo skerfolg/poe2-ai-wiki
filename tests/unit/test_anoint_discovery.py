@@ -74,12 +74,28 @@ def test_regular_anoint_and_invalid_allocations_keep_their_rules(checker):
     assert not checker.check(amulet("Unforgiving", "Zarokh's Gift")).is_legal
 
 
-def test_anoint_socket_is_not_added_to_megalomaniac_pool(checker):
+def test_anoint_only_socket_can_be_granted_by_megalomaniac(checker):
     text = ("Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
             "Allocates Zarokh's Gift\nAllocates Controlling Magic\nCorrupted")
     report = checker.check(text)
-    assert not report.is_legal
+    assert report.is_legal, report
+    gift = next(v for v in report.verdicts if v.line == "Allocates Zarokh's Gift")
+    assert gift.status == "CONDITIONAL"
+    assert gift.modifier_id == "passive.zarokhs-gift-11184"
+    # Classification stays jewel-socket; eligibility is a separate question.
     assert "zarokh's gift" not in checker._notables
+
+
+def test_megalomaniac_keeps_unknown_and_ascendancy_restrictions(checker):
+    base = ("Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
+            "Allocates Controlling Magic\nAllocates NAME\nCorrupted")
+    assert not checker.check(base.replace("NAME", "Pok Unknown Passive")).is_legal
+    assert not checker.check(base.replace("NAME", "Chaos Inoculation")).is_legal
+    asc = next(row for row in checker._notables.values() if row["data"].get("ascendancy"))
+    name = asc["name"]["en"]
+    report = checker.check(base.replace("NAME", name))
+    assert not report.is_legal
+    assert any(v.status == "ILLEGAL" and "어센던시" in v.reason for v in report.verdicts)
 
 
 def test_autonomous_context_supplies_exclusive_candidates_without_a_name_query(monkeypatch):

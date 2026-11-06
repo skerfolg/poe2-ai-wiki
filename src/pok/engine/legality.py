@@ -589,7 +589,7 @@ class ItemLegalityChecker:
         # 고유 주얼 전략 모듈용 색인 (2026-07-31, 사용자 확립 "주얼별 전략 모듈")
         self._heart: dict[str, list[dict[str, Any]]] = {}  # Heart of the Well 훼손 풀
         self._notables: dict[str, dict[str, Any]] = {}  # 본 트리+어센 노터블 (Megalomaniac)
-        self._anoint_passives: dict[str, dict[str, Any]] = {}  # 전용 주얼 홈 포함, Megalo 풀과 별개
+        self._anoint_passives: dict[str, dict[str, Any]] = {}  # 부여 가능 경로, 전용 주얼 홈 포함
         self._skills: set[str] = set()  # KB Skill 표시명 (Prism of Belief)
         for r in kb.records.values():
             if r.type == "Passive" and r.raw.get("data", {}).get("acquisition") in {
@@ -1452,10 +1452,11 @@ class ItemLegalityChecker:
         return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
 
     def _check_megalomaniac(self, rec: dict[str, Any], mod_lines: list[str]) -> LegalityReport:
-        """Megalomaniac: "Allocates <노터블>" 2~3줄 (+Corrupted).
+        """Megalomaniac: named passive allocations, including anoint-only sockets.
 
-        노터블은 본 트리 실존 노터블이어야 하고, PoB Generated.lua 필터
-        (isNotable ∧ recipe)를 따라 recipe(리퀴드 이모션) 보유분만 풀에 든다.
+        The KB's single kind is not an eligibility flag. A real Megalomaniac
+        can grant Zarokh's Gift (jewel-socket/anoint-only). The pinned PoB
+        generator's notable filter must not be treated as game exclusion proof.
         롤은 랜덤 — LEGAL 대신 CONDITIONAL로 조달 가정(트레이드 전제)을 기록에
         남긴다 (validation.json lines에 그대로 실린다)."""
         verdicts: list[LineVerdict] = []
@@ -1470,10 +1471,11 @@ class ItemLegalityChecker:
                 verdicts.append(LineVerdict(ln, "UNKNOWN", reason="Megalomaniac 모드 형식 아님"))
                 continue
             allocs += 1
-            notable = self._notables.get(m.group(1).lower())
+            name = m.group(1).lower()
+            notable = self._anoint_passives.get(name) or self._notables.get(name)
             if notable is None:
                 verdicts.append(
-                    LineVerdict(ln, "UNKNOWN", rec["id"], f"{m.group(1)!r}: 실존 노터블 아님")
+                    LineVerdict(ln, "UNKNOWN", rec["id"], f"{m.group(1)!r}: 부여 패시브 미확인")
                 )
             elif notable["data"].get("ascendancy"):
                 verdicts.append(
@@ -1481,13 +1483,13 @@ class ItemLegalityChecker:
                         ln, "ILLEGAL", notable["id"], "어센던시 노터블 — Megalomaniac 풀 밖"
                     )
                 )
-            elif notable["data"].get("acquisition") != "anointable":
+            elif notable["data"].get("acquisition") not in {"anointable", "anoint-only"}:
                 verdicts.append(
                     LineVerdict(
                         ln,
                         "ILLEGAL",
                         notable["id"],
-                        "recipe(리퀴드 이모션) 없는 노터블 — PoB 풀 필터(isNotable ∧ recipe) 밖",
+                        "성유 획득 경로가 확인되지 않은 패시브 — 조달 경로 확인 필요",
                     )
                 )
             else:
@@ -1496,7 +1498,7 @@ class ItemLegalityChecker:
                         ln,
                         "CONDITIONAL",
                         notable["id"],
-                        "랜덤 롤 조달 가정(트레이드 전제) — 실존 노터블(recipe 보유)",
+                        "랜덤 롤 조달 가정(트레이드 전제) — 실존 부여 패시브(성유 경로 보유)",
                     )
                 )
         if allocs not in (2, 3):
