@@ -46,6 +46,8 @@ class Hit:
     # 존재가 곧 획득 가능성으로 읽혀 하루에 5건 오판했다 — 둘은 설계 근거로 쓰였다가
     # 뒤집혔다. ⛔ "획득 불가"가 아니라 **"우리가 확인하지 못했다"**이다.
     carrier_unknown: str | None = None
+    acquisition: str | None = None
+    passive_kind: str | None = None
 
 
 def _meta(con: sqlite3.Connection, key: str) -> str | None:
@@ -169,6 +171,7 @@ def search(
     for_ascendancy: str | None = None,
     category: str | None = None,
     sub_type: str | None = None,
+    acquisition: str | None = None,
 ) -> list[Hit]:
     """search_kb 1단계 — 압축 히트 반환 (D14).
 
@@ -180,6 +183,13 @@ def search(
     있어서 부위를 물을 경로가 없었고, 세션은 이름 토큰으로 훑다가 **그럴듯한
     부분집합**을 전량으로 오독했다. 대소문자는 접어서 대조한다.
     """
+    if acquisition is not None:
+        acquisition = acquisition.strip().lower()
+        if acquisition not in {"anoint", "anointable", "anoint-only"}:
+            raise ValueError("acquisition expects anoint, anointable or anoint-only")
+        if type_ not in {None, "Passive"}:
+            raise ValueError("Anoint acquisition filtering requires Passive or no type")
+        type_ = "Passive"
     con = _connect(root, db_path)
     try:
         where, params = [], []
@@ -193,6 +203,12 @@ def search(
         if type_:
             where.append("r.type = ?")
             params.append(type_)
+        if acquisition == "anoint":
+            where.append("json_extract(r.json, '$.data.acquisition') IN (?, ?)")
+            params += ["anointable", "anoint-only"]
+        elif acquisition:
+            where.append("json_extract(r.json, '$.data.acquisition') = ?")
+            params.append(acquisition)
         if ascendancy:
             # 코드·영문·한글 중 아무 표기로나 — 부분 일치
             where.append("r.ascendancy LIKE ?")
@@ -206,7 +222,8 @@ def search(
             params.append(t)
         sql = (
             "SELECT r.id, r.type, r.name_ko, r.name_en, r.verification, r.unlock, r.pob_gap, "
-            "r.carrier_unknown "
+            "r.carrier_unknown, json_extract(r.json, '$.data.acquisition'), "
+            "json_extract(r.json, '$.data.kind') "
             "FROM records r"
         )
         if where:
@@ -230,7 +247,7 @@ def search(
         rows = con.execute(sql, params).fetchall()
         aliases = _ascendancy_aliases(con, for_ascendancy) if for_ascendancy else None
         out: list[Hit] = []
-        for rid, rtype, ko, en, ver, unlock_json, pob_gap, carrier in rows:
+        for rid, rtype, ko, en, ver, unlock_json, pob_gap, carrier, acq, kind in rows:
             tag_rows = con.execute("SELECT tag FROM tags WHERE id=?", (rid,)).fetchall()
             locked_to, needs, excluded = _unlock_fields(
                 str(unlock_json or ""), aliases, for_ascendancy
@@ -248,6 +265,8 @@ def search(
                     excluded,
                     _pob_gap_reason(str(pob_gap or "")),
                     _CARRIER_UNKNOWN if carrier else None,
+                    acq if rtype == "Passive" and acq in {"anointable", "anoint-only"} else None,
+                    kind if rtype == "Passive" and acq in {"anointable", "anoint-only"} else None,
                 )
             )
         return out
@@ -295,12 +314,21 @@ def diagnose_empty(
     db_path: Path | None = None,
     category: str | None = None,
     sub_type: str | None = None,
+    acquisition: str | None = None,
 ) -> EmptyDiagnosis:
     """0건 질의를 되짚어 원인 후보를 낸다. 판단은 하지 않고 **사실만** 낸다(AD-3)."""
     reasons: list[str] = []
     other: list[tuple[str, int]] = []
     tokens: list[tuple[str, int]] = []
-    narrow = {"category": category, "sub_type": sub_type}
+    narrow = {"category": category, "sub_type": sub_type, "acquisition": acquisition}
+    if query and query.strip().lower() in {"anoint-only", "anointable"}:
+        reasons.append(
+            "acquisition은 효과 문구가 아닌 구조화 필드다. query 대신 "
+            "search_kb(type='Passive', acquisition='anoint-only')로 전용 후보를, "
+            "acquisition='anoint'로 일반+전용 전체를 조회한다"
+        )
+    if acquisition:
+        reasons.append(f"획득 경로 acquisition={acquisition!r} 안에서 좁힌 결과다")
 
     if query and _HANGUL.search(query):
         where = (

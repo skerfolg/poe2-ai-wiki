@@ -87,6 +87,23 @@ def install_paths(run: Path) -> Path:
     return artifacts
 
 
+def anoint_discovery_context(stage: int, source_policy: str) -> dict[str, Any]:
+    """Provide the exclusive acquisition channel as facts, without ranking it."""
+    if stage < 3 or source_policy != POK_PRIMARY:
+        return {}
+    from pok.index.search import search
+
+    return {
+        "anoint_only_catalogue": [
+            {"entity_id": hit.id, "name_ko": hit.name_ko, "name_en": hit.name_en,
+             "kind": hit.passive_kind, "acquisition": hit.acquisition}
+            for hit in search(type_="Passive", acquisition="anoint-only", limit=10000)
+        ],
+        "anoint_catalogue_scope": "Acquisition facts, not recommendations. Inspect effects and "
+            "payload restrictions; compare against normal anoints with the final tree.",
+    }
+
+
 def build_command(
     run: Path,
     turn: Path,
@@ -324,6 +341,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 "recovery_notice": state.get("recovery_notice", ""),
                 "review_policy": state.get("review_policy"),
                 "source_policy": state.get("source_policy", WEB_REFERENCE),
+                **anoint_discovery_context(stage, state.get("source_policy", WEB_REFERENCE)),
             }
             remaining = deadline - time.monotonic()
             turn_budget = min(remaining, 1800.0)

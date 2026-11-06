@@ -829,7 +829,8 @@ def _hit_dict(hit: Any) -> dict[str, Any]:
     """히트 → dict. **비어 있는 해금 칸은 뺀다** — 압축 히트(D14)에 상시 None 세 칸을
     실으면 전 질의가 토큰을 무는데, 정작 신호가 필요한 건 제약이 걸린 소수다."""
     out = asdict(hit)
-    for key in ("locked_to", "requires_nodes", "excluded_by_unlock", "pob_gap", "carrier_unknown"):
+    for key in ("locked_to", "requires_nodes", "excluded_by_unlock", "pob_gap", "carrier_unknown",
+                "acquisition", "passive_kind"):
         if not out.get(key):
             out.pop(key, None)
     if "requires_nodes" in out:
@@ -847,9 +848,14 @@ def search_kb(
     for_ascendancy: str | None = None,
     category: str | None = None,
     sub_type: str | None = None,
+    acquisition: str | None = None,
 ) -> list[dict[str, Any]]:
     """KB 검색 (1단계 — 압축 히트). type은 Skill|Support|Passive|Item|Modifier|
     Resource|Mechanic|Defence, tags는 게임 공식 태그(소문자). 상세는 get_entry로.
+
+    acquisition은 Passive 획득 경로 필터다. anoint-only=성유 전용,
+    anointable=일반 성유 가능, anoint=둘의 합집합이다. query 없이 전량 조회할 수 있고
+    주얼 홈도 포함한다. acquisition/passive_kind로 구분한 뒤 get_entry로 제약을 읽는다.
 
     query는 **이름이면 한/영 모두**, **효과 문구면 사실상 영어만** 매칭된다
     (실측: 효과 문구 한글 보유율 Skill·Support 0% · Passive 19% · Modifier 45%).
@@ -893,6 +899,8 @@ def search_kb(
     「신발에는 회피/ES 듀얼 베이스가 없다」고 판정했는데 실제로는 `category="boots"`가
     **217건**이고 이름군이 Boots(회피)·Sandals(ES)·Greaves(방어도)로 갈려 있었다.
     0건이면 알아챘겠지만 **그럴듯한 부분집합**이 나와서 갭이 안 보였다."""
+    # 획득 경로는 FTS 문구가 아니다. 전용 주얼 홈도 포함하며 트리 거리를 요구하지 않는다.
+    # anoint = 전체, anoint-only = 전용, anointable = 일반 트리의 성유 가능 노드.
     hits = _search(
         query=query,
         tags=tags,
@@ -902,6 +910,7 @@ def search_kb(
         for_ascendancy=for_ascendancy,
         category=category,
         sub_type=sub_type,
+        acquisition=acquisition,
     )
     if hits:
         return [_hit_dict(h) for h in hits]
@@ -915,6 +924,7 @@ def search_kb(
         ascendancy=ascendancy,
         category=category,
         sub_type=sub_type,
+        acquisition=acquisition,
     )
     return [
         {

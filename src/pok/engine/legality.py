@@ -589,8 +589,13 @@ class ItemLegalityChecker:
         # 고유 주얼 전략 모듈용 색인 (2026-07-31, 사용자 확립 "주얼별 전략 모듈")
         self._heart: dict[str, list[dict[str, Any]]] = {}  # Heart of the Well 훼손 풀
         self._notables: dict[str, dict[str, Any]] = {}  # 본 트리+어센 노터블 (Megalomaniac)
+        self._anoint_passives: dict[str, dict[str, Any]] = {}  # 전용 주얼 홈 포함, Megalo 풀과 별개
         self._skills: set[str] = set()  # KB Skill 표시명 (Prism of Belief)
         for r in kb.records.values():
+            if r.type == "Passive" and r.raw.get("data", {}).get("acquisition") in {
+                "anointable", "anoint-only"
+            }:
+                self._anoint_passives[r.name_en.lower()] = r.raw
             if r.type == "Modifier" and r.raw.get("data", {}).get("affix_type") == "corrupted":
                 for text in _mod_texts(r.raw["data"]):
                     self._custom_corruptions.setdefault(_norm(text), []).append(r.raw)
@@ -1194,12 +1199,15 @@ class ItemLegalityChecker:
         match = re.fullmatch(r"Allocates (.+)", body)
         if match is None or category != "amulet":
             return None
-        notable = self._notables.get(match.group(1).lower())
+        name = match.group(1).lower()
+        notable = self._anoint_passives.get(name) or self._notables.get(name)
         if notable is None:
-            return LineVerdict(line, "UNKNOWN", reason="성유 노터블이 KB에 없음")
-        if notable["data"].get("acquisition") != "anointable":
-            return LineVerdict(line, "ILLEGAL", reason="성유로 부여할 수 없는 노터블")
-        return LineVerdict(line, "LEGAL", str(notable["id"]), "실존하는 성유 부여 노터블")
+            return LineVerdict(line, "UNKNOWN", reason="성유 부여 패시브가 KB에 없음")
+        acquisition = notable["data"].get("acquisition")
+        if acquisition not in {"anointable", "anoint-only"}:
+            return LineVerdict(line, "ILLEGAL", reason="성유로 부여할 수 없는 패시브")
+        return LineVerdict(line, "LEGAL", str(notable["id"]),
+                           f"실존하는 성유 부여 패시브 ({acquisition})")
 
     def _rune_hint(self, mod_lines: list[str]) -> list[str]:
         """접사 칸이 넘쳤을 때, **룬으로도 붙는 줄**이 섞여 있으면 그렇게 말해 준다.

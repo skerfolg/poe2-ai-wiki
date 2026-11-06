@@ -38,6 +38,8 @@ flowchart LR
  D4 --> E1[E1 종결 옵션·공동 재투자 개정 복구 포함 완료]
  E1 --> E2[E2 같은 조건 Arrow DPS 8.57배·전달 검증 done]
  E2 --> E3[E3 사용자 검토 대기·잔여 고점·188 미해결]
+ E3 --> F1[F1 성유 획득 경로·전용 후보 누락 보완 검증]
+ F1 --> F2[F2 최종 트리와 성유 공동 비교 pending]
 ```
 
 ## Baseline Structure
@@ -52,6 +54,12 @@ flowchart LR
 | S6 | active | 사용자 실물 검토와 채택/보류 판단, PR 준비 |
 
 ## Canonical Next Step
+
+**성유 후속 검토: 사용자가 최종 Unforgiving 증분4포인트와 히든 성유 후보 누락을
+지적했다. [확인 결과](POK_ANOINT_DISCOVERY_FINDINGS.md)에 따라 acquisition 기반
+조회·전용 후보 자동 입력·할당 판정을 보완한다. KB의 전용17개에는 자로크처럼
+노터블이 아닌 주얼 홈도 있다. 후보별 완성 조합의 실제 성유/트리 재평가는 다음
+검증이며 이번 조회 보완을 새 성유 선정 완료로 기록하지 않는다.**
 
 **11월6일 실제 피드백 개정의3~5단계·전달 검증을 완료했다.
 [개정 결과](POK_ENDGAME_REFINEMENT_RESULTS.md)의 동일95레벨·명시 대상 조건에서
