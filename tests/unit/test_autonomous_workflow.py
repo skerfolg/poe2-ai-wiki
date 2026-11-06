@@ -184,7 +184,7 @@ def test_command_enables_web_and_keeps_exact_resume_output_paths(modules, tmp_pa
     assert "--last" not in command
 
 
-def test_design_server_hides_assembly_and_blocks_forged_user_permissions(modules):
+def test_design_server_hides_assembly_and_blocks_forged_user_permissions(modules, monkeypatch):
     _, _, transport = modules
     import functools
 
@@ -212,6 +212,15 @@ def test_design_server_hides_assembly_and_blocks_forged_user_permissions(modules
 
     server = Server()
     ref = {"revision": "old"}
+    from pok.engine import design_checkpoints
+
+    monkeypatch.setattr(
+        design_checkpoints,
+        "load_checkpoint",
+        lambda _: {
+            "record_json": json.dumps({"decisions": [decision("user.request", "user_fixed")]})
+        },
+    )
     context = {"stage": 3, "record_ref": ref, "authorized_user_fixed_ids": ["user.request"]}
     actual = transport.configure_workflow(server, 3, context)
     assert "assemble_pob" not in actual

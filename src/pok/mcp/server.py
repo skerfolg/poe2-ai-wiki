@@ -1230,8 +1230,6 @@ def _capability_summary() -> dict[str, Any]:
             "request_metadata",
             "default_timeout_s",
             "maximum_timeout_s",
-            "default_timeout_scope",
-            "cleanup_grace_s",
             "status_tool",
             "cancel_tool",
             "result_tool",
@@ -1239,8 +1237,10 @@ def _capability_summary() -> dict[str, Any]:
         ],
         "design_records": ["format", "schema_tool", "current_head"],
         "measurement_receipts": ["source_identity"],
-        "socket_provenance": ["format", "claim"],
-        "native_selection_receipt": ["format", "source_field", "cache_protocol", "scope"],
+        # Full descriptions remain available through get_server_capabilities.
+        # Keep identity/tool fingerprints inline below the MCP wire limit.
+        "socket_provenance": ["format"],
+        "native_selection_receipt": ["format", "source_field"],
         "pob_documents": ["measurement_ref_format", "selection_report_format"],
     }
     return {

@@ -7,7 +7,10 @@ Lane: `BI-search-revision` — active, 2026-11-05 사용자 goal 승인.
 후속 문서 작업은 PR157 병합 `98f5852`와 동기화했다. 이전 동결 시험의 소스는 그대로다.
 이 작업 트리는 `.local/pok-search-revision`이며 원래 폴더 WIP는 보존한다.
 2026-11-06 사용자가 커밋·푸시 및 main 병합을 승인했다. f448fa7까지 원격 반영했고,
-병합 전 서식 정리·단위/PoB 통합 검사 후 PR CI를 확인한다. 원래 폴더 WIP는 유지한다.
+PR158에서 병합 전 검증 중이다. 첫 Windows/macOS CI의 동일10실패는 오래된 모의
+검사 보고서·설계 참조와 server_info 응답 크기로 확인했다. 모의 객체/참조를 갱신하고
+상세 조회를 유지하며 인라인 요약을 줄인 뒤 실패 경로 포함24검사가 통과했다.
+수정판 CI와 로컬 PoB 통합 결과를 확인한 뒤 병합한다. 원래 폴더 WIP는 유지한다.
 [실행 계획](POK_SEARCH_REVISION_PLAN.md), [검토 근거](POK_GENERATION_SEARCH_REVIEW_FINDINGS.md).
 기존 기록은 [원문 보존](POK_SEARCH_PREVIOUS_PLAN.md)으로 이동했다.
 
