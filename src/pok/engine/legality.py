@@ -550,6 +550,7 @@ class LineVerdict:
 class LegalityReport:
     verdicts: tuple[LineVerdict, ...]
     errors: tuple[str, ...] = field(default=())  # 구조 위반 (접사 수·group 중복 등)
+    affix_inventory: dict[str, Any] | None = None
 
     @property
     def is_legal(self) -> bool:
@@ -1018,7 +1019,30 @@ class ItemLegalityChecker:
         errors.extend(needs_rune_declaration(item_text, mod_lines=mod_lines))
         if anoint_count > 1:
             errors.append("성유 중복 — 목걸이당 Allocates 부여는 1개만 허용(anoint-rules)")
-        return LegalityReport(verdicts=tuple(verdicts), errors=tuple(errors))
+        inventory = {
+            "rarity": rarity,
+            "category": category,
+            "used": dict(counts),
+            "capacity": dict(caps),
+            "total_used": sum(counts.values()),
+            "total_capacity": total_cap,
+            "total_headroom": max(0, total_cap - sum(counts.values())),
+            "capacity_source": cap_label,
+            "counts_complete": base is not None and all(
+                v.status in ("LEGAL", "CONDITIONAL") for v in verdicts
+            ),
+            "modifiers": [
+                {"id": rec["id"], "affix_type": rec["data"]["affix_type"],
+                 "group": rec["data"].get("group")}
+                for rec in matched.values()
+                if rec["data"].get("affix_type") in counts
+            ],
+            "scope": "matched affixes and rule capacity, not quality or craftability; "
+                     "headroom does not guarantee another compatible affix",
+        }
+        return LegalityReport(
+            verdicts=tuple(verdicts), errors=tuple(errors), affix_inventory=inventory
+        )
 
     def _additional_rune_affix_limits(
         self,

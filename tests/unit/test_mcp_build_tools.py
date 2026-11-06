@@ -699,7 +699,11 @@ def test_legal_gear_is_not_flagged() -> None:
         "ascendancy": "Sorceress1",
         "items": [{"slot": "Amulet", "text": "Rarity: RARE\nOK\nAmber Amulet\nItem Level: 80"}],
     }
-    assert _items_legal(spec) == {"items_legal": True, "illegal_items": []}
+    report = _items_legal(spec)
+    assert report["items_legal"] is True and report["illegal_items"] == []
+    assert report["affix_inventory"][0]["slot"] == "Amulet"
+    assert report["affix_inventory"][0]["used"] == 0
+    assert report["affix_inventory"][0]["capacity"] == 6
 
 
 def test_illegal_jewel_is_flagged_by_compute_pob() -> None:
@@ -754,7 +758,11 @@ def test_legal_jewel_is_not_flagged() -> None:
             }
         ],
     }
-    assert _items_legal(spec) == {"items_legal": True, "illegal_items": []}
+    report = _items_legal(spec)
+    assert report["items_legal"] is True and report["illegal_items"] == []
+    assert report["affix_inventory"][0]["slot"] == "Jewel@61419"
+    assert report["affix_inventory"][0]["used"] == 1
+    assert report["affix_inventory"][0]["capacity"] > 1
 
 
 def test_jewel_spec_accepts_derived_from_stamp() -> None:

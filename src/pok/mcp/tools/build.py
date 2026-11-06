@@ -116,6 +116,7 @@ def _items_legal(build_spec: dict[str, Any]) -> dict[str, Any]:
     """
     checker = _get_checker()
     illegal: list[dict[str, Any]] = []
+    inventories: list[dict[str, Any]] = []
     targets: list[tuple[Any, str]] = [
         (item.get("slot"), str(item.get("text", ""))) for item in build_spec.get("items") or []
     ]
@@ -125,6 +126,16 @@ def _items_legal(build_spec: dict[str, Any]) -> dict[str, Any]:
     ]
     for slot, text in targets:
         report = checker.check(text)
+        inventory = report.affix_inventory
+        if inventory is not None:
+            inventories.append({
+                "slot": slot,
+                "rarity": inventory["rarity"],
+                "used": inventory["total_used"], "capacity": inventory["total_capacity"],
+                "prefix": [inventory["used"]["prefix"], inventory["capacity"]["prefix"]],
+                "suffix": [inventory["used"]["suffix"], inventory["capacity"]["suffix"]],
+                "counts_complete": inventory["counts_complete"],
+            })
         if report.is_legal:
             continue
         illegal.append(
@@ -140,7 +151,8 @@ def _items_legal(build_spec: dict[str, Any]) -> dict[str, Any]:
                 ],
             }
         )
-    return {"items_legal": not illegal, "illegal_items": illegal}
+    return {"items_legal": not illegal, "illegal_items": illegal,
+            "affix_inventory": inventories}
 
 
 def _pick(
@@ -890,6 +902,8 @@ def evaluate_delta(
 def check_item_legality(item_text: str) -> dict[str, Any]:
     """합성 아이템 텍스트를 KB 모드풀로 검증(RC4). LEGAL/CONDITIONAL(경로
     한정—사유 확인)/ILLEGAL/UNKNOWN 판정과 접사 수·group 배타 오류를 반환.
+    affix_inventory는 매칭 접사와 베이스/시즌/룬 한도다. 품질 점수가 아니며,
+    counts_complete=False이면 실제 전체 접사 수로 읽지 않는다.
 
     ⛔ **`legal: True`가 「계산된다」는 뜻은 아니다** (#148). 선언형(`Prefix:` 줄만
     있고 문구가 없는 형식)은 줄별로 전부 LEGAL인데 `compute_pob`에서는 **접사가
@@ -900,6 +914,7 @@ def check_item_legality(item_text: str) -> dict[str, Any]:
         "legal": report.is_legal,
         "errors": list(report.errors),
         "lines": [dataclasses.asdict(v) for v in report.verdicts],
+        "affix_inventory": report.affix_inventory,
     }
     # 적법한데 **계산은 안 되는** 형식을 여기서도 말한다 — 한쪽에서만 신고하면
     # 세션은 통과한 쪽만 보고 넘어간다(§0 ④ 판정 주체가 둘이면 어긋난다).
