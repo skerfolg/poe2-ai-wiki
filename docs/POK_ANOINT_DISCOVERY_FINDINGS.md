@@ -32,6 +32,11 @@ KB0.5.4b의 Passive 획득 경로는 일반 `anointable`867개, `anoint-only`17�
 거부하지 않는다. 사용자 관측과 계산기 생성 목록의 한계를 구분하며, 드랍 확률이나
 모든 조합의 실물 조달까지 확인했다고 주장하지 않는다.
 
+보정 커밋597bac6의 별도 로컬 MCP5콜에서 전용 후보17개 조회·자동 문맥17개,
+자로크 성유 LEGAL·자로크 부여 과대망상 CONDITIONAL을 확인했다. 고정 PoB
+5d173cbf의 아이템 편집기도 두 입력 모두 compatible=true다. 편집기의 문구 인식은
+실제 홈에 주얼을 삽입한 계산이나 게임 내 모든 조합의 조달 가능성 증명이 아니다.
+
 ## 보완한 경로
 
 - `search_kb(type="Passive", acquisition="anoint-only")`: 전용 후보를 이름 없이 조회.
