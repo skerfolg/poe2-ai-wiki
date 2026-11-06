@@ -1,4 +1,5 @@
 """Native MAGIC name/base layout must not turn an ilvl header into a base."""
+
 import pytest
 
 from pok.common.paths import knowledge_dir
@@ -11,8 +12,10 @@ def checker():
 
 
 def native_text(name="Ultimate Mana Flask", level=83, recovered=80):
-    return (f"Rarity: MAGIC\n{name}\nItem Level: {level}\nQuality: +20%\n"
-            f"{recovered}% increased Amount Recovered\nGains 0.25 Charges per Second")
+    return (
+        f"Rarity: MAGIC\n{name}\nItem Level: {level}\nQuality: +20%\n"
+        f"{recovered}% increased Amount Recovered\nGains 0.25 Charges per Second"
+    )
 
 
 @pytest.mark.parametrize("base", ["Ultimate Mana Flask", "Ultimate Life Flask"])

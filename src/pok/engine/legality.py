@@ -593,7 +593,8 @@ class ItemLegalityChecker:
         self._skills: set[str] = set()  # KB Skill 표시명 (Prism of Belief)
         for r in kb.records.values():
             if r.type == "Passive" and r.raw.get("data", {}).get("acquisition") in {
-                "anointable", "anoint-only"
+                "anointable",
+                "anoint-only",
             }:
                 self._anoint_passives[r.name_en.lower()] = r.raw
             if r.type == "Modifier" and r.raw.get("data", {}).get("affix_type") == "corrupted":
@@ -826,9 +827,7 @@ class ItemLegalityChecker:
                 f"고유 전용 베이스: {base_name!r} — `runeforged` 태그가 붙은 베이스는 "
                 f"**고유 아이템 전용**이라 희귀로 만들 수 없다. 같은 계열의 일반 베이스를 쓸 것"
             )
-        base, rune_unlocked_tags = self._base_with_rune_unlocks(
-            item_text, mod_lines, sockets, base
-        )
+        base, rune_unlocked_tags = self._base_with_rune_unlocks(item_text, mod_lines, sockets, base)
         verdicts: list[LineVerdict] = []
         matched: dict[str, dict[str, Any]] = {}  # modifier id → record (하이브리드 중복 제거)
         special_overrides: dict[str, str] = {}
@@ -1039,24 +1038,29 @@ class ItemLegalityChecker:
             "total_headroom": max(0, total_cap - sum(counts.values())),
             "capacity_source": cap_label,
             "rune_unlocked_tags": list(rune_unlocked_tags),
-            "counts_complete": base is not None and all(
-                v.status in ("LEGAL", "CONDITIONAL") for v in verdicts
-            ),
+            "counts_complete": base is not None
+            and all(v.status in ("LEGAL", "CONDITIONAL") for v in verdicts),
             "modifiers": [
-                {"id": rec["id"], "affix_type": rec["data"]["affix_type"],
-                 "group": rec["data"].get("group")}
+                {
+                    "id": rec["id"],
+                    "affix_type": rec["data"]["affix_type"],
+                    "group": rec["data"].get("group"),
+                }
                 for rec in matched.values()
                 if rec["data"].get("affix_type") in counts
             ],
             "scope": "matched affixes and rule capacity, not quality or craftability; "
-                     "headroom does not guarantee another compatible affix",
+            "headroom does not guarantee another compatible affix",
         }
         return LegalityReport(
             verdicts=tuple(verdicts), errors=tuple(errors), affix_inventory=inventory
         )
 
     def _base_with_rune_unlocks(
-        self, item_text: str, mod_lines: list[str], sockets: int,
+        self,
+        item_text: str,
+        mod_lines: list[str],
+        sockets: int,
         base: dict[str, Any] | None,
     ) -> tuple[dict[str, Any] | None, tuple[str, ...]]:
         """Add crafting tags only from real socketed rune effects for this base.
@@ -1081,13 +1085,15 @@ class ItemLegalityChecker:
             rec = self._runes_by_name.get(name.strip().lower())
             if rec is None:
                 return base, ()
-            lines = tuple(dict.fromkeys(
-                str(line)
-                for key, texts in (rec["data"].get("per_slot") or {}).items()
-                if key.lower() in keys
-                for line in texts
-                if not str(line).startswith("Bonded:")
-            ))
+            lines = tuple(
+                dict.fromkeys(
+                    str(line)
+                    for key, texts in (rec["data"].get("per_slot") or {}).items()
+                    if key.lower() in keys
+                    for line in texts
+                    if not str(line).startswith("Bonded:")
+                )
+            )
             if not lines:
                 return base, ()
             declared.append(RuneOption(str(rec["id"]), str(rec["name"]["en"]), lines))
@@ -1206,8 +1212,9 @@ class ItemLegalityChecker:
         acquisition = notable["data"].get("acquisition")
         if acquisition not in {"anointable", "anoint-only"}:
             return LineVerdict(line, "ILLEGAL", reason="성유로 부여할 수 없는 패시브")
-        return LineVerdict(line, "LEGAL", str(notable["id"]),
-                           f"실존하는 성유 부여 패시브 ({acquisition})")
+        return LineVerdict(
+            line, "LEGAL", str(notable["id"]), f"실존하는 성유 부여 패시브 ({acquisition})"
+        )
 
     def _rune_hint(self, mod_lines: list[str]) -> list[str]:
         """접사 칸이 넘쳤을 때, **룬으로도 붙는 줄**이 섞여 있으면 그렇게 말해 준다.

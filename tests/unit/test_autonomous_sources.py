@@ -139,10 +139,14 @@ def test_calculator_option_discovery_is_metadata_only(modules, monkeypatch):
     _, transport, _ = modules
     from pok.pob import catalog
 
-    monkeypatch.setattr(catalog, "config_options", lambda: (
-        catalog.ConfigOption("exampleStacks", "Stacks", ("Example Skill",), "State count"),
-        catalog.ConfigOption("other", "Other", ()),
-    ))
+    monkeypatch.setattr(
+        catalog,
+        "config_options",
+        lambda: (
+            catalog.ConfigOption("exampleStacks", "Stacks", ("Example Skill",), "State count"),
+            catalog.ConfigOption("other", "Other", ()),
+        ),
+    )
     server = Server()
     transport.configure_workflow(server, 4, {})
     lookup = server.functions["workflow_calculator_options"]
@@ -159,9 +163,13 @@ def test_calculator_option_discovery_is_metadata_only(modules, monkeypatch):
 
 def test_protected_review_refresh_never_changes_user_intent(modules):
     _, transport, _ = modules
-    original = {"id": "user.request", "role": "user_fixed", "condition": {"statement": "fixed"},
-                "providers": [{"label": "user source"}],
-                "review": {"state": "required"}}
+    original = {
+        "id": "user.request",
+        "role": "user_fixed",
+        "condition": {"statement": "fixed"},
+        "providers": [{"label": "user source"}],
+        "review": {"state": "required"},
+    }
     refreshed = {**original, "review": {**original["review"], "state": "reviewed"}}
     assert transport.is_review_only_refresh(original, refreshed)
     assert not transport.is_review_only_refresh(original, {**refreshed, "role": "provisional"})
@@ -179,25 +187,30 @@ def test_protected_review_refresh_survives_real_merge_storage(modules):
     from pok.artifacts.design_record import parse_record, record_json, seal_record
     from pok.engine.design_records import apply_record_changes, inspect_record
 
-    fixtures = json.loads(Path(__file__).with_name(
-        "design_record_contract_fixtures.json"
-    ).read_text(encoding="utf-8"))
-    record = deepcopy(next(
-        case["before"] for case in fixtures["cases"] if case["id"] == "provider-replacement"
-    ))
+    fixtures = json.loads(
+        Path(__file__).with_name("design_record_contract_fixtures.json").read_text(encoding="utf-8")
+    )
+    record = deepcopy(
+        next(case["before"] for case in fixtures["cases"] if case["id"] == "provider-replacement")
+    )
     original = record["decisions"][0]
-    original["review"] = {"state": "required", "reasons": ["INPUT_CHANGED"],
-                          "since_revision": record["revision"]}
+    original["review"] = {
+        "state": "required",
+        "reasons": ["INPUT_CHANGED"],
+        "since_revision": record["revision"],
+    }
     record = seal_record(record)
     original = record["decisions"][0]
     missing = {k: v for k, v in original.items() if k != "review"}
-    unchanged = apply_record_changes(record_json(record), record["revision"], [
-        {"op": "upsert_decision", "value": missing}])
+    unchanged = apply_record_changes(
+        record_json(record), record["revision"], [{"op": "upsert_decision", "value": missing}]
+    )
     assert original["id"] in inspect_record(unchanged.record_json)["review_required_ids"]
     refreshed = {**original, "review": {**original["review"], "state": "reviewed"}}
     assert transport.is_review_only_refresh(original, refreshed)
-    changed = apply_record_changes(record_json(record), record["revision"], [
-        {"op": "upsert_decision", "value": refreshed}])
+    changed = apply_record_changes(
+        record_json(record), record["revision"], [{"op": "upsert_decision", "value": refreshed}]
+    )
     assert original["id"] not in inspect_record(changed.record_json)["review_required_ids"]
     assert parse_record(changed.record_json)["decisions"][0] == refreshed
 

@@ -1434,9 +1434,7 @@ def optimization_readiness(
     }
 
 
-def _acknowledged_item_limits(
-    unresolved: Any, acknowledgments: Any
-) -> list[dict[str, Any]]:
+def _acknowledged_item_limits(unresolved: Any, acknowledgments: Any) -> list[dict[str, Any]]:
     """Keep exact saved parser gaps visible; never waive a failed measurement.
 
     The caller judges whether the missing item effect invalidates their choice.

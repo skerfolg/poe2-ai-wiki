@@ -829,8 +829,15 @@ def _hit_dict(hit: Any) -> dict[str, Any]:
     """히트 → dict. **비어 있는 해금 칸은 뺀다** — 압축 히트(D14)에 상시 None 세 칸을
     실으면 전 질의가 토큰을 무는데, 정작 신호가 필요한 건 제약이 걸린 소수다."""
     out = asdict(hit)
-    for key in ("locked_to", "requires_nodes", "excluded_by_unlock", "pob_gap", "carrier_unknown",
-                "acquisition", "passive_kind"):
+    for key in (
+        "locked_to",
+        "requires_nodes",
+        "excluded_by_unlock",
+        "pob_gap",
+        "carrier_unknown",
+        "acquisition",
+        "passive_kind",
+    ):
         if not out.get(key):
             out.pop(key, None)
     if "requires_nodes" in out:

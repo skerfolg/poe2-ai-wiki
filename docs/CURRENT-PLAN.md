@@ -6,6 +6,8 @@ Lane: `BI-search-revision` — active, 2026-11-05 사용자 goal 승인.
 실행 동결의 기준 main은 `dd6559f`(PR156 병합), 브랜치 `codex/pok-search-revision`.
 후속 문서 작업은 PR157 병합 `98f5852`와 동기화했다. 이전 동결 시험의 소스는 그대로다.
 이 작업 트리는 `.local/pok-search-revision`이며 원래 폴더 WIP는 보존한다.
+2026-11-06 사용자가 커밋·푸시 및 main 병합을 승인했다. f448fa7까지 원격 반영했고,
+병합 전 서식 정리·단위/PoB 통합 검사 후 PR CI를 확인한다. 원래 폴더 WIP는 유지한다.
 [실행 계획](POK_SEARCH_REVISION_PLAN.md), [검토 근거](POK_GENERATION_SEARCH_REVIEW_FINDINGS.md).
 기존 기록은 [원문 보존](POK_SEARCH_PREVIOUS_PLAN.md)으로 이동했다.
 
@@ -40,6 +42,7 @@ flowchart LR
  E2 --> E3[E3 사용자 검토 대기·잔여 고점·188 미해결]
  E3 --> F1[F1 성유·과대망상 전용 후보 조회와 문구 인식 검증 done]
  F1 --> F2[F2 최종 트리와 성유 공동 비교 pending]
+ F1 --> M1[M1 사용자 승인 main 병합 검증 진행]
 ```
 
 ## Baseline Structure

@@ -128,14 +128,17 @@ def _items_legal(build_spec: dict[str, Any]) -> dict[str, Any]:
         report = checker.check(text)
         inventory = report.affix_inventory
         if inventory is not None:
-            inventories.append({
-                "slot": slot,
-                "rarity": inventory["rarity"],
-                "used": inventory["total_used"], "capacity": inventory["total_capacity"],
-                "prefix": [inventory["used"]["prefix"], inventory["capacity"]["prefix"]],
-                "suffix": [inventory["used"]["suffix"], inventory["capacity"]["suffix"]],
-                "counts_complete": inventory["counts_complete"],
-            })
+            inventories.append(
+                {
+                    "slot": slot,
+                    "rarity": inventory["rarity"],
+                    "used": inventory["total_used"],
+                    "capacity": inventory["total_capacity"],
+                    "prefix": [inventory["used"]["prefix"], inventory["capacity"]["prefix"]],
+                    "suffix": [inventory["used"]["suffix"], inventory["capacity"]["suffix"]],
+                    "counts_complete": inventory["counts_complete"],
+                }
+            )
         if report.is_legal:
             continue
         illegal.append(
@@ -151,8 +154,7 @@ def _items_legal(build_spec: dict[str, Any]) -> dict[str, Any]:
                 ],
             }
         )
-    return {"items_legal": not illegal, "illegal_items": illegal,
-            "affix_inventory": inventories}
+    return {"items_legal": not illegal, "illegal_items": illegal, "affix_inventory": inventories}
 
 
 def _pick(

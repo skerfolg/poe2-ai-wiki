@@ -215,9 +215,13 @@ def test_incomplete_or_unrelated_evidence_cannot_claim_ready(case, deficit):
 
 
 def parser_gap():
-    return {"code": "items_pob_gaps", "scope": ["baseline"],
-            "observed": [{"slot": "Ring 1", "item": "Example",
-                          "unread": ["An unmodelled item modifier"]}]}
+    return {
+        "code": "items_pob_gaps",
+        "scope": ["baseline"],
+        "observed": [
+            {"slot": "Ring 1", "item": "Example", "unread": ["An unmodelled item modifier"]}
+        ],
+    }
 
 
 def acknowledged_case(case):
@@ -226,8 +230,12 @@ def acknowledged_case(case):
     output["comparison"]["unresolved"] = [gap]
     spec = recommend(base, inputs, output)
     spec["optimization_contract"]["comparisons"][0]["acknowledged_limits"] = [
-        {"diagnostic": deepcopy(gap), "reason": "Only the modelled comparison is selected; "
-         "the missing effect remains unknown and the gameplay conclusion is limited."}]
+        {
+            "diagnostic": deepcopy(gap),
+            "reason": "Only the modelled comparison is selected; "
+            "the missing effect remains unknown and the gameplay conclusion is limited.",
+        }
+    ]
     return spec
 
 
@@ -242,8 +250,20 @@ def test_acknowledged_parser_gap_is_retained_not_certified(case):
     assert not report["qualification"]["gameplay_validated"]
 
 
-@pytest.mark.parametrize("failure", ["unacknowledged", "wrong_row", "blank", "duplicate",
-                                    "failed", "illegal", "pruned", "nonfinite", "changed"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "unacknowledged",
+        "wrong_row",
+        "blank",
+        "duplicate",
+        "failed",
+        "illegal",
+        "pruned",
+        "nonfinite",
+        "changed",
+    ],
+)
 def test_parser_acknowledgment_cannot_hide_invalid_measurements(case, failure):
     _, _, output = case
     if failure == "failed":
@@ -272,14 +292,18 @@ def test_parser_acknowledgment_cannot_hide_invalid_measurements(case, failure):
     assert not optimization_readiness(spec)["recommendation_ready"]
 
 
-@pytest.mark.parametrize("gap", [
-    {"code": "unmeasured", "scope": ["baseline"], "observed": ["missing"]},
-    {"code": "items_pob_gaps", "scope": ["baseline"], "observed": []},
-])
+@pytest.mark.parametrize(
+    "gap",
+    [
+        {"code": "unmeasured", "scope": ["baseline"], "observed": ["missing"]},
+        {"code": "items_pob_gaps", "scope": ["baseline"], "observed": []},
+    ],
+)
 def test_nonparser_or_malformed_limit_cannot_be_acknowledged(case, gap):
     base, inputs, output = case
     output["comparison"]["unresolved"] = [gap]
     spec = recommend(base, inputs, output)
     spec["optimization_contract"]["comparisons"][0]["acknowledged_limits"] = [
-        {"diagnostic": gap, "reason": "Do not waive this"}]
+        {"diagnostic": gap, "reason": "Do not waive this"}
+    ]
     assert not optimization_readiness(spec)["recommendation_ready"]

@@ -95,13 +95,18 @@ def anoint_discovery_context(stage: int, source_policy: str) -> dict[str, Any]:
 
     return {
         "anoint_only_catalogue": [
-            {"entity_id": hit.id, "name_ko": hit.name_ko, "name_en": hit.name_en,
-             "kind": hit.passive_kind, "acquisition": hit.acquisition}
+            {
+                "entity_id": hit.id,
+                "name_ko": hit.name_ko,
+                "name_en": hit.name_en,
+                "kind": hit.passive_kind,
+                "acquisition": hit.acquisition,
+            }
             for hit in search(type_="Passive", acquisition="anoint-only", limit=10000)
         ],
         "anoint_catalogue_scope": "Acquisition facts, not recommendations. Inspect effects and "
-            "payload restrictions; compare against normal anoints with the final tree. "
-            "Anoint-only excludes normal pathing, not grants from items such as Megalomaniac.",
+        "payload restrictions; compare against normal anoints with the final tree. "
+        "Anoint-only excludes normal pathing, not grants from items such as Megalomaniac.",
     }
 
 

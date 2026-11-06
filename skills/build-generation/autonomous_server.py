@@ -280,33 +280,45 @@ def configure_workflow(
 
     def workflow_contract(section: str = "edits") -> dict[str, Any]:
         """Read edits/flow/planning/recommendation contract without the entire record."""
-        values = {"edits": EDIT_OPERATIONS, "flow": FLOW_SCHEMA, "planning": PLANNING_REVIEW_SCHEMA,
-                  "recommendation": {
-                      "optimization_contract": {
-                          "version": 2,
-                          "required_components": ["supports"],
-                          "comparisons": [{"result_id": "actual saved evaluate_delta result id",
-                                           "selected": "baseline or measured variant key",
-                                           "reason": "caller selection reason"}],
-                          "design_ref": "current actual design checkpoint reference",
-                      },
-                      "allowed_components": ["items", "jewels", "tree", "supports", "ascendancy"],
-                      "optional_comparison_field": {"acknowledged_limits": [{
-                          "diagnostic": "exact saved comparison.unresolved items_pob_gaps object",
-                          "reason": "Explain missing effect, impact and selection limits",
-                      }]},
-                      "measurement_limits": "Only exact saved item parser gaps may be explicitly "
-                          "acknowledged. Other unresolved, failed, illegal, incomplete or stale "
-                          "measurements stay blocked. Gaps remain in ready_with_limits output. "
-                          "Do not acknowledge a gap that invalidates the intended comparison; "
-                          "seek evidence or revise instead. No game validation is implied.",
-                      "limits": "Use actual saved measurements and current input; no invented IDs. "
-                                "A host-owned decision can only be refreshed by setting "
-                                "review.state from required to reviewed, preserving all other "
-                                "JSON values including review reasons and since_revision. "
-                                "That is rechecking unchanged requirements, not human permission "
-                                "or changing their intent. Other changes remain prohibited.",
-                  }}
+        values = {
+            "edits": EDIT_OPERATIONS,
+            "flow": FLOW_SCHEMA,
+            "planning": PLANNING_REVIEW_SCHEMA,
+            "recommendation": {
+                "optimization_contract": {
+                    "version": 2,
+                    "required_components": ["supports"],
+                    "comparisons": [
+                        {
+                            "result_id": "actual saved evaluate_delta result id",
+                            "selected": "baseline or measured variant key",
+                            "reason": "caller selection reason",
+                        }
+                    ],
+                    "design_ref": "current actual design checkpoint reference",
+                },
+                "allowed_components": ["items", "jewels", "tree", "supports", "ascendancy"],
+                "optional_comparison_field": {
+                    "acknowledged_limits": [
+                        {
+                            "diagnostic": "exact saved comparison.unresolved items_pob_gaps object",
+                            "reason": "Explain missing effect, impact and selection limits",
+                        }
+                    ]
+                },
+                "measurement_limits": "Only exact saved item parser gaps may be explicitly "
+                "acknowledged. Other unresolved, failed, illegal, incomplete or stale "
+                "measurements stay blocked. Gaps remain in ready_with_limits output. "
+                "Do not acknowledge a gap that invalidates the intended comparison; "
+                "seek evidence or revise instead. No game validation is implied.",
+                "limits": "Use actual saved measurements and current input; no invented IDs. "
+                "A host-owned decision can only be refreshed by setting "
+                "review.state from required to reviewed, preserving all other "
+                "JSON values including review reasons and since_revision. "
+                "That is rechecking unchanged requirements, not human permission "
+                "or changing their intent. Other changes remain prohibited.",
+            },
+        }
         if section not in values:
             raise ValueError("Expected edits, flow, planning or recommendation")
         return {"section": section, "value": values[section]}
@@ -327,14 +339,17 @@ def configure_workflow(
         if not needle or not 1 <= limit <= 100:
             raise ValueError("Nonempty query and limit between 1 and 100 required")
         matches = [
-            option for option in config_options()
-            if needle in " ".join(
-                (option.var, option.label, option.tooltip, *option.conditions)
-            ).casefold()
+            option
+            for option in config_options()
+            if needle
+            in " ".join((option.var, option.label, option.tooltip, *option.conditions)).casefold()
         ]
-        return {"options": [asdict(option) for option in matches[:limit]],
-                "total": len(matches), "settings_changed": False,
-                "source": "pinned PoB ConfigOptions.lua via pok.pob.catalog"}
+        return {
+            "options": [asdict(option) for option in matches[:limit]],
+            "total": len(matches),
+            "settings_changed": False,
+            "source": "pinned PoB ConfigOptions.lua via pok.pob.catalog",
+        }
 
     server.tool(workflow_calculator_options)
 

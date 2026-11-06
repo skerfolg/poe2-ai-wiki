@@ -1,4 +1,5 @@
 """A crafting unlock must come from the actual rune, slot and written seed."""
+
 import pytest
 
 from pok.common.paths import knowledge_dir
@@ -40,18 +41,21 @@ def test_verified_rune_unlocks_its_real_affixes(checker):
     assert report.affix_inventory["rune_unlocked_tags"] == ["marksman"]
 
 
-@pytest.mark.parametrize(("old", "new"), [
-    ("Rune: Kolr's Hunt\n", ""),
-    ("Rune: Kolr's Hunt", "Rune: None"),
-    ("Rune: Kolr's Hunt", "Rune: Iron Rune"),
-    ("Sockets: S\n", ""),
-    ("{rune}Can roll Marksman modifiers\n", ""),
-    ("{rune}Can roll Marksman modifiers", "{custom}Can roll Marksman modifiers"),
-    ("{rune}Can roll Marksman modifiers", "{rune}Can roll Destruction modifiers"),
-    ("Vaal Wraps", "Bastion Sabatons"),
-    ("Item Level: 82", "Item Level: 1"),
-    ("+2 to Level", "+3 to Level"),
-])
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("Rune: Kolr's Hunt\n", ""),
+        ("Rune: Kolr's Hunt", "Rune: None"),
+        ("Rune: Kolr's Hunt", "Rune: Iron Rune"),
+        ("Sockets: S\n", ""),
+        ("{rune}Can roll Marksman modifiers\n", ""),
+        ("{rune}Can roll Marksman modifiers", "{custom}Can roll Marksman modifiers"),
+        ("{rune}Can roll Marksman modifiers", "{rune}Can roll Destruction modifiers"),
+        ("Vaal Wraps", "Bastion Sabatons"),
+        ("Item Level: 82", "Item Level: 1"),
+        ("+2 to Level", "+3 to Level"),
+    ],
+)
 def test_unlock_does_not_waive_supplier_slot_tier_or_level(checker, old, new):
     assert not checker.check(GLOVES.replace(old, new)).is_legal
 
@@ -70,6 +74,9 @@ def test_unsupported_influence_marker_is_not_silently_discarded(checker):
 
 
 def test_duplicate_named_rune_cannot_create_unlock(checker):
-    report = checker.check(GLOVES.replace("Sockets: S", "Sockets: S S").replace(
-        "Rune: Kolr's Hunt", "Rune: Kolr's Hunt\nRune: Kolr's Hunt"))
+    report = checker.check(
+        GLOVES.replace("Sockets: S", "Sockets: S S").replace(
+            "Rune: Kolr's Hunt", "Rune: Kolr's Hunt\nRune: Kolr's Hunt"
+        )
+    )
     assert not report.is_legal

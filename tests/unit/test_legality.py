@@ -56,8 +56,10 @@ def test_affix_inventory_respects_base_capacity(checker, base, capacity):
 
 
 def test_affix_inventory_jewel_headroom_is_not_illegality(checker):
-    report = checker.check("Rarity: RARE\nInventory\nEmerald\nItem Level: 100\n"
-                           "16% increased Critical Hit Chance for Attacks")
+    report = checker.check(
+        "Rarity: RARE\nInventory\nEmerald\nItem Level: 100\n"
+        "16% increased Critical Hit Chance for Attacks"
+    )
     assert report.is_legal
     inventory = report.affix_inventory
     assert inventory["total_used"] == 1
@@ -67,8 +69,9 @@ def test_affix_inventory_jewel_headroom_is_not_illegality(checker):
 
 
 def test_affix_inventory_unknown_lines_are_not_complete_counts(checker):
-    report = checker.check("Rarity: RARE\nInventory\nAmber Amulet\nItem Level: 100\n"
-                           "+99 to Unknown Pok Stat")
+    report = checker.check(
+        "Rarity: RARE\nInventory\nAmber Amulet\nItem Level: 100\n+99 to Unknown Pok Stat"
+    )
     assert not report.is_legal
     assert report.affix_inventory["counts_complete"] is False
 

@@ -1,4 +1,5 @@
 """Acquisition is a lookup axis, independent of tree reachability and node kind."""
+
 import pytest
 
 from pok.common.paths import knowledge_dir
@@ -15,7 +16,7 @@ def test_anoint_only_includes_disconnected_socket():
 
 def test_acquisition_filter_precedes_limit_and_combines_with_query():
     assert len(search(acquisition="anoint-only", limit=1)) == 1
-    hit, = search(query="Zarokh", acquisition="anoint-only", limit=1)
+    (hit,) = search(query="Zarokh", acquisition="anoint-only", limit=1)
     assert hit.id == "passive.zarokhs-gift-11184"
     assert not search(query="Unforgiving", acquisition="anoint-only", limit=1)
 
@@ -28,16 +29,18 @@ def test_all_anoints_are_union_not_notable_only():
     assert both == normal | only
 
 
-@pytest.mark.parametrize("args", [{"acquisition": "hidden"},
-                                 {"acquisition": "anoint-only", "type_": "Item"}])
+@pytest.mark.parametrize(
+    "args", [{"acquisition": "hidden"}, {"acquisition": "anoint-only", "type_": "Item"}]
+)
 def test_invalid_acquisition_request_is_explicit(args):
     with pytest.raises(ValueError):
         search(**args)
 
 
 def test_empty_text_query_explains_structured_route():
-    assert any("acquisition" in why for why in diagnose_empty(
-        query="anoint-only", type_="Passive").reasons)
+    assert any(
+        "acquisition" in why for why in diagnose_empty(query="anoint-only", type_="Passive").reasons
+    )
 
 
 def test_public_search_exposes_route_and_kind():
@@ -56,7 +59,8 @@ def checker():
 
 def amulet(*names):
     return "Rarity: RARE\nAnoint Probe\nAmber Amulet\nItem Level: 82\n" + "\n".join(
-        "Allocates " + name for name in names)
+        "Allocates " + name for name in names
+    )
 
 
 def test_all_catalog_anoint_only_allocations_are_recognized(checker):
@@ -75,8 +79,10 @@ def test_regular_anoint_and_invalid_allocations_keep_their_rules(checker):
 
 
 def test_anoint_only_socket_can_be_granted_by_megalomaniac(checker):
-    text = ("Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
-            "Allocates Zarokh's Gift\nAllocates Controlling Magic\nCorrupted")
+    text = (
+        "Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
+        "Allocates Zarokh's Gift\nAllocates Controlling Magic\nCorrupted"
+    )
     report = checker.check(text)
     assert report.is_legal, report
     gift = next(v for v in report.verdicts if v.line == "Allocates Zarokh's Gift")
@@ -87,8 +93,10 @@ def test_anoint_only_socket_can_be_granted_by_megalomaniac(checker):
 
 
 def test_megalomaniac_keeps_unknown_and_ascendancy_restrictions(checker):
-    base = ("Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
-            "Allocates Controlling Magic\nAllocates NAME\nCorrupted")
+    base = (
+        "Rarity: UNIQUE\nMegalomaniac\nDiamond\nItem Level: 80\n"
+        "Allocates Controlling Magic\nAllocates NAME\nCorrupted"
+    )
     assert not checker.check(base.replace("NAME", "Pok Unknown Passive")).is_legal
     assert not checker.check(base.replace("NAME", "Chaos Inoculation")).is_legal
     asc = next(row for row in checker._notables.values() if row["data"].get("ascendancy"))
@@ -107,9 +115,12 @@ def test_autonomous_context_supplies_exclusive_candidates_without_a_name_query(m
     context = runner.anoint_discovery_context(3, "pok-primary")
     candidates = context["anoint_only_catalogue"]
     assert {r["entity_id"] for r in candidates} == {
-        h.id for h in search(acquisition="anoint-only", limit=10000)}
-    assert next(r for r in candidates if r["entity_id"] == "passive.zarokhs-gift-11184")[
-        "kind"] == "jewel-socket"
+        h.id for h in search(acquisition="anoint-only", limit=10000)
+    }
+    assert (
+        next(r for r in candidates if r["entity_id"] == "passive.zarokhs-gift-11184")["kind"]
+        == "jewel-socket"
+    )
     assert "not recommendations" in context["anoint_catalogue_scope"]
     assert runner.anoint_discovery_context(1, "pok-primary") == {}
     assert runner.anoint_discovery_context(3, "web-reference") == {}
