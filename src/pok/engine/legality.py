@@ -819,6 +819,9 @@ class ItemLegalityChecker:
                 f"고유 전용 베이스: {base_name!r} — `runeforged` 태그가 붙은 베이스는 "
                 f"**고유 아이템 전용**이라 희귀로 만들 수 없다. 같은 계열의 일반 베이스를 쓸 것"
             )
+        base, rune_unlocked_tags = self._base_with_rune_unlocks(
+            item_text, mod_lines, sockets, base
+        )
         verdicts: list[LineVerdict] = []
         matched: dict[str, dict[str, Any]] = {}  # modifier id → record (하이브리드 중복 제거)
         special_overrides: dict[str, str] = {}
@@ -1028,6 +1031,7 @@ class ItemLegalityChecker:
             "total_capacity": total_cap,
             "total_headroom": max(0, total_cap - sum(counts.values())),
             "capacity_source": cap_label,
+            "rune_unlocked_tags": list(rune_unlocked_tags),
             "counts_complete": base is not None and all(
                 v.status in ("LEGAL", "CONDITIONAL") for v in verdicts
             ),
@@ -1043,6 +1047,52 @@ class ItemLegalityChecker:
         return LegalityReport(
             verdicts=tuple(verdicts), errors=tuple(errors), affix_inventory=inventory
         )
+
+    def _base_with_rune_unlocks(
+        self, item_text: str, mod_lines: list[str], sockets: int,
+        base: dict[str, Any] | None,
+    ) -> tuple[dict[str, Any] | None, tuple[str, ...]]:
+        """Add crafting tags only from real socketed rune effects for this base.
+
+        Influence markers and arbitrary custom text never supply tags. Clone
+        base data so a successful check cannot unlock the next checked item.
+        """
+        names = re.findall(r"^Rune:\s*(.+)$", item_text, re.M | re.I)
+        if base is None or not names or len(names) > sockets:
+            return base, ()
+        keys = slot_keys(base)
+        written = {
+            _RUNE_PREFIX.sub("", _MOD_DECORATION.sub("", line).strip()).strip()
+            for line in mod_lines
+            if _RUNE_PREFIX.match(_MOD_DECORATION.sub("", line).strip())
+        }
+        declared: list[RuneOption] = []
+        supplied: set[str] = set()
+        for name in names:
+            if name.strip().lower() == "none":
+                continue
+            rec = self._runes_by_name.get(name.strip().lower())
+            if rec is None:
+                return base, ()
+            lines = tuple(dict.fromkeys(
+                str(line)
+                for key, texts in (rec["data"].get("per_slot") or {}).items()
+                if key.lower() in keys
+                for line in texts
+                if not str(line).startswith("Bonded:")
+            ))
+            if not lines:
+                return base, ()
+            declared.append(RuneOption(str(rec["id"]), str(rec["name"]["en"]), lines))
+            for line in lines:
+                match = re.fullmatch(r"Can roll ([A-Za-z]+) modifiers", line)
+                if match and line in written:
+                    supplied.add(match[1].lower())
+        if not supplied or check_rune_rules(declared):
+            return base, ()
+        data = dict(base["data"])
+        data["spawn_tags"] = {**data.get("spawn_tags", {}), **dict.fromkeys(supplied, True)}
+        return {**base, "data": data}, tuple(sorted(supplied))
 
     def _additional_rune_affix_limits(
         self,
